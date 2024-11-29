@@ -60,7 +60,7 @@ impl OpenAiProvider {
             "{}/v1/chat/completions",
             self.config.host.trim_end_matches('/')
         );
-
+    
         let response = self
             .client
             .post(&url)
@@ -68,18 +68,21 @@ impl OpenAiProvider {
             .json(&payload)
             .send()
             .await?;
-
-        match response.status() {
-            StatusCode::OK => Ok(response.json().await?),
-            status if status == StatusCode::TOO_MANY_REQUESTS || status.as_u16() >= 500 => {
-                // Implement retry logic here if needed
-                Err(anyhow!("Server error: {}", status))
-            }
-            _ => Err(anyhow!(
-                "Request failed: {}\nPayload: {}",
-                response.status(),
-                payload
-            )),
+    
+        let status = response.status();
+        let response_body = response.text().await.unwrap_or_else(|_| "Failed to retrieve error message".to_string());
+    
+        if status == StatusCode::OK {
+            Ok(serde_json::from_str(&response_body)?)
+        } else if status == StatusCode::TOO_MANY_REQUESTS || status.as_u16() >= 500 {
+            Err(anyhow!("Server error: {}", status))
+        } else {
+            Err(anyhow!(
+                "Request failed: {}\nPayload: {}\nError message: {}",
+                status,
+                payload,
+                response_body
+            ))
         }
     }
 }

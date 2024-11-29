@@ -9,6 +9,7 @@ use crate::agents::agent::Agent;
 use crate::prompt::{InputType, Prompt};
 use crate::systems::goose_hints::GooseHintsSystem;
 use goose::developer::DeveloperSystem;
+use goose::mobile::MobileSystem;
 use goose::models::message::{Message, MessageContent};
 use goose::models::role::Role;
 
@@ -205,6 +206,8 @@ impl<'a> Session<'a> {
         self.agent.add_system(system);
         let goosehints_system = Box::new(GooseHintsSystem::new());
         self.agent.add_system(goosehints_system);
+        let mobile_system = Box::new(MobileSystem::new());
+        self.agent.add_system(mobile_system);
     }
 
     fn close_session(&mut self) {
