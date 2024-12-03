@@ -65,6 +65,28 @@ impl MessageContent {
         }
     }
 
+    pub fn as_tool_response(&self) -> Option<&ToolResponse> {
+        if let MessageContent::ToolResponse(ref tool_response) = self {
+            Some(tool_response)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_tool_response_text(&self) -> Option<&str> {
+        if let Some(tool_response) = self.as_tool_response() {
+            if let Ok(contents) = &tool_response.tool_result {
+                for content in contents {
+                    if let Some(text) = content.as_text() {
+                        return Some(text);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+
     /// Get the text content if this is a TextContent variant
     pub fn as_text(&self) -> Option<&str> {
         match self {

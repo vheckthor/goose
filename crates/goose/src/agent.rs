@@ -139,9 +139,16 @@ impl Agent {
                     .await
                     .map_err(|e| AgentError::Internal(e.to_string()))?;
 
-                // Format the status into a readable string
-                let status_str = serde_json::to_string(&system_status).unwrap_or_default();
+                // For each resource, fetch its content
+                let mut status_content = Vec::new();
+                for resource in system_status {
+                    if let Ok(content) = system.read_resource(&resource.uri).await {
+                        status_content.push(format!("{}\n```\n{}\n```\n", resource.name, content));
+                    }
+                }
 
+                // Join all resource content with newlines
+                let status_str = status_content.join("\n");
                 systems_status.push(SystemStatus::new(system.name(), status_str));
             }
             context.insert("systems", systems_status);
@@ -278,10 +285,10 @@ mod tests {
     use super::*;
     use crate::models::message::MessageContent;
     use crate::providers::mock::MockProvider;
+    use crate::systems::Resource;
     use async_trait::async_trait;
     use futures::TryStreamExt;
     use serde_json::json;
-    use std::collections::HashMap;
 
     // Mock system for testing
     struct MockSystem {
@@ -320,8 +327,8 @@ mod tests {
             &self.tools
         }
 
-        async fn status(&self) -> anyhow::Result<HashMap<String, serde_json::Value>> {
-            Ok(HashMap::new())
+        async fn status(&self) -> anyhow::Result<Vec<Resource>> {
+            Ok(Vec::new())
         }
 
         async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
@@ -331,6 +338,10 @@ mod tests {
                 )]),
                 _ => Err(AgentError::ToolNotFound(tool_call.name)),
             }
+        }
+
+        async fn read_resource(&self, _uri: &str) -> AgentResult<String> {
+            Ok("".to_string())
         }
     }
 
