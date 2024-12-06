@@ -5,7 +5,7 @@ declare global {
     electron: {
       getConfig(): object;
       getSession(sessionId: string): object;
-      listSessions(dir?: string): Array<object>;
+      listSessions(): Array<object>;
       logInfo(info: string): object;
       saveSession(sessionData: { name: string; messages: Array<object>; directory: string }): object;
       hideWindow: () => void;

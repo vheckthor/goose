@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
 
-const SESSIONS_PATH = path.join(app.getPath('userData'), 'sessions');
+const SESSIONS_PATH = path.join(process.env.HOME || process.env.USERPROFILE || '.', '.config', 'goose', 'sessions');
 if (!fs.existsSync(SESSIONS_PATH)) {
   fs.mkdirSync(SESSIONS_PATH);
 }
@@ -72,17 +71,11 @@ export function loadSession(sessionId: string): Session | undefined {
 }
 
 // load sessions that are relevant to the directory supplied (not where they are stored, but where user is operating)
-export function loadSessions(dir?: string): Session[] {
+export function loadSessions(): Session[] {
   try {
     if (cache && Object.keys(cache).length > 0) {
       console.log('Sessions loaded from cache');
-      if (dir) {
-        // Filter sessions based on the directory
-        return Object.values(cache).filter(session => session.directory === dir).splice(0, 4);
-      } else {
-        // just recent sessions
-        return Object.values(cache).splice(0, 20);
-      }
+      return Object.values(cache).splice(0, 20);
     }
     console.log('Attempting to load sessions from:', SESSIONS_PATH);
     const MAX_AGE_DAYS = 10;
@@ -106,7 +99,7 @@ export function loadSessions(dir?: string): Session[] {
         const age = now - stats.mtimeMs;
         return { file, age };
       })
-      .filter(({ age }) => age <= maxAgeMs);      
+      .filter(({ file, age }) => file.endsWith('.json') && age <= maxAgeMs);
 
     if (filteredFiles.length === 0) {
       console.warn('No session files meet the age criteria');
@@ -122,13 +115,7 @@ export function loadSessions(dir?: string): Session[] {
     sessions.forEach(session => {
       cache[session.name] = session;
     });
-    if (dir) {
-      // Filter sessions based on the directory
-      return sessions.filter(session => session.directory === dir).splice(0, 4);
-    } else {
-      // just recent sessions
-      return sessions.splice(0, 20);
-    }
+    return sessions.splice(0, 20);
   } catch (error) {
     console.error('Error loading sessions:', error);
     return [];

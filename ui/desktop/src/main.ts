@@ -410,20 +410,12 @@ app.whenReady().then(async () => {
   });
 
   // list sessions filtered by ones for the given directory
-  ipcMain.handle('list-sessions',  (_, dir?: string) => {
+  ipcMain.handle('list-sessions',  () => {
     try {
-      
-      const sessions = loadSessions(dir);
-      
-      if (dir) {
-        console.log("server: looking for sessions that match directory", dir);
-        const results = sessions
-          .map(session => ({ name: session.name, directory: session.directory }));
-        console.log("server: found sessions:", results);
-        return results;
-      } else {
-        return sessions.map(session => ({ name: session.name, directory: session.directory }));
-      }      
+      console.log("Loading sessions.....");
+      const sessions = loadSessions();
+      console.log("Sessions loaded.....");
+      return sessions.map(session => ({ name: session.name, directory: session.directory }));
     } catch (error) {
       console.error('Failed to load sessions:', error);
       throw error;

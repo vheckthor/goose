@@ -1,34 +1,23 @@
 import React, { useEffect, useState } from "react"
 
-const useCombinedSessions = (workingDir: string) => {
+const useCombinedSessions = () => {
   const [sessions, setSessions] = useState([]);
-  const [latestSessions, setLatestSessions] = useState([]);
 
   useEffect(() => {
     async function loadSessions() {
-      const sessions = await window.electron.listSessions(workingDir);
+      const sessions = await window.electron.listSessions();
       setSessions(sessions);
-      const latestSessions = await window.electron.listSessions();
-      setLatestSessions(latestSessions);
-    };
+    }
     loadSessions();
-  }, [workingDir]);
+  }, []);
 
   const getCombinedSessions = () => {
-    if (sessions.length === 0 && latestSessions.length === 0) {
+    if (sessions.length === 0) {
       return [];
     }
 
     const allSessions = [];
     const seenNames = new Set();
-
-    // Process latest sessions first
-    for (const session of latestSessions) {
-      if (!seenNames.has(session.name)) {
-        allSessions.push({ ...session, isLatest: true });
-        seenNames.add(session.name);
-      }
-    }
 
     // Process regular sessions
     for (const session of sessions) {
@@ -46,8 +35,7 @@ const useCombinedSessions = (workingDir: string) => {
 };
 
 export default function SessionPills() {
-  const workingDir = window.appConfig.get("GOOSE_WORKING_DIR");
-  const allSessions = useCombinedSessions(workingDir);
+  const allSessions = useCombinedSessions();
 
   if (allSessions.length === 0) {
     return (
