@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use anyhow::Result as AnyhowResult;
 use crate::errors::{AgentError, AgentResult};
 use async_trait::async_trait;
@@ -6,12 +8,14 @@ use base64::prelude::*;
 use indoc::{formatdoc, indoc};
 use serde_json::{json, Value};
 use adb_client::{ADBServer, ADBDeviceExt};
-
+use scraper::{Html, Selector};
+use reqwest::Client;
 use crate::models::tool::{Tool, ToolCall};
 use crate::models::content::Content;
 use crate::systems::System;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
 
 /// MobileSystem provides functionality for instrumenting and controlling Android devices
 /// either via USB connection or through an emulator.
@@ -35,7 +39,7 @@ impl MobileSystem {
             "android",
             indoc! {r#"
                 Interact with an Android device or emulator.
-                  - You can send clicks, input text, and capture screenshots.
+                  - You can send clicks, input text, capture screenshots, list apps, and start apps.
                   - Send zero or more commands to the device.
                   - Receive a screenshot of the device after each command.
 
@@ -47,7 +51,7 @@ impl MobileSystem {
                 "properties": {
                     "command": {
                         "type": "string",
-                        "enum": ["home", "click", "enter_text", "screenshot"],
+                        "enum": ["home", "click", "enter_text", "screenshot", "list_apps", "start_app"],
                         "description": "The commands to run."
                     },
                     "click_where": {
@@ -76,28 +80,36 @@ impl MobileSystem {
                             }
                         },
                         "required": ["text"]
+                    },
+                    "start_app": {
+                        "type": "object",
+                        "properties": {
+                            "package_name": {
+                                "type": "string",
+                                "description": "Full package name of the app to start."
+                            }
+                        },
+                        "required": ["package_name"]
                     }
                 },
                 "required": ["command"]
             }),
         );
-        let instructions= formatdoc! {r#"
-            To use the mobile system, you need to have an Android device or emulator connected to your computer.
-            You can use the following tools to interact with the device:
+        let instructions = formatdoc! {r#"
+            You control an android device that has the apps of the user
+            Your goal is to help the user complete tasks by interacting with the device programmatically.
+            Communication occurs via text commands, and you can only interact with the phone using 
+            the available Android tool commands.
 
-            - `android`: Interact with an Android device or emulator.
-              - You can press home, send clicks, input text, and capture screenshots.
-              - Send zero or more commands to the device.
-              - Receive an xml dump of the UI hierarchy of the current Android app after each command.
-
-            For example to send a text message, you'd find the text message app first, then start it, then enter
-            the phone number, then enter the message, then send it.
+            To accomplish a task, split it up in tasks that can be accomplished by one of the available
+            apps. Then for each, start the app, verify that it has started, and then interact with it.
+            Then move on to the next task.
             "#};
 
-            let (device, screen_size) = match MobileSystem::initialize_device() {
-                Ok((device, screen_size)) => (Some(Arc::new(RwLock::new(device))), Some(screen_size)),
-                Err(_) => (None, None),
-            };
+        let (device, screen_size) = match MobileSystem::initialize_device() {
+            Ok((device, screen_size)) => (Some(Arc::new(RwLock::new(device))), Some(screen_size)),
+            Err(_) => (None, None),
+        };
         
         Self {
             android_tool,
@@ -171,6 +183,82 @@ impl MobileSystem {
         Ok((device, size))
     }
 
+    async fn get_app_description(&self, package_name: &str) -> Option<String> {
+        let cache_path = Path::new("app_cache.json");
+    
+        let mut cache: HashMap<String, Option<String>> = if cache_path.exists() {
+            let data = fs::read_to_string(cache_path).ok()?;
+            serde_json::from_str(&data).unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+    
+        if let Some(description) = cache.get(package_name) {
+            return description.clone();
+        }
+    
+        let title = self.scrape_play_store_title(package_name).await;
+    
+        cache.insert(package_name.to_string(), title.clone());
+    
+        let serialized_cache = serde_json::to_string(&cache).ok()?;
+        fs::write(cache_path, serialized_cache).ok()?;
+    
+        title
+    }
+
+    async fn scrape_play_store_title(&self, package_name: &str) -> Option<String> {
+        let client = Client::new();
+        let url = format!("https://play.google.com/store/apps/details?id={}", package_name);
+    
+        let response = client.get(&url).send().await.ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+    
+        let body = response.text().await.ok()?;
+        let document = Html::parse_document(&body);
+        let selector = Selector::parse("h1 span.AfwdI[itemprop='name']").ok()?;
+    
+        if let Some(span) = document.select(&selector).next() {
+            if let Some(title) = span.text().next() {
+                return Some(title.to_string());
+            }
+        }
+    
+        None
+    }
+
+    async fn list_installed_apps(&self) -> Result<Vec<(String, String)>, AgentError> {
+        let device = self
+            .device
+            .as_ref()
+            .ok_or_else(|| AgentError::ExecutionError("Device not connected.".to_string()))?;
+
+        let mut device = device.write().await;
+        let mut output = Vec::new();
+
+        device
+            .shell_command(&["pm", "list", "packages"], &mut output)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to list packages: {}", e)))?;
+
+        let packages = String::from_utf8_lossy(&output)
+            .lines()
+            .filter_map(|line| {
+                line.strip_prefix("package:").map(|pkg| pkg.trim().to_string())
+            })
+            .collect::<Vec<String>>();
+
+        let mut apps_with_descriptions = Vec::new();
+        for package in packages {
+            if let Some(description) = self.get_app_description(&package).await {
+                apps_with_descriptions.push((package, description));
+            }
+        }
+    
+        Ok(apps_with_descriptions)
+    }
+
 
 }
 
@@ -210,6 +298,8 @@ impl System for MobileSystem {
 
         Ok(status)
     }
+
+    
 
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
         match tool_call.name.as_str() {
@@ -254,6 +344,27 @@ impl System for MobileSystem {
                         let image_data = BASE64_STANDARD.encode(&screenshot_data);
                         Content::image(image_data, "image/png")
                     }
+                    Some("list_apps") => {
+                        let apps = self.list_installed_apps().await?;
+                        let formatted_apps = apps
+                            .into_iter()
+                            .map(|(package, description)| format!("{}: {}", package, description))
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                    
+                        Content::text(format!("Installed Apps:\n{}", formatted_apps))
+                    }
+                    Some("start_app") => {
+                        let package_name = self.get_argument(&tool_call, "start_app", Some("package_name")).and_then(Value::as_str);
+    
+                        if let Some(package) = package_name {
+                            let command = format!("monkey -p {} -c android.intent.category.LAUNCHER 1", package);
+                            self.run_shell_command(&command.split_whitespace().collect::<Vec<&str>>()).await?;
+                            Content::text(format!("Started app: {}", package))
+                        } else {
+                            return Err(AgentError::ExecutionError("Missing or invalid package name.".to_string()));
+                        }
+                    }
                     _ => return Err(AgentError::ExecutionError("Invalid or unsupported command.".to_string())),
                 };
     
@@ -273,7 +384,6 @@ impl System for MobileSystem {
             }
             _ => Err(AgentError::ExecutionError("Unknown tool name.".to_string())),
         }
-    }
-    
+    }    
     
 }
