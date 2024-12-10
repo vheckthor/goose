@@ -223,48 +223,13 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Navigated to {}", url))])
     }
 
-    async fn screenshot(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn screenshot(&self) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
 
         let screenshot_data =  {
-            // Full page or viewport screenshot
-            let full_page = params
-                .get("full_page")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-
-            if full_page {
-                // Get the full page height using JavaScript
-                let height_script = r#"
-                    Math.max(
-                        document.body.scrollHeight,
-                        document.documentElement.scrollHeight,
-                        document.body.offsetHeight,
-                        document.documentElement.offsetHeight,
-                        document.body.clientHeight,
-                        document.documentElement.clientHeight
-                    )
-                "#;
-                
-                let result = tab.evaluate(height_script, false)
-                    .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
-
-                let height = result.value
-                    .expect("Failed to get evaluation result")
-                    .as_f64()
-                    .map(|h| h as u32)
-                    .unwrap_or(1080);
-
-                // Scroll through the page to capture everything
-                for y in (0..height).step_by(1080) {
-                    tab.evaluate(&format!("window.scrollTo(0, {})", y), false)
-                        .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
-                }
-            }
-
             // Take screenshot
             tab.get_content()
                 .map_err(|e| AgentError::ExecutionError(e.to_string()))?
@@ -418,7 +383,7 @@ impl System for WebBrowserSystem {
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
         match tool_call.name.as_str() {
             "navigate" => self.navigate(tool_call.arguments).await,
-            "screenshot" => self.screenshot(tool_call.arguments).await,
+            "screenshot" => self.screenshot().await,
             "click" => self.click(tool_call.arguments).await,
             "type" => self.type_text(tool_call.arguments).await,
             "eval" => self.eval(tool_call.arguments).await,
