@@ -37,6 +37,7 @@ function ChatContent({
 }) {
   const [messageMetadata, setMessageMetadata] = useState<Record<string, string[]>>({});
   const [initialMessages, setInitialMessages] = useState<Message[]>([]); // Replace `any` with actual message type.
+  const [hasMessages, setHasMessages] = useState(false);
 
 
   useEffect(() => {
@@ -118,6 +119,12 @@ function ChatContent({
     }
   }, [initialQuery]);
 
+  useEffect(() => {
+    if (messages.length > 0) {
+      setHasMessages(true);
+    }
+  }, [messages]);
+
   const handleSubmit = (e: React.FormEvent) => {
     const customEvent = e as CustomEvent;
     const content = customEvent.detail?.value || '';
@@ -191,7 +198,7 @@ function ChatContent({
       <div className="relative block h-[20px] w-screen">
         <MoreMenu />
       </div>
-      <Card className="flex flex-col flex-1 h-[calc(100vh-95px)] w-full bg-card-gradient mt-0 border-none rounded-2xl relative">
+      <Card className="flex flex-col flex-1 h-[calc(100vh-95px)] w-full bg-card-gradient dark:bg-dark-card-gradient mt-0 border-none rounded-2xl relative">
         {messages.length === 0 ? (
           <Splash append={append} />
         ) : (
@@ -224,14 +231,14 @@ function ChatContent({
             )}
             {error && (
               <div className="flex flex-col items-center justify-center p-4">
-                <div className="text-red-700 bg-red-400/50 p-3 rounded-lg mb-2">
+                <div className="text-red-700 dark:text-red-300 bg-red-400/50 p-3 rounded-lg mb-2">
                   {error.message || 'Honk! Goose experienced an error while responding'}
                   {error.status && (
                     <span className="ml-2">(Status: {error.status})</span>
                   )}
                 </div>
                 <div
-                  className="p-4 text-center text-splash-pills-text whitespace-nowrap cursor-pointer bg-prev-goose-gradient text-prev-goose-text rounded-[14px] inline-block hover:scale-[1.02] transition-all duration-150"
+                  className="p-4 text-center text-splash-pills-text whitespace-nowrap cursor-pointer bg-prev-goose-gradient dark:bg-dark-prev-goose-gradient text-prev-goose-text dark:text-prev-goose-text-dark rounded-[14px] inline-block hover:scale-[1.02] transition-all duration-150"
                   onClick={async () => {
                     const lastUserMessage = messages.reduceRight((found, m) => found || (m.role === 'user' ? m : null), null);
                     if (lastUserMessage) {
@@ -255,8 +262,8 @@ function ChatContent({
           isLoading={isLoading}
           onStop={onStopGoose}
         />
-        <div className="self-stretch h-px bg-black/5 rounded-sm" />
-        <BottomMenu />
+        <div className="self-stretch h-px bg-black/5 dark:bg-white/5 rounded-sm" />
+        <BottomMenu hasMessages={hasMessages} />
       </Card>
     </div>
   );
@@ -319,7 +326,7 @@ export default function ChatWindow() {
   window.electron.logInfo('ChatWindow loaded');
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-window-gradient flex flex-col">
+    <div className="relative w-screen h-screen overflow-hidden dark:bg-dark-window-gradient bg-window-gradient flex flex-col">
       <div className="titlebar-drag-region" />
       {apiCredsMissing ? (
         <div className="w-full h-full">
