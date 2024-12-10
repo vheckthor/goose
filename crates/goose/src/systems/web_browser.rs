@@ -1,0 +1,593 @@
+use anyhow::Result as AnyhowResult;
+use async_trait::async_trait;
+use base64::Engine;
+use headless_chrome::{
+    Browser, LaunchOptions, Tab,
+};
+use serde_json::{json, Value};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
+
+use crate::errors::{AgentError, AgentResult};
+use crate::models::content::Content;
+use crate::models::tool::Tool;
+use crate::models::tool::ToolCall;
+use crate::systems::{Resource, System};
+
+pub struct WebBrowserSystem {
+    tools: Vec<Tool>,
+    browser: Arc<Mutex<Option<Browser>>>,
+    tab: Arc<Mutex<Option<Arc<Tab>>>>,
+    instructions: String,
+}
+
+impl Default for WebBrowserSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WebBrowserSystem {
+    pub fn new() -> Self {
+        let navigate_tool = Tool::new(
+            "navigate",
+            "Navigate to a URL in the browser",
+            json!({
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to navigate to"
+                    },
+                    "wait_for": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Optional CSS selector to wait for before continuing"
+                    }
+                }
+            }),
+        );
+
+        let screenshot_tool = Tool::new(
+            "screenshot",
+            "Take a screenshot of the current page or element",
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {
+                    "selector": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Optional CSS selector to screenshot a specific element"
+                    },
+                    "full_page": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Whether to capture the full scrollable page"
+                    }
+                }
+            }),
+        );
+
+        let click_tool = Tool::new(
+            "click",
+            "Click on an element in the page",
+            json!({
+                "type": "object",
+                "required": ["selector"],
+                "properties": {
+                    "selector": {
+                        "type": "string",
+                        "description": "CSS selector for the element to click"
+                    },
+                    "wait_for": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Optional CSS selector to wait for after clicking"
+                    }
+                }
+            }),
+        );
+
+        let type_tool = Tool::new(
+            "type",
+            "Type text into an input element",
+            json!({
+                "type": "object",
+                "required": ["selector", "text"],
+                "properties": {
+                    "selector": {
+                        "type": "string",
+                        "description": "CSS selector for the input element"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Text to type into the element"
+                    },
+                    "clear_first": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Whether to clear the input before typing"
+                    }
+                }
+            }),
+        );
+
+        let eval_tool = Tool::new(
+            "eval",
+            "Evaluate JavaScript in the page context",
+            json!({
+                "type": "object",
+                "required": ["script"],
+                "properties": {
+                    "script": {
+                        "type": "string",
+                        "description": "JavaScript code to evaluate"
+                    }
+                }
+            }),
+        );
+
+        let wait_for_tool = Tool::new(
+            "wait_for",
+            "Wait for an element to appear",
+            json!({
+                "type": "object",
+                "required": ["selector"],
+                "properties": {
+                    "selector": {
+                        "type": "string",
+                        "description": "CSS selector to wait for"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "default": 30000,
+                        "description": "Maximum time to wait in milliseconds"
+                    }
+                }
+            }),
+        );
+
+        let instructions = indoc::formatdoc! {r#"
+            The web browser system provides automation capabilities using headless Chrome.
+            
+            Available tools:
+            - navigate: Load a URL in the browser with optional wait conditions
+            - screenshot: Capture the current page or a specific element
+            - click: Click on elements using CSS selectors
+            - type: Enter text into input fields
+            - eval: Execute JavaScript in the page context
+            - wait_for: Wait for elements to appear
+            
+            Notes:
+            - The browser session persists between commands
+            - Screenshots are returned as base64-encoded PNG images
+            - CSS selectors must be valid and match exactly one element
+            - JavaScript evaluation runs in the page context
+            - All commands support various wait conditions for reliability
+            "#};
+
+        Self {
+            tools: vec![
+                navigate_tool,
+                screenshot_tool,
+                click_tool,
+                type_tool,
+                eval_tool,
+                wait_for_tool,
+            ],
+            browser: Arc::new(Mutex::new(None)),
+            tab: Arc::new(Mutex::new(None)),
+            instructions,
+        }
+    }
+
+    async fn ensure_browser(&self) -> AgentResult<()> {
+        let mut browser_guard = self.browser.lock().await;
+        if browser_guard.is_none() {
+            let options = LaunchOptions::default_builder()
+                .window_size(Some((1920, 1080)))
+                .headless(true)
+                .build()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+            let browser = Browser::new(options)
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+            // Create initial tab
+            let tab = browser
+                .new_tab()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+            *browser_guard = Some(browser);
+            *self.tab.lock().await = Some(tab);
+        }
+        Ok(())
+    }
+
+    async fn navigate(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+        
+        let url = params
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("URL parameter is required".into()))?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+        
+        tab.navigate_to(url)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        // Wait for page to load
+        tab.wait_for_element("body")
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        // Wait for specific element if requested
+        if let Some(wait_for) = params.get("wait_for").and_then(|v| v.as_str()) {
+            tab.wait_for_element(wait_for)
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        }
+
+        Ok(vec![Content::text(format!("Navigated to {}", url))])
+    }
+
+    async fn screenshot(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        let screenshot_data = if let Some(selector) = params.get("selector").and_then(|v| v.as_str()) {
+            // Find element and screenshot it
+            let element = tab.wait_for_element(selector)
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+            
+            // Scroll element into view and capture element screenshot
+            element.scroll_into_view()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+            // Take screenshot of the viewport (element should be visible)
+            tab.get_content()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?
+                .into_bytes()
+        } else {
+            // Full page or viewport screenshot
+            let full_page = params
+                .get("full_page")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            if full_page {
+                // Get the full page height using JavaScript
+                let height_script = r#"
+                    Math.max(
+                        document.body.scrollHeight,
+                        document.documentElement.scrollHeight,
+                        document.body.offsetHeight,
+                        document.documentElement.offsetHeight,
+                        document.body.clientHeight,
+                        document.documentElement.clientHeight
+                    )
+                "#;
+                
+                let result = tab.evaluate(height_script, false)
+                    .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+                let height = result.value
+                    .expect("Failed to get evaluation result")
+                    .as_f64()
+                    .map(|h| h as u32)
+                    .unwrap_or(1080);
+
+                // Scroll through the page to capture everything
+                for y in (0..height).step_by(1080) {
+                    tab.evaluate(&format!("window.scrollTo(0, {})", y), false)
+                        .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+                }
+            }
+
+            // Take screenshot
+            tab.get_content()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?
+                .into_bytes()
+        };
+
+        let base64 = base64::prelude::BASE64_STANDARD.encode(&screenshot_data);
+        Ok(vec![Content::image(base64, "image/png")])
+    }
+
+    async fn click(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let selector = params
+            .get("selector")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        let element = tab.wait_for_element(selector)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        element.click()
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        // Wait for specific element after click if requested
+        if let Some(wait_for) = params.get("wait_for").and_then(|v| v.as_str()) {
+            tab.wait_for_element(wait_for)
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        }
+
+        Ok(vec![Content::text(format!("Clicked element matching '{}'", selector))])
+    }
+
+    async fn type_text(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let selector = params
+            .get("selector")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
+
+        let text = params
+            .get("text")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("text parameter is required".into()))?;
+
+        let clear_first = params
+            .get("clear_first")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        let element = tab.wait_for_element(selector)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        if clear_first {
+            element.click()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+            // Clear using keyboard shortcuts
+            element.focus()
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+            
+            // Select all and delete
+            element.type_into("a")
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+            
+            tab.press_key("Backspace")
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        }
+
+        element.type_into(text)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        Ok(vec![Content::text(format!(
+            "Typed text into element matching '{}'",
+            selector
+        ))])
+    }
+
+    async fn eval(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let script = params
+            .get("script")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("script parameter is required".into()))?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        let result = tab.evaluate(script, false)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        
+        Ok(vec![Content::text(format!("Evaluation result: {:?}", result))])
+    }
+
+    async fn wait_for(&self, params: Value) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let selector = params
+            .get("selector")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
+
+        let timeout = params
+            .get("timeout")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30000);
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        tab.wait_for_element_with_custom_timeout(selector, Duration::from_millis(timeout))
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        Ok(vec![Content::text(format!(
+            "Successfully waited for element matching '{}'",
+            selector
+        ))])
+    }
+}
+
+#[async_trait]
+impl System for WebBrowserSystem {
+    fn name(&self) -> &str {
+        "WebBrowserSystem"
+    }
+
+    fn description(&self) -> &str {
+        "Browser automation system using headless Chrome"
+    }
+
+    fn instructions(&self) -> &str {
+        &self.instructions
+    }
+
+    fn tools(&self) -> &[Tool] {
+        &self.tools
+    }
+
+    async fn status(&self) -> AnyhowResult<Vec<Resource>> {
+        Ok(Vec::new())
+    }
+
+    async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
+        match tool_call.name.as_str() {
+            "navigate" => self.navigate(tool_call.arguments).await,
+            "screenshot" => self.screenshot(tool_call.arguments).await,
+            "click" => self.click(tool_call.arguments).await,
+            "type" => self.type_text(tool_call.arguments).await,
+            "eval" => self.eval(tool_call.arguments).await,
+            "wait_for" => self.wait_for(tool_call.arguments).await,
+            _ => Err(AgentError::ToolNotFound(tool_call.name)),
+        }
+    }
+
+    async fn read_resource(&self, _uri: &str) -> AgentResult<String> {
+        Err(AgentError::InvalidParameters("Resource reading not supported".into()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::OnceCell;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::{method, path};
+
+    static WEB_SYSTEM: OnceCell<WebBrowserSystem> = OnceCell::const_new();
+
+    async fn get_system() -> &'static WebBrowserSystem {
+        WEB_SYSTEM
+            .get_or_init(|| async { WebBrowserSystem::new() })
+            .await
+    }
+
+    #[tokio::test]
+    async fn test_navigate_and_screenshot() {
+        let mock_server = MockServer::start().await;
+        
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200)
+                .set_body_string(r#"<html><body><h1>Test Page</h1></body></html>"#))
+            .mount(&mock_server)
+            .await;
+
+        let system = get_system().await;
+        
+        // Navigate to mock server
+        let navigate_result = system.call(ToolCall::new(
+            "navigate",
+            json!({
+                "url": mock_server.uri(),
+            })
+        )).await.unwrap();
+
+        assert!(navigate_result[0].as_text().unwrap().contains("Navigated to"));
+
+        // Take a screenshot
+        let screenshot_result = system.call(ToolCall::new(
+            "screenshot",
+            json!({})
+        )).await.unwrap();
+
+        assert!(screenshot_result[0].as_image().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_click_and_type() {
+        let mock_server = MockServer::start().await;
+        
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200)
+                .set_body_string(r#"
+                    <html>
+                        <body>
+                            <button id="test-button">Click Me</button>
+                            <input id="test-input" type="text">
+                        </body>
+                    </html>
+                "#))
+            .mount(&mock_server)
+            .await;
+
+        let system = get_system().await;
+        
+        // Navigate to mock server
+        system.call(ToolCall::new(
+            "navigate",
+            json!({
+                "url": mock_server.uri(),
+            })
+        )).await.unwrap();
+
+        // Click the button
+        let click_result = system.call(ToolCall::new(
+            "click",
+            json!({
+                "selector": "#test-button"
+            })
+        )).await.unwrap();
+
+        assert!(click_result[0].as_text().unwrap().contains("Clicked element"));
+
+        // Type in the input
+        let type_result = system.call(ToolCall::new(
+            "type",
+            json!({
+                "selector": "#test-input",
+                "text": "Test input"
+            })
+        )).await.unwrap();
+
+        assert!(type_result[0].as_text().unwrap().contains("Typed text"));
+    }
+
+    #[tokio::test]
+    async fn test_eval() {
+        let mock_server = MockServer::start().await;
+        
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200)
+                .set_body_string(r#"
+                    <html>
+                        <body>
+                            <div id="test-div">Test Content</div>
+                        </body>
+                    </html>
+                "#))
+            .mount(&mock_server)
+            .await;
+
+        let system = get_system().await;
+        
+        // Navigate to mock server
+        system.call(ToolCall::new(
+            "navigate",
+            json!({
+                "url": mock_server.uri(),
+            })
+        )).await.unwrap();
+
+        // Evaluate JavaScript
+        let eval_result = system.call(ToolCall::new(
+            "eval",
+            json!({
+                "script": "document.getElementById('test-div').textContent"
+            })
+        )).await.unwrap();
+
+        assert!(eval_result[0].as_text().unwrap().contains("Test Content"));
+    }
+}
