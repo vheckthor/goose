@@ -56,18 +56,7 @@ impl WebBrowserSystem {
             json!({
                 "type": "object",
                 "required": [],
-                "properties": {
-                    "selector": {
-                        "type": "string",
-                        "default": null,
-                        "description": "Optional CSS selector to screenshot a specific element"
-                    },
-                    "full_page": {
-                        "type": "boolean",
-                        "default": false,
-                        "description": "Whether to capture the full scrollable page"
-                    }
-                }
+                "properties": {}
             }),
         );
 
@@ -155,7 +144,7 @@ impl WebBrowserSystem {
             
             Available tools:
             - navigate: Load a URL in the browser with optional wait conditions
-            - screenshot: Capture the current page or a specific element
+            - screenshot: Capture the current page if needed to visually examine
             - click: Click on elements using CSS selectors
             - type: Enter text into input fields
             - eval: Execute JavaScript in the page context
@@ -240,20 +229,7 @@ impl WebBrowserSystem {
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
 
-        let screenshot_data = if let Some(selector) = params.get("selector").and_then(|v| v.as_str()) {
-            // Find element and screenshot it
-            let element = tab.wait_for_element(selector)
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
-            
-            // Scroll element into view and capture element screenshot
-            element.scroll_into_view()
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
-
-            // Take screenshot of the viewport (element should be visible)
-            tab.get_content()
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?
-                .into_bytes()
-        } else {
+        let screenshot_data =  {
             // Full page or viewport screenshot
             let full_page = params
                 .get("full_page")
