@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Mutex;
 use tokio::process::Command;
-use xcap::Monitor;
+use xcap::{Monitor, Window};
 use crate::systems::Resource;
 use url::Url;
 
@@ -99,6 +99,20 @@ impl DeveloperSystem {
     }
 
     pub fn new() -> Self {
+        let list_windows_tool = Tool::new(
+            "list_windows",
+            indoc! {r#"
+                List all available window titles that can be used with screen_capture.
+                Returns a list of window titles that can be used with the window_title parameter
+                of the screen_capture tool.
+            "#},
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {}
+            }),
+        );
+
         let bash_tool = Tool::new(
             "bash",
             indoc! {r#"
@@ -129,9 +143,12 @@ impl DeveloperSystem {
         let screen_capture_tool = Tool::new(
             "screen_capture",
             indoc! {r#"
-                Capture a screenshot of a specified display.
-                The display parameter defaults to 0 (main display).
-                For multiple displays, use 1, 2, etc.
+                Capture a screenshot of a specified display or window.
+                You can capture either:
+                1. A full display (monitor) using the display parameter
+                2. A specific window by its title using the window_title parameter
+                
+                Only one of display or window_title should be specified.
             "#},
             json!({
                 "type": "object",
@@ -141,6 +158,11 @@ impl DeveloperSystem {
                         "type": "integer",
                         "default": 0,
                         "description": "The display number to capture (0 is main display)"
+                    },
+                    "window_title": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Optional: the exact title of the window to capture. use the list_windows tool to find the available windows."
                     }
                 }
             }),
@@ -207,7 +229,7 @@ impl DeveloperSystem {
             os=std::env::consts::OS,
         };
         Self {
-            tools: vec![bash_tool, text_editor_tool, screen_capture_tool],
+            tools: vec![bash_tool, text_editor_tool, screen_capture_tool, list_windows_tool],
             cwd: Mutex::new(std::env::current_dir().unwrap()),
             active_resources: {
                 let mut resources = HashMap::new();
@@ -576,23 +598,53 @@ impl DeveloperSystem {
     }
 
     // Implement screen capture functionality
+    async fn list_windows(&self, _params: Value) -> AgentResult<Vec<Content>> {
+        let windows = Window::all()
+            .map_err(|_| AgentError::ExecutionError("Failed to list windows".into()))?;
+        
+        let window_titles: Vec<String> = windows.into_iter()
+            .map(|w| w.title().to_string())
+            .collect();
+
+        Ok(vec![                    
+            
+            Content::text(format!("Available windows:\n{}", window_titles.join("\n")))
+                .with_audience(vec![Role::Assistant]).with_priority(0.0),                
+        ])
+    }
+
     async fn screen_capture(&self, params: Value) -> AgentResult<Vec<Content>> {
-        let display = params.get("display").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+        let mut image = if let Some(window_title) = params.get("window_title").and_then(|v| v.as_str()) {
+            // Try to find and capture the specified window
+            let windows = Window::all()
+                .map_err(|_| AgentError::ExecutionError("Failed to list windows".into()))?;
+            
+            let window = windows
+                .into_iter()
+                .find(|w| w.title() == window_title)
+                .ok_or_else(|| AgentError::ExecutionError(format!("No window found with title '{}'", window_title)))?;
 
-        // Capture the screenshot using xcap
-        let monitors = Monitor::all()
-            .map_err(|_| AgentError::ExecutionError("Failed to access monitors".into()))?;
-        let monitor = monitors
-            .get(display)
-            .ok_or(AgentError::ExecutionError(format!(
-                "{} was not an available monitor, {} found.",
-                display,
-                monitors.len()
-            )))?;
+            window.capture_image().map_err(|e| {
+                AgentError::ExecutionError(format!("Failed to capture window '{}': {}", window_title, e))
+            })?
+        } else {
+            // Default to display capture if no window title is specified
+            let display = params.get("display").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
-        let mut image = monitor.capture_image().map_err(|e| {
-            AgentError::ExecutionError(format!("Failed to capture display {}: {}", display, e))
-        })?;
+            let monitors = Monitor::all()
+                .map_err(|_| AgentError::ExecutionError("Failed to access monitors".into()))?;
+            let monitor = monitors
+                .get(display)
+                .ok_or_else(|| AgentError::ExecutionError(format!(
+                    "{} was not an available monitor, {} found.",
+                    display,
+                    monitors.len()
+                )))?;
+
+            monitor.capture_image().map_err(|e| {
+                AgentError::ExecutionError(format!("Failed to capture display {}: {}", display, e))
+            })?
+        };
 
         // Resize the image to a reasonable width while maintaining aspect ratio
         let max_width = 768;
@@ -675,6 +727,7 @@ running commands on the shell."
             "bash" => self.bash(tool_call.arguments).await,
             "text_editor" => self.text_editor(tool_call.arguments).await,
             "screen_capture" => self.screen_capture(tool_call.arguments).await,
+            "list_windows" => self.list_windows(tool_call.arguments).await,
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
