@@ -326,7 +326,13 @@ impl WebBrowserSystem {
         let result = tab.evaluate(script, false)
             .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
         
-        Ok(vec![Content::text(format!("Evaluation result: {:?}", result))])
+        // Extract just the value from the RemoteObject
+        let value = match result.value {
+            Some(ref value) => format!("{}", value),
+            None => "undefined".to_string(),
+        };
+        
+        Ok(vec![Content::text(value)])
     }
 
     async fn wait_for(&self, selector: &str, timeout: Option<u64>) -> AgentResult<Vec<Content>> {
