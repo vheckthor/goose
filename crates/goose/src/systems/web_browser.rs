@@ -5,7 +5,7 @@ use headless_chrome::{
     Browser, LaunchOptions, Tab,
 };
 use image::{imageops::FilterType, GenericImageView};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -203,14 +203,9 @@ impl WebBrowserSystem {
         Ok(())
     }
 
-    async fn navigate(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn navigate(&self, url: &str, wait_for: Option<&str>) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
         
-        let url = params
-            .get("url")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("URL parameter is required".into()))?;
-
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
         
@@ -222,7 +217,7 @@ impl WebBrowserSystem {
             .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
 
         // Wait for specific element if requested
-        if let Some(wait_for) = params.get("wait_for").and_then(|v| v.as_str()) {
+        if let Some(wait_for) = wait_for {
             tab.wait_for_element(wait_for)
                 .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
         }
@@ -230,7 +225,7 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Navigated to {}", url))])
     }
 
-    async fn screenshot(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn screenshot(&self, max_width: Option<u64>) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
         let tab = self.tab.lock().await;
@@ -248,7 +243,7 @@ impl WebBrowserSystem {
         let img = image::load_from_memory(&screenshot_data)
             .map_err(|e| AgentError::ExecutionError(format!("Failed to load image: {}", e)))?;
 
-        let final_image = if let Some(max_width) = params.get("max_width").and_then(|v| v.as_u64()) {
+        let final_image = if let Some(max_width) = max_width {
             let max_width = max_width as u32;
             let (width, height) = img.dimensions();
             
@@ -277,13 +272,8 @@ impl WebBrowserSystem {
         Ok(vec![Content::image(base64, "image/png")])
     }
 
-    async fn click(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn click(&self, selector: &str, wait_for: Option<&str>) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
-
-        let selector = params
-            .get("selector")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
@@ -295,7 +285,7 @@ impl WebBrowserSystem {
             .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
 
         // Wait for specific element after click if requested
-        if let Some(wait_for) = params.get("wait_for").and_then(|v| v.as_str()) {
+        if let Some(wait_for) = wait_for {
             tab.wait_for_element(wait_for)
                 .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
         }
@@ -303,23 +293,8 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Clicked element matching '{}'", selector))])
     }
 
-    async fn type_text(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn type_text(&self, selector: &str, text: &str, clear_first: Option<bool>) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
-
-        let selector = params
-            .get("selector")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
-
-        let text = params
-            .get("text")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("text parameter is required".into()))?;
-
-        let clear_first = params
-            .get("clear_first")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true);
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
@@ -327,7 +302,7 @@ impl WebBrowserSystem {
         let element = tab.wait_for_element(selector)
             .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
 
-        if clear_first {
+        if clear_first.unwrap_or(true) {
             element.click()
                 .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
 
@@ -352,13 +327,8 @@ impl WebBrowserSystem {
         ))])
     }
 
-    async fn eval(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn eval(&self, script: &str) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
-
-        let script = params
-            .get("script")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("script parameter is required".into()))?;
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
@@ -369,18 +339,10 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Evaluation result: {:?}", result))])
     }
 
-    async fn wait_for(&self, params: Value) -> AgentResult<Vec<Content>> {
+    async fn wait_for(&self, selector: &str, timeout: Option<u64>) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
-        let selector = params
-            .get("selector")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| AgentError::InvalidParameters("selector parameter is required".into()))?;
-
-        let timeout = params
-            .get("timeout")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(30000);
+        let timeout = timeout.unwrap_or(30000);
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
@@ -419,12 +381,47 @@ impl System for WebBrowserSystem {
 
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
         match tool_call.name.as_str() {
-            "navigate" => self.navigate(tool_call.arguments).await,
-            "screenshot" => self.screenshot(tool_call.arguments).await,
-            "click" => self.click(tool_call.arguments).await,
-            "type" => self.type_text(tool_call.arguments).await,
-            "eval" => self.eval(tool_call.arguments).await,
-            "wait_for" => self.wait_for(tool_call.arguments).await,
+            "navigate" => {
+                let url = tool_call.arguments.get("url")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'url' parameter".into()))?;
+                let wait_for = tool_call.arguments.get("wait_for").and_then(|v| v.as_str());
+                self.navigate(url, wait_for).await
+            },
+            "screenshot" => {
+                let max_width = tool_call.arguments.get("max_width").and_then(|v| v.as_u64());
+                self.screenshot(max_width).await
+            },
+            "click" => {
+                let selector = tool_call.arguments.get("selector")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'selector' parameter".into()))?;
+                let wait_for = tool_call.arguments.get("wait_for").and_then(|v| v.as_str());
+                self.click(selector, wait_for).await
+            },
+            "type" => {
+                let selector = tool_call.arguments.get("selector")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'selector' parameter".into()))?;
+                let text = tool_call.arguments.get("text")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'text' parameter".into()))?;
+                let clear_first = tool_call.arguments.get("clear_first").and_then(|v| v.as_bool());
+                self.type_text(selector, text, clear_first).await
+            },
+            "eval" => {
+                let script = tool_call.arguments.get("script")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'script' parameter".into()))?;
+                self.eval(script).await
+            },
+            "wait_for" => {
+                let selector = tool_call.arguments.get("selector")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| AgentError::InvalidParameters("Missing 'selector' parameter".into()))?;
+                let timeout = tool_call.arguments.get("timeout").and_then(|v| v.as_u64());
+                self.wait_for(selector, timeout).await
+            },
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
@@ -437,7 +434,6 @@ impl System for WebBrowserSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::OnceCell;
     use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::{method, path};
 
@@ -475,6 +471,4 @@ mod tests {
 
         assert!(screenshot_result[0].as_image().is_some());
     }
-
-    
 }
