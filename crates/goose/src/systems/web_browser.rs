@@ -441,13 +441,6 @@ mod tests {
     use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::{method, path};
 
-    static WEB_SYSTEM: OnceCell<WebBrowserSystem> = OnceCell::const_new();
-
-    async fn get_system() -> &'static WebBrowserSystem {
-        WEB_SYSTEM
-            .get_or_init(|| async { WebBrowserSystem::new() })
-            .await
-    }
 
     #[tokio::test]
     async fn test_navigate_and_screenshot() {
@@ -460,7 +453,7 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let system = get_system().await;
+        let system = WebBrowserSystem::new();
         
         // Navigate to mock server
         let navigate_result = system.call(ToolCall::new(
