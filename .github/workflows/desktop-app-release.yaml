@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - v1.0
+  pull_request:
+    branches:
+      - v1.0      
 
 jobs:
   build-and-bundle:
@@ -88,7 +91,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     - name: Upload default
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: Goose.zip
+        name: Goose_test.zip
         path: ui/desktop/out/Goose-darwin-arm64/Goose.zip          
