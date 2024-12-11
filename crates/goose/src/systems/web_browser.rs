@@ -4,6 +4,7 @@ use base64::Engine;
 use headless_chrome::{
     Browser, LaunchOptions, Tab,
 };
+use image::{imageops::FilterType, GenericImageView};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::Duration;
@@ -56,7 +57,13 @@ impl WebBrowserSystem {
             json!({
                 "type": "object",
                 "required": [],
-                "properties": {}
+                "properties": {
+                    "max_width": {
+                        "type": "integer",
+                        "default": null,
+                        "description": "Maximum width of the screenshot in pixels. Aspect ratio will be preserved."
+                    }
+                }
             }),
         );
 
@@ -223,20 +230,50 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Navigated to {}", url))])
     }
 
-    async fn screenshot(&self) -> AgentResult<Vec<Content>> {
+    async fn screenshot(&self, params: Value) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
         let tab = self.tab.lock().await;
         let tab = tab.as_ref().unwrap();
 
-        let screenshot_data =  {
-            // Take screenshot
-            tab.get_content()
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?
-                .into_bytes()
+        let screenshot_data = tab.capture_screenshot(
+            headless_chrome::protocol::cdp::Page::CaptureScreenshotFormatOption::Png,
+            None,
+            None,
+            true,
+        )
+        .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        // Convert the screenshot data to an image
+        let img = image::load_from_memory(&screenshot_data)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to load image: {}", e)))?;
+
+        let final_image = if let Some(max_width) = params.get("max_width").and_then(|v| v.as_u64()) {
+            let max_width = max_width as u32;
+            let (width, height) = img.dimensions();
+            
+            if width > max_width {
+                // Calculate new height while preserving aspect ratio
+                let aspect_ratio = width as f32 / height as f32;
+                let new_height = (max_width as f32 / aspect_ratio) as u32;
+                
+                // Resize the image
+                img.resize(max_width, new_height, FilterType::Lanczos3)
+            } else {
+                img
+            }
+        } else {
+            img
         };
 
-        let base64 = base64::prelude::BASE64_STANDARD.encode(&screenshot_data);
+        // Convert the image back to PNG format
+        let mut png_data = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut png_data);
+        final_image
+            .write_to(&mut cursor, image::ImageOutputFormat::Png)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to encode image: {}", e)))?;
+
+        let base64 = base64::prelude::BASE64_STANDARD.encode(&png_data);
         Ok(vec![Content::image(base64, "image/png")])
     }
 
@@ -383,7 +420,7 @@ impl System for WebBrowserSystem {
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
         match tool_call.name.as_str() {
             "navigate" => self.navigate(tool_call.arguments).await,
-            "screenshot" => self.screenshot().await,
+            "screenshot" => self.screenshot(tool_call.arguments).await,
             "click" => self.click(tool_call.arguments).await,
             "type" => self.type_text(tool_call.arguments).await,
             "eval" => self.eval(tool_call.arguments).await,
@@ -438,7 +475,9 @@ mod tests {
         // Take a screenshot
         let screenshot_result = system.call(ToolCall::new(
             "screenshot",
-            json!({})
+            json!({
+                "max_width": 768
+            })
         )).await.unwrap();
 
         assert!(screenshot_result[0].as_image().is_some());
