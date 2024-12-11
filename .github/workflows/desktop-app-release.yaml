@@ -62,9 +62,6 @@ jobs:
     - name: copy binary
       run: cp target/release/goosed ui/desktop/src/bin/goosed
 
-
-
-
     # Desktop App Steps
     - name: Add MacOS certs for signing and notarization
       run: ./add-macos-cert.sh
@@ -95,3 +92,17 @@ jobs:
       with:
         name: Goose_test.zip
         path: ui/desktop/out/Goose-darwin-arm64/Goose.zip          
+
+    - name: Comment on Pull Request with Artifact Link
+      if: ${{ github.event_name == 'pull_request' }}
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+          const commentBody = `A new artifact has been created for this PR. You can download it [here](${artifactUrl}).`
+          github.rest.issues.createComment({
+            issue_number: ${{ github.event.pull_request.number }},
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          })
