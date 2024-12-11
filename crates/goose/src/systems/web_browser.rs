@@ -57,13 +57,7 @@ impl WebBrowserSystem {
             json!({
                 "type": "object",
                 "required": [],
-                "properties": {
-                    "max_width": {
-                        "type": "integer",
-                        "default": null,
-                        "description": "Maximum width of the screenshot in pixels. Aspect ratio will be preserved."
-                    }
-                }
+                "properties": {}
             }),
         );
 
@@ -225,7 +219,7 @@ impl WebBrowserSystem {
         Ok(vec![Content::text(format!("Navigated to {}", url))])
     }
 
-    async fn screenshot(&self, max_width: Option<u64>) -> AgentResult<Vec<Content>> {
+    async fn screenshot(&self) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
         let tab = self.tab.lock().await;
@@ -243,20 +237,16 @@ impl WebBrowserSystem {
         let img = image::load_from_memory(&screenshot_data)
             .map_err(|e| AgentError::ExecutionError(format!("Failed to load image: {}", e)))?;
 
-        let final_image = if let Some(max_width) = max_width {
-            let max_width = max_width as u32;
-            let (width, height) = img.dimensions();
+        let (width, height) = img.dimensions();
+        let max_width = 768;
+        
+        let final_image = if width > max_width {
+            // Calculate new height while preserving aspect ratio
+            let aspect_ratio = width as f32 / height as f32;
+            let new_height = (max_width as f32 / aspect_ratio) as u32;
             
-            if width > max_width {
-                // Calculate new height while preserving aspect ratio
-                let aspect_ratio = width as f32 / height as f32;
-                let new_height = (max_width as f32 / aspect_ratio) as u32;
-                
-                // Resize the image
-                img.resize(max_width, new_height, FilterType::Lanczos3)
-            } else {
-                img
-            }
+            // Resize the image
+            img.resize(max_width, new_height, FilterType::Lanczos3)
         } else {
             img
         };
@@ -388,10 +378,7 @@ impl System for WebBrowserSystem {
                 let wait_for = tool_call.arguments.get("wait_for").and_then(|v| v.as_str());
                 self.navigate(url, wait_for).await
             },
-            "screenshot" => {
-                let max_width = tool_call.arguments.get("max_width").and_then(|v| v.as_u64());
-                self.screenshot(max_width).await
-            },
+            "screenshot" => self.screenshot().await,
             "click" => {
                 let selector = tool_call.arguments.get("selector")
                     .and_then(|v| v.as_str())
@@ -464,9 +451,7 @@ mod tests {
         // Take a screenshot
         let screenshot_result = system.call(ToolCall::new(
             "screenshot",
-            json!({
-                "max_width": 768
-            })
+            json!({})
         )).await.unwrap();
 
         assert!(screenshot_result[0].as_image().is_some());
