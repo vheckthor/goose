@@ -159,6 +159,16 @@ impl WebBrowserSystem {
             - All commands support various wait conditions for reliability
             "#};
 
+        let get_text_tool = Tool::new(
+            "get_text",
+            "Get the page content as text and save to a temporary file",
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {}
+            }),
+        );
+
         Self {
             tools: vec![
                 navigate_tool,
@@ -167,6 +177,7 @@ impl WebBrowserSystem {
                 type_tool,
                 eval_tool,
                 wait_for_tool,
+                get_text_tool,
             ],
             browser: Arc::new(Mutex::new(None)),
             tab: Arc::new(Mutex::new(None)),
@@ -351,6 +362,41 @@ impl WebBrowserSystem {
             selector
         ))])
     }
+
+    async fn get_text(&self) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        // Get the page content using JavaScript
+        let result = tab.evaluate(
+            r#"
+            document.body.innerText
+            "#,
+            false,
+        )
+        .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        let text = match result.value {
+            Some(ref value) => format!("{}", value),
+            None => String::new(),
+        };
+
+        // Create a temporary file with the text content
+        let temp_dir = std::env::temp_dir();
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+        let file_name = format!("page_content_{}.txt", timestamp);
+        let file_path = temp_dir.join(file_name);
+
+        std::fs::write(&file_path, text)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to write text file: {}", e)))?;
+
+        Ok(vec![Content::text(format!(
+            "Page content saved to: {}",
+            file_path.display()
+        ))])
+    }
 }
 
 #[async_trait]
@@ -415,6 +461,7 @@ impl System for WebBrowserSystem {
                 let timeout = tool_call.arguments.get("timeout").and_then(|v| v.as_u64());
                 self.wait_for(selector, timeout).await
             },
+            "get_text" => self.get_text().await,
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
@@ -461,5 +508,44 @@ mod tests {
         )).await.unwrap();
 
         assert!(screenshot_result[0].as_image().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_get_text() {
+        let mock_server = MockServer::start().await;
+        
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200)
+                .set_body_string(r#"<html><body><h1>Test Page</h1><p>This is some test content.</p></body></html>"#))
+            .mount(&mock_server)
+            .await;
+
+        let system = WebBrowserSystem::new();
+        
+        // Navigate to mock server
+        let _ = system.call(ToolCall::new(
+            "navigate",
+            json!({
+                "url": mock_server.uri(),
+            })
+        )).await.unwrap();
+
+        // Get text content
+        let text_result = system.call(ToolCall::new(
+            "get_text",
+            json!({})
+        )).await.unwrap();
+
+        let result_text = text_result[0].as_text().unwrap();
+        assert!(result_text.contains("Page content saved to:"));
+        
+        // Extract the file path from the result
+        let file_path = result_text.split(": ").nth(1).unwrap();
+        
+        // Verify the file exists and contains the expected content
+        let content = std::fs::read_to_string(file_path).unwrap();
+        assert!(content.contains("Test Page"));
+        assert!(content.contains("This is some test content."));
     }
 }
