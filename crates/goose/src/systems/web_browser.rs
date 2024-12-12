@@ -187,25 +187,78 @@ impl WebBrowserSystem {
 
     async fn ensure_browser(&self) -> AgentResult<()> {
         let mut browser_guard = self.browser.lock().await;
-        if browser_guard.is_none() {
-            let options = LaunchOptions::default_builder()
-                .window_size(Some((1920, 1080)))
-                .headless(true)
-                .build()
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        let mut tab_guard = self.tab.lock().await;
 
-            let browser = Browser::new(options)
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+        // Check if we need to create a new browser instance
+        let should_create_new = match &*browser_guard {
+            None => true,
+            Some(browser) => {
+                // Try to check browser health by getting version info and checking tab
+                let version_ok = browser
+                    .get_version()
+                    .map_err(|_| AgentError::ExecutionError("Browser connection lost".into()))
+                    .is_ok();
+                
+                // Also verify tab is still responsive
+                let tab_ok = if let Some(tab) = &*tab_guard {
+                    // Try to evaluate a simple script to verify tab is responsive
+                    tab.evaluate("true", false).is_ok()
+                } else {
+                    false
+                };
+                
+                !version_ok || !tab_ok
+            }
+        };
 
-            // Create initial tab
-            let tab = browser
-                .new_tab()
-                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
-
-            *browser_guard = Some(browser);
-            *self.tab.lock().await = Some(tab);
+        if should_create_new {
+            // Try up to 3 times to create a new browser instance
+            let mut last_error = None;
+            for attempt in 1..=3 {
+                match self.create_new_browser().await {
+                    Ok((browser, tab)) => {
+                        *browser_guard = Some(browser);
+                        *tab_guard = Some(tab);
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        last_error = Some(e);
+                        if attempt < 3 {
+                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        }
+                    }
+                }
+            }
+            
+            // If we get here, all attempts failed
+            return Err(last_error.unwrap_or_else(|| {
+                AgentError::ExecutionError("Failed to create browser after 3 attempts".into())
+            }));
         }
+        
         Ok(())
+    }
+
+    async fn create_new_browser(&self) -> AgentResult<(Browser, Arc<Tab>)> {
+        let options = LaunchOptions::default_builder()
+            .window_size(Some((1920, 1080)))
+            .headless(true)
+            .build()
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        let browser = Browser::new(options)
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        // Create initial tab
+        let tab = browser
+            .new_tab()
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+            
+        // Verify the tab is responsive by trying to evaluate a simple script
+        tab.evaluate("true", false)
+            .map_err(|e| AgentError::ExecutionError(format!("New tab not responsive: {}", e)))?;
+
+        Ok((browser, tab))
     }
 
     async fn navigate(&self, url: &str, wait_for: Option<&str>) -> AgentResult<Vec<Content>> {
