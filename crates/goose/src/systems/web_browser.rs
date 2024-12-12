@@ -31,14 +31,14 @@ impl WebBrowserSystem {
     pub fn new() -> Self {
         let navigate_tool = Tool::new(
             "navigate",
-            "Navigate to a URL in the browser",
+            "Navigate to a URL in the browser. The page may need to be reloaded in future if content is missing.",
             json!({
                 "type": "object",
                 "required": ["url"],
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "The URL to navigate to"
+                        "description": "The URL to navigate to."
                     },
                     "wait_for": {
                         "type": "string",
@@ -105,14 +105,14 @@ impl WebBrowserSystem {
 
         let eval_tool = Tool::new(
             "eval",
-            "Evaluate JavaScript in the page context",
+            "Evaluate simple JavaScript in the page context. If results are not valid, consider re-navigating to the page to refresh content.",
             json!({
                 "type": "object",
                 "required": ["script"],
                 "properties": {
                     "script": {
                         "type": "string",
-                        "description": "JavaScript code to evaluate"
+                        "description": "JavaScript code to evaluate. Some examples: * document.getElementsByTagName('a').length to get number of links."
                     }
                 }
             }),
