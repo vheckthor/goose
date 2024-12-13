@@ -14,6 +14,7 @@ import { callCustomChatApi as callChatApi } from './call-custom-chat-api'
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import useSWR, { KeyedMutator } from 'swr';
 import { throttle } from './throttle';
+import { getSecretKey } from '../config';
 
 export type { CreateMessage, Message, UseChatOptions };
 
@@ -67,7 +68,7 @@ export type UseChatHelpers = {
     event?: { preventDefault?: () => void },
     chatRequestOptions?: ChatRequestOptions,
   ) => void;
-  metadata?: Object;
+  metadata?: object;
   /** Whether the API request is in progress */
   isLoading: boolean;
 
@@ -152,6 +153,7 @@ const processResponseStream = async (
     headers: {
       ...extraMetadataRef.current.headers,
       ...chatRequest.headers,
+      "X-Secret-Key": getSecretKey()
     },
     abortController: () => abortControllerRef.current,
     restoreMessagesOnFailure() {
@@ -482,7 +484,7 @@ By default, it's set to 1, which means that only a single LLM call is made.
     async (
       event?: { preventDefault?: () => void },
       options: ChatRequestOptions = {},
-      metadata?: Object,
+      metadata?: object,
     ) => {
       event?.preventDefault?.();
 

@@ -513,6 +513,7 @@ mod tests {
                     temperature: None,
                     max_tokens: None,
                 }),
+                secret_key: "test-secret".to_string(),
             };
 
             // Build router

@@ -49,11 +49,19 @@ const checkApiCredentials = () => {
   //{env-macro-end}//
 };
 
+const generateSecretKey = () => {
+  const crypto = require('crypto');
+  let key = crypto.randomBytes(32).toString('hex');
+  process.env.GOOSE_SERVER__SECRET_KEY = key;
+  return key;
+};
+
 let appConfig = { 
   apiCredsMissing: !checkApiCredentials(),
   GOOSE_API_HOST: 'http://127.0.0.1',
   GOOSE_SERVER__PORT: 0,
   GOOSE_WORKING_DIR: '',
+  secretKey: generateSecretKey(),
 };
 
 const createLauncher = () => {
@@ -227,7 +235,7 @@ const buildRecentFilesMenu = () => {
   }));
 };
 
-const openDirectoryDialog = async (replaceWindow: Boolean = false) => {
+const openDirectoryDialog = async (replaceWindow: boolean = false) => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory']
   });
@@ -337,7 +345,7 @@ app.whenReady().then(async () => {
     createChat(app, query);
   });
 
-  ipcMain.on('directory-chooser', (_, replace: Boolean = false) => {
+  ipcMain.on('directory-chooser', (_, replace: boolean = false) => {
     openDirectoryDialog(replace);
   });
 

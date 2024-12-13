@@ -12,7 +12,7 @@ import MoreMenu from './components/MoreMenu';
 import BottomMenu from './components/BottomMenu';
 import LoadingGoose from './components/LoadingGoose';
 import { ApiKeyWarning } from './components/ApiKeyWarning';
-import { askAi, getPromptTemplates } from './utils/askAI';
+import { askAi } from './utils/askAI';
 import WingToWing, { Working } from './components/WingToWing';
 import { WelcomeScreen } from './components/WelcomeScreen';
 
@@ -54,7 +54,7 @@ function ChatContent({
   const chat = chats.find((c: Chat) => c.id === selectedChatId);
   const [messageMetadata, setMessageMetadata] = useState<Record<string, string[]>>({});
   const [hasMessages, setHasMessages] = useState(false);
-
+  const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
 
   const {
     messages,
@@ -82,10 +82,17 @@ function ChatContent({
     onFinish: async (message, options) => {
       setProgressMessage('Task finished. Click here to expand.');
       setWorking(Working.Idle);
-
-      const promptTemplates = getPromptTemplates(message.content);
-      const fetchResponses = await askAi(promptTemplates);
+      
+      const fetchResponses = await askAi(message.content);
       setMessageMetadata((prev) => ({ ...prev, [message.id]: fetchResponses }));
+      
+      // Only show notification if it's been more than a minute since last interaction
+      const timeSinceLastInteraction = Date.now() - lastInteractionTime;
+      window.electron.logInfo("last interaction:" + lastInteractionTime);
+      if (timeSinceLastInteraction > 60000) { // 60000ms = 1 minute
+        
+        window.electron.showNotification({title: 'Goose finished the task.', body: 'Click here to expand.'});
+      }
     },
   });
 
@@ -115,6 +122,7 @@ function ChatContent({
     const customEvent = e as CustomEvent;
     const content = customEvent.detail?.value || '';
     if (content.trim()) {
+      setLastInteractionTime(Date.now()); // Update last interaction time
       append({
         role: 'user',
         content: content,
@@ -128,6 +136,7 @@ function ChatContent({
 
   const onStopGoose = () => {
     stop();
+    setLastInteractionTime(Date.now()); // Update last interaction time
 
     const lastMessage: Message = messages[messages.length - 1];
     if (lastMessage.role === 'user' && lastMessage.toolInvocations === undefined) {
