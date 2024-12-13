@@ -141,13 +141,14 @@ impl WebBrowserSystem {
         let instructions = indoc::formatdoc! {r#"
             The web browser system provides automation capabilities using headless Chrome.
             Use this when the best way to get information is by browsing a website or interacting with it to get to content or take some action on users behalf.
+            Combine the tools to find elements, click on them, type text into input fields, and more. save_html and get_text will result in large files which should not be loaded all at once.
             
             Available tools:
             - navigate: Load a URL in the browser with optional wait conditions
             - screenshot: Capture the current page if needed to visually examine
             - click: Click on elements using CSS selectors
             - type: Enter text into input fields
-            - eval: Execute JavaScript in the page context. Useful for finding elements or extracting data.
+            - eval: Execute JavaScript in the page context. Useful for finding elements or extracting data or finding CSS selectors.
             - wait_for: Wait for elements to appear
             - save_html: save html to a file on disk which can be examined with rg or similar (as large) to find tags, selectors and more.
             - get_text: Get the page content as plain text and save to a temp file to be examined as needed.
@@ -163,7 +164,7 @@ impl WebBrowserSystem {
 
         let get_text_tool = Tool::new(
             "get_text",
-            "Get the page content as text and save to a temporary file",
+            "Get the page content as text and save to a temporary file to look at with the rg tool",
             json!({
                 "type": "object",
                 "required": [],
@@ -173,17 +174,11 @@ impl WebBrowserSystem {
 
         let save_html_tool = Tool::new(
             "save_html",
-            "Save the full HTML content of the current page to a file on disk. This will likely be large, so use rg to examine it, instead of viewing.",
+            "Save the full HTML content of the current page to a file on disk. This will likely be large, so use rg tool to examine it, instead of viewing.",
             json!({
                 "type": "object",
                 "required": [],
-                "properties": {
-                    "filename": {
-                        "type": "string",
-                        "default": null,
-                        "description": "Optional filename to save as. If not provided, will generate a timestamped name"
-                    }
-                }
+                "properties": {}
             }),
         );
 
@@ -610,7 +605,7 @@ impl WebBrowserSystem {
         ))])
     }
 
-    async fn save_html(&self, filename: Option<&str>) -> AgentResult<Vec<Content>> {
+    async fn save_html(&self) -> AgentResult<Vec<Content>> {
         self.ensure_browser().await?;
 
         let tab = self.tab.lock().await;
@@ -632,9 +627,7 @@ impl WebBrowserSystem {
         };
 
         // Generate filename if not provided
-        let file_path = if let Some(name) = filename {
-            std::path::PathBuf::from(name)
-        } else {
+        let file_path = {
             let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
             let file_name = format!("page_{}.html", timestamp);
             std::env::current_dir()
@@ -744,10 +737,7 @@ impl System for WebBrowserSystem {
                 self.wait_for(selector, timeout).await
             }
             "get_text" => self.get_text().await,
-            "save_html" => {
-                let filename = tool_call.arguments.get("filename").and_then(|v| v.as_str());
-                self.save_html(filename).await
-            }
+            "save_html" => self.save_html().await,
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
