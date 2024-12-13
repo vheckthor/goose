@@ -140,20 +140,24 @@ impl WebBrowserSystem {
 
         let instructions = indoc::formatdoc! {r#"
             The web browser system provides automation capabilities using headless Chrome.
+            Use this when the best way to get information is by browsing a website or interacting with it to get to content or take some action on users behalf.
             
             Available tools:
             - navigate: Load a URL in the browser with optional wait conditions
             - screenshot: Capture the current page if needed to visually examine
             - click: Click on elements using CSS selectors
             - type: Enter text into input fields
-            - eval: Execute JavaScript in the page context
+            - eval: Execute JavaScript in the page context. Useful for finding elements or extracting data.
             - wait_for: Wait for elements to appear
+            - save_html: save html to a file on disk which can be examined with rg or similar (as large) to find tags, selectors and more.
+            - get_text: Get the page content as plain text and save to a temp file to be examined as needed.
             
             Notes:
             - The browser session persists between commands
             - Screenshots are returned as base64-encoded PNG images
             - CSS selectors must be valid and match exactly one element
             - JavaScript evaluation runs in the page context
+            - Can use javascript eval to help find elements (also could use save_html_tool)
             - All commands support various wait conditions for reliability
             "#};
 
@@ -167,6 +171,22 @@ impl WebBrowserSystem {
             }),
         );
 
+        let save_html_tool = Tool::new(
+            "save_html",
+            "Save the full HTML content of the current page to a file on disk. This will likely be large, so use rg to examine it, instead of viewing.",
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Optional filename to save as. If not provided, will generate a timestamped name"
+                    }
+                }
+            }),
+        );
+
         Self {
             tools: vec![
                 navigate_tool,
@@ -176,6 +196,7 @@ impl WebBrowserSystem {
                 eval_tool,
                 wait_for_tool,
                 get_text_tool,
+                save_html_tool,
             ],
             browser: Arc::new(Mutex::new(None)),
             tab: Arc::new(Mutex::new(None)),
@@ -588,6 +609,49 @@ impl WebBrowserSystem {
             file_path.display()
         ))])
     }
+
+    async fn save_html(&self, filename: Option<&str>) -> AgentResult<Vec<Content>> {
+        self.ensure_browser().await?;
+
+        let tab = self.tab.lock().await;
+        let tab = tab.as_ref().unwrap();
+
+        // Get the full HTML content using JavaScript
+        let result = tab
+            .evaluate(
+                r#"
+            document.documentElement.outerHTML
+            "#,
+                false,
+            )
+            .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        let html = match result.value {
+            Some(ref value) => format!("{}", value),
+            None => String::new(),
+        };
+
+        // Generate filename if not provided
+        let file_path = if let Some(name) = filename {
+            std::path::PathBuf::from(name)
+        } else {
+            let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+            let file_name = format!("page_{}.html", timestamp);
+            std::env::current_dir()
+                .map_err(|e| {
+                    AgentError::ExecutionError(format!("Failed to get current dir: {}", e))
+                })?
+                .join(file_name)
+        };
+
+        std::fs::write(&file_path, html)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to write HTML file: {}", e)))?;
+
+        Ok(vec![Content::text(format!(
+            "HTML content saved to: {}",
+            file_path.display()
+        ))])
+    }
 }
 
 #[async_trait]
@@ -680,6 +744,10 @@ impl System for WebBrowserSystem {
                 self.wait_for(selector, timeout).await
             }
             "get_text" => self.get_text().await,
+            "save_html" => {
+                let filename = tool_call.arguments.get("filename").and_then(|v| v.as_str());
+                self.save_html(filename).await
+            }
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
