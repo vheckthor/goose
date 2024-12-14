@@ -9,9 +9,9 @@ use std::path::PathBuf;
 use crate::agents::agent::Agent;
 use crate::prompt::{InputType, Prompt};
 use goose::developer::DeveloperSystem;
-use goose::models::message::{Message, MessageContent};
-use goose::models::role::Role;
+use goose::message::{Message, MessageContent};
 use goose::systems::goose_hints::GooseHintsSystem;
+use mcp_core::role::Role;
 
 // File management functions
 pub fn ensure_session_dir() -> Result<PathBuf> {
@@ -40,11 +40,11 @@ pub fn get_most_recent_session() -> Result<PathBuf> {
     entries.sort_by(|a, b| {
         b.metadata()
             .and_then(|m| m.modified())
-            .unwrap_or_else(|_| std::time::SystemTime::UNIX_EPOCH)
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
             .cmp(
                 &a.metadata()
                     .and_then(|m| m.modified())
-                    .unwrap_or_else(|_| std::time::SystemTime::UNIX_EPOCH),
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH),
             )
     });
 
@@ -341,9 +341,10 @@ mod tests {
     use crate::test_helpers::run_with_tmp_dir;
 
     use super::*;
-    use goose::models::content::Content;
-    use goose::models::tool;
-    use goose::{errors::AgentResult, models::tool::ToolCall};
+    use goose::errors::AgentResult;
+    use mcp_core::content::Content;
+    use mcp_core::tool;
+    use mcp_core::tool::ToolCall;
     use tempfile::NamedTempFile;
 
     // Helper function to create a test session
