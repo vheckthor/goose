@@ -26,6 +26,11 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
+      - name: Install cross-compilation tools
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
       - id: build
         shell: bash
         run: |
