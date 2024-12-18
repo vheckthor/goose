@@ -9,7 +9,7 @@ use ratatui::{
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
 
-use crate::profile::{load_profiles, Profile};
+use crate::profile::{self, load_profiles, Profile};
 
 pub async fn handle_tui_configure() -> io::Result<()> {
     init_panic_hook();
@@ -260,22 +260,22 @@ impl App {
                 let edit_profile_area_pos = edit_section_chunks[1].as_position();
                 match edit_profile.focussed_field {
                     InputField::Name => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
                     },
                     InputField::Model => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 1));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 1));
                     },
                     InputField::Temperature => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.temperature.visual_cursor() as u16, edit_profile_area_pos.y + 2));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.temperature.visual_cursor() as u16, edit_profile_area_pos.y + 2));
                     },
                     InputField::ContextLimit => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.context_limit.visual_cursor() as u16, edit_profile_area_pos.y + 3));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.context_limit.visual_cursor() as u16, edit_profile_area_pos.y + 3));
                     },
                     InputField::MaxTokens => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.max_tokens.visual_cursor() as u16, edit_profile_area_pos.y + 4));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.max_tokens.visual_cursor() as u16, edit_profile_area_pos.y + 4));
                     },
                     InputField::EstimateFactor => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 5));
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 5));
                     },
                 }
                 let edit_profile = Paragraph::new(lines)
@@ -285,7 +285,11 @@ impl App {
         }
 
         // Footer
-        render_footer(f, footer_area);
+        let actions = match self.ui_state.ui_mode {
+            UIMode::ProfileView => vec!["Profile","[N] New", "[E] Edit"],
+            UIMode::ProfileEdit => vec!["Profile","[Enter] Save", "[Esc] Cancel"],
+        };
+        render_footer(f, footer_area, &actions);
     }
 
     fn handle_events(&mut self) -> io::Result<AppOutcome> {
@@ -335,23 +339,27 @@ impl App {
                                         if edit_profile.name.value() != name_clone {
                                             self.ui_state.profiles.remove(&name_clone);
                                         }
+                                        profile::remove_profile(name_clone.as_str()).unwrap();
                                     },
                                     _ => {}
                                 }
                                 // TODO: Update all the other fields and save the profiles.
-                                self.ui_state.profiles.insert(edit_profile.name.value().to_string(), Profile {
+                                let new_profile = Profile {
                                     provider: "todo".to_string(),
-                                    model: "todo".to_string(),
+                                    model: edit_profile.model.value().to_string(),
                                     additional_systems: vec![],
-                                    temperature: None,
-                                    context_limit: None,
-                                    max_tokens: None,
-                                    estimate_factor: None,
-                                });
+                                    temperature: edit_profile.temperature.value().parse().ok(),
+                                    context_limit: edit_profile.context_limit.value().parse().ok(),
+                                    max_tokens: edit_profile.max_tokens.value().parse().ok(),
+                                    estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
+                                };
+                                self.ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
+                                profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
+
                                 self.ui_state.ui_mode = UIMode::ProfileView;
                             }
                         }
-                        KeyCode::Down => {
+                        KeyCode::Down | KeyCode::Tab => {
                             if let Some(edit_profile) = self.edit_profile.as_mut() {
                                 edit_profile.focussed_field = match edit_profile.focussed_field {
                                     InputField::Name => InputField::Model,
@@ -363,7 +371,7 @@ impl App {
                                 };
                             }
                         }
-                        KeyCode::Up => {
+                        KeyCode::Up | KeyCode::BackTab => {
                             if let Some(edit_profile) = self.edit_profile.as_mut() {
                                 edit_profile.focussed_field = match edit_profile.focussed_field {
                                     InputField::Name => InputField::EstimateFactor,
@@ -436,21 +444,35 @@ fn render_header(f: &mut Frame, header_area: layout::Rect) {
     f.render_widget(Block::default().borders(Borders::TOP).title(title), header_area);
 }
 
-fn render_footer(f: &mut Frame, footer_area: layout::Rect) {
+fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<&str>) {
+    let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].into(), Span::raw(":"), Span::raw(" ".repeat(3))];
+    let actions_suffix = actions.iter().skip(1).fold(Vec::new(), |mut acc, action| {
+        acc.push(Span::styled(*action, Style::default()));
+        acc.push(Span::raw(" ".repeat(3)));
+        acc
+    });
     let footer = Text::from(vec![
-        Line::from(vec![
-            Span::raw(" ".repeat(3)),
-            Span::styled("Profile:   ", Style::default()),
-            Span::styled("[N] New", Style::default()),
-            Span::raw(" ".repeat(3)),
-            Span::styled("[E] Edit", Style::default()),
-        ]),
+        Line::from([actions_prefix, actions_suffix].concat()),
         Line::from(vec![
             Span::raw(" ".repeat(3)),
             Span::styled("App:       ", Style::default()),
             Span::styled("[Q] Quit", Style::default()),
         ])
     ]);
+    // let footer = Text::from(vec![
+        // Line::from(vec![
+        //     Span::raw(" ".repeat(3)),
+        //     Span::styled("Profile:   ", Style::default()),
+        //     Span::styled("[N] New", Style::default()),
+        //     Span::raw(" ".repeat(3)),
+        //     Span::styled("[E] Edit", Style::default()),
+        // ]),
+    //     Line::from(vec![
+    //         Span::raw(" ".repeat(3)),
+    //         Span::styled("App:       ", Style::default()),
+    //         Span::styled("[Q] Quit", Style::default()),
+    //     ])
+    // ]);
     let title_line = Line::from(vec![
         Span::raw("─".repeat(10)),
         Span::styled(" Actions ", Style::default()),
