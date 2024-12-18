@@ -5,7 +5,7 @@ use std::{
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout}, style::{Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Paragraph}, Frame, Terminal
+    }, layout::{self, Layout}, style::{Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Padding, Paragraph}, Frame, Terminal
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
 
@@ -49,14 +49,28 @@ struct ConfigureState {
 #[derive(Clone)]
 struct EditableProfile {
     pub focussed_field: InputField,
-    pub name: Input
+    pub name: Input,
+    pub model: Input,
+    pub temperature: Input,
+    pub context_limit: Input,
+    pub max_tokens: Input,
+    pub estimate_factor: Input,
 }
 
 impl EditableProfile {
     fn new(name: &String, profile: &Profile) -> Self {
+        let temperature = profile.temperature.map_or_else(Input::default, |temp| Input::default().with_value(temp.to_string()));
+        let context_limit = profile.context_limit.map_or_else(Input::default, |limit| Input::default().with_value(limit.to_string()));
+        let max_tokens = profile.max_tokens.map_or_else(Input::default, |tokens| Input::default().with_value(tokens.to_string()));
+        let estimate_factor = profile.estimate_factor.map_or_else(Input::default, |factor| Input::default().with_value(factor.to_string()));
         Self {
             focussed_field: InputField::Name,
-            name: Input::default().with_value(name.to_string())
+            name: Input::default().with_value(name.to_string()),
+            model: Input::default().with_value(profile.model.clone()),
+            temperature,
+            context_limit,
+            max_tokens,
+            estimate_factor,
         }
     }
 }
@@ -65,7 +79,11 @@ impl EditableProfile {
 enum InputField {
     Name,
     // Provider,
-    // Model,
+    Model,
+    Temperature,
+    ContextLimit,
+    MaxTokens,
+    EstimateFactor,
 }
 
 enum UIMode {
@@ -183,7 +201,7 @@ impl App {
             UIMode::ProfileEdit => {
                 let edit_section_chunks = Layout::default()
                     .direction(layout::Direction::Vertical)
-                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
+                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1)])
                     .split(main_area_horizontal_chunks[1]);
 
                 // TODO: Implement editing profile
@@ -196,8 +214,13 @@ impl App {
 
 
                 // TODO: Render editable fields
-                render_editable_profile_row(f, "Name", &self.edit_profile.as_ref().unwrap().name, edit_section_chunks[1], self.edit_profile.as_ref().unwrap().focussed_field == InputField::Name);
-
+                let edit_profile = self.edit_profile.as_ref().unwrap();
+                render_editable_profile_row(f, "Name", &edit_profile.name, edit_section_chunks[1], edit_profile.focussed_field == InputField::Name);
+                render_editable_profile_row(f, "Model", &edit_profile.model, edit_section_chunks[2], edit_profile.focussed_field == InputField::Model);
+                render_editable_profile_row(f, "Temperature", &edit_profile.temperature, edit_section_chunks[3], edit_profile.focussed_field == InputField::Temperature);
+                render_editable_profile_row(f, "Context Limit", &edit_profile.context_limit, edit_section_chunks[4], edit_profile.focussed_field == InputField::ContextLimit);
+                render_editable_profile_row(f, "Max Tokens", &edit_profile.max_tokens, edit_section_chunks[5], edit_profile.focussed_field == InputField::MaxTokens);
+                render_editable_profile_row(f, "Estimate Factor", &edit_profile.estimate_factor, edit_section_chunks[6], edit_profile.focussed_field == InputField::EstimateFactor);
             }
         }
 
@@ -253,6 +276,7 @@ impl App {
                                             self.ui_state.profiles.remove(&name_clone);
                                         }
                                     },
+                                    _ => {}
                                 }
                                 // TODO: Update all the other fields and save the profiles.
                                 self.ui_state.profiles.insert(edit_profile.name.value().to_string(), Profile {
@@ -272,8 +296,24 @@ impl App {
                         _ => {
                             if let Some(edit_profile) = self.edit_profile.as_mut() {
                                 match edit_profile.focussed_field {
+                                    //TODO: validations
                                     InputField::Name => {
                                         edit_profile.name.handle_event(&Event::Key(key));
+                                    },
+                                    InputField::Model => {
+                                        edit_profile.model.handle_event(&Event::Key(key));
+                                    },
+                                    InputField::Temperature => {
+                                        edit_profile.temperature.handle_event(&Event::Key(key));
+                                    },
+                                    InputField::ContextLimit => {
+                                        edit_profile.context_limit.handle_event(&Event::Key(key));
+                                    },
+                                    InputField::MaxTokens => {
+                                        edit_profile.max_tokens.handle_event(&Event::Key(key));
+                                    },
+                                    InputField::EstimateFactor => {
+                                        edit_profile.estimate_factor.handle_event(&Event::Key(key));
                                     },
                                 }
                             }
@@ -350,12 +390,12 @@ fn profile_list_names(profiles: &HashMap<String, Profile>) -> Vec<String> {
 }
 
 fn render_editable_profile_row(f: &mut Frame, label: &str, input: &Input, area: layout::Rect, focussed: bool) {
-    let scroll = input.visual_scroll(200 as usize);
+    let scroll = input.visual_scroll(50 as usize);
     let line = Line::from(vec!["     ".into(), label.into(), "       ".into(), input.value().into()]);
     let pre_input_width = (line.clone().width() - input.value().len()) as u16;
     let label = Paragraph::new(line)
         .scroll((0, scroll as u16))
-        .block(Block::default().borders(Borders::NONE));
+        .block(Block::default().borders(Borders::NONE).padding(Padding::ZERO));
     f.render_widget(label, area);
     
 
