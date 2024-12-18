@@ -3,55 +3,77 @@ on:
     tags:
       - "v1.*"
   workflow_dispatch:
+
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
+
 name: Release CLI
+
 jobs:
   build:
     name: Build ${{ matrix.os }}-${{ matrix.architecture }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false # Allow independent failures
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        architecture: [x86_64, aarch64]
         include:
+          # Linux x86_64 build on Ubuntu
           - os: ubuntu-latest
+            architecture: x86_64
             suffix: unknown-linux-gnu
+          # macOS x86_64 build
           - os: macos-latest
+            architecture: x86_64
             suffix: apple-darwin
+          # macOS ARM64 build
+          - os: macos-latest
+            architecture: aarch64
+            suffix: apple-darwin
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Rust
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Rust toolchain
+      - name: Set up Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
-      - name: Install cross-compilation tools and dependencies
+
+      # Step 3: Install dependencies for macOS ARM64 builds
+      - name: Install dependencies for macOS ARM64
+        if: matrix.os == 'macos-latest' && matrix.architecture == 'aarch64'
+        run: |
+          brew install llvm
+          rustup target add aarch64-apple-darwin
+          echo "export PATH=$(brew --prefix llvm)/bin:\$PATH" >> $GITHUB_ENV
+
+      - name: Install Libs for Ubuntu linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
-          if [ "${{ matrix.architecture }}" = "aarch64" ]; then
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-            sudo apt-get install -y libssl-dev:arm64 libc6-dev-arm64-cross
-          fi
-      - id: build
-        shell: bash
+          sudo apt update -y
+          sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring libxcb1-dev
+          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+
+
+      # Step 4: Build the project
+      - name: Build
         run: |
           export TARGET=${{ matrix.architecture }}-${{ matrix.suffix }}
           cargo build --release --target $TARGET
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
-          export TARGET_PATH="target/${TARGET}/release/goose-${TARGET}.tar.bz2"
-          echo "TARGET_PATH=${TARGET_PATH}" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v4
+          echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
+
+      # Step 5: Upload artifacts
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: goose-${{ matrix.architecture }}-${{ matrix.suffix }}
-          path: ${{ steps.build.outputs.TARGET_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ env.ARTIFACT }}
+
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -59,9 +81,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      # Step 1: Download all build artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           merge-multiple: true
-      - uses: ncipollo/release-action@v1
+
+      # Step 2: Publish release with artifacts
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
         with:
-          artifacts: "goose-*.bz2"
+          artifacts: "goose-*.tar.bz2"
+          token: ${{ secrets.GITHUB_TOKEN }}
