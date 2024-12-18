@@ -169,13 +169,13 @@ impl App {
 
         let profiles_title = Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED));
         let systems_title = Span::styled("Systems (todo)", Style::default()); // Update modifier when selected
-        f.render_widget(Text::from(vec!
+        f.render_widget(Paragraph::new(vec!
             [Line::from(""),
             Line::from(vec![Span::raw("   "), profiles_title, Span::raw("   "), systems_title]),
             Line::from(vec![Span::raw("─".repeat((f.area().width as usize).saturating_sub(24)))]),
             Line::from(""),
             ]
-        ), vertical_chunks[1]);
+        ).block(Block::default().borders(Borders::BOTTOM)), vertical_chunks[1]);
 
         // Main area
         let main_area_horizontal_chunks = Layout::default()
@@ -192,14 +192,14 @@ impl App {
         let profile_list_header = Paragraph::new(vec![
             Line::from(vec![Span::styled("   Profiles List", Style::default().add_modifier(Modifier::ITALIC))]),
             Line::from(vec!["".into()])
-        ]);
+        ]).block(Block::default().borders(Borders::RIGHT));
         f.render_widget(profile_list_header, profile_list_chunks[0]);
 
         
         let profile_list = List::new(profile_list_names.clone())
-            .block(Block::default().borders(Borders::NONE))
             .highlight_symbol(" > ")
-            .highlight_spacing(HighlightSpacing::Always);
+            .highlight_spacing(HighlightSpacing::Always)
+            .block(Block::default().borders(Borders::RIGHT));
         f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.ui_state.profile_list_state);
 
         // Main - Profile details area
@@ -213,14 +213,18 @@ impl App {
                         Line::from(vec!["    Name:              ".into(), selected_profile_name.clone().into()]),
                         Line::from(vec!["    Provider:          ".into(), selected_profile.provider.clone().into()]),
                         Line::from(vec!["    Model:             ".into(), selected_profile.model.clone().into()]),
-                    ]).block(Block::default().borders(Borders::LEFT));
+                        Line::from(vec!["    Temperature:       ".into(), selected_profile.temperature.clone().map_or("".into(), |temp| temp.to_string().into())]),
+                        Line::from(vec!["    Context Limit:     ".into(), selected_profile.context_limit.clone().map_or("".into(), |limit| limit.to_string().into())]),
+                        Line::from(vec!["    Max Tokens:        ".into(), selected_profile.max_tokens.clone().map_or("".into(), |tokens| tokens.to_string().into())]),
+                        Line::from(vec!["    Estimate Factor:   ".into(), selected_profile.estimate_factor.clone().map_or("".into(), |factor| factor.to_string().into())]),
+                    ]).block(Block::default().borders(Borders::NONE));
                     f.render_widget(profile_view, main_area_horizontal_chunks[1]);
                 } else {
                     let profile_view = Paragraph::new(vec![
                         Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
                         Line::from(vec!["".into()]),
                         Line::from(vec!["    Create a New Profile".into()]),
-                    ]).block(Block::default().borders(Borders::LEFT));
+                    ]).block(Block::default().borders(Borders::NONE));
                     f.render_widget(profile_view, main_area_horizontal_chunks[1]);
                 }
             },
@@ -234,7 +238,7 @@ impl App {
                 let edit_header = Paragraph::new(vec![
                     Line::from(vec![Span::styled("    Edit Profile", Style::default().add_modifier(Modifier::ITALIC))]),
                     Line::from(vec!["".into()]),
-                ]).block(Block::default().borders(Borders::LEFT));
+                ]).block(Block::default().borders(Borders::NONE));
 
                 f.render_widget(edit_header, edit_section_chunks[0]);
 
@@ -275,7 +279,7 @@ impl App {
                     },
                 }
                 let edit_profile = Paragraph::new(lines)
-                    .block(Block::default().borders(Borders::LEFT));
+                    .block(Block::default().borders(Borders::NONE));
                 f.render_widget(edit_profile, edit_section_chunks[1]);
             }
         }
@@ -425,37 +429,34 @@ fn selected_profile<'a>(ui_state: &'a ConfigureState, profile_list_names: &'a Ve
 }
 
 fn render_header(f: &mut Frame, header_area: layout::Rect) {
-    let header = Line::from(vec![
+    let title = Line::from(vec![
         Span::raw("─".repeat(10)),
         Span::styled(" Configure Goose ", Style::default().add_modifier(Modifier::BOLD)),
-        Span::raw("─".repeat((f.area().width as usize).saturating_sub(24))),
     ]);
-    f.render_widget(header, header_area);
+    f.render_widget(Block::default().borders(Borders::TOP).title(title), header_area);
 }
 
 fn render_footer(f: &mut Frame, footer_area: layout::Rect) {
-    let footer = Text::from(vec![Line::from(""),
-        Line::from(vec![
-            Span::raw("─".repeat(10)),
-            Span::styled(" Actions ", Style::default()),
-            Span::raw("─".repeat((f.area().width as usize).saturating_sub(24))),
-        ]),
+    let footer = Text::from(vec![
         Line::from(vec![
             Span::raw(" ".repeat(3)),
             Span::styled("Profile:   ", Style::default()),
             Span::styled("[N] New", Style::default()),
             Span::raw(" ".repeat(3)),
             Span::styled("[E] Edit", Style::default()),
-            Span::raw(" ".repeat((f.area().width as usize).saturating_sub(24))),
         ]),
         Line::from(vec![
             Span::raw(" ".repeat(3)),
             Span::styled("App:       ", Style::default()),
             Span::styled("[Q] Quit", Style::default()),
-            Span::raw(" ".repeat((f.area().width as usize).saturating_sub(24))),
         ])
     ]);
-    f.render_widget(Paragraph::new(footer).block(Block::new()), footer_area);
+    let title_line = Line::from(vec![
+        Span::raw("─".repeat(10)),
+        Span::styled(" Actions ", Style::default()),
+    ]);
+    let block = Block::default().borders(Borders::TOP).title(title_line);
+    f.render_widget(Paragraph::new(footer).block(block), footer_area);
 }
 
 fn has_profiles(profiles: &HashMap<String, Profile>) -> bool {
