@@ -3,7 +3,7 @@ use std::{
 };
 
 use ratatui::{
-    backend::{Backend, CrosstermBackend}, buffer::Buffer, crossterm::{
+    backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
     }, layout::{self, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Clear, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget}, Frame, Terminal
 };
@@ -44,7 +44,6 @@ struct ConfigureState {
     ui_mode: UIMode,
     profile_list_state: ListState,
     profiles: HashMap<String, Profile>,
-    provider_list_state: ListState,
 }
 
 #[derive(Clone)]
@@ -59,6 +58,7 @@ struct EditableProfile {
     pub estimate_factor: Input,
     pub errors: HashMap<InputField, Option<String>>,
     pub provider_drowdown_open: bool,
+    pub provider_list_state: ListState,
 }
 
 impl EditableProfile {
@@ -67,6 +67,7 @@ impl EditableProfile {
         let context_limit = profile.context_limit.map_or_else(Input::default, |limit| Input::default().with_value(limit.to_string()));
         let max_tokens = profile.max_tokens.map_or_else(Input::default, |tokens| Input::default().with_value(tokens.to_string()));
         let estimate_factor = profile.estimate_factor.map_or_else(Input::default, |factor| Input::default().with_value(factor.to_string()));
+
         let mut it = Self {
             focussed_field: InputField::Name,
             name: Input::default().with_value(name.to_string()),
@@ -78,6 +79,7 @@ impl EditableProfile {
             estimate_factor,
             errors: HashMap::new(),
             provider_drowdown_open: false,
+            provider_list_state: ListState::default(),
         };
 
         it.validate();
@@ -128,7 +130,6 @@ impl ConfigureState {
             ui_mode: UIMode::ProfileView, 
             profile_list_state: ListState::default(), 
             profiles: load_profiles().unwrap(),
-            provider_list_state: ListState::default(),
         };
         if state.profiles.len() > 0 {
             state.profile_list_state.select_first();
@@ -304,7 +305,7 @@ impl App {
                         .highlight_symbol(" > ")
                         .highlight_spacing(HighlightSpacing::Always)
                         .block(block);
-                    f.render_stateful_widget(provider_list, target_area, &mut self.ui_state.provider_list_state);
+                    f.render_stateful_widget(provider_list, target_area, &mut self.edit_profile.as_mut().unwrap().provider_list_state);
                 }
             }
         }
@@ -331,7 +332,7 @@ impl App {
                         KeyCode::Char('q') => {
                             return Ok(AppOutcome::Exit);
                         }
-                        KeyCode::Char('e') => {
+                        KeyCode::Char('e') | KeyCode::Enter => {
                             if has_profiles(&self.ui_state.profiles) {
                                 self.ui_state.ui_mode = UIMode::ProfileEdit;
                                 let profile_names = profile_list_names(&self.ui_state.profiles);
@@ -359,13 +360,13 @@ impl App {
                                         edit_profile.provider_drowdown_open = false;
                                     },
                                     KeyCode::Down => {
-                                        self.ui_state.provider_list_state.select_next();
+                                        edit_profile.provider_list_state.select_next();
                                     }
                                     KeyCode::Up => {
-                                        self.ui_state.provider_list_state.select_previous();
+                                        edit_profile.provider_list_state.select_previous();
                                     }
                                     KeyCode::Enter => {
-                                        let selected_provider = self.ui_state.provider_list_state.selected().unwrap_or(0);
+                                        let selected_provider = edit_profile.provider_list_state.selected().unwrap_or(0);
                                         let provider = vec!["anthropic", "databricks", "ollama", "openai"][selected_provider];
                                         edit_profile.provider = provider.to_string();
                                         edit_profile.focussed_field = InputField::Model;
