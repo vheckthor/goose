@@ -18,6 +18,8 @@ jobs:
         include:
           - os: ubuntu-latest
             target-suffix: unknown-linux-gnu
+          - os: ubuntu-latest
+            target-suffix: aarch64-unknown-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
     steps:
@@ -28,13 +30,14 @@ jobs:
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
 
-      # Install additional libraries for Linux
-      - name: Install Libraries for Linux
+      # Create Cross.toml dynamically for Linux
+      - name: Create Cross.toml
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt update -y
-          sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring libxcb1-dev
-          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+          echo "[target.x86_64-unknown-linux-gnu]" > Cross.toml
+          echo "pre-build = [\"apt-get update && apt-get install -y libssl-dev\"]" >> Cross.toml
+          echo "[target.aarch64-unknown-linux-gnu]" >> Cross.toml
+          echo "pre-build = [\"apt-get update && apt-get install -y libssl-dev\"]" >> Cross.toml
 
       # Build the project
       - id: build
@@ -44,7 +47,7 @@ jobs:
           export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
-
+          
           cross build --release --target ${TARGET}
 
           export TARGET_PATH=target/${TARGET}/release/goose-${TARGET}
