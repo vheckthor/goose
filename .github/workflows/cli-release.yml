@@ -31,13 +31,17 @@ jobs:
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
 
-      - name: Install dependencies for cross-compilation (Ubuntu only)
+      - name: Install cross-compilation dependencies
         if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y libssl-dev gcc-aarch64-linux-gnu
+          sudo apt-get install -y \
+            libssl-dev:arm64 \
+            gcc-aarch64-linux-gnu \
+            pkg-config
 
-      - name: Configure OpenSSL for cross-compilation (Ubuntu only)
+      - name: Configure OpenSSL for cross-compilation
         if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
         run: |
           export OPENSSL_DIR=/usr/lib/aarch64-linux-gnu
