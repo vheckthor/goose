@@ -32,12 +32,6 @@ jobs:
           sudo apt update -y
           sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring libxcb1-dev
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-      - name: SSL config on linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          echo "OPENSSL_DIR=/usr" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV                                  
-
       - id: build
         name: build
         shell: bash
@@ -45,7 +39,7 @@ jobs:
           export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
-          cross build --release --target ${TARGET}
+          cross build --release --target ${TARGET} --features openssl/vendored
           export TARGET_PATH=target/${TARGET}/release/goose-${TARGET}
           mv target/${TARGET}/release/goose ${TARGET_PATH}
           bzip2 -f9 ${TARGET_PATH}
