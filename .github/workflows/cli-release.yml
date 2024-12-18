@@ -28,6 +28,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Debug Ubuntu version
+        if: matrix.os == 'ubuntu-latest'
+        run: cat /etc/os-release
+
+      - name: Clean APT sources and update
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo sed -i 's/noble/jammy/g' /etc/apt/sources.list
+          sudo apt-get update
+
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -38,11 +49,10 @@ jobs:
       - name: Install dependencies for Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev
           if [ "${{ matrix.architecture }}" == "aarch64" ]; then
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
             sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev:arm64 libc6-dev-arm64-cross
           fi
 
@@ -80,5 +90,5 @@ jobs:
         with:
           artifacts: "goose-*.tar.bz2"
           token: ${{ secrets.GITHUB_TOKEN }}
-          draft: true
-          prerelease: true
+          draft: false
+          prerelease: false
