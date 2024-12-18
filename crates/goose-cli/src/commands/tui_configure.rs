@@ -59,6 +59,7 @@ struct EditableProfile {
     pub errors: HashMap<InputField, Option<String>>,
     pub provider_drowdown_open: bool,
     pub provider_list_state: ListState,
+    pub edited: bool,
 }
 
 impl EditableProfile {
@@ -80,6 +81,7 @@ impl EditableProfile {
             errors: HashMap::new(),
             provider_drowdown_open: false,
             provider_list_state: ListState::default(),
+            edited: false,
         };
 
         it.validate();
@@ -249,9 +251,7 @@ impl App {
                 f.render_widget(edit_header, edit_section_chunks[0]);
 
 
-                let edit_profile = self.edit_profile.as_ref().unwrap();
-                // TODO: Add provider
-                
+                let edit_profile = self.edit_profile.as_ref().unwrap();                
                 let input_offset = 22;
                 let lines = vec![
                     editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset),
@@ -312,8 +312,14 @@ impl App {
 
         // Footer
         let actions = match self.ui_state.ui_mode {
-            UIMode::ProfileView => vec!["Profile","[N] New", "[E] Edit"],
-            UIMode::ProfileEdit => vec!["Profile","[Enter] Save", "[Esc] Cancel"],
+            UIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
+            UIMode::ProfileEdit => {
+                if self.edit_profile.as_ref().unwrap().edited {
+                    vec![Span::raw("Profile"),Span::styled("[Enter] Save", Style::default().add_modifier(Modifier::BOLD)), Span::raw("[Esc] Cancel")]
+                } else {
+                    vec![Span::raw("Profile"),Span::raw("[Enter] Save"), Span::raw("[Esc] Cancel")]
+                }
+            }
         };
         render_footer(f, footer_area, &actions);
     }
@@ -351,7 +357,6 @@ impl App {
                 }
                 UIMode::ProfileEdit => {
                     if let Some(edit_profile) = self.edit_profile.as_mut() {
-                        // TODO: Add a better way to pass over the list or engage with it.
                         if edit_profile.focussed_field == InputField::Provider {
                             if edit_profile.provider_drowdown_open {
                                 match key.code {
@@ -366,6 +371,7 @@ impl App {
                                         edit_profile.provider_list_state.select_previous();
                                     }
                                     KeyCode::Enter => {
+                                        edit_profile.edited = true;
                                         let selected_provider = edit_profile.provider_list_state.selected().unwrap_or(0);
                                         let provider = provider_list()[selected_provider].clone();
                                         edit_profile.provider = provider.to_string();
@@ -427,6 +433,7 @@ impl App {
                                         profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
 
                                         self.ui_state.ui_mode = UIMode::ProfileView;
+                                        self.edit_profile = None;
                                     }
                                 }
                                 KeyCode::Down | KeyCode::Tab => {
@@ -437,6 +444,7 @@ impl App {
                                 }
                                 // Add cancel key
                                 _ => {
+                                    edit_profile.edited = true;
                                     if let Some(edit_profile) = self.edit_profile.as_mut() {
                                         match edit_profile.focussed_field {
                                             //TODO: validations
@@ -501,10 +509,10 @@ fn render_header(f: &mut Frame, header_area: layout::Rect) {
     f.render_widget(Block::default().borders(Borders::TOP).title(title), header_area);
 }
 
-fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<&str>) {
-    let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].into(), Span::raw(":"), Span::raw(" ".repeat(3))];
+fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>) {
+    let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].clone().into(), Span::raw(":"), Span::raw(" ".repeat(3))];
     let actions_suffix = actions.iter().skip(1).fold(Vec::new(), |mut acc, action| {
-        acc.push(Span::styled(*action, Style::default()));
+        acc.push(action.clone());
         acc.push(Span::raw(" ".repeat(3)));
         acc
     });
