@@ -301,7 +301,7 @@ impl App {
                     f.render_widget(Clear::default(), target_area);
                     let block = Block::new()
                         .borders(Borders::ALL);
-                    let provider_list = List::new(vec!["anthropic", "databricks", "ollama", "openai"])
+                    let provider_list = List::new(provider_list())
                         .highlight_symbol(" > ")
                         .highlight_spacing(HighlightSpacing::Always)
                         .block(block);
@@ -367,14 +367,14 @@ impl App {
                                     }
                                     KeyCode::Enter => {
                                         let selected_provider = edit_profile.provider_list_state.selected().unwrap_or(0);
-                                        let provider = vec!["anthropic", "databricks", "ollama", "openai"][selected_provider];
+                                        let provider = provider_list()[selected_provider].clone();
                                         edit_profile.provider = provider.to_string();
                                         edit_profile.focussed_field = InputField::Model;
                                         edit_profile.provider_drowdown_open = false;
                                     }
                                     _ => {}
                                 }
-                            } else {
+                            } else { // provider dropdown not open
                                 match key.code {
                                     KeyCode::Esc => {
                                         self.ui_state.ui_mode = UIMode::ProfileView;
@@ -388,6 +388,8 @@ impl App {
                                     }
                                     _ => {
                                         edit_profile.provider_drowdown_open = true;
+                                        let index = provider_list().iter().position(|provider| provider == &edit_profile.provider).unwrap_or(0);
+                                        edit_profile.provider_list_state.select(Some(index));
                                     }
                                 }
                             }
@@ -585,4 +587,8 @@ fn prev_field(current_field: InputField) -> InputField {
         InputField::MaxTokens => InputField::ContextLimit,
         InputField::EstimateFactor => InputField::MaxTokens,
     }
+}
+
+fn provider_list() -> Vec<String> {
+    vec!["anthropic".to_string(), "databricks".to_string(), "ollama".to_string(), "openai".to_string()]
 }
