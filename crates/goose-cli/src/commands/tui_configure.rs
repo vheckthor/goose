@@ -1,11 +1,11 @@
 use std::{
-    cmp::max, collections::HashMap, io::{self, stdout}, panic::{set_hook, take_hook}, vec
+    cmp::max, collections::HashMap, hash::Hash, io::{self, stdout}, panic::{set_hook, take_hook}, vec
 };
 
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout}, style::{Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Padding, Paragraph}, Frame, Terminal
+    }, layout::{self, Layout}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Padding, Paragraph}, Frame, Terminal
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
 
@@ -55,6 +55,7 @@ struct EditableProfile {
     pub context_limit: Input,
     pub max_tokens: Input,
     pub estimate_factor: Input,
+    pub errors: HashMap<InputField, Option<String>>,
 }
 
 impl EditableProfile {
@@ -63,7 +64,7 @@ impl EditableProfile {
         let context_limit = profile.context_limit.map_or_else(Input::default, |limit| Input::default().with_value(limit.to_string()));
         let max_tokens = profile.max_tokens.map_or_else(Input::default, |tokens| Input::default().with_value(tokens.to_string()));
         let estimate_factor = profile.estimate_factor.map_or_else(Input::default, |factor| Input::default().with_value(factor.to_string()));
-        Self {
+        let mut it = Self {
             focussed_field: InputField::Name,
             name: Input::default().with_value(name.to_string()),
             model: Input::default().with_value(profile.model.clone()),
@@ -71,11 +72,36 @@ impl EditableProfile {
             context_limit,
             max_tokens,
             estimate_factor,
+            errors: HashMap::new(),
+        };
+
+        it.validate();
+        it
+    }
+
+    fn validate(&mut self) {
+        let mut errors: HashMap<InputField, Option<String>> = HashMap::new();
+        if self.name.value().is_empty() {
+            errors.insert(InputField::Name, Some("Required".to_string()));
+        } else {
+            errors.insert(InputField::Name, None);
         }
+
+        if self.model.value().is_empty() {
+            errors.insert(InputField::Model, Some("Required".to_string()));
+        } else {
+            errors.insert(InputField::Model, None);
+        }
+
+        self.errors = errors;
+    }
+
+    fn is_valid(&self) -> bool {
+        self.errors.iter().all(|(_, error)| error.is_none())
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum InputField {
     Name,
     // Provider,
@@ -184,9 +210,9 @@ impl App {
                     let profile_view = Paragraph::new(vec![
                         Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
                         Line::from(vec!["".into()]),
-                        Line::from(vec!["    Name:         ".into(), selected_profile_name.clone().into()]),
-                        Line::from(vec!["    Provider:     ".into(), selected_profile.provider.clone().into()]),
-                        Line::from(vec!["    Model:        ".into(), selected_profile.model.clone().into()]),
+                        Line::from(vec!["    Name:              ".into(), selected_profile_name.clone().into()]),
+                        Line::from(vec!["    Provider:          ".into(), selected_profile.provider.clone().into()]),
+                        Line::from(vec!["    Model:             ".into(), selected_profile.model.clone().into()]),
                     ]).block(Block::default().borders(Borders::LEFT));
                     f.render_widget(profile_view, main_area_horizontal_chunks[1]);
                 } else {
@@ -201,7 +227,7 @@ impl App {
             UIMode::ProfileEdit => {
                 let edit_section_chunks = Layout::default()
                     .direction(layout::Direction::Vertical)
-                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1), layout::Constraint::Min(1)])
+                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
                     .split(main_area_horizontal_chunks[1]);
 
                 // TODO: Implement editing profile
@@ -215,12 +241,42 @@ impl App {
 
                 // TODO: Render editable fields
                 let edit_profile = self.edit_profile.as_ref().unwrap();
-                render_editable_profile_row(f, "Name", &edit_profile.name, edit_section_chunks[1], edit_profile.focussed_field == InputField::Name);
-                render_editable_profile_row(f, "Model", &edit_profile.model, edit_section_chunks[2], edit_profile.focussed_field == InputField::Model);
-                render_editable_profile_row(f, "Temperature", &edit_profile.temperature, edit_section_chunks[3], edit_profile.focussed_field == InputField::Temperature);
-                render_editable_profile_row(f, "Context Limit", &edit_profile.context_limit, edit_section_chunks[4], edit_profile.focussed_field == InputField::ContextLimit);
-                render_editable_profile_row(f, "Max Tokens", &edit_profile.max_tokens, edit_section_chunks[5], edit_profile.focussed_field == InputField::MaxTokens);
-                render_editable_profile_row(f, "Estimate Factor", &edit_profile.estimate_factor, edit_section_chunks[6], edit_profile.focussed_field == InputField::EstimateFactor);
+                // TODO: Rather than rendering a paragraph for each field, we can try rendering a single paragraph with multiple lines to keep it compact.
+                // TODO: Add provider
+                
+                let input_offset = 22;
+                let lines = vec![
+                    editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset),
+                    editable_profile_line("Model", &edit_profile.model, edit_profile.errors.get(&InputField::Model).cloned().flatten(), input_offset),
+                    editable_profile_line("Temperature", &edit_profile.temperature, None, input_offset),
+                    editable_profile_line("Context Limit", &edit_profile.context_limit, None, input_offset),
+                    editable_profile_line("Max Tokens", &edit_profile.max_tokens, None, input_offset),
+                    editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset),
+                ];
+                let edit_profile_area_pos = edit_section_chunks[1].as_position();
+                match edit_profile.focussed_field {
+                    InputField::Name => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
+                    },
+                    InputField::Model => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 1));
+                    },
+                    InputField::Temperature => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.temperature.visual_cursor() as u16, edit_profile_area_pos.y + 2));
+                    },
+                    InputField::ContextLimit => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.context_limit.visual_cursor() as u16, edit_profile_area_pos.y + 3));
+                    },
+                    InputField::MaxTokens => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.max_tokens.visual_cursor() as u16, edit_profile_area_pos.y + 4));
+                    },
+                    InputField::EstimateFactor => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 1 + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 5));
+                    },
+                }
+                let edit_profile = Paragraph::new(lines)
+                    .block(Block::default().borders(Borders::LEFT));
+                f.render_widget(edit_profile, edit_section_chunks[1]);
             }
         }
 
@@ -389,17 +445,12 @@ fn profile_list_names(profiles: &HashMap<String, Profile>) -> Vec<String> {
     strs
 }
 
-fn render_editable_profile_row(f: &mut Frame, label: &str, input: &Input, area: layout::Rect, focussed: bool) {
-    let scroll = input.visual_scroll(50 as usize);
-    let line = Line::from(vec!["     ".into(), label.into(), "       ".into(), input.value().into()]);
-    let pre_input_width = (line.clone().width() - input.value().len()) as u16;
-    let label = Paragraph::new(line)
-        .scroll((0, scroll as u16))
-        .block(Block::default().borders(Borders::NONE).padding(Padding::ZERO));
-    f.render_widget(label, area);
-    
-
-    if focussed {
-        f.set_cursor_position((area.x + pre_input_width + ((input.visual_cursor()).max(scroll) - scroll) as u16, area.y ));
-    }
+fn editable_profile_line<'a>(label: &'a str, input: &'a Input, error: Option<String>, input_offset: u16) -> Line<'a> {
+    let err_span = if let Some(err) = error {
+        Span::styled(err.clone(), Style::default().fg(Color::Red))
+    } else {
+        Span::raw("".to_string())
+    };
+    let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 4);
+    Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.value().into(), "       ".into(), err_span])
 }
