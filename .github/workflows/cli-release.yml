@@ -19,10 +19,14 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         architecture: [x86_64, aarch64]
         include:
+          # Build on Ubuntu only for x86_64
           - os: ubuntu-latest
+            architecture: x86_64
             suffix: unknown-linux-gnu
+          # Cross-compile on macOS for aarch64
           - os: macos-latest
-            suffix: apple-darwin
+            architecture: aarch64
+            suffix: unknown-linux-gnu
     steps:
       - uses: actions/checkout@v4
 
@@ -31,46 +35,32 @@ jobs:
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
 
-      - name: Install cross-compilation dependencies
-        if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
+      # Install dependencies and set up for macOS cross-compilation
+      - name: Install dependencies (macOS only)
+        if: matrix.os == 'macos-latest' && matrix.architecture == 'aarch64'
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            libssl-dev:arm64 \
-            gcc-aarch64-linux-gnu \
-            pkg-config
+          brew install llvm
+          rustup target add aarch64-unknown-linux-gnu
+          echo "export PATH=$(brew --prefix llvm)/bin:\$PATH" >> $GITHUB_ENV
 
-      - name: Configure OpenSSL for cross-compilation
-        if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
-        run: |
-          export OPENSSL_DIR=/usr/lib/aarch64-linux-gnu
-          export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-          echo "OPENSSL_DIR=${OPENSSL_DIR}" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-
-      - name: Install Cross (Ubuntu only)
-        if: matrix.os == 'ubuntu-latest'
-        run: cargo install cross
-
-      - id: build
-        shell: bash
+      - name: Build
         run: |
           export TARGET=${{ matrix.architecture }}-${{ matrix.suffix }}
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            cross build --release --target $TARGET
+          if [ "${{ matrix.os }}" == "macos-latest" ] && [ "${{ matrix.architecture }}" == "aarch64" ]; then
+            CC=aarch64-linux-gnu-gcc \
+            CXX=aarch64-linux-gnu-g++ \
+            cargo build --release --target $TARGET
           else
             cargo build --release --target $TARGET
           fi
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
-          export TARGET_PATH="target/${TARGET}/release/goose-${TARGET}.tar.bz2"
-          echo "TARGET_PATH=${TARGET_PATH}" >> $GITHUB_OUTPUT
+          echo "goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
           name: goose-${{ matrix.architecture }}-${{ matrix.suffix }}
-          path: ${{ steps.build.outputs.TARGET_PATH }}
+          path: target/${{ matrix.architecture }}-${{ matrix.suffix }}/release/goose-*.tar.bz2
 
   release:
     name: Release
