@@ -16,10 +16,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04, macos-latest] # Explicitly set Ubuntu version
         architecture: [x86_64, aarch64]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             suffix: unknown-linux-gnu
           - os: macos-latest
             suffix: apple-darwin
@@ -27,17 +27,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Debug Ubuntu version
-        if: matrix.os == 'ubuntu-latest'
-        run: cat /etc/os-release
-
-      - name: Clean APT sources and update
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo sed -i 's/noble/jammy/g' /etc/apt/sources.list
-          sudo apt-get update
 
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -47,7 +36,7 @@ jobs:
           override: true
 
       - name: Install dependencies for Linux
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo dpkg --add-architecture arm64
           sudo apt-get update
@@ -75,7 +64,7 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Explicitly set Ubuntu version
     needs: build
     permissions:
       contents: write
