@@ -31,7 +31,9 @@ jobs:
         run: |
           sudo apt update -y
           sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring libxcb1-dev
-          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'        
+          gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+          echo "OPENSSL_DIR=/usr" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV                  
       - id: build
         shell: bash
         run: |
