@@ -22,28 +22,40 @@ jobs:
             target-suffix: apple-darwin
     steps:
       - uses: actions/checkout@v4
-      - name: Install cross
-        shell: bash
+
+      # Install cross from Git for both macOS and Linux
+      - name: Install cross from Git
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
-      - name: Install Libs for linux
+
+      # Install additional libraries for Linux
+      - name: Install Libraries for Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update -y
           sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring libxcb1-dev
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+
+      # Build the project
       - id: build
-        name: build
+        name: Build the project
         shell: bash
         run: |
           export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
-          cross build --release --target ${TARGET} --features openssl/vendored
+          
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            cross build --release --target ${TARGET} --features openssl/vendored
+          else
+            cross build --release --target ${TARGET}
+          fi
+
           export TARGET_PATH=target/${TARGET}/release/goose-${TARGET}
           mv target/${TARGET}/release/goose ${TARGET_PATH}
           bzip2 -f9 ${TARGET_PATH}
           echo "TARGET_PATH=${TARGET_PATH}.bz2" >> $GITHUB_OUTPUT
+
       - uses: actions/upload-artifact@v4
         with:
           name: goose-${{ matrix.arch }}-${{ matrix.target-suffix }}
