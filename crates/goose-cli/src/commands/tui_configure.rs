@@ -2,14 +2,14 @@ use std::{
     cmp::max, collections::HashMap, io::{self, stdout}, panic::{set_hook, take_hook}, vec
 };
 
-use console::Key;
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Paragraph}, Frame, Terminal
+    }, layout::{self, Layout}, style::{Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Paragraph}, Frame, Terminal
 };
+use tui_input::{backend::crossterm::EventHandler, Input};
 
-use crate::{main, profile::{load_profiles, Profile}};
+use crate::profile::{load_profiles, Profile};
 
 pub async fn handle_tui_configure() -> io::Result<()> {
     init_panic_hook();
@@ -49,19 +49,19 @@ struct ConfigureState {
 #[derive(Clone)]
 struct EditableProfile {
     pub focussed_field: InputField,
-    // pub name: TextState<'a>,
+    pub name: Input
 }
 
 impl EditableProfile {
     fn new(name: &String, profile: &Profile) -> Self {
         Self {
             focussed_field: InputField::Name,
-            // name: TextState::new().with_value(name.clone()),
+            name: Input::default().with_value(name.to_string())
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 enum InputField {
     Name,
     // Provider,
@@ -194,7 +194,10 @@ impl App {
 
                 f.render_widget(edit_header, edit_section_chunks[0]);
 
+
                 // TODO: Render editable fields
+                render_editable_profile_row(f, "Name", &self.edit_profile.as_ref().unwrap().name, edit_section_chunks[1], self.edit_profile.as_ref().unwrap().focussed_field == InputField::Name);
+
             }
         }
 
@@ -204,14 +207,14 @@ impl App {
 
     fn handle_events(&mut self) -> io::Result<AppOutcome> {
         if let Event::Key(key) = event::read()? {
+            match key {
+                KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL, kind: KeyEventKind::Press, state: KeyEventState::NONE } => {
+                    return Ok(AppOutcome::Exit);
+                }
+                _ => {}
+            }
             match self.ui_state.ui_mode {
                 UIMode::ProfileView => {
-                    match key {
-                        KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL, kind: KeyEventKind::Press, state: KeyEventState::NONE } => {
-                            return Ok(AppOutcome::Exit);
-                        }
-                        _ => {}
-                    }
                     match key.code {
                         KeyCode::Char('q') => {
                             return Ok(AppOutcome::Exit);
@@ -238,20 +241,45 @@ impl App {
                         KeyCode::Esc => {
                             self.ui_state.ui_mode = UIMode::ProfileView;
                             self.edit_profile = None;
-                        },
-                        KeyCode::Enter => {
-                            // Handle submit
+                        }
+                        KeyCode::Enter => { // Change to save key
+                            if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                match edit_profile.focussed_field {
+                                    InputField::Name => {
+                                        let profile_names = profile_list_names(&self.ui_state.profiles);
+                                        let (name, _) = selected_profile(&self.ui_state, &profile_names).unwrap();
+                                        let name_clone = name.clone();
+                                        if edit_profile.name.value() != name_clone {
+                                            self.ui_state.profiles.remove(&name_clone);
+                                        }
+                                    },
+                                }
+                                // TODO: Update all the other fields and save the profiles.
+                                self.ui_state.profiles.insert(edit_profile.name.value().to_string(), Profile {
+                                    provider: "todo".to_string(),
+                                    model: "todo".to_string(),
+                                    additional_systems: vec![],
+                                    temperature: None,
+                                    context_limit: None,
+                                    max_tokens: None,
+                                    estimate_factor: None,
+                                });
+                                self.ui_state.ui_mode = UIMode::ProfileView;
+                            }
                         }
                         // Handle up/down arrow keys
+                        // Add cancel key
                         _ => {
-                            // match self.edit_profile.unwrap().focussed_field {
-                            //     InputField::Name => {
-                            //         self.edit_profile.unwrap().name.handle_key_event(KeyEvent::from(key));
-                            //     }
-                            // }
+                            if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                match edit_profile.focussed_field {
+                                    InputField::Name => {
+                                        edit_profile.name.handle_event(&Event::Key(key));
+                                    },
+                                }
+                            }
                         }
                     }
-                },
+                }
             }
         }
         Ok(AppOutcome::Continue)
@@ -265,7 +293,7 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
         match app.handle_events() {
             Ok(AppOutcome::Continue) => continue,
             Ok(AppOutcome::Exit) => break,
-            Err(e) => break,
+            Err(_) => break,
         }
     }
     restore_tui()?;
@@ -319,4 +347,19 @@ fn profile_list_names(profiles: &HashMap<String, Profile>) -> Vec<String> {
     let mut strs: Vec<String> = profiles.iter().map(|(name, _)| name.clone()).collect();
     strs.sort();
     strs
+}
+
+fn render_editable_profile_row(f: &mut Frame, label: &str, input: &Input, area: layout::Rect, focussed: bool) {
+    let scroll = input.visual_scroll(200 as usize);
+    let line = Line::from(vec!["     ".into(), label.into(), "       ".into(), input.value().into()]);
+    let pre_input_width = (line.clone().width() - input.value().len()) as u16;
+    let label = Paragraph::new(line)
+        .scroll((0, scroll as u16))
+        .block(Block::default().borders(Borders::NONE));
+    f.render_widget(label, area);
+    
+
+    if focussed {
+        f.set_cursor_position((area.x + pre_input_width + ((input.visual_cursor()).max(scroll) - scroll) as u16, area.y ));
+    }
 }
