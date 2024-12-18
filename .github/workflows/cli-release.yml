@@ -30,13 +30,18 @@ jobs:
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
 
+      # Install Rust target
+      - name: Install Rust Target
+        run: |
+          rustup target add ${{ matrix.target-suffix }}
+
       # Create Cross.toml dynamically for Linux
       - name: Create Cross.toml
         if: matrix.os == 'ubuntu-latest'
         run: |
-          echo "[target.x86_64-unknown-linux-gnu]" > Cross.toml
+          echo "[target.aarch64-unknown-linux-gnu]" > Cross.toml
           echo "pre-build = [\"apt-get update && apt-get install -y libssl-dev\"]" >> Cross.toml
-          echo "[target.aarch64-unknown-linux-gnu]" >> Cross.toml
+          echo "[target.x86_64-unknown-linux-gnu]" >> Cross.toml
           echo "pre-build = [\"apt-get update && apt-get install -y libssl-dev\"]" >> Cross.toml
 
       # Build the project
@@ -46,7 +51,6 @@ jobs:
         run: |
           export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
-          rustup target add "${TARGET}"
           
           cross build --release --target ${TARGET}
 
