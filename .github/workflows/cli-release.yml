@@ -1,7 +1,7 @@
 on:
   push:
     tags:
-      - "v1.*"
+      - "v00.*"
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}
@@ -13,10 +13,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-22.04, macos-latest]
         architecture: [x86_64, aarch64]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             suffix: unknown-linux-gnu
           - os: macos-latest
             suffix: apple-darwin
@@ -27,15 +27,15 @@ jobs:
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
       - name: Install cross-compilation tools and dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
+          if [ "${{ matrix.architecture }}" = "aarch64" ]; then
+            sudo dpkg --add-architecture arm64
+          fi
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev
           if [ "${{ matrix.architecture }}" = "aarch64" ]; then
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-            sudo apt-get install -y libssl-dev:arm64 libc6-dev-arm64-cross
+            sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev:arm64 libc6-dev-arm64-cross
           fi
       - id: build
         shell: bash
