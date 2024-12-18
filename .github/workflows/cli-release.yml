@@ -26,26 +26,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Rust
+      - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          target: ${{ matrix.architecture }}-${{ matrix.suffix }}
+
+      - name: Install Cross
+        run: cargo install cross
 
       - name: Add Rust target for cross-compilation
-        if: matrix.architecture == 'aarch64'
-        run: rustup target add aarch64-unknown-linux-gnu
-
-      - name: Install dependencies for cross-compilation
-        if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          rustup target add ${{ matrix.architecture }}-${{ matrix.suffix }}
 
       - id: build
         shell: bash
         run: |
           export TARGET=${{ matrix.architecture }}-${{ matrix.suffix }}
-          cargo build --release --target $TARGET
+          cross build --release --target $TARGET
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
           export TARGET_PATH="target/${TARGET}/release/goose-${TARGET}.tar.bz2"
@@ -55,8 +50,6 @@ jobs:
         with:
           name: goose-${{ matrix.architecture }}-${{ matrix.suffix }}
           path: ${{ steps.build.outputs.TARGET_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release:
     name: Release
