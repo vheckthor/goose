@@ -347,7 +347,30 @@ impl App {
                                 self.ui_state.ui_mode = UIMode::ProfileView;
                             }
                         }
-                        // Handle up/down arrow keys
+                        KeyCode::Down => {
+                            if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                edit_profile.focussed_field = match edit_profile.focussed_field {
+                                    InputField::Name => InputField::Model,
+                                    InputField::Model => InputField::Temperature,
+                                    InputField::Temperature => InputField::ContextLimit,
+                                    InputField::ContextLimit => InputField::MaxTokens,
+                                    InputField::MaxTokens => InputField::EstimateFactor,
+                                    InputField::EstimateFactor => InputField::Name,
+                                };
+                            }
+                        }
+                        KeyCode::Up => {
+                            if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                edit_profile.focussed_field = match edit_profile.focussed_field {
+                                    InputField::Name => InputField::EstimateFactor,
+                                    InputField::Model => InputField::Name,
+                                    InputField::Temperature => InputField::Model,
+                                    InputField::ContextLimit => InputField::Temperature,
+                                    InputField::MaxTokens => InputField::ContextLimit,
+                                    InputField::EstimateFactor => InputField::MaxTokens,
+                                };
+                            }
+                        }
                         // Add cancel key
                         _ => {
                             if let Some(edit_profile) = self.edit_profile.as_mut() {
@@ -451,6 +474,6 @@ fn editable_profile_line<'a>(label: &'a str, input: &'a Input, error: Option<Str
     } else {
         Span::raw("".to_string())
     };
-    let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 4);
+    let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 5);
     Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.value().into(), "       ".into(), err_span])
 }
