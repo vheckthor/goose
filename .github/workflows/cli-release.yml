@@ -26,21 +26,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.architecture }}-${{ matrix.suffix }}
 
-      - name: Install Cross
+      - name: Install Cross (Ubuntu only)
+        if: matrix.os == 'ubuntu-latest'
         run: cargo install cross
-
-      - name: Add Rust target for cross-compilation
-        run: |
-          rustup target add ${{ matrix.architecture }}-${{ matrix.suffix }}
 
       - id: build
         shell: bash
         run: |
           export TARGET=${{ matrix.architecture }}-${{ matrix.suffix }}
-          cross build --release --target $TARGET
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            cross build --release --target $TARGET
+          else
+            cargo build --release --target $TARGET
+          fi
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
           export TARGET_PATH="target/${TARGET}/release/goose-${TARGET}.tar.bz2"
