@@ -25,17 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install cross from Git for both macOS and Linux
+      # Install cross from Git
       - name: Install cross from Git
         run: |
           cargo install cross --git https://github.com/cross-rs/cross
 
-      # Install Rust target
-      - name: Install Rust Target
+      # Ensure Rust target is added (Linux only)
+      - name: Add Rust Target
+        if: matrix.os == 'ubuntu-latest'
         run: |
           rustup target add ${{ matrix.target-suffix }}
 
-      # Create Cross.toml dynamically for Linux
+      # Dynamically create Cross.toml for Linux
       - name: Create Cross.toml
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -44,15 +45,15 @@ jobs:
           echo "[target.x86_64-unknown-linux-gnu]" >> Cross.toml
           echo "pre-build = [\"apt-get update && apt-get install -y libssl-dev\"]" >> Cross.toml
 
-      # Build the project
+      # Build the project using cross
       - id: build
         name: Build the project
         shell: bash
         run: |
           export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
-          
-          cross build --release --target ${TARGET}
+
+          cross build --release --target ${TARGET} -vv
 
           export TARGET_PATH=target/${TARGET}/release/goose-${TARGET}
           mv target/${TARGET}/release/goose ${TARGET_PATH}
