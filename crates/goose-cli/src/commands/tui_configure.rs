@@ -5,7 +5,7 @@ use std::{
 use ratatui::{
     backend::{Backend, CrosstermBackend}, buffer::Buffer, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Clear, HighlightSpacing, List, ListState, Paragraph, Widget}, Frame, Terminal
+    }, layout::{self, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Clear, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget}, Frame, Terminal
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
 
@@ -260,14 +260,14 @@ impl App {
                     editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset),
                 ];
                 let edit_profile_area_pos = edit_section_chunks[1].as_position();
-                let mut provider_popup: Option<ProviderPopup> = None;
+                // let mut provider_popup: Option<ProviderPopup> = None;
                 match edit_profile.focussed_field {
                     InputField::Name => {
                         f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
                     },
                     InputField::Provider => {
                         f.set_cursor_position((edit_profile_area_pos.x + input_offset + 0, edit_profile_area_pos.y + 1));
-                        provider_popup = Some(ProviderPopup{});
+                        // provider_popup = Some(ProviderPopup{});
                     },
                     InputField::Model => {
                         f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 2));
@@ -285,14 +285,27 @@ impl App {
                         f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 6));
                     },
                 }
-                let edit_profile = Paragraph::new(lines)
+                let edit_profile_form = Paragraph::new(lines)
                     .block(Block::default().borders(Borders::NONE));
-                f.render_widget(edit_profile, edit_section_chunks[1]);
-                if let Some(provider_popup) = provider_popup {
+                f.render_widget(edit_profile_form, edit_section_chunks[1]);
+
+                if edit_profile.focussed_field == InputField::Provider {
                     let target_area = Rect::new(edit_profile_area_pos.x + input_offset + 14, edit_profile_area_pos.y + 1, 17, 6);
-                    f.render_widget(provider_popup, target_area);
-                    // .render(edit_section_chunks[1], f.buffer_mut());
+                    f.render_widget(Clear::default(), target_area);
+                    let block = Block::new()
+                        .borders(Borders::ALL);
+                    let provider_list = List::new(vec!["anthropic", "databricks", "ollama", "openai"])
+                        .highlight_symbol(" > ")
+                        .highlight_spacing(HighlightSpacing::Always)
+                        .block(block);
+                    f.render_stateful_widget(provider_list, target_area, &mut self.ui_state.provider_list_state);
                 }
+
+                // if let Some(provider_popup) = provider_popup {
+                //     let target_area = Rect::new(edit_profile_area_pos.x + input_offset + 14, edit_profile_area_pos.y + 1, 17, 6);
+                //     f.render_stateful_widget(provider_popup, target_area, &mut self.ui_state.provider_list_state);
+                //     // .render(edit_section_chunks[1], f.buffer_mut());
+                // }
             }
         }
 
@@ -336,93 +349,117 @@ impl App {
                     }
                 }
                 UIMode::ProfileEdit => {
-                    match key.code {
-                        KeyCode::Esc => {
-                            self.ui_state.ui_mode = UIMode::ProfileView;
-                            self.edit_profile = None;
-                        }
-                        KeyCode::Enter => { // Change to save key
-                            if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                match edit_profile.focussed_field {
-                                    InputField::Name => {
-                                        let profile_names = profile_list_names(&self.ui_state.profiles);
-                                        let (name, _) = selected_profile(&self.ui_state, &profile_names).unwrap();
-                                        let name_clone = name.clone();
-                                        if edit_profile.name.value() != name_clone {
-                                            self.ui_state.profiles.remove(&name_clone);
-                                        }
-                                        profile::remove_profile(name_clone.as_str()).unwrap();
-                                    },
-                                    _ => {}
+                    if let Some(edit_profile) = self.edit_profile.as_mut() {
+                        // TODO: Add a better way to pass over the list or engage with it.
+                        if edit_profile.focussed_field == InputField::Provider {
+                            match key.code {
+                                KeyCode::Esc => {
+                                    edit_profile.focussed_field = InputField::Model;
+                                },
+                                KeyCode::Down => {
+                                    self.ui_state.provider_list_state.select_next();
                                 }
-                                // TODO: Update all the other fields and save the profiles.
-                                let new_profile = Profile {
-                                    provider: "todo".to_string(),
-                                    model: edit_profile.model.value().to_string(),
-                                    additional_systems: vec![],
-                                    temperature: edit_profile.temperature.value().parse().ok(),
-                                    context_limit: edit_profile.context_limit.value().parse().ok(),
-                                    max_tokens: edit_profile.max_tokens.value().parse().ok(),
-                                    estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
-                                };
-                                self.ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
-                                profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
+                                KeyCode::Up => {
+                                    self.ui_state.provider_list_state.select_previous();
+                                }
+                                KeyCode::Enter => {
+                                    let selected_provider = self.ui_state.provider_list_state.selected().unwrap_or(0);
+                                    let provider = vec!["anthropic", "databricks", "ollama", "openai"][selected_provider];
+                                    edit_profile.provider = provider.to_string();
+                                    edit_profile.focussed_field = InputField::Model;
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            match key.code {
+                                KeyCode::Esc => {
+                                    self.ui_state.ui_mode = UIMode::ProfileView;
+                                    self.edit_profile = None;
+                                },
+                                KeyCode::Enter => { // Change to save key
+                                    if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                        match edit_profile.focussed_field {
+                                            InputField::Name => {
+                                                let profile_names = profile_list_names(&self.ui_state.profiles);
+                                                let (name, _) = selected_profile(&self.ui_state, &profile_names).unwrap();
+                                                let name_clone = name.clone();
+                                                if edit_profile.name.value() != name_clone {
+                                                    self.ui_state.profiles.remove(&name_clone);
+                                                }
+                                                profile::remove_profile(name_clone.as_str()).unwrap();
+                                            },
+                                            _ => {}
+                                        }
+                                        // TODO: Update all the other fields and save the profiles.
+                                        let new_profile = Profile {
+                                            provider: "todo".to_string(),
+                                            model: edit_profile.model.value().to_string(),
+                                            additional_systems: vec![],
+                                            temperature: edit_profile.temperature.value().parse().ok(),
+                                            context_limit: edit_profile.context_limit.value().parse().ok(),
+                                            max_tokens: edit_profile.max_tokens.value().parse().ok(),
+                                            estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
+                                        };
+                                        self.ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
+                                        profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
 
-                                self.ui_state.ui_mode = UIMode::ProfileView;
-                            }
-                        }
-                        KeyCode::Down | KeyCode::Tab => {
-                            if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                edit_profile.focussed_field = match edit_profile.focussed_field {
-                                    InputField::Name => InputField::Provider,
-                                    InputField::Provider => InputField::Model,
-                                    InputField::Model => InputField::Temperature,
-                                    InputField::Temperature => InputField::ContextLimit,
-                                    InputField::ContextLimit => InputField::MaxTokens,
-                                    InputField::MaxTokens => InputField::EstimateFactor,
-                                    InputField::EstimateFactor => InputField::Name,
-                                };
-                            }
-                        }
-                        KeyCode::Up | KeyCode::BackTab => {
-                            if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                edit_profile.focussed_field = match edit_profile.focussed_field {
-                                    InputField::Name => InputField::EstimateFactor,
-                                    InputField::Provider => InputField::Name,
-                                    InputField::Model => InputField::Provider,
-                                    InputField::Temperature => InputField::Model,
-                                    InputField::ContextLimit => InputField::Temperature,
-                                    InputField::MaxTokens => InputField::ContextLimit,
-                                    InputField::EstimateFactor => InputField::MaxTokens,
-                                };
-                            }
-                        }
-                        // Add cancel key
-                        _ => {
-                            if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                match edit_profile.focussed_field {
-                                    //TODO: validations
-                                    InputField::Name => {
-                                        edit_profile.name.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::Provider => {
-                                        // edit_profile.provider.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::Model => {
-                                        edit_profile.model.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::Temperature => {
-                                        edit_profile.temperature.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::ContextLimit => {
-                                        edit_profile.context_limit.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::MaxTokens => {
-                                        edit_profile.max_tokens.handle_event(&Event::Key(key));
-                                    },
-                                    InputField::EstimateFactor => {
-                                        edit_profile.estimate_factor.handle_event(&Event::Key(key));
-                                    },
+                                        self.ui_state.ui_mode = UIMode::ProfileView;
+                                    }
+                                }
+                                KeyCode::Down | KeyCode::Tab => {
+                                    if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                        edit_profile.focussed_field = match edit_profile.focussed_field {
+                                            InputField::Name => InputField::Provider,
+                                            InputField::Provider => InputField::Model,
+                                            InputField::Model => InputField::Temperature,
+                                            InputField::Temperature => InputField::ContextLimit,
+                                            InputField::ContextLimit => InputField::MaxTokens,
+                                            InputField::MaxTokens => InputField::EstimateFactor,
+                                            InputField::EstimateFactor => InputField::Name,
+                                        };
+                                    }
+                                }
+                                KeyCode::Up | KeyCode::BackTab => {
+                                    if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                        edit_profile.focussed_field = match edit_profile.focussed_field {
+                                            InputField::Name => InputField::EstimateFactor,
+                                            InputField::Provider => InputField::Name,
+                                            InputField::Model => InputField::Provider,
+                                            InputField::Temperature => InputField::Model,
+                                            InputField::ContextLimit => InputField::Temperature,
+                                            InputField::MaxTokens => InputField::ContextLimit,
+                                            InputField::EstimateFactor => InputField::MaxTokens,
+                                        };
+                                    }
+                                }
+                                // Add cancel key
+                                _ => {
+                                    if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                        match edit_profile.focussed_field {
+                                            //TODO: validations
+                                            InputField::Name => {
+                                                edit_profile.name.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::Provider => {
+                                                // edit_profile.provider.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::Model => {
+                                                edit_profile.model.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::Temperature => {
+                                                edit_profile.temperature.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::ContextLimit => {
+                                                edit_profile.context_limit.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::MaxTokens => {
+                                                edit_profile.max_tokens.handle_event(&Event::Key(key));
+                                            },
+                                            InputField::EstimateFactor => {
+                                                edit_profile.estimate_factor.handle_event(&Event::Key(key));
+                                            },
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -515,25 +552,26 @@ fn non_editable_profile_line<'a>(label: &'a str, input: &'a str, error: Option<S
     Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.into(), "       ".into(), err_span])
 }
 
-#[derive(Debug)]
-struct ProviderPopup {
+// #[derive(Debug)]
+// struct ProviderPopup {
 
-}
+// }
 
-impl Widget for ProviderPopup {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        // ensure that all cells under the popup are cleared to avoid leaking content
-        Clear.render(area, buf);
-        let block = Block::new()
-            // .title(self.title)
-            // .title_style(self.title_style)
-            .borders(Borders::ALL);
-            // .border_style(self.border_style);
-            // List::new(vec!["OpenAI", "Databricks", "Ollama", "Anthropic"])
-            List::new(vec!["anthropic", "databricks", "ollama", "openai"])
-                .highlight_symbol(" > ")
-                .highlight_spacing(HighlightSpacing::Always)
-                .block(block)
-                .render(area, buf);
-    }
-}
+// impl StatefulWidget for ProviderPopup {
+//     type State = ListState;
+//     fn render(self, area: Rect, buf: &mut Buffer, state: &mut ListState) {
+//         // ensure that all cells under the popup are cleared to avoid leaking content
+//         Clear.render(area, buf);
+//         let block = Block::new()
+//             // .title(self.title)
+//             // .title_style(self.title_style)
+//             .borders(Borders::ALL);
+//             // .border_style(self.border_style);
+//             // List::new(vec!["OpenAI", "Databricks", "Ollama", "Anthropic"])
+//             let list = List::new(vec!["anthropic", "databricks", "ollama", "openai"])
+//                 .highlight_symbol(" > ")
+//                 .highlight_spacing(HighlightSpacing::Always)
+//                 .block(block);
+//             StatefulWidget::render(self, area, buf, state);
+//     }
+// }
