@@ -3,10 +3,13 @@ on:
     tags:
       - "v00.*"
   workflow_dispatch:
+
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
+
 name: Release CLI
+
 jobs:
   build:
     name: Build ${{ matrix.os }}-${{ matrix.architecture }}
@@ -22,10 +25,22 @@ jobs:
             suffix: apple-darwin
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: ${{ matrix.architecture }}-${{ matrix.suffix }}
+
+      - name: Add Rust target for cross-compilation
+        if: matrix.architecture == 'aarch64'
+        run: rustup target add aarch64-unknown-linux-gnu
+
+      - name: Install dependencies for cross-compilation
+        if: matrix.architecture == 'aarch64' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - id: build
         shell: bash
         run: |
@@ -35,12 +50,14 @@ jobs:
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
           export TARGET_PATH="target/${TARGET}/release/goose-${TARGET}.tar.bz2"
           echo "TARGET_PATH=${TARGET_PATH}" >> $GITHUB_OUTPUT
+
       - uses: actions/upload-artifact@v4
         with:
           name: goose-${{ matrix.architecture }}-${{ matrix.suffix }}
           path: ${{ steps.build.outputs.TARGET_PATH }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release:
     name: Release
     runs-on: ubuntu-latest
@@ -51,6 +68,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+
       - uses: ncipollo/release-action@v1
         with:
           artifacts: "goose-*.bz2"
+          token: ${{ secrets.GITHUB_TOKEN }}
