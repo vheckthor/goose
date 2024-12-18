@@ -35,6 +35,7 @@ jobs:
       - id: build
         shell: bash
         run: |
+          export CROSS_NO_WARNINGS=0
           export TARGET=${{ matrix.arch }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
           cross build --release --target ${TARGET}
