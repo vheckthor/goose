@@ -6,7 +6,7 @@ use main_area::{chunks_for_list_and_view_split, render_left_list};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Clear, HighlightSpacing, List, ListState, Paragraph, StatefulWidget, Widget}, Frame, Terminal
+    }, layout::{self, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Clear, HighlightSpacing, List, ListState, Paragraph}, Frame, Terminal
 };
 use tui_input::{backend::crossterm::EventHandler, Input};
 
@@ -204,6 +204,7 @@ impl App {
         }
 
         // Footer
+        // TODO: Provide the correct actions for the current mode.
         let actions = match self.profile_ui_state.profile_ui_mode {
             ProfileUIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
             ProfileUIMode::ProfileEdit => {
