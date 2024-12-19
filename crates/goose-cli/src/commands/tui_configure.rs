@@ -162,6 +162,7 @@ struct App {
     ui_mode: UIMode,
     profile_ui_state: ProfileUiState,
     edit_profile: Option<EditableProfile>, // Probably move this into the ProfileUiState.
+    provider_ui: provider::ProviderUi,
 }
 
 impl App {
@@ -171,6 +172,7 @@ impl App {
             ui_mode: UIMode::Profile,
             profile_ui_state: ProfileUiState::new(),
             edit_profile: None,
+            provider_ui: provider::ProviderUi::new(),
         }
     }
 
@@ -191,7 +193,14 @@ impl App {
         self.render_main_menu(f, vertical_chunks[1]);
 
         // Main area
-        self.render_profile_main_area(f, main_area);
+        match self.ui_mode {
+            UIMode::Profile => {
+                self.render_profile_main_area(f, main_area);
+            }
+            UIMode::Provider => {
+                self.provider_ui.render_main_area(f, main_area, !self.main_menu_focussed);
+            }
+        }
 
         // Footer
         let actions = match self.profile_ui_state.profile_ui_mode {
