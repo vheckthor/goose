@@ -188,25 +188,7 @@ impl App {
         let footer_area = vertical_chunks[3];
 
         render_header(f, vertical_chunks[0]);
-
-        let profiles_title = if self.ui_mode == UIMode::Profile {
-            Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED))
-        } else {
-            Span::styled("Profiles", Style::default())
-        };
-        let providers_title = if self.ui_mode == UIMode::Provider {
-            Span::styled("Providers", Style::default().add_modifier(Modifier::UNDERLINED))
-        } else {
-            Span::styled("Providers", Style::default())
-        };
-        let systems_title = Span::styled("Systems (todo)", Style::default()); // Update modifier when selected
-        f.render_widget(Paragraph::new(vec!
-            [Line::from(""),
-            Line::from(vec![Span::raw("   "), profiles_title, Span::raw("   "), providers_title, Span::raw("   "), systems_title]),
-            Line::from(vec![Span::raw("─".repeat((f.area().width as usize).saturating_sub(24)))]),
-            Line::from(""),
-            ]
-        ).block(Block::default().borders(Borders::BOTTOM)), vertical_chunks[1]);
+        self.render_main_menu(f, vertical_chunks[1]);
 
         // Main area
         let main_area_horizontal_chunks = Layout::default()
@@ -402,7 +384,12 @@ impl App {
                                 self.profile_ui_state.profile_list_state.select_next();
                             }
                             KeyCode::Up => {
-                                self.profile_ui_state.profile_list_state.select_previous();
+                                if self.profile_ui_state.profile_list_state.selected().is_some_and(|v| v == 0) {
+                                    self.main_menu_focussed = true;
+                                } else {
+                                    self.profile_ui_state.profile_list_state.select_previous();
+                                }
+                                
                             }
                             _ => {}
                         }
@@ -532,6 +519,27 @@ impl App {
             }
         }
         Ok(AppOutcome::Continue)
+    }
+
+    fn render_main_menu(&mut self, f: &mut Frame, area: Rect) {
+        let profiles_title = if self.ui_mode == UIMode::Profile {
+            Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED))
+        } else {
+            Span::styled("Profiles", Style::default())
+        };
+        let providers_title = if self.ui_mode == UIMode::Provider {
+            Span::styled("Providers", Style::default().add_modifier(Modifier::UNDERLINED))
+        } else {
+            Span::styled("Providers", Style::default())
+        };
+        let systems_title = Span::styled("Systems (todo)", Style::default()); // Update modifier when selected
+        f.render_widget(Paragraph::new(vec!
+            [Line::from(""),
+            Line::from(vec![Span::raw("   "), profiles_title, Span::raw("   "), providers_title, Span::raw("   "), systems_title]),
+            Line::from(vec![Span::raw("─".repeat((f.area().width as usize).saturating_sub(24)))]),
+            Line::from(""),
+            ]
+        ).block(Block::default().borders(Borders::BOTTOM)), area);
     }
 }
 
