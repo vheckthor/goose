@@ -9,7 +9,6 @@ use super::{main_area::{chunks_for_list_and_view_split, render_left_list}, AppOu
 pub struct ProviderUi {
     provider_list_state: ListState,
     providers: Vec<ProviderWithState>,
-    keyring_permission_warned: bool,
 }
 
 impl ProviderUi {
@@ -18,7 +17,6 @@ impl ProviderUi {
         Self {
             provider_list_state: ListState::default().with_selected(Some(0)),
             providers,
-            keyring_permission_warned: false,
         }
     }
 
@@ -72,6 +70,9 @@ impl ProviderUi {
                     let provider_index = self.providers.iter().position(|p| p.name == provider_name).unwrap();
                     self.providers[provider_index].attributes = provider_attributes;
                 }
+            }
+            KeyCode::Char('t') => {
+                // TODO: Test connection to provider.
             }
             KeyCode::Down => {
                 self.provider_list_state.select_next();
