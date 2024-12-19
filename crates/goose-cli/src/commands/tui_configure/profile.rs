@@ -32,6 +32,7 @@ impl ProfileUI {
             profiles: load_profiles().unwrap(),
             edit_profile: None,
         };
+        // TODO: If there are no profiles, create a default one.
         if state.profiles.len() > 0 {
             state.profile_list_state.select_first();
         }
