@@ -145,19 +145,14 @@ impl ProfileUI {
                             KeyCode::Enter => {
                                 // Change to save key
                                 if let Some(edit_profile) = &self.edit_profile {
-                                    match edit_profile.focussed_field {
-                                        InputField::Name => {
-                                            let (name, _) =
-                                                self.selected_profile().unwrap().clone();
-                                            let name_clone = name.clone();
-                                            if edit_profile.name.value() != name_clone {
-                                                self.profiles.remove(&name_clone);
-                                            }
-                                            remove_profile(name_clone.as_str()).unwrap();
-                                        }
-                                        _ => {}
+                                    // Check if a rename occurred
+                                    let (name, _) = self.selected_profile().unwrap().clone();
+                                    let name_clone = name.clone();
+                                    if edit_profile.name.value() != name_clone {
+                                        self.profiles.remove(&name_clone);
                                     }
-                                    // TODO: Update all the other fields and save the profiles.
+                                    remove_profile(name_clone.as_str()).unwrap();
+
                                     let new_profile = Profile {
                                         provider: edit_profile.provider.clone(),
                                         model: edit_profile.model.value().to_string(),
