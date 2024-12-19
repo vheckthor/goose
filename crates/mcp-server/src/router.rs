@@ -78,6 +78,7 @@ impl CapabilitiesBuilder {
 }
 
 pub trait Router: Send + Sync + 'static {
+    fn name(&self) -> String;
     // in the protocol, instructions are optional but we make it required
     fn instructions(&self) -> String;
     fn capabilities(&self) -> ServerCapabilities;
@@ -112,7 +113,7 @@ pub trait Router: Send + Sync + 'static {
                 protocol_version: "2024-11-05".to_string(),
                 capabilities: self.capabilities().clone(),
                 server_info: Implementation {
-                    name: "mcp-server".to_string(),
+                    name: self.name(),
                     version: env!("CARGO_PKG_VERSION").to_string(),
                 },
                 instructions: Some(self.instructions()),

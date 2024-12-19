@@ -12,6 +12,7 @@ tokio = { version = "1.36", features = ["full"] }
 reqwest = { version = "0.12.9", features = ["json", "rustls-tls"], default-features = false }
 
 [dependencies]
+mcp-client = { path = "../mcp-client" }
 mcp-core = { path = "../mcp-core" }
 dirs = "5.0.1"
 anyhow = "1.0"
@@ -69,6 +70,8 @@ rust_decimal = "1.36.0"
 rust_decimal_macros = "1.36.0"
 ctor = "0.2.7"
 paste = "1.0"
+tower = { version = "0.4", features = ["timeout", "util"] }
+tower-service = "0.3"
 
 [dev-dependencies]
 sysinfo = "0.32.1"

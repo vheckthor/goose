@@ -48,6 +48,10 @@ impl CounterRouter {
 }
 
 impl Router for CounterRouter {
+    fn name(&self) -> String {
+        "counter".to_string()
+    }
+
     fn instructions(&self) -> String {
         "This server provides a counter tool that can increment and decrement values. The counter starts at 0 and can be modified using the 'increment' and 'decrement' tools. Use 'get_value' to check the current count.".to_string()
     }
