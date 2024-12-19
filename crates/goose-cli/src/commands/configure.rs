@@ -149,7 +149,9 @@ pub async fn handle_configure(
     Ok(())
 }
 
-pub async fn send_test_message(profile: Profile) -> Result<(Message, ProviderUsage), anyhow::Error> {
+pub async fn send_test_message(
+    profile: Profile,
+) -> Result<(Message, ProviderUsage), anyhow::Error> {
     let provider_config = get_provider_config(&profile.provider, profile.clone());
     let provider = factory::get_provider(provider_config).unwrap();
     let message = Message::user().with_text("Please give a nice welcome messsage (one sentence) and let them know they are all set to use this agent");

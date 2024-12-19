@@ -1,6 +1,15 @@
-use std::{io, sync::{Arc, Mutex}};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
 
-use crate::{commands::{configure::{get_recommended_model, get_required_keys, send_test_message}, tui_configure::provider_list}, profile::Profile};
+use crate::{
+    commands::{
+        configure::{get_recommended_model, get_required_keys, send_test_message},
+        tui_configure::provider_list,
+    },
+    profile::Profile,
+};
 use goose::key_manager::{get_keyring_secret, KeyRetrievalStrategy};
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
@@ -11,13 +20,14 @@ use ratatui::{
 };
 
 use super::{
-    main_area::{chunks_for_list_and_view_split, render_left_list}, AppOutcome
+    main_area::{chunks_for_list_and_view_split, render_left_list},
+    AppOutcome,
 };
 
 pub struct ProviderUi {
     provider_list_state: ListState,
     providers: Vec<ProviderWithState>,
-    connection_test: Option<ConnectionTest>
+    connection_test: Option<ConnectionTest>,
 }
 
 impl ProviderUi {
@@ -61,24 +71,34 @@ impl ProviderUi {
             if "Pending" == current_status {
                 let pending_chunks = Layout::default()
                     .direction(layout::Direction::Horizontal)
-                    .constraints([layout::Constraint::Length(20), layout::Constraint::Length(3)])
+                    .constraints([
+                        layout::Constraint::Length(20),
+                        layout::Constraint::Length(3),
+                    ])
                     .split(right_chunks[0]);
 
                 // Render status on the right side
-                f.render_widget(Paragraph::new(status).block(Block::default()), pending_chunks[0]);
+                f.render_widget(
+                    Paragraph::new(status).block(Block::default()),
+                    pending_chunks[0],
+                );
 
                 // Render throbber on the left side
                 let throbber = throbber_widgets_tui::Throbber::default();
                 f.render_widget(throbber, pending_chunks[1]);
-            } else {   
+            } else {
                 if let Some(error_message) = &*connection_test.error_message.lock().unwrap() {
                     let error_message = Paragraph::new(vec![
                         Line::from(status),
-                        Line::from(vec![Span::raw("   "), Span::raw(error_message.clone())])
-                    ]).block(Block::default());
+                        Line::from(vec![Span::raw("   "), Span::raw(error_message.clone())]),
+                    ])
+                    .block(Block::default());
                     f.render_widget(error_message, right_chunks[0]);
                 } else {
-                    f.render_widget(Paragraph::new(status).block(Block::default()), right_chunks[0]);
+                    f.render_widget(
+                        Paragraph::new(status).block(Block::default()),
+                        right_chunks[0],
+                    );
                 }
             }
         }
@@ -103,7 +123,8 @@ impl ProviderUi {
     }
 
     pub fn handle_events(&mut self, key: KeyEvent) -> io::Result<AppOutcome> {
-        if self.connection_test.is_some() { // Interrupt with any key
+        if self.connection_test.is_some() {
+            // Interrupt with any key
             self.connection_test = None;
             return Ok(AppOutcome::Continue);
         }
@@ -132,10 +153,17 @@ impl ProviderUi {
             }
             KeyCode::Char('t') => {
                 // TODO: Allow specifying a model
-                self.connection_test = self
-                    .provider_list_state
-                    .selected()
-                    .map(|i| ConnectionTest::new(Profile { provider: self.providers[i].name.clone(), model: get_recommended_model(&self.providers[i].name.clone()).to_string(), additional_systems: vec![], temperature: None, context_limit: None, max_tokens: None, estimate_factor: None }));
+                self.connection_test = self.provider_list_state.selected().map(|i| {
+                    ConnectionTest::new(Profile {
+                        provider: self.providers[i].name.clone(),
+                        model: get_recommended_model(&self.providers[i].name.clone()).to_string(),
+                        additional_systems: vec![],
+                        temperature: None,
+                        context_limit: None,
+                        max_tokens: None,
+                        estimate_factor: None,
+                    })
+                });
                 self.connection_test.as_mut().unwrap().start();
             }
             KeyCode::Down => {
@@ -214,7 +242,7 @@ impl ConnectionTest {
         let profile = self.profile.clone();
         let status = Arc::clone(&self.status);
         let error_message = Arc::clone(&self.error_message);
-        
+
         self.handle = Some(tokio::spawn({
             async move {
                 match send_test_message(profile).await {
