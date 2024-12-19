@@ -40,8 +40,8 @@ fn restore_tui() -> io::Result<()> {
     Ok(())
 }
 
-struct ConfigureState {
-    ui_mode: UIMode,
+struct ProfileUiState {
+    profile_ui_mode: ProfileUIMode,
     profile_list_state: ListState,
     profiles: HashMap<String, Profile>,
 }
@@ -121,15 +121,15 @@ enum InputField {
     EstimateFactor,
 }
 
-enum UIMode {
+enum ProfileUIMode {
     ProfileView,
     ProfileEdit,
 }
 
-impl ConfigureState {
+impl ProfileUiState {
     fn new() -> Self {
         let mut state= Self { 
-            ui_mode: UIMode::ProfileView, 
+            profile_ui_mode: ProfileUIMode::ProfileView, 
             profile_list_state: ListState::default(), 
             profiles: load_profiles().unwrap(),
         };
@@ -146,14 +146,14 @@ enum AppOutcome {
 }
 
 struct App {
-    ui_state: ConfigureState,
+    ui_state: ProfileUiState,
     edit_profile: Option<EditableProfile>,
 }
 
 impl App {
     fn new() -> Self {
         Self {
-            ui_state: ConfigureState::new(),
+            ui_state: ProfileUiState::new(),
             edit_profile: None,
         }
     }
@@ -212,8 +212,8 @@ impl App {
         f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.ui_state.profile_list_state);
 
         // Main - Profile details area
-        match self.ui_state.ui_mode {
-            UIMode::ProfileView => {
+        match self.ui_state.profile_ui_mode {
+            ProfileUIMode::ProfileView => {
                 if has_profiles {
                     let (selected_profile_name, selected_profile) = selected_profile(&self.ui_state, &profile_list_names).unwrap();
                     let profile_view = Paragraph::new(vec![
@@ -237,7 +237,7 @@ impl App {
                     f.render_widget(profile_view, main_area_horizontal_chunks[1]);
                 }
             },
-            UIMode::ProfileEdit => {
+            ProfileUIMode::ProfileEdit => {
                 let edit_section_chunks = Layout::default()
                     .direction(layout::Direction::Vertical)
                     .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
@@ -311,9 +311,9 @@ impl App {
         }
 
         // Footer
-        let actions = match self.ui_state.ui_mode {
-            UIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
-            UIMode::ProfileEdit => {
+        let actions = match self.ui_state.profile_ui_mode {
+            ProfileUIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
+            ProfileUIMode::ProfileEdit => {
                 if self.edit_profile.as_ref().unwrap().edited {
                     vec![Span::raw("Profile"),Span::styled("[Enter] Save", Style::default().add_modifier(Modifier::BOLD)), Span::raw("[Esc] Cancel")]
                 } else {
@@ -332,15 +332,15 @@ impl App {
                 }
                 _ => {}
             }
-            match self.ui_state.ui_mode {
-                UIMode::ProfileView => {
+            match self.ui_state.profile_ui_mode {
+                ProfileUIMode::ProfileView => {
                     match key.code {
                         KeyCode::Char('q') => {
                             return Ok(AppOutcome::Exit);
                         }
                         KeyCode::Char('e') | KeyCode::Enter => {
                             if has_profiles(&self.ui_state.profiles) {
-                                self.ui_state.ui_mode = UIMode::ProfileEdit;
+                                self.ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
                                 let profile_names = profile_list_names(&self.ui_state.profiles);
                                 let (name, profile) = selected_profile(&self.ui_state, &profile_names).unwrap();
                                 self.edit_profile = Some(EditableProfile::new(name, profile));
@@ -355,7 +355,7 @@ impl App {
                         _ => {}
                     }
                 }
-                UIMode::ProfileEdit => {
+                ProfileUIMode::ProfileEdit => {
                     if let Some(edit_profile) = self.edit_profile.as_mut() {
                         if edit_profile.focussed_field == InputField::Provider {
                             if edit_profile.provider_drowdown_open {
@@ -383,7 +383,7 @@ impl App {
                             } else { // provider dropdown not open
                                 match key.code {
                                     KeyCode::Esc => {
-                                        self.ui_state.ui_mode = UIMode::ProfileView;
+                                        self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                         self.edit_profile = None;
                                     },
                                     KeyCode::Down | KeyCode::Tab => {
@@ -402,7 +402,7 @@ impl App {
                         } else {
                             match key.code {
                                 KeyCode::Esc => {
-                                    self.ui_state.ui_mode = UIMode::ProfileView;
+                                    self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                     self.edit_profile = None;
                                 },
                                 KeyCode::Enter => { // Change to save key
@@ -432,7 +432,7 @@ impl App {
                                         self.ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
                                         profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
 
-                                        self.ui_state.ui_mode = UIMode::ProfileView;
+                                        self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                         self.edit_profile = None;
                                     }
                                 }
@@ -496,7 +496,7 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
     Ok(())
 }
 
-fn selected_profile<'a>(ui_state: &'a ConfigureState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
+fn selected_profile<'a>(ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
     let target_profile_name = profile_list_names.get(ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();
     Some(ui_state.profiles.iter().find(|(name, _)| target_profile_name == *name).map(|(name, profile)| (name, profile)).unwrap())
 }
