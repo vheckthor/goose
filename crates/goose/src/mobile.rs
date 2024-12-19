@@ -41,7 +41,7 @@ impl MobileSystem {
                 Interact with an Android device or emulator.
                   - You can send clicks, input text, capture screenshots, list apps, and start apps.
                   - Send zero or more commands to the device.
-                  - Receive a screenshot of the device after each command.
+                  - You'll find an xml ui hierarchy of what's on the screen in the status
 
                 For example to send a text message, you'd find the text message app first, then start it, then enter
                 the phone number, then enter the message, then send it.
@@ -132,25 +132,6 @@ impl MobileSystem {
         }
     }
 
-    async fn run_shell_command(
-        &self,
-        command: &[&str],
-    ) -> Result<Vec<u8>, AgentError> {
-        let device = self
-            .device
-            .as_ref()
-            .ok_or_else(|| AgentError::ExecutionError("Device not connected.".to_string()))?;
-
-        let mut device = device.write().await;
-        let mut output = Vec::new();
-
-        device
-            .shell_command(command, &mut output)
-            .map_err(|e| AgentError::ExecutionError(format!("Failed to run command {:?}: {}", command, e)))?;
-
-        Ok(output)
-    }
-
     fn initialize_device() -> Result<(adb_client::ADBServerDevice, (i32, i32)), AgentError> {
         let mut server = ADBServer::default();
         let mut device = server
@@ -181,6 +162,41 @@ impl MobileSystem {
             .ok_or_else(|| AgentError::ExecutionError("Failed to parse screen size.".to_string()))?;
 
         Ok((device, size))
+    }
+
+
+    async fn run_shell_command(
+        &self,
+        command: &[&str],
+    ) -> Result<Vec<u8>, AgentError> {
+        let device = self
+            .device
+            .as_ref()
+            .ok_or_else(|| AgentError::ExecutionError("Device not connected.".to_string()))?;
+
+        let mut device = device.write().await;
+        let mut output = Vec::new();
+
+        device
+            .shell_command(command, &mut output)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to run command {:?}: {}", command, e)))?;
+
+        Ok(output)
+    }
+
+    async fn get_ui_hierarchy(&self) -> Result<String, AgentError> {
+        self.run_shell_command(&["uiautomator", "dump", "/sdcard/window_dump.xml"]).await?;
+        
+        let xml_content = self.run_shell_command(&["cat", "/sdcard/window_dump.xml"]).await?;
+        let ui_dump = String::from_utf8(xml_content)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to parse XML content: {}", e)))?;
+
+        // Write to file for debugging/reference
+        std::fs::write("uihierarchy.xml", &ui_dump).map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to write UI hierarchy: {}", e))
+        })?;
+
+        Ok(ui_dump)
     }
 
     async fn get_app_description(&self, package_name: &str) -> Option<String> {
@@ -296,6 +312,12 @@ impl System for MobileSystem {
             status.insert("screen_size".to_string(), json!({ "width": width, "height": height }));
         }
 
+        if self.device.is_some() {
+            if let Ok(ui_hierarchy) = self.get_ui_hierarchy().await {
+                status.insert("ui_hierarchy".to_string(), json!(ui_hierarchy));
+            }
+        }
+
         Ok(status)
     }
 
@@ -368,18 +390,7 @@ impl System for MobileSystem {
                     _ => return Err(AgentError::ExecutionError("Invalid or unsupported command.".to_string())),
                 };
     
-                // Always include the UI hierarchy XML in the response
-                self.run_shell_command(&["uiautomator", "dump", "/sdcard/window_dump.xml"]).await?;
-    
-                let xml_content = self.run_shell_command(&["cat", "/sdcard/window_dump.xml"]).await?;
-                let ui_dump = String::from_utf8(xml_content)
-                    .map_err(|e| AgentError::ExecutionError(format!("Failed to parse XML content: {}", e)))?;
-
-                std::fs::write("uihierarchy.xml", &ui_dump).map_err(|e| {
-                    AgentError::ExecutionError(format!("Failed to write UI hierarchy: {}", e))
-                })?;
-
-                Ok(vec![response_message, Content::text(ui_dump)])
+                Ok(vec![response_message])
 
             }
             _ => Err(AgentError::ExecutionError("Unknown tool name.".to_string())),
