@@ -52,24 +52,35 @@ impl ProviderUi {
 
         // Render the connection test status
         if let Some(connection_test) = &self.connection_test {
-            let status = match connection_test.status.lock().unwrap().clone() {
+            let current_status = match connection_test.status.lock().unwrap().clone() {
                 ConnectionTestStatus::Pending => "Pending",
                 ConnectionTestStatus::Success => "Success",
                 ConnectionTestStatus::Failed => "Failed",
             };
-            let status = Span::raw(format!("   Connection Test: {}", status));
-            if let Some(error_message) = &*connection_test.error_message.lock().unwrap() {
-                let error_message = Paragraph::new(vec![
-                    Line::from(status),
-                    Line::from(vec![Span::raw("   "), Span::raw(error_message.clone())])
-                ]).block(Block::default());
-                f.render_widget(error_message, right_chunks[0]);
-            } else {
-                let status = Paragraph::new(status).block(Block::default());
-                f.render_widget(status, right_chunks[0]);
-            }
+            let status = Span::raw(format!("   Connection Test: {} ", current_status));
+            if "Pending" == current_status {
+                let pending_chunks = Layout::default()
+                    .direction(layout::Direction::Horizontal)
+                    .constraints([layout::Constraint::Length(20), layout::Constraint::Length(3)])
+                    .split(right_chunks[0]);
 
-            
+                // Render status on the right side
+                f.render_widget(Paragraph::new(status).block(Block::default()), pending_chunks[0]);
+
+                // Render throbber on the left side
+                let throbber = throbber_widgets_tui::Throbber::default();
+                f.render_widget(throbber, pending_chunks[1]);
+            } else {   
+                if let Some(error_message) = &*connection_test.error_message.lock().unwrap() {
+                    let error_message = Paragraph::new(vec![
+                        Line::from(status),
+                        Line::from(vec![Span::raw("   "), Span::raw(error_message.clone())])
+                    ]).block(Block::default());
+                    f.render_widget(error_message, right_chunks[0]);
+                } else {
+                    f.render_widget(Paragraph::new(status).block(Block::default()), right_chunks[0]);
+                }
+            }
         }
 
         let selected_provider = self
