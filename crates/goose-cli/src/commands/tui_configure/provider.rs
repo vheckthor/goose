@@ -120,6 +120,7 @@ impl ProviderUi {
                 }
             }
             KeyCode::Char('t') => {
+                // TODO: Allow specifying a model
                 self.connection_test = self
                     .provider_list_state
                     .selected()
