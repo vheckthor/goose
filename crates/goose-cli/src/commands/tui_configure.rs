@@ -172,9 +172,6 @@ impl App {
     }
 
     fn draw(&mut self, f: &mut Frame) {
-        let profile_list_names: Vec<String> = profile_list_names(&self.profile_ui_state.profiles);
-        let has_profiles: bool = profile_list_names.len() > 0;
-
         // Fit all the profile items and enough room to display their details including systems, just using dummy 14 for now.
         let profile_view_height = max(14, self.profile_ui_state.profiles.len() + 4) as u16;
 
@@ -191,128 +188,7 @@ impl App {
         self.render_main_menu(f, vertical_chunks[1]);
 
         // Main area
-        let main_area_horizontal_chunks = Layout::default()
-            .direction(layout::Direction::Horizontal)
-            .constraints([layout::Constraint::Length(33), layout::Constraint::Min(1)])
-            .split(main_area);
-
-        // Main - Profile list area
-        let profile_list_chunks = Layout::default()
-            .direction(layout::Direction::Vertical)
-            .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
-            .split(main_area_horizontal_chunks[0]);
-
-        let profile_list_header = Paragraph::new(vec![
-            Line::from(vec![Span::styled("   Profiles List", Style::default().add_modifier(Modifier::ITALIC))]),
-            Line::from(vec!["".into()])
-        ]).block(Block::default().borders(Borders::RIGHT));
-        f.render_widget(profile_list_header, profile_list_chunks[0]);
-
-        
-        let profile_list = List::new(profile_list_names.clone())
-            .highlight_symbol(" > ")
-            .highlight_spacing(HighlightSpacing::Always)
-            .block(Block::default().borders(Borders::RIGHT));
-        f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.profile_ui_state.profile_list_state);
-
-        // Main - Profile details area
-        match self.profile_ui_state.profile_ui_mode {
-            ProfileUIMode::ProfileView => {
-                if has_profiles {
-                    let (selected_profile_name, selected_profile) = selected_profile(&self.profile_ui_state, &profile_list_names).unwrap();
-                    let profile_view = Paragraph::new(vec![
-                        Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
-                        Line::from(vec!["".into()]),
-                        Line::from(vec!["    Name:             ".into(), selected_profile_name.clone().into()]),
-                        Line::from(vec!["    Provider:         ".into(), selected_profile.provider.clone().into()]),
-                        Line::from(vec!["    Model:            ".into(), selected_profile.model.clone().into()]),
-                        Line::from(vec!["    Temperature:      ".into(), selected_profile.temperature.clone().map_or("".into(), |temp| temp.to_string().into())]),
-                        Line::from(vec!["    Context Limit:    ".into(), selected_profile.context_limit.clone().map_or("".into(), |limit| limit.to_string().into())]),
-                        Line::from(vec!["    Max Tokens:       ".into(), selected_profile.max_tokens.clone().map_or("".into(), |tokens| tokens.to_string().into())]),
-                        Line::from(vec!["    Estimate Factor:  ".into(), selected_profile.estimate_factor.clone().map_or("".into(), |factor| factor.to_string().into())]),
-                    ]).block(Block::default().borders(Borders::NONE));
-                    f.render_widget(profile_view, main_area_horizontal_chunks[1]);
-                } else {
-                    let profile_view = Paragraph::new(vec![
-                        Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
-                        Line::from(vec!["".into()]),
-                        Line::from(vec!["    Create a New Profile".into()]),
-                    ]).block(Block::default().borders(Borders::NONE));
-                    f.render_widget(profile_view, main_area_horizontal_chunks[1]);
-                }
-            },
-            ProfileUIMode::ProfileEdit => {
-                let edit_section_chunks = Layout::default()
-                    .direction(layout::Direction::Vertical)
-                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
-                    .split(main_area_horizontal_chunks[1]);
-
-                let edit_header = Paragraph::new(vec![
-                    Line::from(vec![Span::styled("    Edit Profile", Style::default().add_modifier(Modifier::ITALIC))]),
-                    Line::from(vec!["".into()]),
-                ]).block(Block::default().borders(Borders::NONE));
-
-                f.render_widget(edit_header, edit_section_chunks[0]);
-
-
-                let edit_profile = self.edit_profile.as_ref().unwrap();                
-                let input_offset = 22;
-                let lines = vec![
-                    editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset),
-                    if edit_profile.focussed_field == InputField::Provider {
-                        non_editable_dropdown_profile_line("Provider", &edit_profile.provider, None, input_offset)
-                    } else {
-                        non_editable_profile_line("Provider", &edit_profile.provider, None, input_offset)
-                    },
-                    editable_profile_line("Model", &edit_profile.model, edit_profile.errors.get(&InputField::Model).cloned().flatten(), input_offset),
-                    editable_profile_line("Temperature", &edit_profile.temperature, None, input_offset),
-                    editable_profile_line("Context Limit", &edit_profile.context_limit, None, input_offset),
-                    editable_profile_line("Max Tokens", &edit_profile.max_tokens, None, input_offset),
-                    editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset),
-                ];
-                let edit_profile_area_pos = edit_section_chunks[1].as_position();
-                // let mut provider_popup: Option<ProviderPopup> = None;
-                match edit_profile.focussed_field {
-                    InputField::Name => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
-                    },
-                    InputField::Provider => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 0, edit_profile_area_pos.y + 1));
-                        // provider_popup = Some(ProviderPopup{});
-                    },
-                    InputField::Model => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 2));
-                    },
-                    InputField::Temperature => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.temperature.visual_cursor() as u16, edit_profile_area_pos.y + 3));
-                    },
-                    InputField::ContextLimit => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.context_limit.visual_cursor() as u16, edit_profile_area_pos.y + 4));
-                    },
-                    InputField::MaxTokens => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.max_tokens.visual_cursor() as u16, edit_profile_area_pos.y + 5));
-                    },
-                    InputField::EstimateFactor => {
-                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 6));
-                    },
-                }
-                let edit_profile_form = Paragraph::new(lines)
-                    .block(Block::default().borders(Borders::NONE));
-                f.render_widget(edit_profile_form, edit_section_chunks[1]);
-
-                if edit_profile.focussed_field == InputField::Provider && edit_profile.provider_drowdown_open  {
-                    let target_area = Rect::new(edit_profile_area_pos.x + input_offset + edit_profile.provider.len() as u16 + 2, edit_profile_area_pos.y + 1, 17, 6);
-                    f.render_widget(Clear::default(), target_area);
-                    let block = Block::new()
-                        .borders(Borders::ALL);
-                    let provider_list = List::new(provider_list())
-                        .highlight_symbol(" > ")
-                        .highlight_spacing(HighlightSpacing::Always)
-                        .block(block);
-                    f.render_stateful_widget(provider_list, target_area, &mut self.edit_profile.as_mut().unwrap().provider_list_state);
-                }
-            }
-        }
+        self.render_profile_main_area(f, main_area);
 
         // Footer
         let actions = match self.profile_ui_state.profile_ui_mode {
@@ -540,6 +416,136 @@ impl App {
             Line::from(""),
             ]
         ).block(Block::default().borders(Borders::BOTTOM)), area);
+    }
+
+    /// Render the main area of the profile view.
+    // TODO: Move this into a Profile struct rather than having it in the App struct.
+    fn render_profile_main_area(&mut self, f: &mut Frame, main_area: Rect) {
+        let profile_list_names: Vec<String> = profile_list_names(&self.profile_ui_state.profiles);
+        let has_profiles: bool = profile_list_names.len() > 0;
+
+        let main_area_horizontal_chunks = Layout::default()
+            .direction(layout::Direction::Horizontal)
+            .constraints([layout::Constraint::Length(33), layout::Constraint::Min(1)])
+            .split(main_area);
+
+        // Main - Profile list area
+        let profile_list_chunks = Layout::default()
+            .direction(layout::Direction::Vertical)
+            .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
+            .split(main_area_horizontal_chunks[0]);
+
+        let profile_list_header = Paragraph::new(vec![
+            Line::from(vec![Span::styled("   Profiles List", Style::default().add_modifier(Modifier::ITALIC))]),
+            Line::from(vec!["".into()])
+        ]).block(Block::default().borders(Borders::RIGHT));
+        f.render_widget(profile_list_header, profile_list_chunks[0]);
+
+        
+        let profile_list = List::new(profile_list_names.clone())
+            .highlight_symbol(" > ")
+            .highlight_spacing(HighlightSpacing::Always)
+            .block(Block::default().borders(Borders::RIGHT));
+        f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.profile_ui_state.profile_list_state);
+
+        // Main - Profile details area
+        match self.profile_ui_state.profile_ui_mode {
+            ProfileUIMode::ProfileView => {
+                if has_profiles {
+                    let (selected_profile_name, selected_profile) = selected_profile(&self.profile_ui_state, &profile_list_names).unwrap();
+                    let profile_view = Paragraph::new(vec![
+                        Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
+                        Line::from(vec!["".into()]),
+                        Line::from(vec!["    Name:             ".into(), selected_profile_name.clone().into()]),
+                        Line::from(vec!["    Provider:         ".into(), selected_profile.provider.clone().into()]),
+                        Line::from(vec!["    Model:            ".into(), selected_profile.model.clone().into()]),
+                        Line::from(vec!["    Temperature:      ".into(), selected_profile.temperature.clone().map_or("".into(), |temp| temp.to_string().into())]),
+                        Line::from(vec!["    Context Limit:    ".into(), selected_profile.context_limit.clone().map_or("".into(), |limit| limit.to_string().into())]),
+                        Line::from(vec!["    Max Tokens:       ".into(), selected_profile.max_tokens.clone().map_or("".into(), |tokens| tokens.to_string().into())]),
+                        Line::from(vec!["    Estimate Factor:  ".into(), selected_profile.estimate_factor.clone().map_or("".into(), |factor| factor.to_string().into())]),
+                    ]).block(Block::default().borders(Borders::NONE));
+                    f.render_widget(profile_view, main_area_horizontal_chunks[1]);
+                } else {
+                    let profile_view = Paragraph::new(vec![
+                        Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
+                        Line::from(vec!["".into()]),
+                        Line::from(vec!["    Create a New Profile".into()]),
+                    ]).block(Block::default().borders(Borders::NONE));
+                    f.render_widget(profile_view, main_area_horizontal_chunks[1]);
+                }
+            },
+            ProfileUIMode::ProfileEdit => {
+                let edit_section_chunks = Layout::default()
+                    .direction(layout::Direction::Vertical)
+                    .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
+                    .split(main_area_horizontal_chunks[1]);
+
+                let edit_header = Paragraph::new(vec![
+                    Line::from(vec![Span::styled("    Edit Profile", Style::default().add_modifier(Modifier::ITALIC))]),
+                    Line::from(vec!["".into()]),
+                ]).block(Block::default().borders(Borders::NONE));
+
+                f.render_widget(edit_header, edit_section_chunks[0]);
+
+
+                let edit_profile = self.edit_profile.as_ref().unwrap();                
+                let input_offset = 22;
+                let lines = vec![
+                    editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset),
+                    if edit_profile.focussed_field == InputField::Provider {
+                        non_editable_dropdown_profile_line("Provider", &edit_profile.provider, None, input_offset)
+                    } else {
+                        non_editable_profile_line("Provider", &edit_profile.provider, None, input_offset)
+                    },
+                    editable_profile_line("Model", &edit_profile.model, edit_profile.errors.get(&InputField::Model).cloned().flatten(), input_offset),
+                    editable_profile_line("Temperature", &edit_profile.temperature, None, input_offset),
+                    editable_profile_line("Context Limit", &edit_profile.context_limit, None, input_offset),
+                    editable_profile_line("Max Tokens", &edit_profile.max_tokens, None, input_offset),
+                    editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset),
+                ];
+                let edit_profile_area_pos = edit_section_chunks[1].as_position();
+                // let mut provider_popup: Option<ProviderPopup> = None;
+                match edit_profile.focussed_field {
+                    InputField::Name => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.name.visual_cursor() as u16, edit_profile_area_pos.y));
+                    },
+                    InputField::Provider => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + 0, edit_profile_area_pos.y + 1));
+                        // provider_popup = Some(ProviderPopup{});
+                    },
+                    InputField::Model => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.model.visual_cursor() as u16, edit_profile_area_pos.y + 2));
+                    },
+                    InputField::Temperature => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.temperature.visual_cursor() as u16, edit_profile_area_pos.y + 3));
+                    },
+                    InputField::ContextLimit => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.context_limit.visual_cursor() as u16, edit_profile_area_pos.y + 4));
+                    },
+                    InputField::MaxTokens => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.max_tokens.visual_cursor() as u16, edit_profile_area_pos.y + 5));
+                    },
+                    InputField::EstimateFactor => {
+                        f.set_cursor_position((edit_profile_area_pos.x + input_offset + edit_profile.estimate_factor.visual_cursor() as u16, edit_profile_area_pos.y + 6));
+                    },
+                }
+                let edit_profile_form = Paragraph::new(lines)
+                    .block(Block::default().borders(Borders::NONE));
+                f.render_widget(edit_profile_form, edit_section_chunks[1]);
+
+                if edit_profile.focussed_field == InputField::Provider && edit_profile.provider_drowdown_open  {
+                    let target_area = Rect::new(edit_profile_area_pos.x + input_offset + edit_profile.provider.len() as u16 + 2, edit_profile_area_pos.y + 1, 17, 6);
+                    f.render_widget(Clear::default(), target_area);
+                    let block = Block::new()
+                        .borders(Borders::ALL);
+                    let provider_list = List::new(provider_list())
+                        .highlight_symbol(" > ")
+                        .highlight_spacing(HighlightSpacing::Always)
+                        .block(block);
+                    f.render_stateful_widget(provider_list, target_area, &mut self.edit_profile.as_mut().unwrap().provider_list_state);
+                }
+            }
+        }
     }
 }
 
