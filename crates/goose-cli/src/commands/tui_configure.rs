@@ -155,6 +155,7 @@ impl ProfileUiState {
 enum AppOutcome {
     Continue,
     Exit,
+    UpMenu, // Go up a menu level
 }
 
 struct App {
@@ -251,151 +252,166 @@ impl App {
                     _ => {}
                 }
             } else {
-                match self.profile_ui_state.profile_ui_mode {
-                    ProfileUIMode::ProfileView => {
-                        match key.code {
-                            KeyCode::Char('q') => {
-                                return Ok(AppOutcome::Exit);
-                            }
-                            KeyCode::Esc => {
+                match self.ui_mode {
+                    UIMode::Provider => {
+                        match self.provider_ui.handle_events(key)? {
+                            AppOutcome::UpMenu => {
                                 self.main_menu_focussed = true;
+                                return Ok(AppOutcome::Continue);
                             }
-                            KeyCode::Char('e') | KeyCode::Enter => {
-                                if has_profiles(&self.profile_ui_state.profiles) {
-                                    self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
-                                    let profile_names = profile_list_names(&self.profile_ui_state.profiles);
-                                    let (name, profile) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
-                                    self.edit_profile = Some(EditableProfile::new(name, profile));
-                                }
+                            o => {
+                                return Ok(o);
                             }
-                            KeyCode::Down => {
-                                self.profile_ui_state.profile_list_state.select_next();
-                            }
-                            KeyCode::Up => {
-                                if self.profile_ui_state.profile_list_state.selected().is_some_and(|v| v == 0) {
-                                    self.main_menu_focussed = true;
-                                } else {
-                                    self.profile_ui_state.profile_list_state.select_previous();
-                                }
-                                
-                            }
-                            _ => {}
                         }
                     }
-                    ProfileUIMode::ProfileEdit => {
-                        if let Some(edit_profile) = self.edit_profile.as_mut() {
-                            if edit_profile.focussed_field == InputField::Provider {
-                                if edit_profile.provider_drowdown_open {
-                                    match key.code {
-                                        KeyCode::Esc => {
-                                            edit_profile.focussed_field = InputField::Model;
-                                            edit_profile.provider_drowdown_open = false;
-                                        },
-                                        KeyCode::Down => {
-                                            edit_profile.provider_list_state.select_next();
-                                        }
-                                        KeyCode::Up => {
-                                            edit_profile.provider_list_state.select_previous();
-                                        }
-                                        KeyCode::Enter => {
-                                            edit_profile.edited = true;
-                                            let selected_provider = edit_profile.provider_list_state.selected().unwrap_or(0);
-                                            let provider = provider_list()[selected_provider].clone();
-                                            edit_profile.provider = provider.to_string();
-                                            edit_profile.focussed_field = InputField::Model;
-                                            edit_profile.provider_drowdown_open = false;
-                                        }
-                                        _ => {}
-                                    }
-                                } else { // provider dropdown not open
-                                    match key.code {
-                                        KeyCode::Esc => {
-                                            self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
-                                            self.edit_profile = None;
-                                        },
-                                        KeyCode::Down | KeyCode::Tab => {
-                                            edit_profile.focussed_field = next_field(edit_profile.focussed_field.clone());
-                                        }
-                                        KeyCode::Up | KeyCode::BackTab => {
-                                            edit_profile.focussed_field = prev_field(edit_profile.focussed_field.clone());
-                                        }
-                                        _ => {
-                                            edit_profile.provider_drowdown_open = true;
-                                            let index = provider_list().iter().position(|provider| provider == &edit_profile.provider).unwrap_or(0);
-                                            edit_profile.provider_list_state.select(Some(index));
-                                        }
-                                    }
-                                }
-                            } else { // provider field not focussed.
+                    UIMode::Profile => {
+                        match self.profile_ui_state.profile_ui_mode {
+                            ProfileUIMode::ProfileView => {
                                 match key.code {
+                                    KeyCode::Char('q') => {
+                                        return Ok(AppOutcome::Exit);
+                                    }
                                     KeyCode::Esc => {
-                                        self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
-                                        self.edit_profile = None;
-                                    },
-                                    KeyCode::Enter => { // Change to save key
-                                        if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                            match edit_profile.focussed_field {
-                                                InputField::Name => {
-                                                    let profile_names = profile_list_names(&self.profile_ui_state.profiles);
-                                                    let (name, _) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
-                                                    let name_clone = name.clone();
-                                                    if edit_profile.name.value() != name_clone {
-                                                        self.profile_ui_state.profiles.remove(&name_clone);
-                                                    }
-                                                    profile::remove_profile(name_clone.as_str()).unwrap();
+                                        self.main_menu_focussed = true;
+                                    }
+                                    KeyCode::Char('e') | KeyCode::Enter => {
+                                        if has_profiles(&self.profile_ui_state.profiles) {
+                                            self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
+                                            let profile_names = profile_list_names(&self.profile_ui_state.profiles);
+                                            let (name, profile) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
+                                            self.edit_profile = Some(EditableProfile::new(name, profile));
+                                        }
+                                    }
+                                    KeyCode::Down => {
+                                        self.profile_ui_state.profile_list_state.select_next();
+                                    }
+                                    KeyCode::Up => {
+                                        if self.profile_ui_state.profile_list_state.selected().is_some_and(|v| v == 0) {
+                                            self.main_menu_focussed = true;
+                                        } else {
+                                            self.profile_ui_state.profile_list_state.select_previous();
+                                        }
+                                        
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            ProfileUIMode::ProfileEdit => {
+                                if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                    if edit_profile.focussed_field == InputField::Provider {
+                                        if edit_profile.provider_drowdown_open {
+                                            match key.code {
+                                                KeyCode::Esc => {
+                                                    edit_profile.focussed_field = InputField::Model;
+                                                    edit_profile.provider_drowdown_open = false;
                                                 },
+                                                KeyCode::Down => {
+                                                    edit_profile.provider_list_state.select_next();
+                                                }
+                                                KeyCode::Up => {
+                                                    edit_profile.provider_list_state.select_previous();
+                                                }
+                                                KeyCode::Enter => {
+                                                    edit_profile.edited = true;
+                                                    let selected_provider = edit_profile.provider_list_state.selected().unwrap_or(0);
+                                                    let provider = provider_list()[selected_provider].clone();
+                                                    edit_profile.provider = provider.to_string();
+                                                    edit_profile.focussed_field = InputField::Model;
+                                                    edit_profile.provider_drowdown_open = false;
+                                                }
                                                 _ => {}
                                             }
-                                            // TODO: Update all the other fields and save the profiles.
-                                            let new_profile = Profile {
-                                                provider: edit_profile.provider.clone(),
-                                                model: edit_profile.model.value().to_string(),
-                                                additional_systems: vec![],
-                                                temperature: edit_profile.temperature.value().parse().ok(),
-                                                context_limit: edit_profile.context_limit.value().parse().ok(),
-                                                max_tokens: edit_profile.max_tokens.value().parse().ok(),
-                                                estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
-                                            };
-                                            self.profile_ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
-                                            profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
-
-                                            self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
-                                            self.edit_profile = None;
+                                        } else { // provider dropdown not open
+                                            match key.code {
+                                                KeyCode::Esc => {
+                                                    self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                                    self.edit_profile = None;
+                                                },
+                                                KeyCode::Down | KeyCode::Tab => {
+                                                    edit_profile.focussed_field = next_field(edit_profile.focussed_field.clone());
+                                                }
+                                                KeyCode::Up | KeyCode::BackTab => {
+                                                    edit_profile.focussed_field = prev_field(edit_profile.focussed_field.clone());
+                                                }
+                                                _ => {
+                                                    edit_profile.provider_drowdown_open = true;
+                                                    let index = provider_list().iter().position(|provider| provider == &edit_profile.provider).unwrap_or(0);
+                                                    edit_profile.provider_list_state.select(Some(index));
+                                                }
+                                            }
                                         }
-                                    }
-                                    KeyCode::Down | KeyCode::Tab => {
-                                        edit_profile.focussed_field = next_field(edit_profile.focussed_field.clone());
-                                    }
-                                    KeyCode::Up | KeyCode::BackTab => {
-                                        edit_profile.focussed_field = prev_field(edit_profile.focussed_field.clone());
-                                    }
-                                    // Add cancel key
-                                    _ => {
-                                        edit_profile.edited = true;
-                                        if let Some(edit_profile) = self.edit_profile.as_mut() {
-                                            match edit_profile.focussed_field {
-                                                //TODO: validations
-                                                InputField::Name => {
-                                                    edit_profile.name.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::Provider => {
-                                                    // edit_profile.provider.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::Model => {
-                                                    edit_profile.model.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::Temperature => {
-                                                    edit_profile.temperature.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::ContextLimit => {
-                                                    edit_profile.context_limit.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::MaxTokens => {
-                                                    edit_profile.max_tokens.handle_event(&Event::Key(key));
-                                                },
-                                                InputField::EstimateFactor => {
-                                                    edit_profile.estimate_factor.handle_event(&Event::Key(key));
-                                                },
+                                    } else { // provider field not focussed.
+                                        match key.code {
+                                            KeyCode::Esc => {
+                                                self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                                self.edit_profile = None;
+                                            },
+                                            KeyCode::Enter => { // Change to save key
+                                                if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                                    match edit_profile.focussed_field {
+                                                        InputField::Name => {
+                                                            let profile_names = profile_list_names(&self.profile_ui_state.profiles);
+                                                            let (name, _) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
+                                                            let name_clone = name.clone();
+                                                            if edit_profile.name.value() != name_clone {
+                                                                self.profile_ui_state.profiles.remove(&name_clone);
+                                                            }
+                                                            profile::remove_profile(name_clone.as_str()).unwrap();
+                                                        },
+                                                        _ => {}
+                                                    }
+                                                    // TODO: Update all the other fields and save the profiles.
+                                                    let new_profile = Profile {
+                                                        provider: edit_profile.provider.clone(),
+                                                        model: edit_profile.model.value().to_string(),
+                                                        additional_systems: vec![],
+                                                        temperature: edit_profile.temperature.value().parse().ok(),
+                                                        context_limit: edit_profile.context_limit.value().parse().ok(),
+                                                        max_tokens: edit_profile.max_tokens.value().parse().ok(),
+                                                        estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
+                                                    };
+                                                    self.profile_ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
+                                                    profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
+
+                                                    self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                                    self.edit_profile = None;
+                                                }
+                                            }
+                                            KeyCode::Down | KeyCode::Tab => {
+                                                edit_profile.focussed_field = next_field(edit_profile.focussed_field.clone());
+                                            }
+                                            KeyCode::Up | KeyCode::BackTab => {
+                                                edit_profile.focussed_field = prev_field(edit_profile.focussed_field.clone());
+                                            }
+                                            // Add cancel key
+                                            _ => {
+                                                edit_profile.edited = true;
+                                                if let Some(edit_profile) = self.edit_profile.as_mut() {
+                                                    match edit_profile.focussed_field {
+                                                        //TODO: validations
+                                                        InputField::Name => {
+                                                            edit_profile.name.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::Provider => {
+                                                            // edit_profile.provider.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::Model => {
+                                                            edit_profile.model.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::Temperature => {
+                                                            edit_profile.temperature.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::ContextLimit => {
+                                                            edit_profile.context_limit.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::MaxTokens => {
+                                                            edit_profile.max_tokens.handle_event(&Event::Key(key));
+                                                        },
+                                                        InputField::EstimateFactor => {
+                                                            edit_profile.estimate_factor.handle_event(&Event::Key(key));
+                                                        },
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -538,7 +554,7 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
     loop {
         tui.draw(|f| app.draw(f) )?;
         match app.handle_events() {
-            Ok(AppOutcome::Continue) => continue,
+            Ok(AppOutcome::Continue) | Ok(AppOutcome::UpMenu) => continue,
             Ok(AppOutcome::Exit) => break,
             Err(_) => break,
         }
