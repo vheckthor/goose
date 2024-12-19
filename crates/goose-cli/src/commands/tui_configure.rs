@@ -205,14 +205,12 @@ impl App {
 
         // Footer
         // TODO: Provide the correct actions for the current mode.
-        let actions = match self.profile_ui_state.profile_ui_mode {
-            ProfileUIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
-            ProfileUIMode::ProfileEdit => {
-                if self.edit_profile.as_ref().unwrap().edited {
-                    vec![Span::raw("Profile"),Span::styled("[Enter] Save", Style::default().add_modifier(Modifier::BOLD)), Span::raw("[Esc] Cancel")]
-                } else {
-                    vec![Span::raw("Profile"),Span::raw("[Enter] Save"), Span::raw("[Esc] Cancel")]
-                }
+        let actions: Vec<Span<'_>> = if (self.main_menu_focussed) {
+            vec![Span::raw("Main Menu"), Span::raw("[Enter] Select")]
+        } else {
+            match self.ui_mode {
+                UIMode::Profile => profile_action_footer_names(&self.profile_ui_state, &self.edit_profile),
+                UIMode::Provider => self.provider_ui.action_footer_names(),
             }
         };
         render_footer(f, footer_area, &actions, self.main_menu_focussed);
@@ -601,6 +599,19 @@ fn main_menu_item_style(main_menu_focussed: bool, is_selected: bool) -> Style {
 }
 
 // Profile functions
+
+fn profile_action_footer_names<'a>(profile_ui_state: &ProfileUiState, edit_profile: &Option<EditableProfile>) -> Vec<Span<'a>> {
+    match profile_ui_state.profile_ui_mode {
+        ProfileUIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
+        ProfileUIMode::ProfileEdit => {
+            if edit_profile.as_ref().unwrap().edited {
+                vec![Span::raw("Profile"),Span::styled("[Enter] Save", Style::default().add_modifier(Modifier::BOLD)), Span::raw("[Esc] Cancel")]
+            } else {
+                vec![Span::raw("Profile"),Span::raw("[Enter] Save"), Span::raw("[Esc] Cancel")]
+            }
+        }
+    }
+}
 
 fn selected_profile<'a>(profile_ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
     let target_profile_name = profile_list_names.get(profile_ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();

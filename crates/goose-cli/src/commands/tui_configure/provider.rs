@@ -2,7 +2,7 @@ use std::io;
 
 use crate::commands::{configure::get_required_keys, tui_configure::provider_list};
 use goose::key_manager::{get_keyring_secret, KeyRetrievalStrategy};
-use ratatui::{crossterm::event::{KeyCode, KeyEvent}, layout::{self, Layout, Rect}, widgets::{Block, List, ListState}, Frame};
+use ratatui::{crossterm::event::{KeyCode, KeyEvent}, layout::{self, Layout, Rect}, text::Span, widgets::{Block, List, ListState}, Frame};
 
 use super::{main_area::{chunks_for_list_and_view_split, render_left_list}, AppOutcome};
 
@@ -88,6 +88,10 @@ impl ProviderUi {
             _ => {}
         }
         Ok(AppOutcome::Continue)
+    }
+
+    pub fn action_footer_names(&self) -> Vec<Span> {
+        vec![Span::raw("Provider"), Span::raw("[C] Check Configuration"), Span::raw("[T] Test Connection")] // TODO: Add edit config
     }
 
     fn renderable_provider_list(&self) -> Vec<String> {
