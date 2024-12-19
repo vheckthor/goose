@@ -275,6 +275,18 @@ impl App {
                                     KeyCode::Esc => {
                                         self.main_menu_focussed = true;
                                     }
+                                    KeyCode::Char('n') => {
+                                        self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
+                                        self.edit_profile = Some(EditableProfile::new(&"".to_string(), &Profile {
+                                            provider: "".to_string(),
+                                            model: "".to_string(),
+                                            additional_systems: vec![],
+                                            temperature: None,
+                                            context_limit: None,
+                                            max_tokens: None,
+                                            estimate_factor: None,
+                                        }));
+                                    }
                                     KeyCode::Char('e') | KeyCode::Enter => {
                                         if has_profiles(&self.profile_ui_state.profiles) {
                                             self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
