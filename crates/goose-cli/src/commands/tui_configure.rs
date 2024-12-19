@@ -121,9 +121,16 @@ enum InputField {
     EstimateFactor,
 }
 
+/// Within the profile view, which mode the profile is in.
 enum ProfileUIMode {
     ProfileView,
     ProfileEdit,
+}
+
+/// Top level which view is in focus.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum UIMode {
+    Profile,
 }
 
 impl ProfileUiState {
@@ -146,24 +153,26 @@ enum AppOutcome {
 }
 
 struct App {
-    ui_state: ProfileUiState,
-    edit_profile: Option<EditableProfile>,
+    ui_mode: UIMode,
+    profile_ui_state: ProfileUiState,
+    edit_profile: Option<EditableProfile>, // Probably move this into the ProfileUiState.
 }
 
 impl App {
     fn new() -> Self {
         Self {
-            ui_state: ProfileUiState::new(),
+            ui_mode: UIMode::Profile,
+            profile_ui_state: ProfileUiState::new(),
             edit_profile: None,
         }
     }
 
     fn draw(&mut self, f: &mut Frame) {
-        let profile_list_names: Vec<String> = profile_list_names(&self.ui_state.profiles);
+        let profile_list_names: Vec<String> = profile_list_names(&self.profile_ui_state.profiles);
         let has_profiles: bool = profile_list_names.len() > 0;
 
         // Fit all the profile items and enough room to display their details including systems, just using dummy 14 for now.
-        let profile_view_height = max(14, self.ui_state.profiles.len() + 4) as u16;
+        let profile_view_height = max(14, self.profile_ui_state.profiles.len() + 4) as u16;
 
         let vertical_chunks = Layout::default()
             .direction(layout::Direction::Vertical)
@@ -176,7 +185,12 @@ impl App {
 
         render_header(f, vertical_chunks[0]);
 
-        let profiles_title = Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED));
+        let profiles_title = if self.ui_mode == UIMode::Profile {
+            Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED))
+        } else {
+            Span::styled("Profiles", Style::default())
+        };
+        let providers_title = Span::styled("Providers (todo)", Style::default());
         let systems_title = Span::styled("Systems (todo)", Style::default()); // Update modifier when selected
         f.render_widget(Paragraph::new(vec!
             [Line::from(""),
@@ -209,13 +223,13 @@ impl App {
             .highlight_symbol(" > ")
             .highlight_spacing(HighlightSpacing::Always)
             .block(Block::default().borders(Borders::RIGHT));
-        f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.ui_state.profile_list_state);
+        f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.profile_ui_state.profile_list_state);
 
         // Main - Profile details area
-        match self.ui_state.profile_ui_mode {
+        match self.profile_ui_state.profile_ui_mode {
             ProfileUIMode::ProfileView => {
                 if has_profiles {
-                    let (selected_profile_name, selected_profile) = selected_profile(&self.ui_state, &profile_list_names).unwrap();
+                    let (selected_profile_name, selected_profile) = selected_profile(&self.profile_ui_state, &profile_list_names).unwrap();
                     let profile_view = Paragraph::new(vec![
                         Line::from(vec![Span::styled("    Profile Details", Style::default().add_modifier(Modifier::ITALIC))]),
                         Line::from(vec!["".into()]),
@@ -311,7 +325,7 @@ impl App {
         }
 
         // Footer
-        let actions = match self.ui_state.profile_ui_mode {
+        let actions = match self.profile_ui_state.profile_ui_mode {
             ProfileUIMode::ProfileView => vec![Span::raw("Profile"),Span::raw("[N] New"), Span::raw("[E] Edit")],
             ProfileUIMode::ProfileEdit => {
                 if self.edit_profile.as_ref().unwrap().edited {
@@ -332,25 +346,25 @@ impl App {
                 }
                 _ => {}
             }
-            match self.ui_state.profile_ui_mode {
+            match self.profile_ui_state.profile_ui_mode {
                 ProfileUIMode::ProfileView => {
                     match key.code {
                         KeyCode::Char('q') => {
                             return Ok(AppOutcome::Exit);
                         }
                         KeyCode::Char('e') | KeyCode::Enter => {
-                            if has_profiles(&self.ui_state.profiles) {
-                                self.ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
-                                let profile_names = profile_list_names(&self.ui_state.profiles);
-                                let (name, profile) = selected_profile(&self.ui_state, &profile_names).unwrap();
+                            if has_profiles(&self.profile_ui_state.profiles) {
+                                self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
+                                let profile_names = profile_list_names(&self.profile_ui_state.profiles);
+                                let (name, profile) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
                                 self.edit_profile = Some(EditableProfile::new(name, profile));
                             }
                         }
                         KeyCode::Down => {
-                            self.ui_state.profile_list_state.select_next();
+                            self.profile_ui_state.profile_list_state.select_next();
                         }
                         KeyCode::Up => {
-                            self.ui_state.profile_list_state.select_previous();
+                            self.profile_ui_state.profile_list_state.select_previous();
                         }
                         _ => {}
                     }
@@ -383,7 +397,7 @@ impl App {
                             } else { // provider dropdown not open
                                 match key.code {
                                     KeyCode::Esc => {
-                                        self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                        self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                         self.edit_profile = None;
                                     },
                                     KeyCode::Down | KeyCode::Tab => {
@@ -402,18 +416,18 @@ impl App {
                         } else {
                             match key.code {
                                 KeyCode::Esc => {
-                                    self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                    self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                     self.edit_profile = None;
                                 },
                                 KeyCode::Enter => { // Change to save key
                                     if let Some(edit_profile) = self.edit_profile.as_mut() {
                                         match edit_profile.focussed_field {
                                             InputField::Name => {
-                                                let profile_names = profile_list_names(&self.ui_state.profiles);
-                                                let (name, _) = selected_profile(&self.ui_state, &profile_names).unwrap();
+                                                let profile_names = profile_list_names(&self.profile_ui_state.profiles);
+                                                let (name, _) = selected_profile(&self.profile_ui_state, &profile_names).unwrap();
                                                 let name_clone = name.clone();
                                                 if edit_profile.name.value() != name_clone {
-                                                    self.ui_state.profiles.remove(&name_clone);
+                                                    self.profile_ui_state.profiles.remove(&name_clone);
                                                 }
                                                 profile::remove_profile(name_clone.as_str()).unwrap();
                                             },
@@ -429,10 +443,10 @@ impl App {
                                             max_tokens: edit_profile.max_tokens.value().parse().ok(),
                                             estimate_factor: edit_profile.estimate_factor.value().parse().ok(),
                                         };
-                                        self.ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
+                                        self.profile_ui_state.profiles.insert(edit_profile.name.value().to_string(), new_profile.clone());
                                         profile::save_profile(edit_profile.name.value(), new_profile).unwrap();
 
-                                        self.ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
+                                        self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileView;
                                         self.edit_profile = None;
                                     }
                                 }
@@ -496,9 +510,9 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
     Ok(())
 }
 
-fn selected_profile<'a>(ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
-    let target_profile_name = profile_list_names.get(ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();
-    Some(ui_state.profiles.iter().find(|(name, _)| target_profile_name == *name).map(|(name, profile)| (name, profile)).unwrap())
+fn selected_profile<'a>(profile_ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
+    let target_profile_name = profile_list_names.get(profile_ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();
+    Some(profile_ui_state.profiles.iter().find(|(name, _)| target_profile_name == *name).map(|(name, profile)| (name, profile)).unwrap())
 }
 
 fn render_header(f: &mut Frame, header_area: layout::Rect) {
