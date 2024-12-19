@@ -2,8 +2,7 @@ use std::{
     cmp::max, collections::HashMap, hash::Hash, io::{self, stdout}, panic::{set_hook, take_hook}, vec
 };
 
-use bat::style;
-use console::Key;
+use main_area::{chunks_for_list_and_view_split, render_left_list};
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
@@ -12,6 +11,9 @@ use ratatui::{
 use tui_input::{backend::crossterm::EventHandler, Input};
 
 use crate::profile::{self, load_profiles, Profile};
+
+mod provider;
+mod main_area;
 
 pub async fn handle_tui_configure() -> io::Result<()> {
     init_panic_hook();
@@ -417,32 +419,8 @@ impl App {
         let profile_list_names: Vec<String> = profile_list_names(&self.profile_ui_state.profiles);
         let has_profiles: bool = profile_list_names.len() > 0;
 
-        let main_area_horizontal_chunks = Layout::default()
-            .direction(layout::Direction::Horizontal)
-            .constraints([layout::Constraint::Length(33), layout::Constraint::Min(1)])
-            .split(main_area);
-
-        // Main - Profile list area
-        let profile_list_chunks = Layout::default()
-            .direction(layout::Direction::Vertical)
-            .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
-            .split(main_area_horizontal_chunks[0]);
-
-        let profile_list_header = Paragraph::new(vec![
-            Line::from(vec![Span::styled("   Profiles List", Style::default().add_modifier(Modifier::ITALIC))]),
-            Line::from(vec!["".into()])
-        ]).block(Block::default().borders(Borders::RIGHT));
-        f.render_widget(profile_list_header, profile_list_chunks[0]);
-
-        
-        let mut profile_list = List::new(profile_list_names.clone())
-            .highlight_symbol(" > ")
-            .highlight_spacing(HighlightSpacing::Always)
-            .block(Block::default().borders(Borders::RIGHT));
-        if !self.main_menu_focussed { 
-            profile_list = profile_list.highlight_style(Style::default().add_modifier(Modifier::BOLD));
-        }
-        f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.profile_ui_state.profile_list_state);
+        let main_area_horizontal_chunks = chunks_for_list_and_view_split(main_area);
+        render_left_list(f, "Profiles".to_string(), profile_list_names.clone(), &mut self.profile_ui_state.profile_list_state, !self.main_menu_focussed, main_area_horizontal_chunks[0]);
 
         // Main - Profile details area
         match self.profile_ui_state.profile_ui_mode {
@@ -696,6 +674,6 @@ fn prev_field(current_field: InputField) -> InputField {
 
 // Shared functions
 
-fn provider_list() -> Vec<String> {
+pub fn provider_list() -> Vec<String> {
     vec!["anthropic".to_string(), "databricks".to_string(), "ollama".to_string(), "openai".to_string()]
 }
