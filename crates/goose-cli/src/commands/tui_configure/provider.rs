@@ -1,23 +1,23 @@
-use std::io;
+use std::{io, sync::{Arc, Mutex}};
 
-use crate::commands::{configure::get_required_keys, tui_configure::provider_list};
+use crate::{commands::{configure::{get_recommended_model, get_required_keys, send_test_message}, tui_configure::provider_list}, profile::Profile};
 use goose::key_manager::{get_keyring_secret, KeyRetrievalStrategy};
 use ratatui::{
     crossterm::event::{KeyCode, KeyEvent},
     layout::{self, Layout, Rect},
-    text::Span,
-    widgets::{Block, List, ListState},
+    text::{Line, Span},
+    widgets::{Block, List, ListState, Paragraph},
     Frame,
 };
 
 use super::{
-    main_area::{chunks_for_list_and_view_split, render_left_list},
-    AppOutcome,
+    main_area::{chunks_for_list_and_view_split, render_left_list}, AppOutcome
 };
 
 pub struct ProviderUi {
     provider_list_state: ListState,
     providers: Vec<ProviderWithState>,
+    connection_test: Option<ConnectionTest>
 }
 
 impl ProviderUi {
@@ -26,6 +26,7 @@ impl ProviderUi {
         Self {
             provider_list_state: ListState::default().with_selected(Some(0)),
             providers,
+            connection_test: None,
         }
     }
 
@@ -49,6 +50,28 @@ impl ProviderUi {
             .constraints([layout::Constraint::Length(2), layout::Constraint::Min(1)])
             .split(main_area_horizontal_chunks[1]);
 
+        // Render the connection test status
+        if let Some(connection_test) = &self.connection_test {
+            let status = match connection_test.status.lock().unwrap().clone() {
+                ConnectionTestStatus::Pending => "Pending",
+                ConnectionTestStatus::Success => "Success",
+                ConnectionTestStatus::Failed => "Failed",
+            };
+            let status = Span::raw(format!("   Connection Test: {}", status));
+            if let Some(error_message) = &*connection_test.error_message.lock().unwrap() {
+                let error_message = Paragraph::new(vec![
+                    Line::from(status),
+                    Line::from(vec![Span::raw("   "), Span::raw(error_message.clone())])
+                ]).block(Block::default());
+                f.render_widget(error_message, right_chunks[0]);
+            } else {
+                let status = Paragraph::new(status).block(Block::default());
+                f.render_widget(status, right_chunks[0]);
+            }
+
+            
+        }
+
         let selected_provider = self
             .provider_list_state
             .selected()
@@ -69,6 +92,10 @@ impl ProviderUi {
     }
 
     pub fn handle_events(&mut self, key: KeyEvent) -> io::Result<AppOutcome> {
+        if self.connection_test.is_some() { // Interrupt with any key
+            self.connection_test = None;
+            return Ok(AppOutcome::Continue);
+        }
         match key.code {
             KeyCode::Esc => return Ok(AppOutcome::UpMenu),
             KeyCode::Char('q') => return Ok(AppOutcome::Exit),
@@ -93,7 +120,11 @@ impl ProviderUi {
                 }
             }
             KeyCode::Char('t') => {
-                // TODO: Test connection to provider.
+                self.connection_test = self
+                    .provider_list_state
+                    .selected()
+                    .map(|i| ConnectionTest::new(Profile { provider: self.providers[i].name.clone(), model: get_recommended_model(&self.providers[i].name.clone()).to_string(), additional_systems: vec![], temperature: None, context_limit: None, max_tokens: None, estimate_factor: None }));
+                self.connection_test.as_mut().unwrap().start();
             }
             KeyCode::Down => {
                 self.provider_list_state.select_next();
@@ -111,11 +142,18 @@ impl ProviderUi {
     }
 
     pub fn action_footer_names(&self) -> Vec<Span> {
-        vec![
-            Span::raw("Provider"),
-            Span::raw("[C] Check Configuration"),
-            Span::raw("[T] Test Connection"),
-        ] // TODO: Add edit config
+        if let Some(_) = &self.connection_test {
+            vec![
+                Span::raw("Provider"),
+                Span::raw("Press any key to end connection test"),
+            ]
+        } else {
+            vec![
+                Span::raw("Provider"),
+                Span::raw("[C] Check Configuration"),
+                Span::raw("[T] Test Connection"),
+            ] // TODO: Add edit config
+        }
     }
 
     fn renderable_provider_list(&self) -> Vec<String> {
@@ -140,6 +178,66 @@ impl ProviderUi {
             })
             .collect()
     }
+}
+
+struct ConnectionTest {
+    profile: Profile,
+    status: Arc<Mutex<ConnectionTestStatus>>,
+    error_message: Arc<Mutex<Option<String>>>,
+    handle: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl ConnectionTest {
+    fn new(profile: Profile) -> Self {
+        Self {
+            profile,
+            status: Arc::new(Mutex::new(ConnectionTestStatus::Pending)),
+            error_message: Arc::new(Mutex::new(None)),
+            handle: None,
+        }
+    }
+
+    fn start(&mut self) {
+        *self.status.lock().unwrap() = ConnectionTestStatus::Pending;
+        let profile = self.profile.clone();
+        let status = Arc::clone(&self.status);
+        let error_message = Arc::clone(&self.error_message);
+        
+        self.handle = Some(tokio::spawn({
+            async move {
+                match send_test_message(profile).await {
+                    Ok((message, _usage)) => {
+                        let mut status = status.lock().unwrap();
+                        let mut error_message = error_message.lock().unwrap();
+                        if let Some(content) = message.content.first() {
+                            if let Some(_) = content.as_text() {
+                                *status = ConnectionTestStatus::Success;
+                            } else {
+                                *status = ConnectionTestStatus::Failed;
+                                *error_message = Some("No response text available".to_string());
+                            }
+                        } else {
+                            *status = ConnectionTestStatus::Failed;
+                            *error_message = Some("No response content available".to_string());
+                        }
+                    }
+                    Err(e) => {
+                        let mut status = status.lock().unwrap();
+                        let mut error_message = error_message.lock().unwrap();
+                        *status = ConnectionTestStatus::Failed;
+                        *error_message = Some(format!("{:?}", e));
+                    }
+                }
+            }
+        }));
+    }
+}
+
+#[derive(Clone)]
+enum ConnectionTestStatus {
+    Pending,
+    Success,
+    Failed,
 }
 
 #[derive(PartialEq)]
