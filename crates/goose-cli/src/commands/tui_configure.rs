@@ -2,6 +2,7 @@ use std::{
     cmp::max, collections::HashMap, hash::Hash, io::{self, stdout}, panic::{set_hook, take_hook}, vec
 };
 
+use bat::style;
 use console::Key;
 use ratatui::{
     backend::{Backend, CrosstermBackend}, crossterm::{
@@ -398,17 +399,9 @@ impl App {
     }
 
     fn render_main_menu(&mut self, f: &mut Frame, area: Rect) {
-        let profiles_title = if self.ui_mode == UIMode::Profile {
-            Span::styled("Profiles", Style::default().add_modifier(Modifier::UNDERLINED))
-        } else {
-            Span::styled("Profiles", Style::default())
-        };
-        let providers_title = if self.ui_mode == UIMode::Provider {
-            Span::styled("Providers", Style::default().add_modifier(Modifier::UNDERLINED))
-        } else {
-            Span::styled("Providers", Style::default())
-        };
-        let systems_title = Span::styled("Systems (todo)", Style::default()); // Update modifier when selected
+        let profiles_title = Span::styled("Profiles", main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Profile));
+        let providers_title = Span::styled("Providers", main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Provider));
+        let systems_title = Span::styled("Systems (todo)", main_menu_item_style(self.main_menu_focussed, false));
         f.render_widget(Paragraph::new(vec!
             [Line::from(""),
             Line::from(vec![Span::raw("   "), profiles_title, Span::raw("   "), providers_title, Span::raw("   "), systems_title]),
@@ -442,10 +435,13 @@ impl App {
         f.render_widget(profile_list_header, profile_list_chunks[0]);
 
         
-        let profile_list = List::new(profile_list_names.clone())
+        let mut profile_list = List::new(profile_list_names.clone())
             .highlight_symbol(" > ")
             .highlight_spacing(HighlightSpacing::Always)
             .block(Block::default().borders(Borders::RIGHT));
+        if !self.main_menu_focussed { 
+            profile_list = profile_list.highlight_style(Style::default().add_modifier(Modifier::BOLD));
+        }
         f.render_stateful_widget(profile_list, profile_list_chunks[1], &mut self.profile_ui_state.profile_list_state);
 
         // Main - Profile details area
@@ -491,17 +487,17 @@ impl App {
                 let edit_profile = self.edit_profile.as_ref().unwrap();                
                 let input_offset = 22;
                 let lines = vec![
-                    editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset),
+                    editable_profile_line("Name", &edit_profile.name, edit_profile.errors.get(&InputField::Name).cloned().flatten(), input_offset, edit_profile.focussed_field == InputField::Name),
                     if edit_profile.focussed_field == InputField::Provider {
-                        non_editable_dropdown_profile_line("Provider", &edit_profile.provider, None, input_offset)
+                        non_editable_dropdown_profile_line("Provider", &edit_profile.provider, None, input_offset, edit_profile.focussed_field == InputField::Provider)
                     } else {
-                        non_editable_profile_line("Provider", &edit_profile.provider, None, input_offset)
+                        non_editable_profile_line("Provider", &edit_profile.provider, None, input_offset, edit_profile.focussed_field == InputField::Provider)
                     },
-                    editable_profile_line("Model", &edit_profile.model, edit_profile.errors.get(&InputField::Model).cloned().flatten(), input_offset),
-                    editable_profile_line("Temperature", &edit_profile.temperature, None, input_offset),
-                    editable_profile_line("Context Limit", &edit_profile.context_limit, None, input_offset),
-                    editable_profile_line("Max Tokens", &edit_profile.max_tokens, None, input_offset),
-                    editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset),
+                    editable_profile_line("Model", &edit_profile.model, edit_profile.errors.get(&InputField::Model).cloned().flatten(), input_offset, edit_profile.focussed_field == InputField::Model),
+                    editable_profile_line("Temperature", &edit_profile.temperature, None, input_offset, edit_profile.focussed_field == InputField::Temperature),
+                    editable_profile_line("Context Limit", &edit_profile.context_limit, None, input_offset, edit_profile.focussed_field == InputField::ContextLimit),
+                    editable_profile_line("Max Tokens", &edit_profile.max_tokens, None, input_offset, edit_profile.focussed_field == InputField::MaxTokens),
+                    editable_profile_line("Estimate Factor", &edit_profile.estimate_factor, None, input_offset, edit_profile.focussed_field == InputField::EstimateFactor),
                 ];
                 let edit_profile_area_pos = edit_section_chunks[1].as_position();
                 // let mut provider_popup: Option<ProviderPopup> = None;
@@ -540,6 +536,7 @@ impl App {
                         .borders(Borders::ALL);
                     let provider_list = List::new(provider_list())
                         .highlight_symbol(" > ")
+                        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
                         .highlight_spacing(HighlightSpacing::Always)
                         .block(block);
                     f.render_stateful_widget(provider_list, target_area, &mut self.edit_profile.as_mut().unwrap().provider_list_state);
@@ -563,11 +560,6 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
     Ok(())
 }
 
-fn selected_profile<'a>(profile_ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
-    let target_profile_name = profile_list_names.get(profile_ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();
-    Some(profile_ui_state.profiles.iter().find(|(name, _)| target_profile_name == *name).map(|(name, profile)| (name, profile)).unwrap())
-}
-
 fn render_header(f: &mut Frame, header_area: layout::Rect) {
     let title = Line::from(vec![
         Span::raw("─".repeat(10)),
@@ -575,6 +567,29 @@ fn render_header(f: &mut Frame, header_area: layout::Rect) {
     ]);
     f.render_widget(Block::default().borders(Borders::TOP).title(title), header_area);
 }
+
+// Main menu functions
+fn main_menu_item_style(main_menu_focussed: bool, is_selected: bool) -> Style {
+    let mut style = Style::default();
+    if main_menu_focussed {
+        if is_selected {
+            style = style.add_modifier(Modifier::BOLD | Modifier::UNDERLINED);
+        } else {
+            style = style.add_modifier(Modifier::BOLD);
+        }
+    } else if is_selected {
+        style = style.add_modifier(Modifier::UNDERLINED);
+    }
+    style
+}
+
+// Profile functions
+
+fn selected_profile<'a>(profile_ui_state: &'a ProfileUiState, profile_list_names: &'a Vec<String>) -> Option<(&'a String, &'a Profile)> {
+    let target_profile_name = profile_list_names.get(profile_ui_state.profile_list_state.selected().unwrap_or(0)).unwrap();
+    Some(profile_ui_state.profiles.iter().find(|(name, _)| target_profile_name == *name).map(|(name, profile)| (name, profile)).unwrap())
+}
+
 
 fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>) {
     let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].clone().into(), Span::raw(":"), Span::raw(" ".repeat(3))];
@@ -610,34 +625,49 @@ fn profile_list_names(profiles: &HashMap<String, Profile>) -> Vec<String> {
     strs
 }
 
-fn editable_profile_line<'a>(label: &'a str, input: &'a Input, error: Option<String>, input_offset: u16) -> Line<'a> {
+fn editable_profile_line<'a>(label: &'a str, input: &'a Input, error: Option<String>, input_offset: u16, focussed: bool) -> Line<'a> {
     let err_span = if let Some(err) = error {
         Span::styled(err.clone(), Style::default().fg(Color::Red))
     } else {
         Span::raw("".to_string())
     };
+    let label_span = if focussed {
+        Span::styled(label, Style::default().add_modifier(Modifier::BOLD))
+    } else {
+        Span::raw(label)
+    };
     let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 5);
-    Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.value().into(), "       ".into(), err_span])
+    Line::from(vec!["    ".into(), label_span, ":".into(), prefix_spaces.into(), input.value().into(), "       ".into(), err_span])
 }
 
-fn non_editable_profile_line<'a>(label: &'a str, input: &'a str, error: Option<String>, input_offset: u16) -> Line<'a> {
+fn non_editable_profile_line<'a>(label: &'a str, input: &'a str, error: Option<String>, input_offset: u16, focussed: bool) -> Line<'a> {
     let err_span = if let Some(err) = error {
         Span::styled(err.clone(), Style::default().fg(Color::Red))
     } else {
         Span::raw("".to_string())
     };
+    let label_span = if focussed {
+        Span::styled(label, Style::default().add_modifier(Modifier::BOLD))
+    } else {
+        Span::raw(label)
+    };
     let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 5);
-    Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.into(), "       ".into(), err_span])
+    Line::from(vec!["    ".into(), label_span, ":".into(), prefix_spaces.into(), input.into(), "       ".into(), err_span])
 }
 
-fn non_editable_dropdown_profile_line<'a>(label: &'a str, input: &'a str, error: Option<String>, input_offset: u16) -> Line<'a> {
+fn non_editable_dropdown_profile_line<'a>(label: &'a str, input: &'a str, error: Option<String>, input_offset: u16, focussed: bool) -> Line<'a> {
     let err_span = if let Some(err) = error {
         Span::styled(err.clone(), Style::default().fg(Color::Red))
     } else {
         Span::raw("".to_string())
     };
+    let label_span = if focussed {
+        Span::styled(label, Style::default().add_modifier(Modifier::BOLD))
+    } else {
+        Span::raw(label)
+    };
     let prefix_spaces = " ".repeat(input_offset as usize - label.len() - 5);
-    Line::from(vec!["    ".into(), label.into(), ":".into(), prefix_spaces.into(), input.into(), " ▼     ".into(), err_span])
+    Line::from(vec!["    ".into(), label_span, ":".into(), prefix_spaces.into(), input.into(), " ▼     ".into(), err_span])
 }
 
 fn next_field(current_field: InputField) -> InputField {
@@ -663,6 +693,8 @@ fn prev_field(current_field: InputField) -> InputField {
         InputField::EstimateFactor => InputField::MaxTokens,
     }
 }
+
+// Shared functions
 
 fn provider_list() -> Vec<String> {
     vec!["anthropic".to_string(), "databricks".to_string(), "ollama".to_string(), "openai".to_string()]
