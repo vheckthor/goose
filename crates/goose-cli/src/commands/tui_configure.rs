@@ -215,7 +215,7 @@ impl App {
                 }
             }
         };
-        render_footer(f, footer_area, &actions);
+        render_footer(f, footer_area, &actions, self.main_menu_focussed);
     }
 
     fn handle_events(&mut self) -> io::Result<AppOutcome> {
@@ -275,6 +275,7 @@ impl App {
                                     KeyCode::Esc => {
                                         self.main_menu_focussed = true;
                                     }
+                                    // TODO: Add delete profile with confirmation.
                                     KeyCode::Char('n') => {
                                         self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
                                         self.edit_profile = Some(EditableProfile::new(&"".to_string(), &Profile {
@@ -287,7 +288,7 @@ impl App {
                                             estimate_factor: None,
                                         }));
                                     }
-                                    KeyCode::Char('e') | KeyCode::Enter => {
+                                    KeyCode::Char('e') | KeyCode::Enter | KeyCode::Right => {
                                         if has_profiles(&self.profile_ui_state.profiles) {
                                             self.profile_ui_state.profile_ui_mode = ProfileUIMode::ProfileEdit;
                                             let profile_names = profile_list_names(&self.profile_ui_state.profiles);
@@ -607,20 +608,25 @@ fn selected_profile<'a>(profile_ui_state: &'a ProfileUiState, profile_list_names
 }
 
 
-fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>) {
+fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>, main_menu_focussed: bool) {
     let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].clone().into(), Span::raw(":"), Span::raw(" ".repeat(3))];
     let actions_suffix = actions.iter().skip(1).fold(Vec::new(), |mut acc, action| {
         acc.push(action.clone());
         acc.push(Span::raw(" ".repeat(3)));
         acc
     });
+    let mut app_nav_items = vec![
+        Span::raw(" ".repeat(3)),
+        Span::styled("App:       ", Style::default()),
+        Span::styled("[Ctrl+C] Quit", Style::default()),
+    ];
+    if !main_menu_focussed {
+        app_nav_items.push(Span::raw(" ".repeat(3)));
+        app_nav_items.push(Span::styled("[Esc] Close Current Menu", Style::default()));
+    }
     let footer = Text::from(vec![
         Line::from([actions_prefix, actions_suffix].concat()),
-        Line::from(vec![
-            Span::raw(" ".repeat(3)),
-            Span::styled("App:       ", Style::default()),
-            Span::styled("[Ctrl+C] Quit", Style::default()),
-        ])
+        Line::from(app_nav_items)
     ]);
 
     let title_line = Line::from(vec![

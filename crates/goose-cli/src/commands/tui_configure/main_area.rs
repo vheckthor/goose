@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use ratatui::{layout::{self, Layout, Rect}, style::{Modifier, Style},  text::{Line, Span, Text}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Paragraph}, Frame};
+use ratatui::{layout::{self, Layout, Rect}, style::{Modifier, Style},  text::{Line, Span}, widgets::{Block, Borders, HighlightSpacing, List, ListState, Paragraph}, Frame};
 
 
 pub fn chunks_for_list_and_view_split(area: Rect) -> Rc<[Rect]> {
