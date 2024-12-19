@@ -1,17 +1,30 @@
 use std::{
-    cmp::max, hash::Hash, io::{self, stdout}, panic::{set_hook, take_hook}, time::Duration, vec
+    cmp::max,
+    hash::Hash,
+    io::{self, stdout},
+    panic::{set_hook, take_hook},
+    time::Duration,
+    vec,
 };
 
 use profile::ProfileUI;
 use ratatui::{
-    backend::{Backend, CrosstermBackend}, crossterm::{
-        event::{self, poll, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers}, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
-    }, layout::{self, Layout, Rect}, style::{Modifier, Style}, text::{Line, Span, Text}, widgets::{Block, Borders, Paragraph}, Frame, Terminal
+    backend::{Backend, CrosstermBackend},
+    crossterm::{
+        event::{self, poll, Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    },
+    layout::{self, Layout, Rect},
+    style::{Modifier, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Borders, Paragraph},
+    Frame, Terminal,
 };
 
+mod main_area;
 mod profile;
 mod provider;
-mod main_area;
 
 pub async fn handle_tui_configure() -> io::Result<()> {
     init_panic_hook();
@@ -79,7 +92,13 @@ impl App {
         let vertical_chunks = Layout::default()
             .direction(layout::Direction::Vertical)
             // header, context title (Profiles), main display, footer
-            .constraints([layout::Constraint::Length(1), layout::Constraint::Length(3), layout::Constraint::Length(profile_view_height), layout::Constraint::Min(1), layout::Constraint::Min(1)])
+            .constraints([
+                layout::Constraint::Length(1),
+                layout::Constraint::Length(3),
+                layout::Constraint::Length(profile_view_height),
+                layout::Constraint::Min(1),
+                layout::Constraint::Min(1),
+            ])
             .split(f.area());
 
         let main_area = vertical_chunks[2];
@@ -91,10 +110,12 @@ impl App {
         // Main area
         match self.ui_mode {
             UIMode::Profile => {
-                self.profile_ui.render_main_area(f, main_area, !self.main_menu_focussed);
+                self.profile_ui
+                    .render_main_area(f, main_area, !self.main_menu_focussed);
             }
             UIMode::Provider => {
-                self.provider_ui.render_main_area(f, main_area, !self.main_menu_focussed);
+                self.provider_ui
+                    .render_main_area(f, main_area, !self.main_menu_focussed);
             }
         }
 
@@ -115,7 +136,12 @@ impl App {
         if poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 match key {
-                    KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL, kind: KeyEventKind::Press, state: KeyEventState::NONE } => {
+                    KeyEvent {
+                        code: KeyCode::Char('c'),
+                        modifiers: KeyModifiers::CONTROL,
+                        kind: KeyEventKind::Press,
+                        state: KeyEventState::NONE,
+                    } => {
                         return Ok(AppOutcome::Exit);
                     }
                     _ => {}
@@ -125,22 +151,18 @@ impl App {
                         KeyCode::Char('q') => {
                             return Ok(AppOutcome::Exit);
                         }
-                        KeyCode::Left => {
-                            match self.ui_mode {
-                                UIMode::Profile => {}
-                                UIMode::Provider => {
-                                    self.ui_mode = UIMode::Profile;
-                                }
+                        KeyCode::Left => match self.ui_mode {
+                            UIMode::Profile => {}
+                            UIMode::Provider => {
+                                self.ui_mode = UIMode::Profile;
                             }
-                        }
-                        KeyCode::Right => {
-                            match self.ui_mode {
-                                UIMode::Profile => {
-                                    self.ui_mode = UIMode::Provider;
-                                }
-                                UIMode::Provider => {}
+                        },
+                        KeyCode::Right => match self.ui_mode {
+                            UIMode::Profile => {
+                                self.ui_mode = UIMode::Provider;
                             }
-                        }
+                            UIMode::Provider => {}
+                        },
                         KeyCode::Down | KeyCode::Enter => {
                             self.main_menu_focussed = false;
                         }
@@ -148,28 +170,24 @@ impl App {
                     }
                 } else {
                     match self.ui_mode {
-                        UIMode::Provider => {
-                            match self.provider_ui.handle_events(key)? {
-                                AppOutcome::UpMenu => {
-                                    self.main_menu_focussed = true;
-                                    return Ok(AppOutcome::Continue);
-                                }
-                                o => {
-                                    return Ok(o);
-                                }
+                        UIMode::Provider => match self.provider_ui.handle_events(key)? {
+                            AppOutcome::UpMenu => {
+                                self.main_menu_focussed = true;
+                                return Ok(AppOutcome::Continue);
                             }
-                        }
-                        UIMode::Profile => {
-                            match self.profile_ui.handle_events(key)? {
-                                AppOutcome::UpMenu => {
-                                    self.main_menu_focussed = true;
-                                    return Ok(AppOutcome::Continue);
-                                }
-                                o => {
-                                    return Ok(o);
-                                }
+                            o => {
+                                return Ok(o);
                             }
-                        }
+                        },
+                        UIMode::Profile => match self.profile_ui.handle_events(key)? {
+                            AppOutcome::UpMenu => {
+                                self.main_menu_focussed = true;
+                                return Ok(AppOutcome::Continue);
+                            }
+                            o => {
+                                return Ok(o);
+                            }
+                        },
                     }
                 }
             }
@@ -181,23 +199,44 @@ impl App {
     }
 
     fn render_main_menu(&mut self, f: &mut Frame, area: Rect) {
-        let profiles_title = Span::styled("Profiles", main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Profile));
-        let providers_title = Span::styled("Providers", main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Provider));
-        let systems_title = Span::styled("Systems (todo)", main_menu_item_style(self.main_menu_focussed, false));
-        f.render_widget(Paragraph::new(vec!
-            [Line::from(""),
-            Line::from(vec![Span::raw("   "), profiles_title, Span::raw("   "), providers_title, Span::raw("   "), systems_title]),
-            Line::from(vec![Span::raw("─".repeat((f.area().width as usize).saturating_sub(24)))]),
-            Line::from(""),
-            ]
-        ).block(Block::default().borders(Borders::BOTTOM)), area);
+        let profiles_title = Span::styled(
+            "Profiles",
+            main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Profile),
+        );
+        let providers_title = Span::styled(
+            "Providers",
+            main_menu_item_style(self.main_menu_focussed, self.ui_mode == UIMode::Provider),
+        );
+        let systems_title = Span::styled(
+            "Systems (todo)",
+            main_menu_item_style(self.main_menu_focussed, false),
+        );
+        f.render_widget(
+            Paragraph::new(vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("   "),
+                    profiles_title,
+                    Span::raw("   "),
+                    providers_title,
+                    Span::raw("   "),
+                    systems_title,
+                ]),
+                Line::from(vec![Span::raw(
+                    "─".repeat((f.area().width as usize).saturating_sub(24)),
+                )]),
+                Line::from(""),
+            ])
+            .block(Block::default().borders(Borders::BOTTOM)),
+            area,
+        );
     }
 }
 
 async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
     let mut app = App::new();
     loop {
-        tui.draw(|f| app.draw(f) )?;
+        tui.draw(|f| app.draw(f))?;
         match app.handle_events() {
             Ok(AppOutcome::Continue) | Ok(AppOutcome::UpMenu) => continue,
             Ok(AppOutcome::Exit) => break,
@@ -211,9 +250,15 @@ async fn run(mut tui: Terminal<impl Backend>) -> io::Result<()> {
 fn render_header(f: &mut Frame, header_area: layout::Rect) {
     let title = Line::from(vec![
         Span::raw("─".repeat(10)),
-        Span::styled(" Configure Goose ", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " Configure Goose ",
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
     ]);
-    f.render_widget(Block::default().borders(Borders::TOP).title(title), header_area);
+    f.render_widget(
+        Block::default().borders(Borders::TOP).title(title),
+        header_area,
+    );
 }
 
 // Main menu functions
@@ -233,9 +278,18 @@ fn main_menu_item_style(main_menu_focussed: bool, is_selected: bool) -> Style {
 
 // Profile functions
 
-
-fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>, main_menu_focussed: bool) {
-    let actions_prefix = vec![Span::raw(" ".repeat(3)), actions[0].clone().into(), Span::raw(":"), Span::raw(" ".repeat(3))];
+fn render_footer(
+    f: &mut Frame,
+    footer_area: layout::Rect,
+    actions: &Vec<Span>,
+    main_menu_focussed: bool,
+) {
+    let actions_prefix = vec![
+        Span::raw(" ".repeat(3)),
+        actions[0].clone().into(),
+        Span::raw(":"),
+        Span::raw(" ".repeat(3)),
+    ];
     let actions_suffix = actions.iter().skip(1).fold(Vec::new(), |mut acc, action| {
         acc.push(action.clone());
         acc.push(Span::raw(" ".repeat(3)));
@@ -252,7 +306,7 @@ fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>, 
     }
     let footer = Text::from(vec![
         Line::from([actions_prefix, actions_suffix].concat()),
-        Line::from(app_nav_items)
+        Line::from(app_nav_items),
     ]);
 
     let title_line = Line::from(vec![
@@ -265,5 +319,10 @@ fn render_footer(f: &mut Frame, footer_area: layout::Rect, actions: &Vec<Span>, 
 
 // Shared functions
 pub fn provider_list() -> Vec<String> {
-    vec!["anthropic".to_string(), "databricks".to_string(), "ollama".to_string(), "openai".to_string()]
+    vec![
+        "anthropic".to_string(),
+        "databricks".to_string(),
+        "ollama".to_string(),
+        "openai".to_string(),
+    ]
 }

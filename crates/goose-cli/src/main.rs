@@ -1,7 +1,7 @@
 mod commands {
     pub mod configure;
-    pub mod tui_configure;
     pub mod session;
+    pub mod tui_configure;
     pub mod version;
 }
 pub mod agents;
@@ -13,9 +13,9 @@ mod systems;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use commands::{configure::handle_configure, tui_configure::handle_tui_configure};
 use commands::session::build_session;
 use commands::version::print_version;
+use commands::{configure::handle_configure, tui_configure::handle_tui_configure};
 use profile::has_no_profiles;
 use std::io::{self, Read};
 
