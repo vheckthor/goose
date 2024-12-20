@@ -53,8 +53,10 @@ jobs:
       - name: Set up Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          override: true
+          target: ${{ matrix.architecture }}-${{ matrix.suffix }}
+#        with:
+#          toolchain: stable
+#          override: true
 
       - name: build
         run: |
