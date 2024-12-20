@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
           os: [ ubuntu-latest ]
-          architecture: [ x86_64, aarch64 ]
+          architecture: [ aarch64 ]
           include:
             - os: ubuntu-latest
               target-suffix: unknown-linux-gnu
@@ -58,7 +58,7 @@ jobs:
           export TARGET=${{ matrix.architecture }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
           cargo install cross --git https://github.com/cross-rs/cross
-          cross build --release --target ${TARGET}
+          CROSS_BUILD_OPTS="--platform linux/amd64 --no-cache" CROSS_CONTAINER_OPTS="--platform linux/amd64" cross build --release --target ${TARGET}
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
           echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
