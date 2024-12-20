@@ -12,7 +12,7 @@ name: Release CLI
 
 jobs:
   build:
-    name: Build ${{ matrix.architecture }}-${{ matrix.suffix }}
+    name: Build ${{ matrix.architecture }}-${{ matrix.target-suffix }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,10 +48,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable
-          override: true
+          target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
 
       - name: build
         run: |
