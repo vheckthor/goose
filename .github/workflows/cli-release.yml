@@ -3,7 +3,7 @@ on:
 #    tags:
 #      - "v_lifei.*"
     branches:
-      - "- lifei/aarch64-linux"
+      - "lifei/aarch64-linux"
   workflow_dispatch:
 
 concurrency:
