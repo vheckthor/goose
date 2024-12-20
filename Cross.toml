@@ -65,3 +65,6 @@ pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH && apt-get update --fix-missing && apt-get install --assume-yes libxcb1-dev:$CROSS_DEB_ARCH libdbus-1-dev:$CROSS_DEB_ARCH",
 ]
 
+[target.aarch64-apple-darwin.env]
+passthrough = ["CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG=true","BACKTRACE=full"]
+
