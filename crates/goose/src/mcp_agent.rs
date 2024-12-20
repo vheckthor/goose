@@ -81,8 +81,6 @@ impl McpAgent {
         let capabilities = ClientCapabilities::default();
         let init = mcp_client.initialize(info, capabilities).await;
         if let Ok(initialize_result) = init {
-            println!("{:#?}", initialize_result);
-
             // TODO: make a struct and keep these together in one map?
             if let Some(instructions) = initialize_result.instructions {
                 self.instructions
@@ -179,7 +177,7 @@ impl McpAgent {
             .collect();
 
         context.insert("systems", servers_info);
-        load_prompt_file("system.md", &context).map_err(|e| AgentError::Internal(e.to_string()))
+        load_prompt_file("system_mcp.md", &context).map_err(|e| AgentError::Internal(e.to_string()))
     }
 
     async fn get_server_resources(
@@ -494,6 +492,7 @@ mod tests {
     use crate::providers::mock::MockProvider;
     use async_trait::async_trait;
     use mcp_client::client::{ClientCapabilities, ClientInfo, Error, McpClientImpl};
+    use mcp_core::handler::ToolError;
     use mcp_core::protocol::Implementation;
     use mcp_core::protocol::{
         InitializeResult, ListResourcesResult, ListToolsResult, ReadResourceResult,
@@ -512,8 +511,8 @@ mod tests {
         fn new() -> Self {
             Self {
                 tools: vec![Tool::new(
-                    "test_tool",
-                    "A test tool",
+                    "echo",
+                    "Echoes back the input",
                     json!({"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]}),
                 )],
                 responses: HashMap::new(),
@@ -573,10 +572,13 @@ mod tests {
             name: &str,
             _arguments: serde_json::Value,
         ) -> Result<mcp_core::protocol::CallToolResult, Error> {
-            Ok(mcp_core::protocol::CallToolResult {
-                content: self.responses.get(name).cloned().unwrap_or_default(),
-                is_error: false,
-            })
+            match name {
+                "echo" => Ok(mcp_core::protocol::CallToolResult {
+                    content: self.responses.get(name).cloned().unwrap_or_default(),
+                    is_error: false,
+                }),
+                _ => Err(Error::UnexpectedResponse),
+            }
         }
     }
 
@@ -595,10 +597,12 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent.add_mcp_client("test".to_string(), Box::new(client));
+        agent
+            .add_mcp_client("test".to_string(), Box::new(client))
+            .await;
 
         assert_eq!(agent.clients.len(), 1);
-        assert!(agent.clients.contains_key("test"));
+        assert!(agent.clients.contains_key("mock"));
     }
 
     #[tokio::test]
@@ -607,13 +611,15 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent.add_mcp_client("test".to_string(), Box::new(client));
+        agent
+            .add_mcp_client("test".to_string(), Box::new(client))
+            .await;
 
         let tools = agent.get_prefixed_tools().await;
 
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "test__test_tool");
-        assert_eq!(tools[0].description, "A test tool");
+        assert_eq!(tools[0].name, "mock__echo");
+        assert_eq!(tools[0].description, "Echoes back the input");
     }
 
     #[tokio::test]
@@ -622,10 +628,12 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent.add_mcp_client("test".to_string(), Box::new(client));
+        agent
+            .add_mcp_client("test".to_string(), Box::new(client))
+            .await;
 
         // Valid tool name
-        let client = agent.get_client_for_tool("test__tool_name");
+        let client = agent.get_client_for_tool("mock__echo");
         assert!(client.is_some());
 
         // Invalid tool name format
@@ -639,16 +647,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_mcp_agent_dispatch_tool_call() {
-        let provider = MockProvider::new(vec![Message::assistant().with_text("test")]);
+        let provider = MockProvider::new(vec![Message::assistant().with_text("Hello!")]);
         let mut agent = McpAgent::new(Box::new(provider));
 
-        let response_content = vec![Content::text("test response")];
-        let client = MockMcpClient::new().with_tool_response("test_tool", response_content.clone());
+        let response_content = vec![Content::text("Hello!")];
+        let client = MockMcpClient::new().with_tool_response("echo", response_content.clone());
 
-        agent.add_mcp_client("test".to_string(), Box::new(client));
+        agent
+            .add_mcp_client("test".to_string(), Box::new(client))
+            .await;
 
         // Test successful tool call
-        let tool_call = Ok(ToolCall::new("test__test_tool", json!({"message": "test"})));
+        let tool_call = Ok(ToolCall::new("mock__echo", json!({"message": "test"})));
         let result = agent.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), response_content);
