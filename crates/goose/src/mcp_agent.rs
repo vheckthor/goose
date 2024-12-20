@@ -723,4 +723,25 @@ mod tests {
             println!("{}", t.name)
         }
     }
+
+    use futures::TryStreamExt;
+    #[tokio::test]
+    async fn test_mcp_agent_simple_response() -> Result<()> {
+        let response = Message::assistant().with_text("Hello!");
+        let provider = MockProvider::new(vec![response.clone()]);
+        let mut agent = McpAgent::new(Box::new(provider));
+
+        let initial_message = Message::user().with_text("Hi");
+        let initial_messages = vec![initial_message];
+
+        let mut stream = agent.reply(&initial_messages).await?;
+        let mut messages = Vec::new();
+        while let Some(msg) = stream.try_next().await? {
+            messages.push(msg);
+        }
+
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0], response);
+        Ok(())
+    }
 }
