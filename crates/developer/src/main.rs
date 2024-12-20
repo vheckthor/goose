@@ -1,27 +1,37 @@
-mod process_store;
 mod errors;
 mod lang;
+mod process_store;
 
-use indoc::formatdoc;
 use anyhow::Result;
+use indoc::formatdoc;
 use serde_json::{json, Value};
-use std::{collections::HashMap, future::Future, path::{Path, PathBuf}, pin::Pin};
+use std::{
+    collections::HashMap,
+    future::Future,
+    path::{Path, PathBuf},
+    pin::Pin,
+};
 use tokio::process::Command;
 use url::Url;
 
-use mcp_core::{handler::{ToolError, ResourceError}, protocol::ServerCapabilities, resource::Resource, tool::Tool};
+use mcp_core::{
+    handler::{ResourceError, ToolError},
+    protocol::ServerCapabilities,
+    resource::Resource,
+    tool::Tool,
+};
 use mcp_server::router::{CapabilitiesBuilder, RouterService};
 
-use mcp_core::role::Role;
-use mcp_core::content::Content;
 use crate::errors::{AgentError, AgentResult};
+use mcp_core::content::Content;
+use mcp_core::role::Role;
 
+use mcp_server::{ByteTransport, Router, Server};
+use std::process::Stdio;
+use std::sync::Mutex;
+use tokio::io::{stdin, stdout};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{self, EnvFilter};
-use mcp_server::{ByteTransport, Router, Server};
-use std::sync::Mutex;
-use std::process::Stdio;
-use tokio::io::{stdin, stdout};
 
 pub struct DeveloperRouter {
     tools: Vec<Tool>,
@@ -69,7 +79,12 @@ impl DeveloperRouter {
         let cwd = std::env::current_dir().unwrap();
         let mut resources = HashMap::new();
         let uri = format!("str:///{}", cwd.display());
-        let resource = Resource::new(uri.clone(), Some("text".to_string()), Some("cwd".to_string())).unwrap();
+        let resource = Resource::new(
+            uri.clone(),
+            Some("text".to_string()),
+            Some("cwd".to_string()),
+        )
+        .unwrap();
         resources.insert(uri, resource);
 
         Self {
@@ -93,19 +108,25 @@ impl DeveloperRouter {
     }
 
     // Convert AgentResult<Vec<Content>> to Result<Value, ToolError>
-    fn map_agent_result_to_value(&self, result: AgentResult<Vec<Content>>) -> Result<Value, ToolError> {
+    fn map_agent_result_to_value(
+        &self,
+        result: AgentResult<Vec<Content>>,
+    ) -> Result<Value, ToolError> {
         match result {
             Ok(contents) => {
-                let messages: Vec<Value> = contents.iter().map(|c| {
-                    json!({
-                        "text": c.as_text().unwrap_or(""),
-                        "audience": c.audience(),
-                        "priority": c.priority()
+                let messages: Vec<Value> = contents
+                    .iter()
+                    .map(|c| {
+                        json!({
+                            "text": c.as_text().unwrap_or(""),
+                            "audience": c.audience(),
+                            "priority": c.priority()
+                        })
                     })
-                }).collect();
+                    .collect();
                 Ok(json!({"messages": messages}))
-            },
-            Err(e) => Err(e.into())
+            }
+            Err(e) => Err(e.into()),
         }
     }
 
@@ -184,9 +205,6 @@ impl DeveloperRouter {
                 .with_priority(0.0),
         ])
     }
-
-
-
 
     // Implement text_editor tool functionality
     async fn text_editor(&self, params: Value) -> AgentResult<Vec<Content>> {
@@ -485,7 +503,6 @@ impl DeveloperRouter {
         Ok(())
     }
 
-
     async fn do_read_resource(&self, uri: &str) -> AgentResult<String> {
         let content = self.read_resource(uri).await.map_err(AgentError::from)?;
         Ok(content)
@@ -522,7 +539,12 @@ impl Router for DeveloperRouter {
     }
 
     fn list_resources(&self) -> Vec<Resource> {
-        self.active_resources.lock().unwrap().values().cloned().collect()
+        self.active_resources
+            .lock()
+            .unwrap()
+            .values()
+            .cloned()
+            .collect()
     }
 
     fn read_resource(
@@ -551,9 +573,6 @@ impl Clone for DeveloperRouter {
         }
     }
 }
-
-
-
 
 #[tokio::main]
 async fn main() -> Result<()> {

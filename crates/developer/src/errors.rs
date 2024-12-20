@@ -1,7 +1,7 @@
+use mcp_core::handler::{ResourceError, ToolError};
+use mcp_server::RouterError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use mcp_core::handler::{ToolError, ResourceError};
-use mcp_server::RouterError;
 
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -24,7 +24,6 @@ pub enum AgentError {
 
 pub type AgentResult<T> = Result<T, AgentError>;
 
-
 impl From<AgentError> for ToolError {
     fn from(err: AgentError) -> Self {
         match err {
@@ -46,7 +45,6 @@ impl From<AgentError> for ResourceError {
     }
 }
 
-
 impl From<AgentError> for RouterError {
     fn from(err: AgentError) -> Self {
         match err {
@@ -62,7 +60,9 @@ impl From<AgentError> for RouterError {
 impl From<ResourceError> for AgentError {
     fn from(err: ResourceError) -> Self {
         match err {
-            ResourceError::NotFound(msg) => AgentError::InvalidParameters(format!("Resource not found: {}", msg)),
+            ResourceError::NotFound(msg) => {
+                AgentError::InvalidParameters(format!("Resource not found: {}", msg))
+            }
             ResourceError::ExecutionError(msg) => AgentError::ExecutionError(msg),
         }
     }
