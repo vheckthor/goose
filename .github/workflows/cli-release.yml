@@ -23,10 +23,10 @@ jobs:
           os: [ macos-latest ]
           architecture: [ x86_64 ]
           include:
-            - os: ubuntu-latest
-              target-suffix: unknown-linux-gnu
-#            - os: macos-latest
-#              target-suffix: apple-darwin
+#            - os: ubuntu-latest
+#              target-suffix: unknown-linux-gnu
+            - os: macos-latest
+              target-suffix: apple-darwin
 #        include:
 #          # Linux x86_64 build on Ubuntu
 #          - os: ubuntu-latest
