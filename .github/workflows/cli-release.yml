@@ -1,9 +1,9 @@
 on:
   push:
-#    tags:
-#      - "v_lifei.*"
-    branches:
-      - "lifei/aarch64-linux"
+    tags:
+      - "v_lifei.*"
+#    branches:
+#      - "lifei/aarch64-linux"
   workflow_dispatch:
 
 concurrency:
@@ -71,22 +71,22 @@ jobs:
           name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}
           path: ${{ env.ARTIFACT }}
 
-#  release:
-#    name: Release
-#    runs-on: ubuntu-latest
-#    needs: [ build ]
-#    permissions:
-#      contents: write
-#    steps:
-#      # Step 1: Download all build artifacts
-#      - name: Download all artifacts
-#        uses: actions/download-artifact@v4
-#        with:
-#          merge-multiple: true
-#
-#      # Step 2: Create GitHub release with artifacts
-#      - name: Create GitHub release
-#        uses: ncipollo/release-action@v1
-#        with:
-#          artifacts: "goose-*.tar.bz2"
-#          token: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [ build ]
+    permissions:
+      contents: write
+    steps:
+      # Step 1: Download all build artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      # Step 2: Create GitHub release with artifacts
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "goose-*.tar.bz2"
+          token: ${{ secrets.GITHUB_TOKEN }}
