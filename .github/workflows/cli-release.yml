@@ -13,7 +13,7 @@ name: Release CLI
 jobs:
   build:
     name: Build ${{ matrix.architecture }}-${{ matrix.target-suffix }}
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
