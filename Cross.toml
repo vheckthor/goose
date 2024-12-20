@@ -1,70 +1,19 @@
-# BUILD
-# -----
-# Set build configurations for all targets.
-
-[build]
-## Use xargo when cross-compiling for targets without a pre-built
-## standard library. Prefer `build-std` for most targets. This
-## requires nightly.
-#xargo = true
-## Use `-Zbuild-std` when cross-compiling for targets without a
-## pre-built standard library. This overrides `xargo`: if enabled,
-## `xargo` will not be used.
-#build-std = true
-## Default target to build if the target is not provided via
-## `--target` or `CARGO_BUILD_TARGET`.
-#default-target = "x86_64-unknown-linux-gnu"
-## Additional commands to run prior to building the package.
-## These are translated into RUN commands to add to the Docker
-## image prior to running cross.
-#pre-build = [
-#    "dpkg --add-architecture $CROSS_DEB_ARCH",
-#    "apt-get update && apt-get install --assume-yes libssl-dev:$CROSS_DEB_ARCH"
-#]
-## A custom Dockerfile to use for all targets. This can be
-## provided as a struct or string. See below for a target
-## for the struct variant. Both pre-build hooks can a custom
-## Dockerfile can be provided: the pre-build hooks will be added
-## to the end of the Dockerfile.
-#dockerfile = "Dockerfile"
-#
-## BUILD ENVIRONMENT
-## -----------------
-## Set the build environment for all targets.
-#
-#[build.env]
-## Volumes to be mounted, passed via the value of an environment
-## variable. These will be passed to the container both as
-## a mountpoint and an environment variable. For example, the
-## path to `VOL2_ARG` will be available as `$VOL2_ARG`, and
-## the path will be mounted at `/path/to/volume`.
-## A value for the environment variable containing the
-## path to the volume can provided.
-#volumes = ["VOL1_ARG", "VOL2_ARG=/path/to/volume"]
-## Environment variables to be passed through to the container.
-## A value for the environment variable can provided.
-#passthrough = ["VAR1_ARG", "VAR2_ARG=VALUE"]
-
-# TARGET
-# ------
-# Set build configurations for a single target. These
-# values override those present in `[build]`.
-
 [target.aarch64-unknown-linux-gnu]
 xargo = false
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH && apt-get update --fix-missing && apt-get install --assume-yes libxcb1-dev:$CROSS_DEB_ARCH libdbus-1-dev:$CROSS_DEB_ARCH",
 ]
 
+# If you run the build on your local machine,
+# This is a workaround for the missing pkg-config path on aarch64
+# You also need to add pkg-config:$CROSS_DEB_ARCH to the apt-get install command above
 #[target.aarch64-unknown-linux-gnu.env]
-#passthrough = ["CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG=true","PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu", "PKG_CONFIG_LIBDIR=/usr/lib/pkgconfig", "RUST_BACKTRACE=full", "PKG_CONFIG_ALLOW_SYSTEM_LIBS=0","PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0","PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig"]
+#passthrough = ["PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig"]
 
+# If you run the build on your local machine,
+# You need to add pkg-config:$CROSS_DEB_ARCH to the apt-get install command below
 [target.x86_64-unknown-linux-gnu]
 xargo = false
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH && apt-get update --fix-missing && apt-get install --assume-yes libxcb1-dev:$CROSS_DEB_ARCH libdbus-1-dev:$CROSS_DEB_ARCH",
 ]
-
-[target.aarch64-apple-darwin.env]
-passthrough = ["CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG=true","BACKTRACE=full"]
-
