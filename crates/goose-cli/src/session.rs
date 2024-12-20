@@ -9,9 +9,7 @@ use std::path::PathBuf;
 use crate::agents::agent::Agent;
 use crate::log_usage::log_usage;
 use crate::prompt::{InputType, Prompt};
-use goose::developer::DeveloperSystem;
 use goose::message::{Message, MessageContent};
-use goose::systems::goose_hints::GooseHintsSystem;
 use mcp_core::role::Role;
 
 // File management functions
@@ -132,7 +130,7 @@ impl<'a> Session<'a> {
     }
 
     pub async fn start(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.setup_session();
+        self.setup_session().await;
         self.prompt.goose_ready();
 
         loop {
@@ -160,7 +158,7 @@ impl<'a> Session<'a> {
         &mut self,
         initial_message: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self.setup_session();
+        self.setup_session().await;
 
         self.messages
             .push(Message::user().with_text(initial_message.as_str()));
@@ -311,11 +309,21 @@ We've removed the conversation up to the most recent user message
         }
     }
 
-    fn setup_session(&mut self) {
-        let system = Box::new(DeveloperSystem::new());
-        self.agent.add_system(system);
-        let goosehints_system = Box::new(GooseHintsSystem::new());
-        self.agent.add_system(goosehints_system);
+    async fn setup_session(&mut self) {
+        self.agent
+            .add_mcp_sse_client("http://localhost:8000/sse".to_string())
+            .await;
+
+        self.agent
+            .add_mcp_stdio_client(
+                "cargo".to_string(),
+                vec![
+                    "run".to_string(),
+                    "-p".to_string(),
+                    "mcp-server".to_string(),
+                ],
+            )
+            .await;
     }
 
     async fn close_session(&mut self) {

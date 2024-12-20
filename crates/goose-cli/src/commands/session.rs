@@ -1,5 +1,5 @@
 use console::style;
-use goose::agent::Agent;
+use goose::mcp_agent::McpAgent;
 use goose::providers::factory;
 use rand::{distributions::Alphanumeric, Rng};
 use std::path::{Path, PathBuf};
@@ -45,7 +45,7 @@ pub fn build_session<'a>(
 
     // TODO: Odd to be prepping the provider rather than having that done in the agent?
     let provider = factory::get_provider(provider_config).unwrap();
-    let agent = Box::new(Agent::new(provider));
+    let agent = Box::new(McpAgent::new(provider));
     let prompt = match std::env::var("GOOSE_INPUT") {
         Ok(val) => match val.as_str() {
             "rustyline" => Box::new(RustylinePrompt::new()) as Box<dyn Prompt>,

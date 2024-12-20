@@ -56,6 +56,7 @@ impl ServerStatus {
     }
 }
 
+/// Agent integrates a foundational LLM with the systems it needs to pilot via the MCP protocol
 pub struct McpAgent {
     clients: HashMap<String, Arc<Mutex<Box<dyn McpClient + Send>>>>,
     instructions: HashMap<String, String>,
