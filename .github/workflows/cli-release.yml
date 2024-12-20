@@ -21,7 +21,7 @@ jobs:
       matrix:
 #          os: [ ubuntu-latest ]
           os: [ macos-latest ]
-          architecture: [ aarch64 ]
+          architecture: [ x86_64 ]
           include:
 #            - os: ubuntu-latest
 #              target-suffix: unknown-linux-gnu
