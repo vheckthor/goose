@@ -23,12 +23,28 @@ use mcp_core::{Content, Resource, Tool, ToolCall};
 const PRIORITY_EPSILON: f32 = 0.001;
 
 #[derive(Clone, Debug, Serialize)]
-struct SystemStatus {
+struct ServerInfo {
+    name: String,
+    //description: String,
+    instructions: String,
+}
+
+impl ServerInfo {
+    fn new(name: &str, instructions: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            //       description: description.to_string(),
+            instructions: instructions.to_string(),
+        }
+    }
+}
+#[derive(Clone, Debug, Serialize)]
+struct ServerStatus {
     name: String,
     status: String,
 }
 
-impl SystemStatus {
+impl ServerStatus {
     fn new(name: &str, status: String) -> Self {
         Self {
             name: name.to_string(),
@@ -55,11 +71,6 @@ impl McpAgent {
         }
     }
 
-    /// Get the context limit from the provider's configuration
-    fn get_context_limit(&self) -> usize {
-        self.provider.get_model_config().context_limit()
-    }
-
     // Add a named McpClient to the agent
     pub async fn add_mcp_client(&mut self, name: String, mcp_client: Box<dyn McpClient + Send>) {
         //TODO: get name/ capabilities as input?
@@ -72,6 +83,7 @@ impl McpAgent {
         if let Ok(initialize_result) = init {
             println!("{:#?}", initialize_result);
 
+            // TODO: make a struct and keep these together in one map?
             if let Some(instructions) = initialize_result.instructions {
                 self.instructions
                     .insert(initialize_result.server_info.name.clone(), instructions);
@@ -82,7 +94,7 @@ impl McpAgent {
                 Arc::new(Mutex::new(mcp_client)),
             );
         }
-        //TODO: handle error case and don't store client
+        //TODO: handle error case when we can't init
     }
 
     // Get all tools from all servers, and prefix with the configured name
@@ -148,7 +160,7 @@ impl McpAgent {
             .ok_or_else(|| AgentError::InvalidToolName(call.name.clone()))?;
 
         // wrap in AgentError for now
-        let mut client_guard = client.lock().await;
+        let client_guard = client.lock().await;
         client_guard
             .call_tool(tool_name, call.arguments)
             .map_ok_or_else(
@@ -159,9 +171,15 @@ impl McpAgent {
     }
 
     async fn get_server_prompts(&self) -> AgentResult<String> {
-        // TODO: implement when McpClient::list/get_prompts exist
-        // use each McpClient to get some set of prompts that function as instructions
-        Err(AgentError::Internal("not yet implemented".to_string()))
+        let mut context = HashMap::new();
+        let servers_info: Vec<ServerInfo> = self
+            .instructions
+            .iter()
+            .map(|(name, instruction)| ServerInfo::new(name, instruction))
+            .collect();
+
+        context.insert("systems", servers_info);
+        load_prompt_file("system.md", &context).map_err(|e| AgentError::Internal(e.to_string()))
     }
 
     async fn get_server_resources(
@@ -171,7 +189,7 @@ impl McpAgent {
             HashMap::new();
         //TODO: handle the errors from the McpClient
         for (name, client) in self.clients.iter_mut() {
-            let mut client_guard = client.lock().await;
+            let client_guard = client.lock().await;
             let resources = client_guard
                 .list_resources()
                 .await
@@ -332,7 +350,7 @@ impl McpAgent {
         // Join remaining status content and create status message
         let status_str = status_content.join("\n");
         let mut context = HashMap::new();
-        let systems_status = vec![SystemStatus::new("system", status_str)];
+        let systems_status = vec![ServerStatus::new("system", status_str)];
         context.insert("systems", &systems_status);
 
         // Load and format the status template with only remaining resources
@@ -526,6 +544,7 @@ mod tests {
                     name: "mock".to_string(),
                     version: "2.0".to_string(),
                 },
+                instructions: None,
             })
         }
 
