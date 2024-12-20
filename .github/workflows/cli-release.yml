@@ -61,7 +61,7 @@ jobs:
           export TARGET=${{ matrix.architecture }}-${{ matrix.target-suffix }}
           rustup target add "${TARGET}"
           cargo install cross --git https://github.com/cross-rs/cross
-          cross build --release --target ${TARGET}
+          CROSS_NO_WARNINGS=0 cross build --release --target ${TARGET}
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose goosed
           echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
