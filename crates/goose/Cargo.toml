@@ -68,6 +68,8 @@ keyring = { version = "3.6.1", features = [
 shellexpand = "3.1.0"
 rust_decimal = "1.36.0"
 rust_decimal_macros = "1.36.0"
+tower = { version = "0.4", features = ["timeout", "util"] }
+tower-service = "0.3"
 
 [dev-dependencies]
 sysinfo = "0.32.1"
@@ -77,8 +79,6 @@ tempfile = "3.8"
 mockall = "0.11"
 criterion = "0.5"
 tokio-test = "0.4"
-tower = { version = "0.4", features = ["timeout", "util"] }
-tower-service = "0.3"
 
 [[example]]
 name = "databricks_oauth"

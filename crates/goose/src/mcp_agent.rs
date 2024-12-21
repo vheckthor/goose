@@ -7,7 +7,6 @@ use serde::Serialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::errors::{AgentError, AgentResult};
@@ -15,9 +14,14 @@ use crate::message::{Message, ToolRequest};
 use crate::prompt_template::load_prompt_file;
 use crate::providers::base::{Provider, ProviderUsage};
 use crate::token_counter::TokenCounter;
-use mcp_client::client::{ClientCapabilities, ClientInfo, Error, McpClient};
+use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientImpl};
+use mcp_client::service::TransportService;
+use mcp_client::transport::{SseTransport, StdioTransport};
 use mcp_core::resource::ResourceContents;
 use mcp_core::{Content, Resource, Tool, ToolCall};
+
+use tower::timeout::TimeoutLayer;
+use tower::{ServiceBuilder, ServiceExt};
 
 // used to sort resources by priority within error margin
 const PRIORITY_EPSILON: f32 = 0.001;
@@ -71,11 +75,28 @@ impl McpAgent {
         }
     }
 
+    pub async fn add_mcp_sse_client(&mut self, uri: String) {
+        //TODO: add validation on URI string
+        let transport = SseTransport::new(uri);
+        let service = ServiceBuilder::new().service(TransportService::new(transport));
+        let client = Box::new(McpClientImpl::new(service));
+
+        self.add_mcp_client(client).await;
+    }
+
+    pub async fn add_mcp_stdio_client(&mut self, cmd: String, args: Vec<String>) {
+        let transport = StdioTransport::new(cmd, args.into_iter().map(|s| s.to_string()).collect());
+        let service = ServiceBuilder::new().service(TransportService::new(transport));
+        let client = Box::new(McpClientImpl::new(service));
+
+        self.add_mcp_client(client).await;
+    }
+
     // Add a named McpClient to the agent
-    pub async fn add_mcp_client(&mut self, name: String, mcp_client: Box<dyn McpClient + Send>) {
+    pub async fn add_mcp_client(&mut self, mcp_client: Box<dyn McpClient + Send>) {
         //TODO: get name/ capabilities as input?
         let info = ClientInfo {
-            name,
+            name: "goose agent".to_string(),
             version: "1.0.0".to_string(),
         };
         let capabilities = ClientCapabilities::default();
@@ -597,9 +618,7 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent
-            .add_mcp_client("test".to_string(), Box::new(client))
-            .await;
+        agent.add_mcp_client(Box::new(client)).await;
 
         assert_eq!(agent.clients.len(), 1);
         assert!(agent.clients.contains_key("mock"));
@@ -611,9 +630,7 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent
-            .add_mcp_client("test".to_string(), Box::new(client))
-            .await;
+        agent.add_mcp_client(Box::new(client)).await;
 
         let tools = agent.get_prefixed_tools().await;
 
@@ -628,9 +645,7 @@ mod tests {
         let mut agent = McpAgent::new(Box::new(provider));
         let client = MockMcpClient::new();
 
-        agent
-            .add_mcp_client("test".to_string(), Box::new(client))
-            .await;
+        agent.add_mcp_client(Box::new(client)).await;
 
         // Valid tool name
         let client = agent.get_client_for_tool("mock__echo");
@@ -653,9 +668,7 @@ mod tests {
         let response_content = vec![Content::text("Hello!")];
         let client = MockMcpClient::new().with_tool_response("echo", response_content.clone());
 
-        agent
-            .add_mcp_client("test".to_string(), Box::new(client))
-            .await;
+        agent.add_mcp_client(Box::new(client)).await;
 
         // Test successful tool call
         let tool_call = Ok(ToolCall::new("mock__echo", json!({"message": "test"})));
@@ -703,11 +716,9 @@ mod tests {
 
         // Sleep for 100ms to allow the server to start - surprisingly this is required!
 
-        agent
-            .add_mcp_client("test".to_string(), Box::new(client))
-            .await;
+        agent.add_mcp_client(Box::new(client)).await;
 
-        agent.add_mcp_client("sse".to_string(), client_sse).await;
+        agent.add_mcp_client(client_sse).await;
 
         tokio::time::sleep(Duration::from_millis(100)).await;
 
