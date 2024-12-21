@@ -197,6 +197,10 @@ impl Agent {
         messages.push(message_use);
         messages.push(message_result);
 
+        if let Ok(json_content) = serde_json::to_string_pretty(&messages) {
+            let _ = tokio::fs::write("messages.json", json_content).await;
+        }
+
         Ok(())
     }
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::io::Cursor;
 use anyhow::Result as AnyhowResult;
 use crate::errors::{AgentError, AgentResult};
 use async_trait::async_trait;
@@ -15,6 +16,8 @@ use crate::models::content::Content;
 use crate::systems::System;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use image::{ImageFormat, GenericImageView, imageops::FilterType};
+
 
 
 /// MobileSystem provides functionality for instrumenting and controlling Android devices
@@ -38,13 +41,10 @@ impl MobileSystem {
         let android_tool = Tool::new(
             "android",
             indoc! {r#"
-                Interact with an Android device or emulator.
-                  - You can send clicks, input text, capture screenshots, list apps, and start apps.
-                  - Send zero or more commands to the device.
-                  - You'll find an xml ui hierarchy of what's on the screen in the status
+                Interact with an Android device or emulator. You control the device on behalf of the user; the
+                user cannot see the device or interact with it directly. You can only interact with the device.
 
-                For example to send a text message, you'd find the text message app first, then start it, then enter
-                the phone number, then enter the message, then send it.
+
             "#},
             json!({
                 "type": "object",
@@ -54,7 +54,7 @@ impl MobileSystem {
                         "enum": ["home", "click", "enter_text", "screenshot", "list_apps", "start_app"],
                         "description": "The commands to run."
                     },
-                    "click_where": {
+                    "location": {
                         "type": "object",
                         "properties": {
                             "x": {
@@ -76,7 +76,7 @@ impl MobileSystem {
                             "text": {
                                 "type": "string",
                                 "default": null,
-                                "description": "Text to enter."
+                                "description": "Text to enter. Add a newline to submit."
                             }
                         },
                         "required": ["text"]
@@ -96,14 +96,15 @@ impl MobileSystem {
             }),
         );
         let instructions = formatdoc! {r#"
-            You control an android device that has the apps of the user
-            Your goal is to help the user complete tasks by interacting with the device programmatically.
-            Communication occurs via text commands, and you can only interact with the phone using 
-            the available Android tool commands.
+            Fullfill the requests of the user by sending commands to the Android device. Break up each requests into steps
+            and accomplish those steps by starting the right app on the device and interacting with it. Verify anything you
+            type of click; don't assume it worked. You can find the UI hierarchy in the status to see what the screen
+            looks like. Make sure what you did worked by checking the UI hierarchy before moving on to the next step.
 
-            To accomplish a task, split it up in tasks that can be accomplished by one of the available
-            apps. Then for each, start the app, verify that it has started, and then interact with it.
-            Then move on to the next task.
+            For example, when asked to send the current weather by email to user john, start chrome and go to weather.com
+            and verify that it shows the weather. Then start gmail and navigate to compose. Then enter "john" in the "To"
+            field and look for the auto-complete. Enter "Current weather" in the subject and the actual weather in the
+            body. Then check that it all looks good before hitting the send button.
             "#};
 
         let (device, screen_size) = match MobileSystem::initialize_device() {
@@ -275,7 +276,31 @@ impl MobileSystem {
         Ok(apps_with_descriptions)
     }
 
-
+    fn process_screenshot(screenshot_data: &[u8]) -> Result<Vec<u8>, AgentError> {
+        let img = image::load_from_memory(screenshot_data)
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to load image: {}", e)))?;
+        
+        const MAX_WIDTH: u32 = 768;
+        let (width, height) = img.dimensions();
+        
+        // Resize if needed
+        let processed = if width > MAX_WIDTH {
+            let ratio = MAX_WIDTH as f32 / width as f32;
+            let new_height = (height as f32 * ratio) as u32;
+            img.resize(MAX_WIDTH, new_height, FilterType::Lanczos3)
+        } else {
+            img
+        };
+        
+        let mut buffer = Vec::new();
+        {
+            let mut cursor = Cursor::new(&mut buffer);
+            processed.write_to(&mut cursor, ImageFormat::Jpeg)
+                .map_err(|e| AgentError::ExecutionError(format!("Failed to encode image as JPEG: {}", e)))?;
+        }
+        
+        Ok(buffer)
+    }
 }
 
 
@@ -321,9 +346,10 @@ impl System for MobileSystem {
         Ok(status)
     }
 
-    
-
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
+        println!("Received tool call: {}", serde_json::to_string_pretty(&tool_call).unwrap_or_default());
+
+
         match tool_call.name.as_str() {
             "android" => {
                 let response_message = match self.get_argument(&tool_call, "command", None).and_then(Value::as_str) {
@@ -332,8 +358,8 @@ impl System for MobileSystem {
                         Content::text("Sent home key event.".to_string())
                     }
                     Some("click") => {
-                        let x = self.get_argument(&tool_call, "click_where", Some("x")).and_then(Value::as_i64);
-                        let y = self.get_argument(&tool_call, "click_where", Some("y")).and_then(Value::as_i64);
+                        let x = self.get_argument(&tool_call, "location", Some("x")).and_then(Value::as_i64);
+                        let y = self.get_argument(&tool_call, "location", Some("y")).and_then(Value::as_i64);
     
                         match (x, y) {
                             (Some(x), Some(y)) => {
@@ -350,8 +376,13 @@ impl System for MobileSystem {
                         let text = self.get_argument(&tool_call, "enter_text", Some("text")).and_then(Value::as_str);
     
                         if let Some(text) = text {
-                            let command = format!("input text '{}'", text);
-                            self.run_shell_command(&command.split_whitespace().collect::<Vec<&str>>()).await?;
+                            let lines: Vec<&str> = text.split('\n').collect();
+                            for line in lines {
+                                let command = format!("input text '{}'", line);
+                                self.run_shell_command(&command.split_whitespace().collect::<Vec<&str>>()).await?;
+                                self.run_shell_command(&["input", "keyevent", "KEYCODE_ENTER"]).await?;
+                            }
+                            self.run_shell_command(&["input", "keyevent", "KEYCODE_ENTER"]).await?;
                             Content::text(format!("Entered text: '{}'.", text))
                         } else {
                             return Err(AgentError::ExecutionError("Missing or invalid text input.".to_string()));
@@ -359,12 +390,14 @@ impl System for MobileSystem {
                     }
                     Some("screenshot") => {
                         let screenshot_data = self.run_shell_command(&["screencap", "-p"]).await?;
-                        std::fs::write("screenshot.png", &screenshot_data).map_err(|e| {
+                        let processed_data = Self::process_screenshot(&screenshot_data)?;
+                        
+                        std::fs::write("screenshot.jpg", &processed_data).map_err(|e| {
                             AgentError::ExecutionError(format!("Failed to write screenshot: {}", e))
                         })?;
     
-                        let image_data = BASE64_STANDARD.encode(&screenshot_data);
-                        Content::image(image_data, "image/png")
+                        let image_data = BASE64_STANDARD.encode(&processed_data);
+                        Content::image(image_data, "image/jpeg")
                     }
                     Some("list_apps") => {
                         let apps = self.list_installed_apps().await?;
@@ -387,6 +420,7 @@ impl System for MobileSystem {
                             return Err(AgentError::ExecutionError("Missing or invalid package name.".to_string()));
                         }
                     }
+                    Some(cmd) => return Err(AgentError::ExecutionError(format!("Invalid or unsupported command: '{}'", cmd))),
                     _ => return Err(AgentError::ExecutionError("Invalid or unsupported command.".to_string())),
                 };
     
