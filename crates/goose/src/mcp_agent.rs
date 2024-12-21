@@ -20,8 +20,7 @@ use mcp_client::transport::{SseTransport, StdioTransport};
 use mcp_core::resource::ResourceContents;
 use mcp_core::{Content, Resource, Tool, ToolCall};
 
-use tower::timeout::TimeoutLayer;
-use tower::{ServiceBuilder, ServiceExt};
+use tower::{ServiceBuilder};
 
 // used to sort resources by priority within error margin
 const PRIORITY_EPSILON: f32 = 0.001;
