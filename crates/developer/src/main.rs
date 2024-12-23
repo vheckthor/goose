@@ -30,7 +30,7 @@ use mcp_core::role::Role;
 
 use mcp_server::{ByteTransport, Router, Server};
 use std::process::Stdio;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::io::{stdin, stdout};
 use tracing::info;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -38,9 +38,11 @@ use tracing_subscriber::{self, EnvFilter};
 
 pub struct DeveloperRouter {
     tools: Vec<Tool>,
-    cwd: Mutex<PathBuf>,
-    active_resources: Mutex<HashMap<String, Resource>>,
-    file_history: Mutex<HashMap<PathBuf, Vec<String>>>,
+    // The cwd, active_resources, and file_history are shared across threads
+    // so we need to use an Arc to ensure thread safety
+    cwd: Arc<Mutex<PathBuf>>,
+    active_resources: Arc<Mutex<HashMap<String, Resource>>>,
+    file_history: Arc<Mutex<HashMap<PathBuf, Vec<String>>>>,
     instructions: String,
 }
 
@@ -92,9 +94,9 @@ impl DeveloperRouter {
 
         Self {
             tools: vec![bash_tool, text_editor_tool],
-            cwd: Mutex::new(cwd),
-            active_resources: Mutex::new(resources),
-            file_history: Mutex::new(HashMap::new()),
+            cwd: Arc::new(Mutex::new(cwd)),
+            active_resources: Arc::new(Mutex::new(resources)),
+            file_history: Arc::new(Mutex::new(HashMap::new())),
             instructions,
         }
     }
@@ -636,9 +638,9 @@ impl Clone for DeveloperRouter {
     fn clone(&self) -> Self {
         Self {
             tools: self.tools.clone(),
-            cwd: Mutex::new(self.cwd.lock().unwrap().clone()),
-            active_resources: Mutex::new(self.active_resources.lock().unwrap().clone()),
-            file_history: Mutex::new(self.file_history.lock().unwrap().clone()),
+            cwd: Arc::clone(&self.cwd),
+            active_resources: Arc::clone(&self.active_resources),
+            file_history: Arc::clone(&self.file_history),
             instructions: self.instructions.clone(),
         }
     }
