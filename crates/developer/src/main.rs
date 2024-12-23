@@ -682,6 +682,12 @@ mod tests {
 
     static DEV_ROUTER: OnceCell<DeveloperRouter> = OnceCell::const_new();
 
+    fn get_first_message_text(value: &Value) -> &str {
+        let messages = value.get("messages").unwrap().as_array().unwrap();
+        let first = messages.first().unwrap();
+        first.get("text").unwrap().as_str().unwrap()
+    }
+
     async fn get_router() -> &'static DeveloperRouter {
         DEV_ROUTER
             .get_or_init(|| async { DeveloperRouter::new() })
@@ -706,12 +712,9 @@ mod tests {
             .await;
         assert!(result.is_ok());
         let output = result.unwrap();
-
         // Check that the output contains the current directory
         assert!(output.get("messages").unwrap().as_array().unwrap().len() > 0);
-        let messages = output.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        let text = message.get("text").unwrap().as_str().unwrap();
+        let text = get_first_message_text(&output);
         assert!(text.contains(&std::env::current_dir().unwrap().display().to_string()));
     }
 
@@ -826,9 +829,7 @@ mod tests {
                 .len()
                 > 0
         );
-        let messages = view_result.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        let text = message.get("text").unwrap().as_str().unwrap();
+        let text = get_first_message_text(&view_result);
         assert!(text.contains("The file content for"));
 
         temp_dir.close().unwrap();
@@ -881,14 +882,8 @@ mod tests {
             .await
             .unwrap();
 
-        let messages = replace_result.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        assert!(message
-            .get("text")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("Successfully replaced text"));
+        let text = get_first_message_text(&replace_result);
+        assert!(text.contains("Successfully replaced text"));
 
         // View the file again
         let view_result = router
@@ -902,14 +897,8 @@ mod tests {
             .await
             .unwrap();
 
-        let messages = view_result.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        assert!(message
-            .get("text")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("The file content for"));
+        let text = get_first_message_text(&view_result);
+        assert!(text.contains("The file content for"));
 
         temp_dir.close().unwrap();
     }
@@ -1074,14 +1063,8 @@ mod tests {
             .await
             .unwrap();
 
-        let messages = undo_result.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        assert!(message
-            .get("text")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("Undid the last edit"));
+        let text = get_first_message_text(&undo_result);
+        assert!(text.contains("Undid the last edit"));
 
         // View the file again
         let view_result = router
@@ -1095,14 +1078,8 @@ mod tests {
             .await
             .unwrap();
 
-        let messages = view_result.get("messages").unwrap().as_array().unwrap();
-        let message = messages.first().unwrap();
-        assert!(message
-            .get("text")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("The file content for"));
+        let text = get_first_message_text(&view_result);
+        assert!(text.contains("The file content for"));
 
         temp_dir.close().unwrap();
     }
