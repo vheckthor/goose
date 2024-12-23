@@ -3,10 +3,12 @@ mod lang;
 mod process_store;
 
 use anyhow::Result;
+use base64::Engine;
 use indoc::formatdoc;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
+    fs,
     future::Future,
     path::{Path, PathBuf},
     pin::Pin,
@@ -30,6 +32,7 @@ use mcp_server::{ByteTransport, Router, Server};
 use std::process::Stdio;
 use std::sync::Mutex;
 use tokio::io::{stdin, stdout};
+use tracing::info;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{self, EnvFilter};
 
@@ -503,9 +506,72 @@ impl DeveloperRouter {
         Ok(())
     }
 
-    async fn do_read_resource(&self, uri: &str) -> AgentResult<String> {
-        let content = self.read_resource(uri).await.map_err(AgentError::from)?;
-        Ok(content)
+    async fn read_resource_internal(&self, uri: &str) -> AgentResult<String> {
+        // Ensure the resource exists in the active resources map
+        let active_resources = self.active_resources.lock().unwrap();
+        let resource = active_resources
+            .get(uri)
+            .ok_or_else(|| AgentError::ToolNotFound(format!("Resource '{}' not found", uri)))?;
+
+        let url = Url::parse(uri)
+            .map_err(|e| AgentError::InvalidParameters(format!("Invalid URI: {}", e)))?;
+
+        // Read content based on scheme and mime_type
+        match url.scheme() {
+            "file" => {
+                let path = url.to_file_path().map_err(|_| {
+                    AgentError::InvalidParameters("Invalid file path in URI".into())
+                })?;
+
+                // Ensure file exists
+                if !path.exists() {
+                    return Err(AgentError::ExecutionError(format!(
+                        "File does not exist: {}",
+                        path.display()
+                    )));
+                }
+
+                match resource.mime_type.as_str() {
+                    "text" => {
+                        // Read the file as UTF-8 text
+                        fs::read_to_string(&path).map_err(|e| {
+                            AgentError::ExecutionError(format!("Failed to read file: {}", e))
+                        })
+                    }
+                    "blob" => {
+                        // Read as bytes, base64 encode
+                        let bytes = fs::read(&path).map_err(|e| {
+                            AgentError::ExecutionError(format!("Failed to read file: {}", e))
+                        })?;
+                        Ok(base64::prelude::BASE64_STANDARD.encode(bytes))
+                    }
+                    mime_type => Err(AgentError::InvalidParameters(format!(
+                        "Unsupported mime type: {}",
+                        mime_type
+                    ))),
+                }
+            }
+            "str" => {
+                // For str:// URIs, we only support text
+                if resource.mime_type != "text" {
+                    return Err(AgentError::InvalidParameters(format!(
+                        "str:// URI only supports text mime type, got {}",
+                        resource.mime_type
+                    )));
+                }
+
+                // The `Url::path()` gives us the portion after `str:///`
+                let content_encoded = url.path().trim_start_matches('/');
+                let decoded = urlencoding::decode(content_encoded).map_err(|e| {
+                    AgentError::ExecutionError(format!("Failed to decode str:// content: {}", e))
+                })?;
+                Ok(decoded.into_owned())
+            }
+            scheme => Err(AgentError::InvalidParameters(format!(
+                "Unsupported URI scheme: {}",
+                scheme
+            ))),
+        }
     }
 }
 
@@ -539,12 +605,15 @@ impl Router for DeveloperRouter {
     }
 
     fn list_resources(&self) -> Vec<Resource> {
-        self.active_resources
+        let resources = self
+            .active_resources
             .lock()
             .unwrap()
             .values()
             .cloned()
-            .collect()
+            .collect();
+        info!("Listing resources: {:?}", resources);
+        resources
     }
 
     fn read_resource(
@@ -553,8 +622,9 @@ impl Router for DeveloperRouter {
     ) -> Pin<Box<dyn Future<Output = Result<String, ResourceError>> + Send + 'static>> {
         let this = self.clone();
         let uri = uri.to_string();
+        info!("Reading resource: {}", uri);
         Box::pin(async move {
-            match this.do_read_resource(&uri).await {
+            match this.read_resource_internal(&uri).await {
                 Ok(content) => Ok(content),
                 Err(e) => Err(e.into()),
             }
