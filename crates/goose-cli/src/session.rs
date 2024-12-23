@@ -310,8 +310,19 @@ We've removed the conversation up to the most recent user message
     }
 
     async fn setup_session(&mut self) {
+        // self.agent
+        //     .add_mcp_sse_client("http://localhost:8000/sse".to_string())
+        //     .await;
+
         self.agent
-            .add_mcp_sse_client("http://localhost:8000/sse".to_string())
+            .add_mcp_stdio_client(
+                "cargo".to_string(),
+                vec![
+                    "run".to_string(),
+                    "-p".to_string(),
+                    "developer".to_string(),
+                ],
+            )
             .await;
 
         self.agent
@@ -324,6 +335,7 @@ We've removed the conversation up to the most recent user message
                 ],
             )
             .await;
+
     }
 
     async fn close_session(&mut self) {
