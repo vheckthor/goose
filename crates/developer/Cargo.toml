@@ -29,3 +29,4 @@ indoc = "2.0.5"
 
 [dev-dependencies]
 sysinfo = "0.32.1"
+tempfile = "3.8"
