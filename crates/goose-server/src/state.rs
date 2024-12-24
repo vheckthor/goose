@@ -5,7 +5,7 @@ use goose::{
     developer::DeveloperSystem,
     memory::MemorySystem,
     providers::{configs::ProviderConfig, factory},
-    systems::goose_hints::GooseHintsSystem,
+    systems::{goose_hints::GooseHintsSystem, non_developer::NonDeveloperSystem},
 };
 use std::{env, sync::Arc};
 use tokio::sync::Mutex;
@@ -22,6 +22,7 @@ impl AppState {
         let provider = factory::get_provider(provider_config.clone())?;
         let mut agent = Agent::new(provider);
         agent.add_system(Box::new(DeveloperSystem::new()));
+        agent.add_system(Box::new(NonDeveloperSystem::new()));
 
         // Add memory system only if GOOSE_SERVER__MEMORY is set to "true"
         if let Ok(memory_enabled) = env::var("GOOSE_SERVER__MEMORY") {
