@@ -110,6 +110,8 @@ impl NonDeveloperSystem {
                 Supports Python, Shell, and AppleScript (on macOS).
                 
                 The script is saved to a temporary file and executed.
+                Consider using shell script (bash) for most simple tasks first.
+                Applescript for more complex automations and python for things that may need special tools or take longer.
                 For Python scripts, a virtual environment is automatically created
                 and common packages (requests, beautifulsoup4, pandas) are installed.
             "#},
@@ -174,11 +176,23 @@ impl NonDeveloperSystem {
         });
 
         let instructions = formatdoc! {r#"
+            You are a helpful assistant to a power user who is not a professional developer, but you may use devleopment tools to help assist them.
+            The user will likely not know how to break down tasks, so you will need to ensure that you do, and run things in batches if needed.
+            You can use scripting as needed to work with text files of data, such as csvs, json, or text files.
+            Using the developer toolkit is allowed, but use it sparingly.
+
             The NonDeveloperSystem helps you with common tasks like web scraping,
             data processing, and automation without requiring programming expertise.
-            You can use the developer system if doing more sophisticated tasks or instructed to.           
+            You can use the developer system if doing more sophisticated tasks or instructed to.
+            The user may not have as many tools pre-installed however as a professional developer would, so consider that when running scripts to use what is available.         
+            Accessing web sites, even apis, may be common (you can use bash scripting to do this) without troubling them too much (they won't know what limits are).
 
-            Available Tools:
+            Do use:
+                bash_tool when needed.
+                screen_capture_tool with list_windows_tool if it helps to see content on screen (you can ask them to open websites, or open them with open bash command to screenshot).
+
+
+            Here are some extra tools:
 
             web_scrape
               - Fetch content from websites and APIs
