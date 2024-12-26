@@ -45,7 +45,6 @@ impl DeveloperSystem {
         self.trust_manager.get_level()
     }
 
-
     // Reads a resource from a URI and returns its content.
     // The resource must already exist in active_resources.
     pub async fn read_resource(&self, uri: &str) -> AgentResult<String> {
@@ -320,9 +319,11 @@ impl DeveloperSystem {
                 .ok_or(AgentError::InvalidParameters(
                     "The command string is required".into(),
                 ))?;
-                
+
         // Only block destructive operations at level 0
-        if self.trust_manager.is_destructive_command(command) && self.trust_manager.get_level() == TrustLevel::NoDestructive {
+        if self.trust_manager.is_destructive_command(command)
+            && self.trust_manager.get_level() == TrustLevel::NoDestructive
+        {
             return Err(AgentError::ExecutionError(
                 "Do not run any destructive or editing commands. Can run commands but not if they make file changes or system changes.".into()
             ));
@@ -393,9 +394,11 @@ impl DeveloperSystem {
             .ok_or_else(|| AgentError::InvalidParameters("Missing 'path' parameter".into()))?;
 
         // Only block destructive operations at level 0
-        if (command == "write" || command == "str_replace") && self.trust_manager.get_level() == TrustLevel::NoDestructive {
+        if (command == "write" || command == "str_replace")
+            && self.trust_manager.get_level() == TrustLevel::NoDestructive
+        {
             return Err(AgentError::ExecutionError(
-                "File modifications are not allowed at NoDestructive trust level (0)".into()
+                "File modifications are not allowed at NoDestructive trust level (0)".into(),
             ));
         }
 

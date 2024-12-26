@@ -91,16 +91,21 @@ impl TrustManager {
     /// This is a basic implementation that could be expanded
     pub fn is_destructive_command(&self, command: &str) -> bool {
         let command = command.trim().to_lowercase();
-        
+
         // List of destructive command prefixes
         let destructive_prefixes = [
-            "rm", "del", "remove",
-            "write", "overwrite",
+            "rm",
+            "del",
+            "remove",
+            "write",
+            "overwrite",
             "delete",
             "drop",
         ];
 
-        destructive_prefixes.iter().any(|prefix| command.starts_with(prefix))
+        destructive_prefixes
+            .iter()
+            .any(|prefix| command.starts_with(prefix))
     }
 }
 
@@ -129,10 +134,10 @@ mod tests {
     #[test]
     fn test_trust_level_changes() {
         let manager = TrustManager::new();
-        
+
         manager.set_level(TrustLevel::NoDestructive);
         assert_eq!(manager.get_level(), TrustLevel::NoDestructive);
-        
+
         manager.set_level(TrustLevel::AllowAll);
         assert_eq!(manager.get_level(), TrustLevel::AllowAll);
     }
@@ -140,13 +145,13 @@ mod tests {
     #[test]
     fn test_destructive_command_detection() {
         let manager = TrustManager::new();
-        
+
         // Test destructive commands
         assert!(manager.is_destructive_command("rm -rf /"));
         assert!(manager.is_destructive_command("delete file.txt"));
         assert!(manager.is_destructive_command("remove old_data"));
         assert!(manager.is_destructive_command("write new content"));
-        
+
         // Test non-destructive commands
         assert!(!manager.is_destructive_command("ls"));
         assert!(!manager.is_destructive_command("cd /"));
@@ -157,15 +162,15 @@ mod tests {
     #[test]
     fn test_destructive_action_permissions() {
         let manager = TrustManager::new();
-        
+
         // Test NoDestructive level
         manager.set_level(TrustLevel::NoDestructive);
         assert!(!manager.can_perform_destructive());
-        
+
         // Test AllowAll level
         manager.set_level(TrustLevel::AllowAll);
         assert!(manager.can_perform_destructive());
-        
+
         // Test ConfirmDestructive level
         manager.set_level(TrustLevel::ConfirmDestructive);
         // Currently returns false as user interaction is not implemented
