@@ -107,13 +107,11 @@ impl NonDeveloperSystem {
             "quick_script",
             indoc! {r#"
                 Create and run small scripts for automation tasks.
-                Supports Python, Shell, and AppleScript (on macOS).
+                Supports Shell and AppleScript (on macOS).
                 
                 The script is saved to a temporary file and executed.
                 Consider using shell script (bash) for most simple tasks first.
-                Applescript for more complex automations and python for things that may need special tools or take longer.
-                For Python scripts, a virtual environment is automatically created
-                and common packages (requests, beautifulsoup4, pandas) are installed.
+                Applescript for more complex automations.
             "#},
             json!({
                 "type": "object",
@@ -121,7 +119,7 @@ impl NonDeveloperSystem {
                 "properties": {
                     "language": {
                         "type": "string",
-                        "enum": ["python", "shell", "applescript"],
+                        "enum": ["shell", "applescript"],
                         "description": "The scripting language to use"
                     },
                     "script": {
@@ -177,15 +175,18 @@ impl NonDeveloperSystem {
 
         let instructions = formatdoc! {r#"
             You are a helpful assistant to a power user who is not a professional developer, but you may use devleopment tools to help assist them.
-            The user will likely not know how to break down tasks, so you will need to ensure that you do, and run things in batches if needed.
-            You can use scripting as needed to work with text files of data, such as csvs, json, or text files.
-            Using the developer toolkit is allowed, but use it sparingly.
+            The user will likely not know how to break down tasks, so you will need to ensure that you do, and run things in batches as needed.
+            You can use scripting as needed to work with text files of data, such as csvs, json, or text files etc.
+            Using the developer system is allowed, but use it sparingly (and check what cli tools they have already on their system) 
+            for more sophisticated tasks or instructed to (js or py can be helpful for more complex tasks if tools are available).
 
             The NonDeveloperSystem helps you with common tasks like web scraping,
             data processing, and automation without requiring programming expertise.
-            You can use the developer system if doing more sophisticated tasks or instructed to.
-            The user may not have as many tools pre-installed however as a professional developer would, so consider that when running scripts to use what is available.         
+            
+            The user may not have as many tools pre-installed however as a professional developer would, so consider that when running scripts to use what is available.
             Accessing web sites, even apis, may be common (you can use bash scripting to do this) without troubling them too much (they won't know what limits are).
+
+            Try to do your best to find ways to complete a task without too many quesitons unless unclear, you can also guide them through things if they can help out as you go along.
 
             Do use:
                 bash_tool when needed.
@@ -207,8 +208,7 @@ impl NonDeveloperSystem {
 
             quick_script
               - Create and run simple automation scripts
-              - Supports Python, Shell, and AppleScript (macOS only)
-              - Common Python packages are pre-installed
+              - Supports Shell (such as bash), and AppleScript (macOS only)
               - Scripts can save their output to files
 
             cache
@@ -218,7 +218,6 @@ impl NonDeveloperSystem {
 
             The system automatically manages:
             - Cache directory: {cache_dir}
-            - Virtual environments for Python scripts
             - File organization and cleanup
             "#,
             cache_dir = cache_dir.display()
@@ -508,45 +507,6 @@ impl NonDeveloperSystem {
         })?;
 
         let command = match language {
-            "python" => {
-                // Create virtual environment
-                Command::new("python3")
-                    .arg("-m")
-                    .arg("venv")
-                    .arg(script_dir.path().join("venv"))
-                    .output()
-                    .await
-                    .map_err(|e| {
-                        AgentError::ExecutionError(format!(
-                            "Failed to create virtual environment: {}",
-                            e
-                        ))
-                    })?;
-
-                // Install common packages
-                Command::new("bash")
-                    .arg("-c")
-                    .arg(format!(
-                        "source {}/venv/bin/activate && pip install requests beautifulsoup4 pandas",
-                        script_dir.path().display()
-                    ))
-                    .output()
-                    .await
-                    .map_err(|e| {
-                        AgentError::ExecutionError(format!("Failed to install packages: {}", e))
-                    })?;
-
-                let script_path = script_dir.path().join("script.py");
-                fs::write(&script_path, script).map_err(|e| {
-                    AgentError::ExecutionError(format!("Failed to write script: {}", e))
-                })?;
-
-                format!(
-                    "source {}/venv/bin/activate && python {}",
-                    script_dir.path().display(),
-                    script_path.display()
-                )
-            }
             "shell" => {
                 let script_path = script_dir.path().join("script.sh");
                 fs::write(&script_path, script).map_err(|e| {
@@ -821,12 +781,12 @@ mod tests {
     async fn test_quick_script() {
         let system = NonDeveloperSystem::new();
 
-        // Test Python script
+        // Test script
         let tool_call = ToolCall::new(
             "quick_script",
             json!({
-                "language": "python",
-                "script": "print('Hello, World!')",
+                "language": "shell",
+                "script": "echo 'Hello, World!')",
                 "save_output": true
             }),
         );
