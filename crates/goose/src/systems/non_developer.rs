@@ -139,6 +139,7 @@ impl NonDeveloperSystem {
             "duckduckgo_search",
             indoc! {r#"
                 Perform a web search using DuckDuckGo and return the results.
+                Use sparingly as there is a fininte number of api calls allowed to search.
                 The search is done using the DuckDuckGo Instant Answer API and returns:
                 - An abstract or snippet about the topic (if available)
                 - Related topics and their URLs
@@ -217,7 +218,7 @@ impl NonDeveloperSystem {
             Do use:
                 bash_tool when needed.
                 screen_capture_tool with list_windows_tool if it helps to see content on screen (you can ask them to open websites, or open them with open bash command to screenshot).
-
+                the developer system when needing to write to files or do something more sophisticated.
 
             Here are some extra tools:
 
@@ -236,6 +237,9 @@ impl NonDeveloperSystem {
               - Create and run simple automation scripts
               - Supports Shell (such as bash), and AppleScript (macOS only)
               - Scripts can save their output to files
+
+            duckduckgo_search
+              - for web searching for extra information (use sparingly)
 
             cache
               - Manage your cached files
@@ -707,12 +711,9 @@ impl NonDeveloperSystem {
         );
 
         // Fetch the search results
-        let response = self
-            .http_client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| AgentError::ExecutionError(format!("Failed to fetch search results: {}", e)))?;
+        let response = self.http_client.get(&url).send().await.map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to fetch search results: {}", e))
+        })?;
 
         let json_response: Value = response.json().await.map_err(|e| {
             AgentError::ExecutionError(format!("Failed to parse JSON response: {}", e))
@@ -720,7 +721,7 @@ impl NonDeveloperSystem {
 
         // Extract abstract, related topics, and results
         let mut results = Vec::new();
-        
+
         // Add the abstract if available
         if let Some(abstract_text) = json_response.get("AbstractText").and_then(|v| v.as_str()) {
             if !abstract_text.is_empty() {
@@ -743,12 +744,15 @@ impl NonDeveloperSystem {
         }
 
         // Add related topics
-        if let Some(related_topics) = json_response.get("RelatedTopics").and_then(|v| v.as_array()) {
+        if let Some(related_topics) = json_response
+            .get("RelatedTopics")
+            .and_then(|v| v.as_array())
+        {
             for (i, topic) in related_topics.iter().enumerate() {
                 if i >= max_results {
                     break;
                 }
-                
+
                 if let Some(text) = topic.get("Text").and_then(|v| v.as_str()) {
                     if let Some(url) = topic.get("FirstURL").and_then(|v| v.as_str()) {
                         results.push(format!("Topic: {}\nURL: {}\n", text, url));
@@ -935,7 +939,7 @@ mod tests {
 
         let result = system.call(tool_call).await.unwrap();
         let text = result[0].as_text().unwrap();
-        
+
         // Verify that we got some results and basic structure
         assert!(text.contains("Search results for"));
         assert!(text.contains("saved to:"));
