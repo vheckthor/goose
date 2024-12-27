@@ -107,11 +107,12 @@ impl NonDeveloperSystem {
             "quick_script",
             indoc! {r#"
                 Create and run small scripts for automation tasks.
-                Supports Shell and AppleScript (on macOS).
+                Supports Shell, AppleScript, and Ruby (on macOS).
                 
                 The script is saved to a temporary file and executed.
                 Consider using shell script (bash) for most simple tasks first.
-                Applescript for more complex automations.
+                Applescript for more complex automations, and Ruby for text processing
+                or when you need more sophisticated scripting capabilities.
             "#},
             json!({
                 "type": "object",
@@ -119,7 +120,7 @@ impl NonDeveloperSystem {
                 "properties": {
                     "language": {
                         "type": "string",
-                        "enum": ["shell", "applescript"],
+                        "enum": ["shell", "applescript", "ruby"],
                         "description": "The scripting language to use"
                     },
                     "script": {
@@ -569,6 +570,20 @@ impl NonDeveloperSystem {
 
                 format!("osascript {}", script_path.display())
             }
+            "ruby" => {
+                if std::env::consts::OS != "macos" {
+                    return Err(AgentError::ExecutionError(
+                        "Ruby scripting is only supported on macOS".into(),
+                    ));
+                }
+
+                let script_path = script_dir.path().join("script.rb");
+                fs::write(&script_path, script).map_err(|e| {
+                    AgentError::ExecutionError(format!("Failed to write script: {}", e))
+                })?;
+
+                format!("ruby {}", script_path.display())
+            }
             _ => unreachable!(), // Prevented by enum in tool definition
         };
 
@@ -910,18 +925,43 @@ mod tests {
     async fn test_quick_script() {
         let system = NonDeveloperSystem::new();
 
-        // Test script
+        // Test shell script
         let tool_call = ToolCall::new(
             "quick_script",
             json!({
                 "language": "shell",
-                "script": "echo 'Hello, World!')",
+                "script": "echo 'Hello, World!'",
                 "save_output": true
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
         assert!(result[0].as_text().unwrap().contains("Hello, World!"));
+    }
+
+    #[tokio::test]
+    async fn test_ruby_script() {
+        let system = NonDeveloperSystem::new();
+
+        // Skip test if not on macOS
+        if std::env::consts::OS != "macos" {
+            return;
+        }
+
+        // Test Ruby script
+        let tool_call = ToolCall::new(
+            "quick_script",
+            json!({
+                "language": "ruby",
+                "script": "puts 'Hello from Ruby!'",
+                "save_output": true
+            }),
+        );
+
+        let result = system.call(tool_call).await.unwrap();
+        let output = result[0].as_text().unwrap();
+        assert!(output.contains("Hello from Ruby!"));
+        assert!(output.contains("Script completed successfully"));
     }
 
     #[tokio::test]
