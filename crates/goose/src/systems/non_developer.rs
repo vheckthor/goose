@@ -135,6 +135,32 @@ impl NonDeveloperSystem {
             }),
         );
 
+        let duckduckgo_search_tool = Tool::new(
+            "duckduckgo_search",
+            indoc! {r#"
+                Perform a web search using DuckDuckGo and return the results.
+                The search is done using the DuckDuckGo Instant Answer API and returns:
+                - An abstract or snippet about the topic (if available)
+                - Related topics and their URLs
+                Results are saved to the cache for later reference.
+            "#},
+            json!({
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query to send to DuckDuckGo"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of related topics to return"
+                    }
+                }
+            }),
+        );
+
         let cache_tool = Tool::new(
             "cache",
             indoc! {r#"
@@ -228,6 +254,7 @@ impl NonDeveloperSystem {
                 web_scrape_tool,
                 data_process_tool,
                 quick_script_tool,
+                duckduckgo_search_tool,
                 cache_tool,
             ],
             cache_dir,
@@ -659,8 +686,105 @@ impl NonDeveloperSystem {
             _ => unreachable!(), // Prevented by enum in tool definition
         }
     }
-}
 
+    // Implement duckduckgo_search tool functionality
+    async fn duckduckgo_search(&self, params: Value) -> AgentResult<Vec<Content>> {
+        let query = params
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("Missing 'query' parameter".into()))?;
+
+        let max_results = params
+            .get("max_results")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10) as usize;
+
+        // Construct the DuckDuckGo API URL with parameters
+        let encoded_query = urlencoding::encode(query);
+        let url = format!(
+            "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
+            encoded_query
+        );
+
+        // Fetch the search results
+        let response = self
+            .http_client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to fetch search results: {}", e)))?;
+
+        let json_response: Value = response.json().await.map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to parse JSON response: {}", e))
+        })?;
+
+        // Extract abstract, related topics, and results
+        let mut results = Vec::new();
+        
+        // Add the abstract if available
+        if let Some(abstract_text) = json_response.get("AbstractText").and_then(|v| v.as_str()) {
+            if !abstract_text.is_empty() {
+                results.push(format!("Abstract:\n{}\n", abstract_text));
+            }
+        }
+
+        // Add definition if available
+        if let Some(definition) = json_response.get("Definition").and_then(|v| v.as_str()) {
+            if !definition.is_empty() {
+                results.push(format!("Definition:\n{}\n", definition));
+            }
+        }
+
+        // Add answer if available
+        if let Some(answer) = json_response.get("Answer").and_then(|v| v.as_str()) {
+            if !answer.is_empty() {
+                results.push(format!("Answer:\n{}\n", answer));
+            }
+        }
+
+        // Add related topics
+        if let Some(related_topics) = json_response.get("RelatedTopics").and_then(|v| v.as_array()) {
+            for (i, topic) in related_topics.iter().enumerate() {
+                if i >= max_results {
+                    break;
+                }
+                
+                if let Some(text) = topic.get("Text").and_then(|v| v.as_str()) {
+                    if let Some(url) = topic.get("FirstURL").and_then(|v| v.as_str()) {
+                        results.push(format!("Topic: {}\nURL: {}\n", text, url));
+                    }
+                }
+            }
+        }
+
+        // Save results to cache
+        let results_text = results.join("\n");
+        let cache_path = self
+            .save_to_cache(results_text.as_bytes(), "duckduckgo_search", "txt")
+            .await?;
+
+        // Register as a resource
+        let uri = Url::from_file_path(&cache_path)
+            .map_err(|_| AgentError::ExecutionError("Invalid cache path".into()))?
+            .to_string();
+
+        let resource = Resource::new(
+            uri.clone(),
+            Some("text".to_string()),
+            Some(cache_path.to_string_lossy().into_owned()),
+        )
+        .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+        self.active_resources.lock().unwrap().insert(uri, resource);
+
+        Ok(vec![Content::text(format!(
+            "Search results for '{}' saved to: {}\n\nResults:\n{}",
+            query,
+            cache_path.display(),
+            results_text
+        ))])
+    }
+}
 #[async_trait]
 impl System for NonDeveloperSystem {
     fn name(&self) -> &str {
@@ -690,6 +814,7 @@ impl System for NonDeveloperSystem {
             "data_process" => self.data_process(tool_call.arguments).await,
             "quick_script" => self.quick_script(tool_call.arguments).await,
             "cache" => self.cache(tool_call.arguments).await,
+            "duckduckgo_search" => self.duckduckgo_search(tool_call.arguments).await,
             _ => Err(AgentError::ToolNotFound(tool_call.name)),
         }
     }
@@ -793,6 +918,28 @@ mod tests {
 
         let result = system.call(tool_call).await.unwrap();
         assert!(result[0].as_text().unwrap().contains("Hello, World!"));
+    }
+
+    #[tokio::test]
+    async fn test_duckduckgo_search() {
+        let system = NonDeveloperSystem::new();
+
+        // Test search with a query that should return results
+        let tool_call = ToolCall::new(
+            "duckduckgo_search",
+            json!({
+                "query": "what is the capital of France",
+                "max_results": 3
+            }),
+        );
+
+        let result = system.call(tool_call).await.unwrap();
+        let text = result[0].as_text().unwrap();
+        
+        // Verify that we got some results and basic structure
+        assert!(text.contains("Search results for"));
+        assert!(text.contains("saved to:"));
+        assert!(text.contains("Results:"));
     }
 
     #[tokio::test]
