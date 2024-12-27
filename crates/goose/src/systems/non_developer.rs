@@ -1,6 +1,8 @@
 use anyhow::Result as AnyhowResult;
 use async_trait::async_trait;
 use base64::Engine;
+use headless_chrome::Browser;
+use headless_chrome::protocol::cdp::Page;
 use indoc::{formatdoc, indoc};
 use reqwest::{Client, Url};
 use serde_json::{json, Value};
@@ -34,6 +36,54 @@ impl Default for NonDeveloperSystem {
 impl NonDeveloperSystem {
     pub fn new() -> Self {
         // Create tools for the system
+        let web_browse_tool = Tool::new(
+            "web_browse",
+            indoc! {r#"
+                Browse web pages using headless Chrome browser. Assumes Chrome is already installed on the system.
+                Can navigate to pages, interact with elements, and take screenshots.
+                
+                Operations:
+                - navigate: Go to a URL
+                - screenshot: Take a screenshot of the current page or element
+                - click: Click on an element by selector
+                - type: Type text into an element
+                - wait: Wait for an element to appear
+                - get_text: Get text content of an element
+            "#},
+            json!({
+                "type": "object",
+                "required": ["operation", "url"],
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["navigate", "screenshot", "click", "type", "wait", "get_text"],
+                        "description": "The operation to perform"
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to navigate to"
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "CSS selector for the target element (required for click, type, wait, get_text)"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Text to type (required for type operation)"
+                    },
+                    "element_type": {
+                        "type": "string",
+                        "enum": ["button", "link", "input", "text"],
+                        "description": "Type of element to find by text content. Will generate appropriate selector"
+                    },
+                    "element_text": {
+                        "type": "string",
+                        "description": "Text content to match when using element_type"
+                    }
+                }
+            }),
+        );
+
         let web_scrape_tool = Tool::new(
             "web_scrape",
             indoc! {r#"
@@ -256,6 +306,7 @@ impl NonDeveloperSystem {
 
         Self {
             tools: vec![
+                web_browse_tool,
                 web_scrape_tool,
                 data_process_tool,
                 quick_script_tool,
@@ -287,6 +338,178 @@ impl NonDeveloperSystem {
         fs::write(&cache_path, content)
             .map_err(|e| AgentError::ExecutionError(format!("Failed to write to cache: {}", e)))?;
         Ok(cache_path)
+    }
+
+    // Helper method to create selectors for common patterns
+    fn create_selector(&self, element_type: &str, text: &str) -> String {
+        match element_type {
+            "button" => format!("button:contains('{}'), input[type='button'][value='{}'], input[type='submit'][value='{}']", text, text, text),
+            "link" => format!("a:contains('{}')", text),
+            "input" => format!("input[placeholder='{}'], input[name='{}'], label:contains('{}') input", text, text, text),
+            "text" => format!("*:contains('{}')", text),
+            _ => text.to_string(), // If not a known type, use the text as a raw selector
+        }
+    }
+
+    // Implement web_browse tool functionality
+    async fn web_browse(&self, params: Value) -> AgentResult<Vec<Content>> {
+        let operation = params
+            .get("operation")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("Missing 'operation' parameter".into()))?;
+
+        let url = params
+            .get("url")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| AgentError::InvalidParameters("Missing 'url' parameter".into()))?;
+
+        // Initialize browser with default options
+        let browser = Browser::default().map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to initialize browser: {}", e))
+        })?;
+
+        // Create a new tab
+        let tab = browser.new_tab().map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to create new tab: {}", e))
+        })?;
+
+        // Navigate to the URL
+        tab.navigate_to(url).map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to navigate to URL: {}", e))
+        })?;
+
+        // Wait for the page to load
+        tab.wait_until_navigated().map_err(|e| {
+            AgentError::ExecutionError(format!("Failed to wait for navigation: {}", e))
+        })?;
+
+        match operation {
+            "navigate" => {
+                Ok(vec![Content::text(format!(
+                    "Successfully navigated to {}",
+                    tab.get_url()
+                ))])
+            }
+            "screenshot" => {
+                let screenshot_data = if let Some(selector) = params.get("selector").and_then(|v| v.as_str()) {
+                    // Take screenshot of specific element
+                    tab.wait_for_element(selector)
+                        .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                        .capture_screenshot(Page::CaptureScreenshotFormatOption::Png)
+                        .map_err(|e| AgentError::ExecutionError(format!("Failed to capture element screenshot: {}", e)))?
+                } else {
+                    // Take screenshot of entire page/viewport
+                    tab.capture_screenshot(
+                        Page::CaptureScreenshotFormatOption::Png,
+                        None,
+                        None,
+                        false // Always use viewport screenshot
+                    )
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to capture screenshot: {}", e)))?
+                };
+
+                // Save screenshot to cache
+                let cache_path = self
+                    .save_to_cache(&screenshot_data, "screenshot", "png")
+                    .await?;
+
+                // Register as a resource
+                let uri = Url::from_file_path(&cache_path)
+                    .map_err(|_| AgentError::ExecutionError("Invalid cache path".into()))?
+                    .to_string();
+
+                let resource = Resource::new(
+                    uri.clone(),
+                    Some("binary".to_string()),
+                    Some(cache_path.to_string_lossy().into_owned()),
+                )
+                .map_err(|e| AgentError::ExecutionError(e.to_string()))?;
+
+                self.active_resources.lock().unwrap().insert(uri, resource);
+
+                Ok(vec![Content::text(format!(
+                    "Screenshot saved to: {}",
+                    cache_path.display()
+                ))])
+            }
+            "click" => {
+                let selector = if let (Some(element_type), Some(element_text)) = (
+                    params.get("element_type").and_then(|v| v.as_str()),
+                    params.get("element_text").and_then(|v| v.as_str())
+                ) {
+                    self.create_selector(element_type, element_text)
+                } else {
+                    params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                        AgentError::InvalidParameters("Missing 'selector' or 'element_type'/'element_text' parameters".into())
+                    })?.to_string()
+                };
+
+                tab.wait_for_element(&selector)
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                    .click()
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to click element: {}", e)))?;
+
+                Ok(vec![Content::text(format!(
+                    "Successfully clicked element with selector: {}",
+                    selector
+                ))])
+            }
+            "type" => {
+                let selector = params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                    AgentError::InvalidParameters("Missing 'selector' parameter".into())
+                })?;
+
+                let text = params.get("text").and_then(|v| v.as_str()).ok_or_else(|| {
+                    AgentError::InvalidParameters("Missing 'text' parameter".into())
+                })?;
+
+                tab.wait_for_element(selector)
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                    .click()
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to click element: {}", e)))?;
+
+                tab.type_str(text)
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to type text: {}", e)))?;
+
+                Ok(vec![Content::text(format!(
+                    "Successfully typed text into element with selector: {}",
+                    selector
+                ))])
+            }
+            "wait" => {
+                let selector = params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                    AgentError::InvalidParameters("Missing 'selector' parameter".into())
+                })?;
+
+                tab.wait_for_element(selector)
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?;
+
+                Ok(vec![Content::text(format!(
+                    "Successfully waited for element with selector: {}",
+                    selector
+                ))])
+            }
+            "get_text" => {
+                let selector = params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                    AgentError::InvalidParameters("Missing 'selector' parameter".into())
+                })?;
+
+                let text = tab
+                    .wait_for_element(selector)
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                    .get_inner_text()
+                    .map_err(|e| AgentError::ExecutionError(format!("Failed to get element text: {}", e)))?;
+
+                Ok(vec![Content::text(format!(
+                    "Text content of element with selector '{}': {}",
+                    selector, text
+                ))])
+            }
+            _ => Err(AgentError::InvalidParameters(format!(
+                "Invalid operation: {}",
+                operation
+            ))),
+        }
     }
 
     // Implement web_scrape tool functionality
@@ -829,6 +1052,7 @@ impl System for NonDeveloperSystem {
 
     async fn call(&self, tool_call: ToolCall) -> AgentResult<Vec<Content>> {
         match tool_call.name.as_str() {
+            "web_browse" => self.web_browse(tool_call.arguments).await,
             "web_scrape" => self.web_scrape(tool_call.arguments).await,
             "data_process" => self.data_process(tool_call.arguments).await,
             "quick_script" => self.quick_script(tool_call.arguments).await,
