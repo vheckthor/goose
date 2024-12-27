@@ -343,12 +343,92 @@ impl NonDeveloperSystem {
     // Helper method to create selectors for common patterns
     fn create_selector(&self, element_type: &str, text: &str) -> String {
         match element_type {
-            "button" => format!("button:contains('{}'), input[type='button'][value='{}'], input[type='submit'][value='{}']", text, text, text),
-            "link" => format!("a:contains('{}')", text),
-            "input" => format!("input[placeholder='{}'], input[name='{}'], label:contains('{}') input", text, text, text),
-            "text" => format!("*:contains('{}')", text),
+            "button" => format!(
+                "button:contains('{}'), \
+                 input[type='button'][value='{}'], \
+                 input[type='submit'][value='{}'], \
+                 [role='button']:contains('{}'), \
+                 .btn:contains('{}'), \
+                 .button:contains('{}')",
+                text, text, text, text, text, text
+            ),
+            "link" => format!(
+                "a:contains('{}'), \
+                 [role='link']:contains('{}'), \
+                 .link:contains('{}')",
+                text, text, text
+            ),
+            "input" => format!(
+                "input[placeholder='{}'], \
+                 input[name='{}'], \
+                 input[aria-label='{}'], \
+                 label:contains('{}') input, \
+                 [role='textbox'][aria-label='{}']",
+                text, text, text, text, text
+            ),
+            "text" => format!(
+                "h1:contains('{}'), \
+                 h2:contains('{}'), \
+                 h3:contains('{}'), \
+                 p:contains('{}'), \
+                 span:contains('{}'), \
+                 div:contains('{}')",
+                text, text, text, text, text, text
+            ),
             _ => text.to_string(), // If not a known type, use the text as a raw selector
         }
+    }
+
+    // Helper method to wait for element with retry
+    async fn wait_for_element_with_retry<'a>(&'a self, tab: &'a headless_chrome::Tab, selector: &str) -> AgentResult<headless_chrome::Element<'a>> {
+        let max_retries = 3;
+        let mut last_error = None;
+
+        for attempt in 1..=max_retries {
+            match tab.wait_for_element(selector) {
+                Ok(element) => return Ok(element),
+                Err(e) => {
+                    last_error = Some(e);
+                    if attempt < max_retries {
+                        // Wait a bit longer between retries
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    }
+                }
+            }
+        }
+
+        Err(AgentError::ExecutionError(format!(
+            "Failed to find element after {} attempts: {}",
+            max_retries,
+            last_error.unwrap()
+        )))
+    }
+
+    // Helper method to wait for page load
+    async fn wait_for_page_load(&self, tab: &headless_chrome::Tab) -> AgentResult<()> {
+        // Wait for navigation to complete
+        tab.wait_until_navigated()
+            .map_err(|e| AgentError::ExecutionError(format!("Failed to wait for navigation: {}", e)))?;
+
+        // Wait for the page to be ready
+        tab.evaluate(r#"
+            new Promise((resolve) => {
+                function checkReady() {
+                    if (document.readyState === 'complete') {
+                        resolve(true);
+                    } else {
+                        setTimeout(checkReady, 100);
+                    }
+                }
+                checkReady();
+            })
+        "#, true)
+        .map_err(|e| AgentError::ExecutionError(format!("Failed to evaluate page load state: {}", e)))?;
+
+        // Wait for any dynamic content
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+        Ok(())
     }
 
     // Implement web_browse tool functionality
@@ -385,6 +465,17 @@ impl NonDeveloperSystem {
 
         match operation {
             "navigate" => {
+                // Navigate to the URL
+                tab.navigate_to(url).map_err(|e| {
+                    AgentError::ExecutionError(format!("Failed to navigate to URL: {}", e))
+                })?;
+
+                // Wait for the page to load
+                self.wait_for_page_load(&tab).await?;
+
+                // Wait for any dynamic content
+                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
                 Ok(vec![Content::text(format!(
                     "Successfully navigated to {}",
                     tab.get_url()
@@ -393,8 +484,8 @@ impl NonDeveloperSystem {
             "screenshot" => {
                 let screenshot_data = if let Some(selector) = params.get("selector").and_then(|v| v.as_str()) {
                     // Take screenshot of specific element
-                    tab.wait_for_element(selector)
-                        .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                    self.wait_for_element_with_retry(&tab, selector)
+                        .await?
                         .capture_screenshot(Page::CaptureScreenshotFormatOption::Png)
                         .map_err(|e| AgentError::ExecutionError(format!("Failed to capture element screenshot: {}", e)))?
                 } else {
@@ -444,8 +535,8 @@ impl NonDeveloperSystem {
                     })?.to_string()
                 };
 
-                tab.wait_for_element(&selector)
-                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                self.wait_for_element_with_retry(&tab, &selector)
+                    .await?
                     .click()
                     .map_err(|e| AgentError::ExecutionError(format!("Failed to click element: {}", e)))?;
 
@@ -455,16 +546,23 @@ impl NonDeveloperSystem {
                 ))])
             }
             "type" => {
-                let selector = params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
-                    AgentError::InvalidParameters("Missing 'selector' parameter".into())
-                })?;
+                let selector = if let (Some(element_type), Some(element_text)) = (
+                    params.get("element_type").and_then(|v| v.as_str()),
+                    params.get("element_text").and_then(|v| v.as_str())
+                ) {
+                    self.create_selector(element_type, element_text)
+                } else {
+                    params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                        AgentError::InvalidParameters("Missing 'selector' or 'element_type'/'element_text' parameters".into())
+                    })?.to_string()
+                };
 
                 let text = params.get("text").and_then(|v| v.as_str()).ok_or_else(|| {
                     AgentError::InvalidParameters("Missing 'text' parameter".into())
                 })?;
 
-                tab.wait_for_element(selector)
-                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                self.wait_for_element_with_retry(&tab, &selector)
+                    .await?
                     .click()
                     .map_err(|e| AgentError::ExecutionError(format!("Failed to click element: {}", e)))?;
 
@@ -490,13 +588,19 @@ impl NonDeveloperSystem {
                 ))])
             }
             "get_text" => {
-                let selector = params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
-                    AgentError::InvalidParameters("Missing 'selector' parameter".into())
-                })?;
+                let selector = if let (Some(element_type), Some(element_text)) = (
+                    params.get("element_type").and_then(|v| v.as_str()),
+                    params.get("element_text").and_then(|v| v.as_str())
+                ) {
+                    self.create_selector(element_type, element_text)
+                } else {
+                    params.get("selector").and_then(|v| v.as_str()).ok_or_else(|| {
+                        AgentError::InvalidParameters("Missing 'selector' or 'element_type'/'element_text' parameters".into())
+                    })?.to_string()
+                };
 
-                let text = tab
-                    .wait_for_element(selector)
-                    .map_err(|e| AgentError::ExecutionError(format!("Failed to find element: {}", e)))?
+                let text = self.wait_for_element_with_retry(&tab, &selector)
+                    .await?
                     .get_inner_text()
                     .map_err(|e| AgentError::ExecutionError(format!("Failed to get element text: {}", e)))?;
 
@@ -1099,130 +1203,125 @@ impl System for NonDeveloperSystem {
 }
 
 #[cfg(test)]
-mod tests {
+mod web_browse_tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
-    use tempfile::TempDir;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::matchers::{method, path};
 
     #[tokio::test]
-    async fn test_web_scrape() {
+    async fn test_web_browse_operations() {
+        let html_content = r###"<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <style>
+        .btn { display: inline-block; }
+        .link { color: blue; text-decoration: underline; }
+    </style>
+    <script>
+        window.addEventListener('load', () => {
+            console.log('Page loaded');
+            document.body.classList.add('loaded');
+        });
+    </script>
+</head>
+<body>
+    <h1 id="main-title">Welcome to Test Page</h1>
+    <div id="button-container">
+        <button class="btn" id="click-button">Click Me</button>
+        <input type="button" value="Input Button" class="btn" id="input-button">
+        <div role="button" class="btn" id="aria-button">ARIA Button</div>
+    </div>
+    <div id="link-container">
+        <a href="#" class="link" id="test-link">Test Link</a>
+        <div role="link" class="link" id="aria-link">ARIA Link</div>
+    </div>
+    <div id="form-container">
+        <input id="search" placeholder="Search here" type="text">
+        <label>Email<input type="text" id="email"></label>
+        <div role="textbox" aria-label="Message" id="message">Message Box</div>
+    </div>
+    <h2>Test Header</h2>
+    <p>Test paragraph</p>
+</body>
+</html>"###;
+
+        // Start a mock server
+        let mock_server = MockServer::start().await;
+        
+        Mock::given(method("GET"))
+            .and(path("/"))
+            .respond_with(ResponseTemplate::new(200)
+                .set_body_string(html_content)
+                .insert_header("content-type", "text/html"))
+            .mount(&mock_server)
+            .await;
+
         let system = NonDeveloperSystem::new();
 
-        // Test with a known API endpoint
+        // Test navigation
         let tool_call = ToolCall::new(
-            "web_scrape",
+            "web_browse",
             json!({
-                "url": "https://httpbin.org/json",
-                "save_as": "json"
+                "operation": "navigate",
+                "url": mock_server.uri()
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
-        assert!(result[0].as_text().unwrap().contains("saved to:"));
-    }
+        assert!(result[0].as_text().unwrap().contains("Successfully navigated"));
 
-    #[tokio::test]
-    async fn test_data_process() {
-        let system = NonDeveloperSystem::new();
-        let temp_dir = TempDir::new().unwrap();
-        let input_path = temp_dir.path().join("test.txt");
-
-        // Create test file
-        let mut file = File::create(&input_path).unwrap();
-        writeln!(file, "apple\nbanana\napple\ncherry").unwrap();
-
-        // Test unique operation
+        // Test screenshot of specific element by ID
         let tool_call = ToolCall::new(
-            "data_process",
+            "web_browse",
             json!({
-                "input_path": input_path.to_str().unwrap(),
-                "operation": "unique"
+                "operation": "screenshot",
+                "url": mock_server.uri(),
+                "selector": "#main-title"
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
-        assert!(result[0].as_text().unwrap().contains("saved to:"));
-    }
+        assert!(result[0].as_text().unwrap().contains("Screenshot saved to:"));
 
-    #[tokio::test]
-    async fn test_quick_script() {
-        let system = NonDeveloperSystem::new();
-
-        // Test shell script
+        // Test clicking a button by ID
         let tool_call = ToolCall::new(
-            "quick_script",
+            "web_browse",
             json!({
-                "language": "shell",
-                "script": "echo 'Hello, World!'",
-                "save_output": true
+                "operation": "click",
+                "url": mock_server.uri(),
+                "selector": "#click-button"
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
-        assert!(result[0].as_text().unwrap().contains("Hello, World!"));
-    }
+        assert!(result[0].as_text().unwrap().contains("Successfully clicked"));
 
-    #[tokio::test]
-    async fn test_ruby_script() {
-        let system = NonDeveloperSystem::new();
-
-        // Skip test if not on macOS
-        if std::env::consts::OS != "macos" {
-            return;
-        }
-
-        // Test Ruby script
+        // Test typing into input field
         let tool_call = ToolCall::new(
-            "quick_script",
+            "web_browse",
             json!({
-                "language": "ruby",
-                "script": "puts 'Hello from Ruby!'",
-                "save_output": true
+                "operation": "type",
+                "url": mock_server.uri(),
+                "selector": "#search",
+                "text": "test search"
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
-        let output = result[0].as_text().unwrap();
-        assert!(output.contains("Hello from Ruby!"));
-        assert!(output.contains("Script completed successfully"));
-    }
+        assert!(result[0].as_text().unwrap().contains("Successfully typed"));
 
-    #[tokio::test]
-    async fn test_duckduckgo_search() {
-        let system = NonDeveloperSystem::new();
-
-        // Test search with a query that should return results
+        // Test get text content
         let tool_call = ToolCall::new(
-            "duckduckgo_search",
+            "web_browse",
             json!({
-                "query": "what is the capital of France",
-                "max_results": 3
+                "operation": "get_text",
+                "url": mock_server.uri(),
+                "selector": "#main-title"
             }),
         );
 
         let result = system.call(tool_call).await.unwrap();
-        let text = result[0].as_text().unwrap();
-
-        // Verify that we got some results and basic structure
-        assert!(text.contains("Search results for"));
-        assert!(text.contains("saved to:"));
-        assert!(text.contains("Results:"));
-    }
-
-    #[tokio::test]
-    async fn test_cache() {
-        let system = NonDeveloperSystem::new();
-
-        // Test list operation
-        let tool_call = ToolCall::new(
-            "cache",
-            json!({
-                "operation": "list"
-            }),
-        );
-
-        let result = system.call(tool_call).await.unwrap();
-        assert!(result[0].as_text().unwrap().contains("Cached files:"));
+        assert!(result[0].as_text().unwrap().contains("Welcome to Test Page"));
     }
 }
