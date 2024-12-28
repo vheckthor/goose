@@ -37,6 +37,15 @@ use tracing::info;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{self, EnvFilter};
 use xcap::{Monitor, Window};
+use core_foundation::array::CFArray;
+use core_foundation::base::{TCFType, CFTypeRef};
+use core_foundation::dictionary::CFDictionary;
+use core_foundation::string::CFString;
+use core_graphics::window::{CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly};
+use core_graphics::window::kCGWindowName;
+use core_foundation::dictionary::CFDictionaryRef;
+use core_foundation::string::CFStringRef;
+
 
 pub struct DeveloperRouter {
     tools: Vec<Tool>,
@@ -543,20 +552,28 @@ impl DeveloperRouter {
 
     // Implement window listing functionality
     async fn list_windows(&self, _params: Value) -> AgentResult<Vec<Content>> {
-        let windows = Window::all()
-            .map_err(|_| AgentError::ExecutionError("Failed to list windows".into()))?;
+        unsafe {
+            let window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, 0);
+            let array: CFArray<CFDictionary<CFString, CFTypeRef>> = CFArray::wrap_under_get_rule(window_list);
+            let mut titles = Vec::new();
+            
+            for i in 0..array.len() {
+                if let Some(dict) = array.get(i) {
+                    let dict = CFDictionary::wrap_under_get_rule(dict.as_concrete_TypeRef());
+                    if let Some(name) = dict.find(kCGWindowName) {
+                        let window_name = CFString::wrap_under_get_rule(name.as_CFTypeRef() as CFStringRef);
+                        titles.push(window_name.to_string());
+                    }
+                }
+            }
 
-        let window_titles: Vec<String> = windows
-            .into_iter()
-            .map(|w| w.title().to_string())
-            .collect();
-
-        Ok(vec![
-            Content::text("The following windows are available.").with_audience(vec![Role::Assistant]),
-            Content::text(format!("Available windows:\n{}", window_titles.join("\n")))
-                .with_audience(vec![Role::User])
-                .with_priority(0.0),
-        ])
+            Ok(vec![
+                Content::text("The following windows are available.").with_audience(vec![Role::Assistant]),
+                Content::text(format!("Available windows:\n{}", titles.join("\n")))
+                    .with_audience(vec![Role::User])
+                    .with_priority(0.0),
+            ])
+        }
     }
 
     async fn screen_capture(&self, params: Value) -> AgentResult<Vec<Content>> {
