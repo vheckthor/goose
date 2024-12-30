@@ -1,5 +1,6 @@
 use anyhow::Result;
 use goose::providers::configs::GroqProviderConfig;
+use goose::trust_risk::TrustLevel;
 use goose::{
     agent::Agent,
     developer::DeveloperSystem,
@@ -21,7 +22,9 @@ impl AppState {
     pub fn new(provider_config: ProviderConfig, secret_key: String) -> Result<Self> {
         let provider = factory::get_provider(provider_config.clone())?;
         let mut agent = Agent::new(provider);
-        agent.add_system(Box::new(DeveloperSystem::new()));
+        let developer_system = DeveloperSystem::new();
+        //developer_system.set_trust_level(TrustLevel::NoDestructive);
+        agent.add_system(Box::new(developer_system));
 
         // Add memory system only if GOOSE_SERVER__MEMORY is set to "true"
         if let Ok(memory_enabled) = env::var("GOOSE_SERVER__MEMORY") {
