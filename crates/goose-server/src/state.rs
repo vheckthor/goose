@@ -1,6 +1,6 @@
 use anyhow::Result;
 use goose::providers::configs::GroqProviderConfig;
-use goose::trust_risk::TrustLevel;
+//use goose::trust_risk::TrustLevel;
 use goose::{
     agent::Agent,
     developer::DeveloperSystem,
