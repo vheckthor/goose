@@ -16,6 +16,7 @@ use commands::session::build_session;
 use commands::version::print_version;
 use profile::has_no_profiles;
 use std::io::{self, Read};
+use goose::run_goose_with_developer_server;
 
 #[cfg(test)]
 mod test_helpers;
@@ -25,6 +26,9 @@ use crate::systems::system_handler::{add_system, remove_system};
 #[derive(Parser)]
 #[command(author, about, long_about = None)]
 struct Cli {
+    #[arg(short = 'd', long = "developer")]
+    developer: bool,
+
     #[arg(short = 'v', long = "version")]
     version: bool,
 
@@ -217,6 +221,12 @@ async fn main() -> Result<()> {
 
     if cli.version {
         print_version();
+        return Ok(());
+    }
+
+    if cli.developer {
+        println!("Running Goose with the Developer Server...");
+        let mut _developer_server = run_goose_with_developer_server();
         return Ok(());
     }
 

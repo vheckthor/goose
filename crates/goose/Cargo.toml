@@ -13,6 +13,7 @@ reqwest = { version = "0.12.9", features = ["json", "rustls-tls"], default-featu
 
 [dependencies]
 mcp-core = { path = "../mcp-core" }
+developer-server = { path = "../developer-server" }
 dirs = "5.0.1"
 anyhow = "1.0"
 thiserror = "1.0"
