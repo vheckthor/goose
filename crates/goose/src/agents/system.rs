@@ -24,15 +24,27 @@ pub enum SystemConfig {
 
 impl SystemConfig {
     pub fn sse<S: Into<String>>(uri: S) -> Self {
-        Self::Sse {
-            uri: uri.into(),
-        }
+        Self::Sse { uri: uri.into() }
     }
 
     pub fn stdio<S: Into<String>>(cmd: S) -> Self {
         Self::Stdio {
             cmd: cmd.into(),
             args: vec![],
+        }
+    }
+
+    pub fn with_args<I, S>(self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        match self {
+            Self::Stdio { cmd, .. } => Self::Stdio {
+                cmd,
+                args: args.into_iter().map(Into::into).collect(),
+            },
+            other => other,
         }
     }
 }

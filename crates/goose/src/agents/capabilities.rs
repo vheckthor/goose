@@ -1,9 +1,9 @@
+use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use rust_decimal_macros::dec;
 
-use super::system::{SystemConfig, SystemInfo, SystemResult, SystemError};
+use super::system::{SystemConfig, SystemError, SystemInfo, SystemResult};
 use crate::prompt_template::load_prompt_file;
 use crate::providers::base::{Provider, ProviderUsage};
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientImpl};
@@ -32,6 +32,7 @@ impl Capabilities {
     }
 
     /// Add a new MCP system based on the provided client type
+    // TODO IMPORTANT need to ensure this times out if the system command is broken!
     pub async fn add_system(&mut self, config: SystemConfig) -> SystemResult<()> {
         let client: Box<dyn McpClient + Send> = match config {
             SystemConfig::Sse { ref uri } => {
@@ -183,7 +184,9 @@ impl Capabilities {
     pub async fn get_system_prompt(&self) -> String {
         let mut context = HashMap::new();
         let systems_info: Vec<SystemInfo> = self
-            .clients.keys().map(|name| {
+            .clients
+            .keys()
+            .map(|name| {
                 let instructions = self.instructions.get(name).cloned().unwrap_or_default();
                 SystemInfo::new(name, "", &instructions)
             })

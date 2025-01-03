@@ -6,9 +6,8 @@ use tokio::sync::Mutex;
 
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
-use crate::agents::system::{SystemConfig, SystemResult, SystemInfo};
+use crate::agents::system::{SystemConfig, SystemResult};
 use crate::message::{Message, ToolRequest};
-use crate::prompt_template::load_prompt_file;
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
@@ -171,12 +170,18 @@ impl Agent for DefaultAgent {
 
     async fn remove_system(&mut self, name: &str) {
         let mut capabilities = self.capabilities.lock().await;
-        capabilities.remove_system(name).await.expect("Failed to remove system");
+        capabilities
+            .remove_system(name)
+            .await
+            .expect("Failed to remove system");
     }
 
     async fn list_systems(&self) -> Vec<String> {
         let capabilities = self.capabilities.lock().await;
-        capabilities.list_systems().await.expect("Failed to list systems")
+        capabilities
+            .list_systems()
+            .await
+            .expect("Failed to list systems")
     }
 
     async fn passthrough(&self, _system: &str, _request: Value) -> SystemResult<Value> {
