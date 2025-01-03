@@ -1105,7 +1105,7 @@ mod tests {
             active_resources.insert(str_blob_uri.clone(), resource);
         }
         let error = router.read_resource(&str_blob_uri).await.unwrap_err();
-        assert!(matches!(error, ResourceError::NotFound(_)));
+        assert!(matches!(error, ResourceError::ExecutionError(_)));
         assert!(error.to_string().contains("only supports text mime type"));
 
         // Test invalid URI
@@ -1143,7 +1143,7 @@ mod tests {
             active_resources.insert(invalid_mime.clone(), resource);
         }
         let error = router.read_resource(&invalid_mime).await.unwrap_err();
-        assert!(matches!(error, ResourceError::NotFound(_)));
+        assert!(matches!(error, ResourceError::ExecutionError(_)));
         assert!(error.to_string().contains("Unsupported mime type"));
 
         temp_dir.close().unwrap();
