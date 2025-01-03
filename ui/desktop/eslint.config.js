@@ -19,6 +19,7 @@ module.exports = [
       },
       globals: {
         // Electron/Node.js globals
+        self: 'readonly',
         process: 'readonly',
         __dirname: 'readonly',
         require: 'readonly',

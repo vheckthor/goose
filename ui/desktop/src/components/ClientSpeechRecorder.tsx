@@ -3,6 +3,8 @@ import { Button } from './ui/button';
 import { Mic, Square } from 'lucide-react';
 import WaveSurfer from 'wavesurfer.js';
 import RecordPlugin from 'wavesurfer.js/dist/plugins/record.esm.js';
+// Import the worker directly
+import SpeechWorker from './speech/worker?worker';
 
 // Constants for audio processing
 const SAMPLE_RATE = 16000;
@@ -91,9 +93,7 @@ export const AudioWaveform = React.forwardRef<
 
     // Initialize Web Worker for speech recognition
     console.log('Initializing Web Worker');
-    const worker = new Worker(new URL('../components/speech/worker.ts', import.meta.url), {
-      type: 'module'
-    });
+    const worker = new SpeechWorker();
 
     worker.onmessage = (event) => {
       const { type, message } = event.data;
@@ -165,7 +165,7 @@ export const AudioWaveform = React.forwardRef<
           // Load audio worklet
           console.log('Loading audio worklet');
           await audioContext.audioWorklet.addModule(
-            new URL('../components/speech/processor.js', import.meta.url)
+            new URL('./speech/processor.js', import.meta.url)
           );
           
           // Create audio processor

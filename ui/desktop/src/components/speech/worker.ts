@@ -1,3 +1,4 @@
+// worker-wrapper.ts
 import {AutoModel, Tensor, pipeline} from "@huggingface/transformers";
 
 // Constants for audio processing
@@ -7,77 +8,8 @@ const MAX_BUFFER_DURATION = 30;
 const SPEECH_PAD_SAMPLES = 1600;
 const MAX_NUM_PREV_BUFFERS = 4;
 
-// Check for WebGPU support
-async function supportsWebGPU() {
-    if (!navigator.gpu) return false;
-    try {
-        const adapter = await navigator.gpu.requestAdapter();
-        if (!adapter) return false;
-        const device = await adapter.requestDevice();
-        return !!device;
-    } catch {
-        return false;
-    }
-}
-
-console.log('Worker: Starting initialization');
-const device = (await supportsWebGPU()) ? "webgpu" : "wasm";
-console.log('Worker: Using device:', device);
-window.postMessage({type: "info", message: `Using device: "${device}"`});
-window.postMessage({
-    type: "info",
-    message: "Loading models...",
-    duration: "until_next",
-});
-
-// Load VAD model
-console.log('Worker: Loading VAD model');
-const silero_vad = await AutoModel.from_pretrained(
-    "onnx-community/silero-vad",
-    {
-        config: {model_type: "custom"},
-        dtype: "fp32",
-    },
-).catch((error) => {
-    console.error('Worker: Failed to load VAD model:', error);
-    window.postMessage({error});
-    throw error;
-});
-console.log('Worker: VAD model loaded');
-
-// Configure model based on device
-const DEVICE_DTYPE_CONFIGS = {
-    webgpu: {
-        encoder_model: "fp32",
-        decoder_model_merged: "q4",
-    },
-    wasm: {
-        encoder_model: "fp32",
-        decoder_model_merged: "q8",
-    },
-};
-
-// Initialize transcriber
-console.log('Worker: Loading transcriber model');
-const transcriber = await pipeline(
-    "automatic-speech-recognition",
-    "onnx-community/moonshine-base-ONNX",
-    {
-        device,
-        dtype: DEVICE_DTYPE_CONFIGS[device],
-    },
-).catch((error) => {
-    console.error('Worker: Failed to load transcriber model:', error);
-    window.postMessage({error});
-    throw error;
-});
-console.log('Worker: Transcriber model loaded');
-
-// Warm up the model
-console.log('Worker: Warming up models');
-await transcriber(new Float32Array(SAMPLE_RATE));
-console.log('Worker: Models warmed up');
-window.postMessage({type: "status", status: "ready", message: "Ready!"});
+// Initialize worker context
+const ctx = self as unknown as Worker;
 
 // Chain promises for inference
 let inferenceChain = Promise.resolve();
@@ -87,10 +19,78 @@ const BUFFER = new Float32Array(MAX_BUFFER_DURATION * SAMPLE_RATE);
 let bufferPointer = 0;
 
 // VAD state
-const sr = new Tensor("int64", [SAMPLE_RATE], []);
-let state = new Tensor("float32", new Float32Array(2 * 1 * 128), [2, 1, 128]);
-let isRecording = false;
+let state: Tensor;
+let silero_vad: any;
+let transcriber: any;
+let sr: Tensor;
 let isActive = false;
+let prevBuffers: Float32Array[] = [];
+
+async function initializeModels() {
+    console.log('Worker: Starting initialization');
+    // Since we can't detect WebGPU in worker, default to wasm
+    const device = "wasm";
+    console.log('Worker: Using device:', device);
+    ctx.postMessage({type: "info", message: `Using device: "${device}"`});
+    ctx.postMessage({
+        type: "info",
+        message: "Loading models...",
+        duration: "until_next",
+    });
+
+    // Load VAD model
+    console.log('Worker: Loading VAD model');
+    silero_vad = await AutoModel.from_pretrained(
+        "onnx-community/silero-vad",
+        {
+            config: {model_type: "custom"},
+            dtype: "fp32",
+        },
+    ).catch((error) => {
+        console.error('Worker: Failed to load VAD model:', error);
+        ctx.postMessage({error});
+        throw error;
+    });
+    console.log('Worker: VAD model loaded');
+
+    // Configure model based on device
+    const DEVICE_DTYPE_CONFIGS = {
+        webgpu: {
+            encoder_model: "fp32",
+            decoder_model_merged: "q4",
+        },
+        wasm: {
+            encoder_model: "fp32",
+            decoder_model_merged: "q8",
+        },
+    };
+
+    // Initialize transcriber
+    console.log('Worker: Loading transcriber model');
+    transcriber = await pipeline(
+        "automatic-speech-recognition",
+        "onnx-community/moonshine-base-ONNX",
+        {
+            device,
+            dtype: DEVICE_DTYPE_CONFIGS[device],
+        },
+    ).catch((error) => {
+        console.error('Worker: Failed to load transcriber model:', error);
+        ctx.postMessage({error});
+        throw error;
+    });
+    console.log('Worker: Transcriber model loaded');
+
+    // Initialize VAD state
+    sr = new Tensor("int64", [SAMPLE_RATE], []);
+    state = new Tensor("float32", new Float32Array(2 * 1 * 128), [2, 1, 128]);
+
+    // Warm up the model
+    console.log('Worker: Warming up models');
+    await transcriber(new Float32Array(SAMPLE_RATE));
+    console.log('Worker: Models warmed up');
+    ctx.postMessage({type: "status", status: "ready", message: "Ready!"});
+}
 
 /**
  * Voice Activity Detection
@@ -118,10 +118,8 @@ const transcribe = async (buffer: Float32Array, data: any) => {
         transcriber(buffer),
     ));
     console.log('Transcribe: Result:', text);
-    window.postMessage({type: "output", buffer, message: text, ...data});
+    ctx.postMessage({type: "output", buffer, message: text, ...data});
 };
-
-let prevBuffers: Float32Array[] = [];
 
 const reset = (offset = 0) => {
     console.log('Reset: Resetting buffer with offset:', offset);
@@ -157,8 +155,14 @@ const dispatchForTranscription = (overflow?: Float32Array) => {
     reset(overflowLength);
 };
 
-// Handle incoming audio data
-window.onmessage = async (event) => {
+// Initialize models
+initializeModels().catch(error => {
+    console.error('Worker: Failed to initialize:', error);
+    ctx.postMessage({type: "error", error});
+});
+
+// Handle incoming messages in worker context
+ctx.onmessage = async (event) => {
     const {buffer, command} = event.data;
 
     if (command === 'stop' && isActive) {
