@@ -142,8 +142,8 @@ pub fn tool(args: TokenStream, input: TokenStream) -> TokenStream {
                 let result = #fn_name(#(params.#param_names,)*).await
                     .map_err(|e| mcp_core::handler::ToolError::ExecutionError(e.to_string()))?;
 
-                serde_json::to_value(result)
-                    .map_err(mcp_core::handler::ToolError::SerializationError)
+                serde_json::to_value(result).expect("should serialize")
+
             }
         }
     };

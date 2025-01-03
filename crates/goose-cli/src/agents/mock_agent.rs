@@ -40,7 +40,9 @@ impl Agent for MockAgent {
     }
 
     async fn list_systems(&self) -> AgentResult<Vec<(String, String)>> {
-        Ok(self.systems.iter()
+        Ok(self
+            .systems
+            .iter()
             .map(|s| (s.name().to_string(), s.description().to_string()))
             .collect())
     }
@@ -49,7 +51,10 @@ impl Agent for MockAgent {
         Ok(Value::Null)
     }
 
-    async fn reply(&self, _messages: &[Message]) -> anyhow::Result<BoxStream<'_, anyhow::Result<Message>>> {
+    async fn reply(
+        &self,
+        _messages: &[Message],
+    ) -> anyhow::Result<BoxStream<'_, anyhow::Result<Message>>> {
         Ok(Box::pin(futures::stream::empty()))
     }
 

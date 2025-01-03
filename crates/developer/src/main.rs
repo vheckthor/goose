@@ -1,4 +1,3 @@
-
 mod lang;
 mod process_store;
 
@@ -24,7 +23,6 @@ use mcp_core::{
     tool::Tool,
 };
 use mcp_server::router::{CapabilitiesBuilder, RouterService};
-
 
 use mcp_core::content::Content;
 use mcp_core::role::Role;
@@ -126,7 +124,12 @@ impl DeveloperRouter {
         resources.insert(uri, resource);
 
         Self {
-            tools: vec![bash_tool, text_editor_tool, list_windows_tool, screen_capture_tool],
+            tools: vec![
+                bash_tool,
+                text_editor_tool,
+                list_windows_tool,
+                screen_capture_tool,
+            ],
             cwd: Arc::new(Mutex::new(cwd)),
             active_resources: Arc::new(Mutex::new(resources)),
             file_history: Arc::new(Mutex::new(HashMap::new())),
@@ -248,7 +251,9 @@ impl DeveloperRouter {
         let command = params
             .get("command")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| ToolError::InvalidParameters("Missing 'command' parameter".to_string()))?;
+            .ok_or_else(|| {
+                ToolError::InvalidParameters("Missing 'command' parameter".to_string())
+            })?;
 
         let path_str = params
             .get("path")
@@ -545,13 +550,12 @@ impl DeveloperRouter {
         let windows = Window::all()
             .map_err(|_| ToolError::ExecutionError("Failed to list windows".into()))?;
 
-        let window_titles: Vec<String> = windows
-            .into_iter()
-            .map(|w| w.title().to_string())
-            .collect();
+        let window_titles: Vec<String> =
+            windows.into_iter().map(|w| w.title().to_string()).collect();
 
         Ok(vec![
-            Content::text("The following windows are available.").with_audience(vec![Role::Assistant]),
+            Content::text("The following windows are available.")
+                .with_audience(vec![Role::Assistant]),
             Content::text(format!("Available windows:\n{}", window_titles.join("\n")))
                 .with_audience(vec![Role::User])
                 .with_priority(0.0),
@@ -559,7 +563,9 @@ impl DeveloperRouter {
     }
 
     async fn screen_capture(&self, params: Value) -> Result<Vec<Content>, ToolError> {
-        let mut image = if let Some(window_title) = params.get("window_title").and_then(|v| v.as_str()) {
+        let mut image = if let Some(window_title) =
+            params.get("window_title").and_then(|v| v.as_str())
+        {
             // Try to find and capture the specified window
             let windows = Window::all()
                 .map_err(|_| ToolError::ExecutionError("Failed to list windows".into()))?;
@@ -626,7 +632,7 @@ impl DeveloperRouter {
             Content::text("Screenshot captured").with_audience(vec![Role::Assistant]),
             Content::image(data, "image/png")
                 .with_audience(vec![Role::User])
-                .with_priority(0.0)
+                .with_priority(0.0),
         ])
     }
 
@@ -637,15 +643,15 @@ impl DeveloperRouter {
             .get(uri)
             .ok_or_else(|| ResourceError::NotFound(format!("Resource '{}' not found", uri)))?;
 
-        let url = Url::parse(uri)
-            .map_err(|e| ResourceError::NotFound(format!("Invalid URI: {}", e)))?;
+        let url =
+            Url::parse(uri).map_err(|e| ResourceError::NotFound(format!("Invalid URI: {}", e)))?;
 
         // Read content based on scheme and mime_type
         match url.scheme() {
             "file" => {
-                let path = url.to_file_path().map_err(|_| {
-                    ResourceError::NotFound("Invalid file path in URI".into())
-                })?;
+                let path = url
+                    .to_file_path()
+                    .map_err(|_| ResourceError::NotFound("Invalid file path in URI".into()))?;
 
                 // Ensure file exists
                 if !path.exists() {
@@ -711,6 +717,10 @@ impl DeveloperRouter {
 }
 
 impl Router for DeveloperRouter {
+    fn name(&self) -> String {
+        "developer".to_string()
+    }
+
     fn instructions(&self) -> String {
         self.instructions.clone()
     }

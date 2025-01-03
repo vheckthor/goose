@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use crate::log_usage::log_usage;
 use crate::prompt::{InputType, Prompt};
 use goose::agents::Agent;
-use goose::errors::AgentResult;
 use goose::developer::DeveloperSystem;
+use goose::errors::AgentResult;
 use goose::message::{Message, MessageContent};
 use goose::systems::goose_hints::GooseHintsSystem;
 use mcp_core::role::Role;
@@ -331,7 +331,7 @@ We've removed the conversation up to the most recent user message
             .as_str(),
         ));
         self.prompt.close();
-        
+
         match self.agent.usage().await {
             Ok(usage) => log_usage(self.session_file.to_string_lossy().to_string(), usage),
             Err(e) => eprintln!("Failed to collect total provider usage: {}", e),

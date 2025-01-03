@@ -83,6 +83,10 @@ criterion = "0.5"
 tokio-test = "0.4"
 
 [[example]]
+name = "agent"
+path = "examples/agent.rs"
+
+[[example]]
 name = "databricks_oauth"
 path = "examples/databricks_oauth.rs"
 
