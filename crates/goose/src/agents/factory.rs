@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
-use super::Agent;
+pub use super::Agent;
 use crate::providers::base::Provider;
 
 type AgentConstructor = Box<dyn Fn(Box<dyn Provider>) -> Box<dyn Agent> + Send + Sync>;

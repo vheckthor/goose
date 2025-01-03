@@ -2,7 +2,7 @@ use futures::StreamExt;
 use goose::message::Message;
 use goose::providers::get_provider;
 use goose::providers::configs::{DatabricksProviderConfig, ProviderConfig};
-use goose::agents::{DefaultAgent, Agent, SystemConfig};
+use goose::agents::{AgentFactory, SystemConfig};
 use dotenv::dotenv;
 
 #[tokio::main]
@@ -18,7 +18,7 @@ async fn main() {
     let provider = get_provider(config).expect("should create provider");
 
     // Setup an agent with the developer system
-    let mut agent = DefaultAgent::new(provider);
+    let mut agent = AgentFactory::create("default", provider).expect("default should exist");
 
     let config = SystemConfig::stdio("./target/debug/developer");
     agent.add_system(config).await.unwrap();
