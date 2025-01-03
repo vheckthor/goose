@@ -96,7 +96,7 @@ export default function Input({
 
   return (
       <form onSubmit={onFormSubmit}
-            className="flex relative bg-white dark:bg-gray-800 h-auto px-[16px] pr-[68px] py-[1rem]">
+            className="flex relative h-auto px-[16px] pr-[122px] py-[1rem]">
         <div className="relative flex-grow">
           <textarea
               autoFocus
@@ -122,10 +122,10 @@ export default function Input({
               ref={waveformRef}
               isRecording={isRecording}
               onTranscription={handleTranscription}
-              className="absolute left-0 right-0 bottom-0 z-5 overflow-hidden w-5/6"
+              className="absolute left-0 right-0 bottom-0 z-5 overflow-hidden "
           />
         </div>
-        <div className="absolute right-[68px] top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-[46px] top-1/2 -translate-y-1/2 flex items-center gap-2">
           <AudioButton
               isRecording={isRecording}
               onClick={handleToggleRecording}
@@ -136,7 +136,7 @@ export default function Input({
               variant="ghost"
               onClick={handleFileSelect}
               disabled={disabled}
-              className={`text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 ${
+              className={`absolute right-[40px] top-1/2 -translate-y-1/2  text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 ${
                   disabled ? 'opacity-50 cursor-not-allowed' : ''
               }`}
           >

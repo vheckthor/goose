@@ -53,6 +53,11 @@ module.exports = [
         React: 'readonly',
         handleAction: 'readonly',
         requestAnimationFrame: 'readonly',
+        AudioContext: 'readonly',
+        AudioWorkletNode: 'readonly',
+        Worker: 'readonly',
+        MediaStream: 'readonly',
+        MediaStreamAudioSourceNode: 'readonly',
       },
     },
     plugins: {
