@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::system::{SystemConfig, SystemResult};
-use crate::message::{Message, ToolRequest};
+use crate::message::{Message, ToolRequest, MessageContent};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
@@ -147,15 +147,17 @@ impl DefaultAgent {
             new_messages.push(msg.clone());
         }
 
-        // Finally add the status messages
-        let message_use =
-            Message::assistant().with_tool_request("000", Ok(ToolCall::new("status", json!({}))));
+        // Finally add the status messages, if we have any
+        if !status_str.is_empty() {
+            let message_use =
+                Message::assistant().with_tool_request("000", Ok(ToolCall::new("status", json!({}))));
 
-        let message_result =
-            Message::user().with_tool_response("000", Ok(vec![Content::text(status_str)]));
+            let message_result =
+                Message::user().with_tool_response("000", Ok(vec![Content::text(status_str)]));
 
-        new_messages.push(message_use);
-        new_messages.push(message_result);
+            new_messages.push(message_use);
+            new_messages.push(message_result);
+        }
 
         Ok(new_messages)
     }
@@ -263,8 +265,18 @@ impl Agent for DefaultAgent {
 
                 // Now we have to remove the previous status tooluse and toolresponse
                 // before we add pending messages, then the status msgs back again
-                messages.pop();
-                messages.pop();
+                if let Some(message) = messages.last() {
+                    match &message.content[0] {
+                        MessageContent::ToolResponse(result) => {
+                            if result.id == "000" {
+                                messages.pop();
+                                messages.pop();
+                            }
+                        },
+                        _ => {}
+                    }
+                }
+
 
                 let pending = vec![response, message_tool_response];
                 messages = self.prepare_inference(&system_prompt, &tools, &messages, &pending, estimated_limit, &capabilities.provider().get_model_config().model_name, &capabilities.get_resources().await?).await?;
