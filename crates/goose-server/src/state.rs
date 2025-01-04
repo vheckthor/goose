@@ -29,7 +29,8 @@ impl AppState {
                 .unwrap_or(AgentFactory::default_version().to_string())
                 .as_str(),
             provider,
-        ).ok_or(anyhow::Error::msg("Invalid agent version requested"))?;
+        )
+        .ok_or(anyhow::Error::msg("Invalid agent version requested"))?;
 
         Ok(Self {
             provider_config,

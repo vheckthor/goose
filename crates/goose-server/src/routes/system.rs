@@ -8,12 +8,13 @@ struct SystemResponse {
     error: bool,
 }
 
-async fn add_system(State(state): State<AppState>, Json(request): Json<SystemConfig>) -> Json<SystemResponse> {
+async fn add_system(
+    State(state): State<AppState>,
+    Json(request): Json<SystemConfig>,
+) -> Json<SystemResponse> {
     let mut agent = state.agent.lock().await;
     let error = agent.add_system(request).await.is_ok();
-    Json(SystemResponse {
-        error,
-    })
+    Json(SystemResponse { error })
 }
 
 pub fn routes(state: AppState) -> Router {

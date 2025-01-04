@@ -164,11 +164,9 @@ pub trait Router: Send + Sync + 'static {
             let arguments = params.get("arguments").cloned().unwrap_or(Value::Null);
 
             let result = match self.call_tool(name, arguments).await {
-                Ok(result) => {
-                    CallToolResult {
-                        content: result,
-                        is_error: false,
-                    }
+                Ok(result) => CallToolResult {
+                    content: result,
+                    is_error: false,
                 },
                 Err(err) => CallToolResult {
                     content: vec![Content::text(err.to_string())],

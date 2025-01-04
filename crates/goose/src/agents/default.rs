@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::system::{SystemConfig, SystemResult};
-use crate::message::{Message, ToolRequest, MessageContent};
+use crate::message::{Message, MessageContent, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
@@ -149,8 +149,8 @@ impl DefaultAgent {
 
         // Finally add the status messages, if we have any
         if !status_str.is_empty() {
-            let message_use =
-                Message::assistant().with_tool_request("000", Ok(ToolCall::new("status", json!({}))));
+            let message_use = Message::assistant()
+                .with_tool_request("000", Ok(ToolCall::new("status", json!({}))));
 
             let message_result =
                 Message::user().with_tool_response("000", Ok(vec![Content::text(status_str)]));
@@ -266,14 +266,11 @@ impl Agent for DefaultAgent {
                 // Now we have to remove the previous status tooluse and toolresponse
                 // before we add pending messages, then the status msgs back again
                 if let Some(message) = messages.last() {
-                    match &message.content[0] {
-                        MessageContent::ToolResponse(result) => {
-                            if result.id == "000" {
-                                messages.pop();
-                                messages.pop();
-                            }
-                        },
-                        _ => {}
+                    if let MessageContent::ToolResponse(result) = &message.content[0] {
+                        if result.id == "000" {
+                            messages.pop();
+                            messages.pop();
+                        }
                     }
                 }
 

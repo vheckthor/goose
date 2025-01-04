@@ -43,6 +43,12 @@ pub struct DeveloperRouter {
     instructions: String,
 }
 
+impl Default for DeveloperRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeveloperRouter {
     pub fn new() -> Self {
         let bash_tool = Tool::new(
@@ -726,7 +732,7 @@ impl Router for DeveloperRouter {
         Box::pin(async move {
             match this.read_resource_internal(&uri).await {
                 Ok(content) => Ok(content),
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
             }
         })
     }
