@@ -28,8 +28,7 @@ let prevBuffers: Float32Array[] = [];
 
 async function initializeModels() {
     console.log('Worker: Starting initialization');
-    // Since we can't detect WebGPU in worker, default to wasm
-    const device = "wasm";
+    const device = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
     console.log('Worker: Using device:', device);
     ctx.postMessage({type: "info", message: `Using device: "${device}"`});
     ctx.postMessage({
