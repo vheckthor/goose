@@ -89,6 +89,13 @@ impl Clone for AppState {
                         model: config.model.clone(),
                     })
                 }
+                ProviderConfig::OpenRouter(config) => {
+                    ProviderConfig::OpenRouter(goose::providers::configs::OpenAiProviderConfig {
+                        host: config.host.clone(),
+                        api_key: config.api_key.clone(),
+                        model: config.model.clone(),
+                    })
+                }
             },
             agent: self.agent.clone(),
             secret_key: self.secret_key.clone(),
