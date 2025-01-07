@@ -1,5 +1,5 @@
 use anyhow::Result;
-use developer::DeveloperRouter;
+use nondeveloper::NonDeveloperRouter;
 use mcp_server::router::RouterService;
 use mcp_server::{ByteTransport, Server};
 use tokio::io::{stdin, stdout};
@@ -10,7 +10,7 @@ use tracing_subscriber::{self, EnvFilter};
 async fn main() -> Result<()> {
     // TODO cohesive logs strategy
     // Set up file appender for logging
-    let file_appender = RollingFileAppender::new(Rotation::DAILY, "/tmp/goose/logs", "mcp-server.log");
+    let file_appender = RollingFileAppender::new(Rotation::DAILY, "/tmp/goose/logs", "mcp-nondeveloper-server.log");
 
     // Initialize the tracing subscriber with file and stdout logging
     tracing_subscriber::fmt()
@@ -22,10 +22,10 @@ async fn main() -> Result<()> {
         .with_line_number(true)
         .init();
 
-    tracing::info!("Starting MCP server");
+    tracing::info!("Starting NonDeveloper MCP server");
 
     // Create an instance of our counter router
-    let router = RouterService(DeveloperRouter::new());
+    let router = RouterService(NonDeveloperRouter::new());
 
     // Create and run the server
     let server = Server::new(router);

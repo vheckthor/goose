@@ -25,6 +25,8 @@ pub enum ResourceError {
     ExecutionError(String),
     #[error("Resource not found: {0}")]
     NotFound(String),
+    #[error("Invalid parameters: {0}")]
+    InvalidParameters(String),
 }
 
 /// Trait for implementing MCP tools
