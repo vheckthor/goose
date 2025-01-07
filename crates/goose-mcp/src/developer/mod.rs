@@ -35,6 +35,7 @@ use xcap::{Monitor, Window};
 
 pub struct DeveloperRouter {
     tools: Vec<Tool>,
+    prompts: Vec<Prompt>,
     // The cwd, active_resources, and file_history are shared across threads
     // so we need to use an Arc to ensure thread safety
     cwd: Arc<Mutex<PathBuf>>,
@@ -113,6 +114,11 @@ impl DeveloperRouter {
             }),
         );
 
+        let prompt = Prompt::new(
+            "prompt".to_string(),
+            "This is a prompt".to_string(),
+        );
+
         let instructions = "Developer instructions...".to_string(); // Reuse from original code
 
         let cwd = std::env::current_dir().unwrap();
@@ -133,6 +139,7 @@ impl DeveloperRouter {
                 list_windows_tool,
                 screen_capture_tool,
             ],
+            prompts: vec![],
             cwd: Arc::new(Mutex::new(cwd)),
             active_resources: Arc::new(Mutex::new(resources)),
             file_history: Arc::new(Mutex::new(HashMap::new())),
@@ -685,7 +692,10 @@ impl Router for DeveloperRouter {
     }
 
     fn capabilities(&self) -> ServerCapabilities {
-        CapabilitiesBuilder::new().with_tools(true).build()
+        CapabilitiesBuilder::new()
+            .with_tools(true)
+            .with_prompts(true)
+            .build()
     }
 
     fn list_tools(&self) -> Vec<Tool> {
@@ -734,6 +744,18 @@ impl Router for DeveloperRouter {
                 Ok(content) => Ok(content),
                 Err(e) => Err(e),
             }
+        })
+    }
+
+    fn list_prompts(&self) -> Vec<Prompt> {
+        self.prompts.clone()
+    }
+
+    fn get_prompt(&self, prompt_name: &str) -> Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>> {
+        let this = self.clone();
+        let prompt_name = prompt_name.to_string();
+        Box::pin(async move {
+            this.get_prompt_internal(&prompt_name).await
         })
     }
 }

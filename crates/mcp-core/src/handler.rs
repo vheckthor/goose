@@ -27,6 +27,15 @@ pub enum ResourceError {
     NotFound(String),
 }
 
+#[derive(Error, Debug)]
+pub enum PromptError {
+    #[error("Execution failed: {0}")]
+    ExecutionError(String),
+    #[error("Prompt not found: {0}")]
+    NotFound(String),
+}
+
+
 /// Trait for implementing MCP tools
 #[async_trait]
 pub trait ToolHandler: Send + Sync + 'static {

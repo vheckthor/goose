@@ -6,7 +6,8 @@ use std::{
 
 use mcp_core::{
     content::Content,
-    handler::{ResourceError, ToolError},
+    handler::{ResourceError, ToolError, PromptError},
+    prompt::Prompt,
     protocol::{
         CallToolResult, Implementation, InitializeResult, JsonRpcRequest, JsonRpcResponse,
         ListResourcesResult, ListToolsResult, PromptsCapability, ReadResourceResult,
@@ -93,6 +94,15 @@ pub trait Router: Send + Sync + 'static {
         &self,
         uri: &str,
     ) -> Pin<Box<dyn Future<Output = Result<String, ResourceError>> + Send + 'static>>;
+    fn list_prompts(&self) -> Option<Vec<Prompt>> {
+        None
+    }
+    fn get_prompt(
+        &self,
+        _prompt_name: &str,
+    ) -> Option<Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>>> {
+        None
+    }
 
     // Helper method to create base response
     fn create_response(&self, id: Option<u64>) -> JsonRpcResponse {
@@ -235,6 +245,42 @@ pub trait Router: Send + Sync + 'static {
             Ok(response)
         }
     }
+
+    fn handle_prompts_list(
+        &self,
+        req: JsonRpcRequest,
+    ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
+        async move {
+            let prompts = self.list_prompts().unwrap_or_default();
+            let mut response = self.create_response(req.id);
+            response.result = Some(serde_json::to_value(prompts).map_err(|e| {
+                RouterError::Internal(format!("JSON serialization error: {}", e))
+            })?);
+            Ok(response)
+        }
+    }
+
+    fn handle_prompts_get(
+        &self,
+        req: JsonRpcRequest,
+    ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
+        async move {
+            let params = req.params.ok_or_else(|| RouterError::InvalidParams("Missing parameters".into()))?;
+            let prompt_name = params.get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| RouterError::InvalidParams("Missing prompt name".into()))?;
+            
+            let prompt = self.get_prompt(prompt_name)
+                .ok_or_else(|| RouterError::NotFound("Prompt not found".into()))?;
+            
+            let result = prompt.await.map_err(|e| RouterError::Internal(e.to_string()))?;
+
+            let mut response = self.create_response(req.id);
+            response.result = Some(serde_json::to_value(result)
+                .map_err(|e| RouterError::Internal(format!("JSON serialization error: {}", e)))?);
+            Ok(response)
+        }
+    }
 }
 
 pub struct RouterService<T>(pub T);
@@ -261,6 +307,8 @@ where
                 "tools/call" => this.handle_tools_call(req).await,
                 "resources/list" => this.handle_resources_list(req).await,
                 "resources/read" => this.handle_resources_read(req).await,
+                "prompts/list" => this.handle_prompts_list(req).await,
+                "prompts/get" => this.handle_prompts_get(req).await,
                 _ => {
                     let mut response = this.create_response(req.id);
                     response.error = Some(RouterError::MethodNotFound(req.method).into());

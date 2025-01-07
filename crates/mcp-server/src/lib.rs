@@ -236,3 +236,9 @@ where
         Ok(())
     }
 }
+
+impl From<PromptError> for RouterError {
+    fn from(error: PromptError) -> Self {
+        RouterError::Internal(error.to_string())
+    }
+}
