@@ -74,16 +74,7 @@ enum Command {
 
     /// Manage system prompts and behaviors
     #[command(about = "Run one of the mcp servers bundled with goose")]
-    Mcp {
-        #[arg(
-            short,
-            long,
-            value_name = "NAME",
-            help = "The stdio server to run",
-            long_help = "Runs one of the goose builtin MCP servers with stdio transport."
-        )]
-        name: String,
-    },
+    Mcp { name: String },
 
     /// Start or resume interactive chat sessions
     #[command(about = "Start or resume interactive chat sessions", alias = "s")]

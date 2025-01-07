@@ -55,7 +55,7 @@ pub async fn build_session<'a>(
     // TODO use systems from the profile
     // TODO once the client/server for MCP has stabilized, we should probably add InProcess transport to each
     //      and avoid spawning here. But it is at least included in the CLI for portability
-    let config = SystemConfig::stdio("goose").with_args(vec!["server", "--name", "developer"]);
+    let config = SystemConfig::stdio("goose").with_args(vec!["mcp", "developer"]);
     agent
         .add_system(config)
         .await
