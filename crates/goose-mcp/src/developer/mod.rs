@@ -1,5 +1,6 @@
 mod lang;
 mod process_store;
+mod unit_test;
 
 use anyhow::Result;
 use base64::Engine;
@@ -21,6 +22,7 @@ use mcp_core::{
     protocol::ServerCapabilities,
     resource::Resource,
     tool::Tool,
+    prompt::{Prompt, PromptArgument},
 };
 use mcp_server::router::CapabilitiesBuilder;
 use mcp_server::Router;
@@ -114,10 +116,7 @@ impl DeveloperRouter {
             }),
         );
 
-        let prompt = Prompt::new(
-            "prompt".to_string(),
-            "This is a prompt".to_string(),
-        );
+        let unit_test_prompt = unit_test::create_unit_test_prompt();
 
         let instructions = "Developer instructions...".to_string(); // Reuse from original code
 
@@ -139,7 +138,9 @@ impl DeveloperRouter {
                 list_windows_tool,
                 screen_capture_tool,
             ],
-            prompts: vec![],
+            prompts: vec![
+                unit_test_prompt
+            ],
             cwd: Arc::new(Mutex::new(cwd)),
             active_resources: Arc::new(Mutex::new(resources)),
             file_history: Arc::new(Mutex::new(HashMap::new())),
@@ -763,6 +764,7 @@ impl Router for DeveloperRouter {
 impl Clone for DeveloperRouter {
     fn clone(&self) -> Self {
         Self {
+            prompts: self.prompts.clone(),
             tools: self.tools.clone(),
             cwd: Arc::clone(&self.cwd),
             active_resources: Arc::clone(&self.active_resources),

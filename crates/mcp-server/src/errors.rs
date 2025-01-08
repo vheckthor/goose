@@ -86,7 +86,7 @@ impl From<RouterError> for mcp_core::protocol::ErrorData {
                 data: None,
             },
             RouterError::NotFound(msg) => ErrorData {
-                code: NOT_FOUND,
+                code: INVALID_REQUEST,
                 message: msg,
                 data: None,
             },
