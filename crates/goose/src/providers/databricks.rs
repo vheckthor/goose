@@ -72,6 +72,10 @@ impl DatabricksProvider {
     }
 
     async fn post(&self, payload: Value) -> Result<Value> {
+        if let Ok(json_content) = serde_json::to_string_pretty(&payload.clone()) {
+            tokio::fs::write("payload.json", json_content).await;
+        }
+
         let url = format!(
             "{}/serving-endpoints/{}/invocations",
             self.config.host.trim_end_matches('/'),
