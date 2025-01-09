@@ -1,56 +1,63 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card } from '../ui/card';
 import { useNavigate } from 'react-router-dom';
+import { Settings as SettingsType, Model, Extension, Key } from './types';
+import { ToggleableItem } from './ToggleableItem';
+import { KeyItem } from './KeyItem';
+import { AddModelDialog } from './modals/AddModelDialog';
+import { AddExtensionDialog } from './modals/AddExtensionDialog';
+import { KeyDialog } from './modals/KeyDialog';
 
 const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
+
+const DEFAULT_SETTINGS: SettingsType = {
+    models: [
+        { id: "gpt4", name: "GPT 4.0", description: "Standard config", enabled: false },
+        { id: "gpt4lite", name: "GPT 4.0 lite", description: "Standard config", enabled: false },
+        { id: "claude", name: "Claude", description: "Standard config", enabled: true }
+    ],
+    extensions: [
+        { id: "fileviewer", name: "File viewer", description: "Standard config", enabled: true },
+        { id: "cloudthing", name: "Cloud thing", description: "Standard config", enabled: true },
+        { id: "mcpdice", name: "MCP dice", description: "Standard config", enabled: true },
+        { id: "binancedata", name: "Binance market data", description: "Standard config", enabled: true }
+    ],
+    keys: [
+        { id: "giskey", name: "GISKey", value: "*****************" },
+        { id: "awscognito", name: "AWScognito", value: "*****************" }
+    ]
+};
 
 export default function Settings() {
     const navigate = useNavigate();
     
-    // Initialize models state from localStorage or use default values
-    const [models, setModels] = React.useState(() => {
-        const savedModels = localStorage.getItem('settings_models');
-        return savedModels ? JSON.parse(savedModels) : {
-            gpt4: false,
-            gpt4lite: false,
-            claude: true,
-        };
+    const [settings, setSettings] = React.useState<SettingsType>(() => {
+        const saved = localStorage.getItem('user_settings');
+        return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
     });
 
-    // Initialize extensions state from localStorage or use default values
-    const [extensions, setExtensions] = React.useState(() => {
-        const savedExtensions = localStorage.getItem('settings_extensions');
-        return savedExtensions ? JSON.parse(savedExtensions) : {
-            fileviewer: true,
-            cloudthing: true,
-            mcpdice: true,
-            binancedata: true,
-        };
-    });
-
-    // Save models state to localStorage whenever it changes
+    // Persist settings changes
     React.useEffect(() => {
-        localStorage.setItem('settings_models', JSON.stringify(models));
-    }, [models]);
-
-    // Save extensions state to localStorage whenever it changes
-    React.useEffect(() => {
-        localStorage.setItem('settings_extensions', JSON.stringify(extensions));
-    }, [extensions]);
+        localStorage.setItem('user_settings', JSON.stringify(settings));
+    }, [settings]);
 
     const handleModelToggle = (modelId: string) => {
-        // Only allow one model to be active
-        setModels(Object.keys(models).reduce((acc, key) => ({
-            ...acc,
-            [key]: key === modelId
-        }), {}));
+        setSettings(prev => ({
+            ...prev,
+            models: prev.models.map(model => ({
+                ...model,
+                enabled: model.id === modelId
+            }))
+        }));
     };
 
     const handleExtensionToggle = (extensionId: string) => {
-        setExtensions(prev => ({
+        setSettings(prev => ({
             ...prev,
-            [extensionId]: !prev[extensionId]
+            extensions: prev.extensions.map(ext => 
+                ext.id === extensionId ? { ...ext, enabled: !ext.enabled } : ext
+            )
         }));
     };
 
@@ -70,6 +77,54 @@ export default function Settings() {
 
     const handleExit = () => {
         navigate('/chat/1', { replace: true }); // Use replace to ensure clean navigation
+    };
+
+    const [addModelOpen, setAddModelOpen] = useState(false);
+    const [addExtensionOpen, setAddExtensionOpen] = useState(false);
+    const [addKeyOpen, setAddKeyOpen] = useState(false);
+    const [editingKey, setEditingKey] = useState<Key | null>(null);
+
+    const handleAddModel = (newModel: Model) => {
+        setSettings(prev => ({
+            ...prev,
+            models: [...prev.models, { ...newModel, enabled: false }]
+        }));
+        setAddModelOpen(false);
+    };
+
+    const handleAddExtension = (newExtension: Extension) => {
+        setSettings(prev => ({
+            ...prev,
+            extensions: [...prev.extensions, { ...newExtension, enabled: true }]
+        }));
+        setAddExtensionOpen(false);
+    };
+
+    const handleAddKey = (newKey: Key) => {
+        setSettings(prev => ({
+            ...prev,
+            keys: [...prev.keys, newKey]
+        }));
+        setAddKeyOpen(false);
+    };
+
+    const handleUpdateKey = (updatedKey: Key) => {
+        setSettings(prev => ({
+            ...prev,
+            keys: prev.keys.map(key => 
+                key.id === updatedKey.id ? updatedKey : key
+            )
+        }));
+        setEditingKey(null);
+    };
+
+    const handleCopyKey = async (value: string) => {
+        try {
+            await navigator.clipboard.writeText(value);
+            // Could add a toast notification here
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
     };
 
     return (
@@ -111,79 +166,40 @@ export default function Settings() {
                                     <section id="models">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-semibold">Models</h2>
-                                            <button className="text-indigo-500 hover:text-indigo-600 font-medium">
+                                            <button 
+                                                onClick={() => setAddModelOpen(true)}
+                                                className="text-indigo-500 hover:text-indigo-600 font-medium"
+                                            >
                                                 Add Models
                                             </button>
                                         </div>
-                                        {Object.entries(models).map(([id, enabled]) => (
-                                            <div key={id} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
-                                                <div className="flex justify-between items-center">
-                                                    <h3 className="text-lg font-medium dark:text-white">
-                                                        {id === 'gpt4' ? 'GPT 4.0' :
-                                                         id === 'gpt4lite' ? 'GPT 4.0 lite' : 'Claude'}
-                                                    </h3>
-                                                    <button 
-                                                        onClick={() => handleModelToggle(id)}
-                                                        className={`
-                                                            relative inline-flex h-6 w-11 items-center rounded-full
-                                                            ${enabled ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-600'}
-                                                            transition-colors duration-200 ease-in-out focus:outline-none
-                                                        `}
-                                                    >
-                                                        <span
-                                                            className={`
-                                                                inline-block h-5 w-5 transform rounded-full bg-white shadow
-                                                                transition-transform duration-200 ease-in-out
-                                                                ${enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}
-                                                            `}
-                                                        />
-                                                    </button>
-                                                </div>
-                                                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                                                    Standard config
-                                                </p>
-                                            </div>
+                                        {settings.models.map(model => (
+                                            <ToggleableItem
+                                                key={model.id}
+                                                {...model}
+                                                onToggle={handleModelToggle}
+                                            />
                                         ))}
                                     </section>
 
-                                    {/* Extensions Section (formerly MCPs) */}
+                                    {/* Extensions Section */}
                                     <section id="extensions">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-semibold">Extensions</h2>
-                                            <button className="text-indigo-500 hover:text-indigo-600 font-medium">
+                                            <button 
+                                                onClick={() => setAddExtensionOpen(true)}
+                                                className="text-indigo-500 hover:text-indigo-600 font-medium"
+                                            >
                                                 Add Extensions
                                             </button>
                                         </div>
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
-                                        {Object.entries(extensions).map(([id, enabled]) => (
-                                            <div key={id} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
-                                                <div className="flex justify-between items-center">
-                                                    <h3 className="text-lg font-medium dark:text-white">
-                                                        {id === 'fileviewer' ? 'File viewer' :
-                                                         id === 'cloudthing' ? 'Cloud thing' :
-                                                         id === 'mcpdice' ? 'MCP dice' : 'Binance market data'}
-                                                    </h3>
-                                                    <button 
-                                                        onClick={() => handleExtensionToggle(id)}
-                                                        className={`
-                                                            relative inline-flex h-6 w-11 items-center rounded-full
-                                                            ${enabled ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-600'}
-                                                            transition-colors duration-200 ease-in-out focus:outline-none
-                                                        `}
-                                                    >
-                                                        <span
-                                                            className={`
-                                                                inline-block h-5 w-5 transform rounded-full bg-white shadow
-                                                                transition-transform duration-200 ease-in-out
-                                                                ${enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}
-                                                            `}
-                                                        />
-                                                    </button>
-                                                </div>
-                                                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                                                    Standard config
-                                                </p>
-                                            </div>
+                                        {settings.extensions.map(ext => (
+                                            <ToggleableItem
+                                                key={ext.id}
+                                                {...ext}
+                                                onToggle={handleExtensionToggle}
+                                            />
                                         ))}
                                     </section>
 
@@ -191,23 +207,21 @@ export default function Settings() {
                                     <section id="keys">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-semibold">Keys</h2>
-                                            <button className="text-indigo-500 hover:text-indigo-600 font-medium">
+                                            <button 
+                                                onClick={() => setAddKeyOpen(true)}
+                                                className="text-indigo-500 hover:text-indigo-600 font-medium"
+                                            >
                                                 Add new key
                                             </button>
                                         </div>
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
-                                        {['GISKey', 'AWScognito'].map(key => (
-                                            <div key={key} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
-                                                <div className="flex justify-between items-center">
-                                                    <h3 className="text-lg font-medium dark:text-white">{key}</h3>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-gray-500">{'*'.repeat(17)}</span>
-                                                        <button className="text-indigo-500 hover:text-indigo-600">
-                                                            ✏️
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        {settings.keys.map(keyItem => (
+                                            <KeyItem
+                                                key={keyItem.id}
+                                                keyData={keyItem}
+                                                onEdit={setEditingKey}
+                                                onCopy={handleCopyKey}
+                                            />
                                         ))}
                                     </section>
                                 </div>
@@ -216,6 +230,27 @@ export default function Settings() {
                     </ScrollArea>
                 </div>
             </Card>
+
+            {/* Add the modals */}
+            <AddModelDialog
+                isOpen={addModelOpen}
+                onClose={() => setAddModelOpen(false)}
+                onAdd={handleAddModel}
+            />
+            <AddExtensionDialog
+                isOpen={addExtensionOpen}
+                onClose={() => setAddExtensionOpen(false)}
+                onAdd={handleAddExtension}
+            />
+            <KeyDialog
+                isOpen={addKeyOpen || !!editingKey}
+                onClose={() => {
+                    setAddKeyOpen(false);
+                    setEditingKey(null);
+                }}
+                onSubmit={editingKey ? handleUpdateKey : handleAddKey}
+                initialKey={editingKey || undefined}
+            />
         </div>
     );
 } 
