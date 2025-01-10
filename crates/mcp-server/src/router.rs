@@ -288,13 +288,27 @@ pub trait Router: Send + Sync + 'static {
                 .and_then(Value::as_object)
                 .ok_or_else(|| RouterError::InvalidParams("Missing arguments object".into()))?;
 
-            // Fetch the prompt
-            let prompt = self.get_prompt(prompt_name).ok_or_else(|| {
-                RouterError::NotFound(format!("Prompt '{}' not found", prompt_name))
-            })?;
+            // Fetch the prompt definition first
+            let prompt = match self.list_prompts() {
+                Some(prompts) => prompts.into_iter()
+                    .find(|p| p.name == prompt_name)
+                    .ok_or_else(|| RouterError::NotFound(format!("Prompt '{}' not found", prompt_name)))?,
+                None => return Err(RouterError::NotFound("No prompts available".into()))
+            };
 
-            // Await the prompt's description
-            let description = prompt
+            // Validate required arguments
+            for arg in &prompt.arguments {
+                if arg.required && (!arguments.contains_key(&arg.name) || arguments.get(&arg.name).and_then(Value::as_str).map_or(true, str::is_empty)) {
+                    return Err(RouterError::InvalidParams(format!(
+                        "Missing required argument: '{}'",
+                        arg.name
+                    )));
+                }
+            }
+
+            // Now get the prompt content
+            let description = self.get_prompt(prompt_name)
+                .ok_or_else(|| RouterError::NotFound("Prompt not found".into()))?
                 .await
                 .map_err(|e| RouterError::Internal(e.to_string()))?;
 
@@ -333,17 +347,22 @@ pub trait Router: Send + Sync + 'static {
                 ));
             }
 
-            // Serialize the arguments into a single string for the message
-            let arguments_text = arguments
-                .iter()
-                .map(|(key, value)| format!("{}: {}", key, value))
-                .collect::<Vec<_>>()
-                .join("\n");
+            // Create a mutable copy of the description to fill in arguments
+            let mut description_filled = description.clone();
+
+            // Replace each argument placeholder with its value from the arguments object
+            for (key, value) in arguments {
+                let placeholder = format!("{{{}}}", key);
+                description_filled = description_filled.replace(
+                    &placeholder,
+                    value.as_str().unwrap_or_default()
+                );
+            }
 
             // Construct the message using PromptMessage
             let messages = vec![PromptMessage::new_text(
                 PromptMessageRole::User,
-                format!("{}:\n{}", description, arguments_text),
+                format!("{}", description_filled),
             )];
 
             // Build the final response

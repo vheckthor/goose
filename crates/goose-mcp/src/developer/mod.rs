@@ -1,6 +1,6 @@
 mod lang;
 mod process_store;
-mod unit_test;
+mod developer_prompt;
 
 use anyhow::Result;
 use base64::Engine;
@@ -165,7 +165,7 @@ impl DeveloperRouter {
             }),
         );
 
-        let unit_test_prompt = unit_test::create_unit_test_prompt();
+        let unit_test_prompt = developer_prompt::create_unit_test_prompt();
 
         let instructions = formatdoc! {r#"
             The developer system is loaded in the directory listed below.

@@ -142,3 +142,18 @@ impl PromptMessage {
         }
     }
 }
+
+/// A template for a prompt
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PromptTemplate {
+    pub id: String,
+    pub template: String,
+    pub arguments: Vec<PromptArgumentTemplate>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PromptArgumentTemplate {
+    pub name: String,
+    pub description: String,
+    pub required: bool,
+}
