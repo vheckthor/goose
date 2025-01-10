@@ -4,7 +4,7 @@ mod unit_test;
 
 use anyhow::Result;
 use base64::Engine;
-use indoc::formatdoc;
+use indoc::{formatdoc, indoc};
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -55,39 +55,81 @@ impl Default for DeveloperRouter {
 impl DeveloperRouter {
     pub fn new() -> Self {
         let bash_tool = Tool::new(
-            "bash".to_string(),
-            "Run a bash command in the shell in the current working directory".to_string(),
+            "bash",
+            indoc! {r#"
+                Run a bash command in the shell in the current working directory
+                  - You can use multiline commands or && to execute multiple in one pass
+                  - Directory changes **are not** persisted from one command to the next
+                  - Sourcing files **is not** persisted from one command to the next
+
+                For example, you can use this style to execute python in a virtualenv
+                "source .venv/bin/active && python example1.py"
+
+                but need to repeat the source for subsequent commands in that virtualenv
+                "source .venv/bin/active && python example2.py"
+            "#},
             json!({
                 "type": "object",
                 "required": ["command"],
                 "properties": {
-                    "command": {"type": "string"}
+                    "command": {
+                        "type": "string",
+                        "default": null,
+                        "description": "The bash shell command to run."
+                    },
                 }
             }),
         );
 
         let text_editor_tool = Tool::new(
-            "text_editor".to_string(),
-            "Perform text editing operations on files.".to_string(),
+            "text_editor",
+            indoc! {r#"
+                Perform text editing operations on files.
+
+                The `command` parameter specifies the operation to perform. Allowed options are:
+                - `view`: View the content of a file.
+                - `write`: Write a file with the given content (create a new file or overwrite an existing).
+                - `str_replace`: Replace a string in a file with a new string.
+                - `undo_edit`: Undo the last edit made to a file.
+            "#},
             json!({
                 "type": "object",
                 "required": ["command", "path"],
                 "properties": {
-                    "path": {"type": "string"},
-                    "command": {
+                    "path": {
                         "type": "string",
-                        "enum": ["view", "write", "str_replace", "undo_edit"]
+                        "description": "Path to the file. Can be absolute or relative to the system CWD"
                     },
-                    "new_str": {"type": "string"},
-                    "old_str": {"type": "string"},
-                    "file_text": {"type": "string"}
+                    "command": {
+                        "enum": ["view", "write", "str_replace", "undo_edit"],
+                        "description": "The command to run."
+                    },
+                    "new_str": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Required for the `str_replace` command."
+                    },
+                    "old_str": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Required for the `str_replace` command."
+                    },
+                    "file_text": {
+                        "type": "string",
+                        "default": null,
+                        "description": "Required for `write` command."
+                    },
                 }
             }),
         );
 
         let list_windows_tool = Tool::new(
-            "list_windows".to_string(),
-            "List all open windows".to_string(),
+            "list_windows",
+            indoc! {r#"
+                List all available window titles that can be used with screen_capture.
+                Returns a list of window titles that can be used with the window_title parameter
+                of the screen_capture tool.
+            "#},
             json!({
                 "type": "object",
                 "required": [],
@@ -96,8 +138,15 @@ impl DeveloperRouter {
         );
 
         let screen_capture_tool = Tool::new(
-            "screen_capture".to_string(),
-            "Capture a screenshot of a specified display or window.\nYou can capture either:\n1. A full display (monitor) using the display parameter\n2. A specific window by its title using the window_title parameter\n\nOnly one of display or window_title should be specified.".to_string(),
+            "screen_capture",
+            indoc! {r#"
+                Capture a screenshot of a specified display or window.
+                You can capture either:
+                1. A full display (monitor) using the display parameter
+                2. A specific window by its title using the window_title parameter
+
+                Only one of display or window_title should be specified.
+            "#},
             json!({
                 "type": "object",
                 "required": [],
@@ -118,7 +167,31 @@ impl DeveloperRouter {
 
         let unit_test_prompt = unit_test::create_unit_test_prompt();
 
-        let instructions = "Developer instructions...".to_string(); // Reuse from original code
+        let instructions = formatdoc! {r#"
+            The developer system is loaded in the directory listed below.
+            You can use the shell tool to run any command that would work on the relevant operating system.
+            Use the shell tool as needed to locate files or interact with the project. Only files
+            that have been read or modified using the edit tools will show up in the active files list.
+
+            bash
+              - Prefer ripgrep - `rg` - when you need to locate content, it will respected ignored files for
+            efficiency. **Avoid find and ls -r**
+                - to locate files by name: `rg --files | rg example.py`
+                - to locate consent inside files: `rg 'class Example'`
+              - The operating system for these commands is {os}
+
+
+            text_edit
+              - Always use 'view' command first before any edit operations
+              - File edits are tracked and can be undone with 'undo'
+              - String replacements must match exactly once in the file
+              - Line numbers start at 1 for insert operations
+
+            The write mode will do a full overwrite of the existing file, while the str_replace mode will edit it
+            using a find and replace. Choose the mode which will make the edit as simple as possible to execute.
+            "#,
+            os=std::env::consts::OS,
+        };
 
         let cwd = std::env::current_dir().unwrap();
         let mut resources = HashMap::new();
@@ -146,6 +219,24 @@ impl DeveloperRouter {
             file_history: Arc::new(Mutex::new(HashMap::new())),
             instructions,
         }
+    }
+
+    // Helper method to mark a resource as active, and insert it into the active_resources map
+    fn add_active_resource(&self, uri: &str, resource: Resource) {
+        self.active_resources
+            .lock()
+            .unwrap()
+            .insert(uri.to_string(), resource.mark_active());
+    }
+
+    // Helper method to check if a resource is already an active one
+    // Tries to get the resource and then checks if it is active
+    fn is_active_resource(&self, uri: &str) -> bool {
+        self.active_resources
+            .lock()
+            .unwrap()
+            .get(uri)
+            .map_or(false, |r| r.is_active())
     }
 
     // Helper method to resolve a path relative to cwd
@@ -321,7 +412,7 @@ impl DeveloperRouter {
                     ToolError::ExecutionError(format!("Failed to create resource: {}", e))
                 })?;
 
-            self.active_resources.lock().unwrap().insert(uri, resource);
+            self.add_active_resource(&uri, resource);
 
             let language = lang::get_language_identifier(path);
             let formatted = formatdoc! {"
@@ -366,7 +457,7 @@ impl DeveloperRouter {
             .to_string();
 
         // Check if file already exists and is active
-        if path.exists() && !self.active_resources.lock().unwrap().contains_key(&uri) {
+        if path.exists() && !self.is_active_resource(&uri) {
             return Err(ToolError::InvalidParameters(format!(
                 "File '{}' exists but is not active. View it first before overwriting.",
                 path.display()
@@ -384,7 +475,7 @@ impl DeveloperRouter {
 
         let resource = Resource::new(uri.clone(), Some("text".to_string()), None)
             .map_err(|e| ToolError::ExecutionError(e.to_string()))?;
-        self.active_resources.lock().unwrap().insert(uri, resource);
+        self.add_active_resource(&uri, resource);
 
         // Try to detect the language from the file extension
         let language = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
@@ -425,7 +516,7 @@ impl DeveloperRouter {
                 path.display()
             )));
         }
-        if !self.active_resources.lock().unwrap().contains_key(&uri) {
+        if !self.is_active_resource(&uri) {
             return Err(ToolError::InvalidParameters(format!(
                 "You must view '{}' before editing it",
                 path.display()
