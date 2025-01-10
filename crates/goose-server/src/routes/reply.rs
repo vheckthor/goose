@@ -391,7 +391,7 @@ mod tests {
     use goose::{
         agents::DefaultAgent as Agent,
         providers::{
-            base::{Provider, ProviderUsage, Usage},
+            base::{Moderation, ModerationResult, Provider, ProviderUsage, Usage},
             configs::{ModelConfig, OpenAiProviderConfig},
         },
     };
@@ -405,7 +405,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl Provider for MockProvider {
-        async fn complete(
+        async fn complete_internal(
             &self,
             _system_prompt: &str,
             _messages: &[Message],
@@ -423,6 +423,16 @@ mod tests {
 
         fn get_usage(&self, _data: &Value) -> anyhow::Result<Usage> {
             Ok(Usage::new(None, None, None))
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Moderation for MockProvider {
+        async fn moderate_content(
+            &self,
+            _content: &str,
+        ) -> Result<ModerationResult, anyhow::Error> {
+            Ok(ModerationResult::new(false, None, None))
         }
     }
 
