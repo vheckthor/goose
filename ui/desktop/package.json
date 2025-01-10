@@ -41,7 +41,6 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "postcss": "^8.4.47",
-    "shadcn-ui": "^0.9.4",
     "tailwindcss": "^3.4.14",
     "vite": "^5.0.12"
   },
