@@ -8,6 +8,9 @@ import { KeyItem } from './KeyItem';
 import { AddModelDialog } from './modals/AddModelDialog';
 import { AddExtensionDialog } from './modals/AddExtensionDialog';
 import { KeyDialog } from './modals/KeyDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { RevealKeysDialog } from './modals/RevealKeysDialog';
 
 const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
 
@@ -83,6 +86,8 @@ export default function Settings() {
     const [addExtensionOpen, setAddExtensionOpen] = useState(false);
     const [addKeyOpen, setAddKeyOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<Key | null>(null);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
+    const [showAllKeys, setShowAllKeys] = useState(false);
 
     const handleAddModel = (newModel: Model) => {
         setSettings(prev => ({
@@ -125,6 +130,20 @@ export default function Settings() {
         } catch (err) {
             console.error('Failed to copy:', err);
         }
+    };
+
+    const handleDeleteKey = (keyToDelete: Key) => {
+        setSettings(prev => ({
+            ...prev,
+            keys: prev.keys.filter(key => key.id !== keyToDelete.id)
+        }));
+        setEditingKey(null);
+    };
+
+    const handleReset = () => {
+        setSettings(DEFAULT_SETTINGS);
+        setShowResetConfirm(false);
+        showToast("Settings reset to default", "success");
     };
 
     return (
@@ -223,13 +242,62 @@ export default function Settings() {
                                                 onCopy={handleCopyKey}
                                             />
                                         ))}
+
+                                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setShowAllKeys(true)}
+                                                className="w-full text-yellow-600 hover:text-yellow-700 dark:text-yellow-500 dark:hover:text-yellow-400"
+                                            >
+                                                Reveal All Keys (Dev Only)
+                                            </Button>
+                                        </div>
                                     </section>
+
+                                    {/* Reset Button */}
+                                    <div className="pt-8 border-t border-gray-200 dark:border-gray-700">
+                                        <Button
+                                            onClick={() => setShowResetConfirm(true)}
+                                            variant="destructive"
+                                            className="w-full"
+                                        >
+                                            Reset to Default Settings
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </ScrollArea>
                 </div>
             </Card>
+
+            {/* Reset Confirmation Dialog */}
+            <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reset Settings</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-gray-600 dark:text-gray-300">
+                            Are you sure you want to reset all settings to their default values? This cannot be undone.
+                        </p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowResetConfirm(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleReset}
+                        >
+                            Reset Settings
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Add the modals */}
             <AddModelDialog
@@ -249,7 +317,14 @@ export default function Settings() {
                     setEditingKey(null);
                 }}
                 onSubmit={editingKey ? handleUpdateKey : handleAddKey}
+                onDelete={handleDeleteKey}
                 initialKey={editingKey || undefined}
+            />
+
+            <RevealKeysDialog
+                isOpen={showAllKeys}
+                onClose={() => setShowAllKeys(false)}
+                keys={settings.keys}
             />
         </div>
     );

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Key } from './types';
+import { showToast } from '../ui/toast';
+import { Tooltip } from '../ui/Tooltip';
 
 interface KeyItemProps {
     keyData: Key;
@@ -10,8 +12,13 @@ interface KeyItemProps {
 export function KeyItem({ keyData, onEdit, onCopy }: KeyItemProps) {
     const [isValueVisible, setIsValueVisible] = useState(false);
 
-    const handleCopy = () => {
-        onCopy(keyData.value);
+    const handleCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(keyData.value);
+            showToast(`${keyData.name} copied to clipboard!`, "success");
+        } catch (err) {
+            showToast("Failed to copy the key.", "error");
+        }
     };
 
     return (
@@ -23,25 +30,31 @@ export function KeyItem({ keyData, onEdit, onCopy }: KeyItemProps) {
                         <span className="text-gray-500">
                             {isValueVisible ? keyData.value : '*'.repeat(17)}
                         </span>
-                        <button
-                            onClick={() => setIsValueVisible(!isValueVisible)}
-                            className="ml-2 text-gray-400 hover:text-gray-600"
-                        >
-                            {isValueVisible ? '👁️' : '👁️‍🗨️'}
-                        </button>
-                        <button
-                            onClick={handleCopy}
-                            className="ml-2 text-indigo-500 hover:text-indigo-600"
-                        >
-                            📋
-                        </button>
+                        <Tooltip content={isValueVisible ? "Hide" : "Reveal"}>
+                            <button
+                                onClick={() => setIsValueVisible(!isValueVisible)}
+                                className="ml-2 text-gray-400 hover:text-gray-600"
+                            >
+                                {isValueVisible ? '👁️' : '👁️‍🗨️'}
+                            </button>
+                        </Tooltip>
+                        <Tooltip content="Copy to clipboard">
+                            <button
+                                onClick={handleCopy}
+                                className="ml-2 text-indigo-500 hover:text-indigo-600"
+                            >
+                                📋
+                            </button>
+                        </Tooltip>
                     </div>
-                    <button 
-                        onClick={() => onEdit(keyData)}
-                        className="text-indigo-500 hover:text-indigo-600"
-                    >
-                        ✏️
-                    </button>
+                    <Tooltip content="Edit">
+                        <button 
+                            onClick={() => onEdit(keyData)}
+                            className="text-indigo-500 hover:text-indigo-600"
+                        >
+                            ✏️
+                        </button>
+                    </Tooltip>
                 </div>
             </div>
         </div>
