@@ -290,15 +290,24 @@ pub trait Router: Send + Sync + 'static {
 
             // Fetch the prompt definition first
             let prompt = match self.list_prompts() {
-                Some(prompts) => prompts.into_iter()
+                Some(prompts) => prompts
+                    .into_iter()
                     .find(|p| p.name == prompt_name)
-                    .ok_or_else(|| RouterError::NotFound(format!("Prompt '{}' not found", prompt_name)))?,
-                None => return Err(RouterError::NotFound("No prompts available".into()))
+                    .ok_or_else(|| {
+                        RouterError::NotFound(format!("Prompt '{}' not found", prompt_name))
+                    })?,
+                None => return Err(RouterError::NotFound("No prompts available".into())),
             };
 
             // Validate required arguments
             for arg in &prompt.arguments {
-                if arg.required && (!arguments.contains_key(&arg.name) || arguments.get(&arg.name).and_then(Value::as_str).map_or(true, str::is_empty)) {
+                if arg.required
+                    && (!arguments.contains_key(&arg.name)
+                        || arguments
+                            .get(&arg.name)
+                            .and_then(Value::as_str)
+                            .map_or(true, str::is_empty))
+                {
                     return Err(RouterError::InvalidParams(format!(
                         "Missing required argument: '{}'",
                         arg.name
@@ -307,7 +316,8 @@ pub trait Router: Send + Sync + 'static {
             }
 
             // Now get the prompt content
-            let description = self.get_prompt(prompt_name)
+            let description = self
+                .get_prompt(prompt_name)
                 .ok_or_else(|| RouterError::NotFound("Prompt not found".into()))?
                 .await
                 .map_err(|e| RouterError::Internal(e.to_string()))?;
@@ -353,10 +363,8 @@ pub trait Router: Send + Sync + 'static {
             // Replace each argument placeholder with its value from the arguments object
             for (key, value) in arguments {
                 let placeholder = format!("{{{}}}", key);
-                description_filled = description_filled.replace(
-                    &placeholder,
-                    value.as_str().unwrap_or_default()
-                );
+                description_filled =
+                    description_filled.replace(&placeholder, value.as_str().unwrap_or_default());
             }
 
             // Construct the message using PromptMessage
