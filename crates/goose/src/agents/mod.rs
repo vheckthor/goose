@@ -2,6 +2,7 @@ mod agent;
 mod capabilities;
 mod default;
 mod factory;
+mod redact;
 mod reference;
 mod system;
 
