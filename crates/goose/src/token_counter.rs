@@ -26,6 +26,8 @@ impl Default for TokenCounter {
 impl TokenCounter {
     fn load_tokenizer(&mut self, tokenizer_key: &str) {
         // Load from embedded tokenizer files. The tokenizer_key must match the directory name.
+
+        // TODO let's use indactif to add a progress bar as the file is read into memory
         let tokenizer_path = format!("{}/tokenizer.json", tokenizer_key);
         let file_content = TOKENIZER_FILES
             .get_file(&tokenizer_path)
