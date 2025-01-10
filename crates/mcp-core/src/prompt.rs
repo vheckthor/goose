@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::handler::PromptError;
 use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
+use serde::{Deserialize, Serialize};
 
 /// A prompt that can be used to generate text from a model
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,9 +54,7 @@ pub enum PromptMessageRole {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum PromptMessageContent {
     /// Plain text content
-    Text {
-        text: String,
-    },
+    Text { text: String },
     /// Image content with base64-encoded data
     Image {
         data: String,
@@ -64,9 +62,7 @@ pub enum PromptMessageContent {
         mime_type: String,
     },
     /// Embedded server-side resource
-    Resource {
-        resource: ResourceContent,
-    },
+    Resource { resource: ResourceContent },
 }
 
 /// Content of an embedded resource in a message
@@ -95,9 +91,7 @@ impl PromptMessage {
     pub fn new_text<S: Into<String>>(role: PromptMessageRole, text: S) -> Self {
         Self {
             role,
-            content: PromptMessageContent::Text {
-                text: text.into(),
-            },
+            content: PromptMessageContent::Text { text: text.into() },
         }
     }
 

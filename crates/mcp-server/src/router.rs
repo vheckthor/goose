@@ -6,7 +6,7 @@ use std::{
 
 use mcp_core::{
     content::Content,
-    handler::{ResourceError, ToolError, PromptError},
+    handler::{PromptError, ResourceError, ToolError},
     prompt::{Prompt, PromptMessage, PromptMessageRole},
     protocol::{
         CallToolResult, Implementation, InitializeResult, JsonRpcRequest, JsonRpcResponse,
@@ -272,38 +272,45 @@ pub trait Router: Send + Sync + 'static {
     ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
         async move {
             // Validate and extract parameters
-            let params = req.params.ok_or_else(|| RouterError::InvalidParams("Missing parameters".into()))?;
+            let params = req
+                .params
+                .ok_or_else(|| RouterError::InvalidParams("Missing parameters".into()))?;
 
             // Extract "name" field
-            let prompt_name = params.get("name")
+            let prompt_name = params
+                .get("name")
                 .and_then(Value::as_str)
                 .ok_or_else(|| RouterError::InvalidParams("Missing prompt name".into()))?;
 
             // Extract "arguments" field
-            let arguments = params.get("arguments")
+            let arguments = params
+                .get("arguments")
                 .and_then(Value::as_object)
                 .ok_or_else(|| RouterError::InvalidParams("Missing arguments object".into()))?;
 
             // Fetch the prompt
-            let prompt = self.get_prompt(prompt_name)
-                .ok_or_else(|| RouterError::NotFound(format!("Prompt '{}' not found", prompt_name)))?;
+            let prompt = self.get_prompt(prompt_name).ok_or_else(|| {
+                RouterError::NotFound(format!("Prompt '{}' not found", prompt_name))
+            })?;
 
             // Await the prompt's description
-            let description = prompt.await.map_err(|e| RouterError::Internal(e.to_string()))?;
+            let description = prompt
+                .await
+                .map_err(|e| RouterError::Internal(e.to_string()))?;
 
             // Validate prompt arguments for potential security issues
             for (key, value) in arguments.iter() {
                 // Check for empty or overly long keys/values
                 if key.is_empty() || key.len() > 1000 {
                     return Err(RouterError::InvalidParams(
-                        "Argument keys must be between 1-1000 characters".into()
+                        "Argument keys must be between 1-1000 characters".into(),
                     ));
                 }
 
                 let value_str = value.as_str().unwrap_or_default();
                 if value_str.len() > 10000 {
                     return Err(RouterError::InvalidParams(
-                        "Argument values must not exceed 10000 characters".into()
+                        "Argument values must not exceed 10000 characters".into(),
                     ));
                 }
 
@@ -312,7 +319,7 @@ pub trait Router: Send + Sync + 'static {
                 for pattern in dangerous_patterns {
                     if key.contains(pattern) || value_str.contains(pattern) {
                         return Err(RouterError::InvalidParams(format!(
-                            "Arguments contain potentially unsafe pattern: {}", 
+                            "Arguments contain potentially unsafe pattern: {}",
                             pattern
                         )));
                     }
@@ -322,11 +329,10 @@ pub trait Router: Send + Sync + 'static {
             // Validate the prompt description length
             if description.len() > 10000 {
                 return Err(RouterError::Internal(
-                    "Prompt description exceeds maximum allowed length".into()
+                    "Prompt description exceeds maximum allowed length".into(),
                 ));
             }
 
-            
             // Serialize the arguments into a single string for the message
             let arguments_text = arguments
                 .iter()
@@ -337,7 +343,7 @@ pub trait Router: Send + Sync + 'static {
             // Construct the message using PromptMessage
             let messages = vec![PromptMessage::new_text(
                 PromptMessageRole::User,
-                format!("{}:\n{}", description, arguments_text)
+                format!("{}:\n{}", description, arguments_text),
             )];
 
             // Build the final response

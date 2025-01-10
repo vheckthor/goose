@@ -18,11 +18,11 @@ use tokio::process::Command;
 use url::Url;
 
 use mcp_core::{
-    handler::{ResourceError, ToolError, PromptError},
+    handler::{PromptError, ResourceError, ToolError},
+    prompt::Prompt,
     protocol::ServerCapabilities,
     resource::Resource,
     tool::Tool,
-    prompt::Prompt,
 };
 use mcp_server::router::CapabilitiesBuilder;
 use mcp_server::Router;
@@ -211,9 +211,7 @@ impl DeveloperRouter {
                 list_windows_tool,
                 screen_capture_tool,
             ],
-            prompts: vec![
-                unit_test_prompt
-            ],
+            prompts: vec![unit_test_prompt],
             cwd: Arc::new(Mutex::new(cwd)),
             active_resources: Arc::new(Mutex::new(resources)),
             file_history: Arc::new(Mutex::new(HashMap::new())),
@@ -850,7 +848,9 @@ impl Router for DeveloperRouter {
         // Validate prompt name is not empty
         if _prompt_name.trim().is_empty() {
             return Some(Box::pin(async move {
-                Err(PromptError::InvalidParameters("Prompt name cannot be empty".to_string()))
+                Err(PromptError::InvalidParameters(
+                    "Prompt name cannot be empty".to_string(),
+                ))
             }));
         }
 
@@ -860,7 +860,9 @@ impl Router for DeveloperRouter {
         Some(Box::pin(async move {
             // Check if prompts list is empty
             if prompts.is_empty() {
-                return Err(PromptError::InternalError("No prompts available".to_string()));
+                return Err(PromptError::InternalError(
+                    "No prompts available".to_string(),
+                ));
             }
 
             // Find the prompt with matching name
@@ -874,7 +876,10 @@ impl Router for DeveloperRouter {
                 }
                 Ok(prompt.description.to_string())
             } else {
-                Err(PromptError::NotFound(format!("Prompt '{}' not found", prompt_name)))
+                Err(PromptError::NotFound(format!(
+                    "Prompt '{}' not found",
+                    prompt_name
+                )))
             }
         }))
     }
