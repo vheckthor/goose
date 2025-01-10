@@ -18,11 +18,11 @@ use tokio::process::Command;
 use url::Url;
 
 use mcp_core::{
-    handler::{ResourceError, ToolError},
+    handler::{ResourceError, ToolError, PromptError},
     protocol::ServerCapabilities,
     resource::Resource,
     tool::Tool,
-    prompt::{Prompt, PromptArgument},
+    prompt::Prompt,
 };
 use mcp_server::router::CapabilitiesBuilder;
 use mcp_server::Router;
@@ -839,24 +839,52 @@ impl Router for DeveloperRouter {
         })
     }
 
-    fn list_prompts(&self) -> Vec<Prompt> {
-        self.prompts.clone()
+    fn list_prompts(&self) -> Option<Vec<Prompt>> {
+        Some(self.prompts.clone())
     }
 
-    fn get_prompt(&self, prompt_name: &str) -> Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>> {
-        let this = self.clone();
-        let prompt_name = prompt_name.to_string();
-        Box::pin(async move {
-            this.get_prompt_internal(&prompt_name).await
-        })
+    fn get_prompt(
+        &self,
+        _prompt_name: &str,
+    ) -> Option<Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>>> {
+        // Validate prompt name is not empty
+        if _prompt_name.trim().is_empty() {
+            return Some(Box::pin(async move {
+                Err(PromptError::InvalidParameters("Prompt name cannot be empty".to_string()))
+            }));
+        }
+
+        let prompt_name = _prompt_name.to_string();
+        let prompts = self.prompts.clone();
+
+        Some(Box::pin(async move {
+            // Check if prompts list is empty
+            if prompts.is_empty() {
+                return Err(PromptError::InternalError("No prompts available".to_string()));
+            }
+
+            // Find the prompt with matching name
+            if let Some(prompt) = prompts.iter().find(|p| p.name == prompt_name) {
+                // Validate description is not empty
+                if prompt.description.trim().is_empty() {
+                    return Err(PromptError::InternalError(format!(
+                        "Prompt '{}' has an empty description",
+                        prompt_name
+                    )));
+                }
+                Ok(prompt.description.to_string())
+            } else {
+                Err(PromptError::NotFound(format!("Prompt '{}' not found", prompt_name)))
+            }
+        }))
     }
 }
 
 impl Clone for DeveloperRouter {
     fn clone(&self) -> Self {
         Self {
-            prompts: self.prompts.clone(),
             tools: self.tools.clone(),
+            prompts: self.prompts.clone(),
             cwd: Arc::clone(&self.cwd),
             active_resources: Arc::clone(&self.active_resources),
             file_history: Arc::clone(&self.file_history),

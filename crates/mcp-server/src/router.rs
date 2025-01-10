@@ -7,7 +7,7 @@ use std::{
 use mcp_core::{
     content::Content,
     handler::{ResourceError, ToolError, PromptError},
-    prompt::Prompt,
+    prompt::{Prompt, PromptMessage, PromptMessageRole},
     protocol::{
         CallToolResult, Implementation, InitializeResult, JsonRpcRequest, JsonRpcResponse,
         ListResourcesResult, ListToolsResult, PromptsCapability, ReadResourceResult,
@@ -252,10 +252,16 @@ pub trait Router: Send + Sync + 'static {
     ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
         async move {
             let prompts = self.list_prompts().unwrap_or_default();
+
+            // Create the response object
+            let result = serde_json::json!({
+                "prompts": prompts, // Assuming `prompts` is a Vec<Prompt> that serializes correctly
+                "nextCursor": "next-page-cursor" // Static cursor for now, TODO: replace with actual logic
+            });
+
             let mut response = self.create_response(req.id);
-            response.result = Some(serde_json::to_value(prompts).map_err(|e| {
-                RouterError::Internal(format!("JSON serialization error: {}", e))
-            })?);
+            response.result = Some(result);
+
             Ok(response)
         }
     }
@@ -265,19 +271,81 @@ pub trait Router: Send + Sync + 'static {
         req: JsonRpcRequest,
     ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
         async move {
+            // Validate and extract parameters
             let params = req.params.ok_or_else(|| RouterError::InvalidParams("Missing parameters".into()))?;
+
+            // Extract "name" field
             let prompt_name = params.get("name")
                 .and_then(Value::as_str)
                 .ok_or_else(|| RouterError::InvalidParams("Missing prompt name".into()))?;
-            
-            let prompt = self.get_prompt(prompt_name)
-                .ok_or_else(|| RouterError::NotFound("Prompt not found".into()))?;
-            
-            let result = prompt.await.map_err(|e| RouterError::Internal(e.to_string()))?;
 
+            // Extract "arguments" field
+            let arguments = params.get("arguments")
+                .and_then(Value::as_object)
+                .ok_or_else(|| RouterError::InvalidParams("Missing arguments object".into()))?;
+
+            // Fetch the prompt
+            let prompt = self.get_prompt(prompt_name)
+                .ok_or_else(|| RouterError::NotFound(format!("Prompt '{}' not found", prompt_name)))?;
+
+            // Await the prompt's description
+            let description = prompt.await.map_err(|e| RouterError::Internal(e.to_string()))?;
+
+            // Validate prompt arguments for potential security issues
+            for (key, value) in arguments.iter() {
+                // Check for empty or overly long keys/values
+                if key.is_empty() || key.len() > 1000 {
+                    return Err(RouterError::InvalidParams(
+                        "Argument keys must be between 1-1000 characters".into()
+                    ));
+                }
+
+                let value_str = value.as_str().unwrap_or_default();
+                if value_str.len() > 10000 {
+                    return Err(RouterError::InvalidParams(
+                        "Argument values must not exceed 10000 characters".into()
+                    ));
+                }
+
+                // Check for potentially dangerous patterns
+                let dangerous_patterns = ["../", "//", "\\\\", "<script>", "{{", "}}"];
+                for pattern in dangerous_patterns {
+                    if key.contains(pattern) || value_str.contains(pattern) {
+                        return Err(RouterError::InvalidParams(format!(
+                            "Arguments contain potentially unsafe pattern: {}", 
+                            pattern
+                        )));
+                    }
+                }
+            }
+
+            // Validate the prompt description length
+            if description.len() > 10000 {
+                return Err(RouterError::Internal(
+                    "Prompt description exceeds maximum allowed length".into()
+                ));
+            }
+
+            
+            // Serialize the arguments into a single string for the message
+            let arguments_text = arguments
+                .iter()
+                .map(|(key, value)| format!("{}: {}", key, value))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            // Construct the message using PromptMessage
+            let messages = vec![PromptMessage::new_text(
+                PromptMessageRole::User,
+                format!("{}:\n{}", description, arguments_text)
+            )];
+
+            // Build the final response
             let mut response = self.create_response(req.id);
-            response.result = Some(serde_json::to_value(result)
-                .map_err(|e| RouterError::Internal(format!("JSON serialization error: {}", e)))?);
+            response.result = Some(serde_json::json!({
+                "description": description,
+                "messages": messages
+            }));
             Ok(response)
         }
     }
