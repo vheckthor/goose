@@ -6,7 +6,6 @@ import { Settings as SettingsType, Model, Extension, Key } from './types';
 import { ToggleableItem } from './ToggleableItem';
 import { KeyItem } from './KeyItem';
 import { AddModelDialog } from './modals/AddModelDialog';
-import { AddExtensionDialog } from './modals/AddExtensionDialog';
 import { KeyDialog } from './modals/KeyDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -83,7 +82,6 @@ export default function Settings() {
     };
 
     const [addModelOpen, setAddModelOpen] = useState(false);
-    const [addExtensionOpen, setAddExtensionOpen] = useState(false);
     const [addKeyOpen, setAddKeyOpen] = useState(false);
     const [editingKey, setEditingKey] = useState<Key | null>(null);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -95,14 +93,6 @@ export default function Settings() {
             models: [...prev.models, { ...newModel, enabled: false }]
         }));
         setAddModelOpen(false);
-    };
-
-    const handleAddExtension = (newExtension: Extension) => {
-        setSettings(prev => ({
-            ...prev,
-            extensions: [...prev.extensions, { ...newExtension, enabled: true }]
-        }));
-        setAddExtensionOpen(false);
     };
 
     const handleAddKey = (newKey: Key) => {
@@ -205,12 +195,6 @@ export default function Settings() {
                                     <section id="extensions">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-semibold">Extensions</h2>
-                                            <button 
-                                                onClick={() => setAddExtensionOpen(true)}
-                                                className="text-indigo-500 hover:text-indigo-600 font-medium"
-                                            >
-                                                Add Extensions
-                                            </button>
                                         </div>
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
                                         {settings.extensions.map(ext => (
@@ -304,11 +288,6 @@ export default function Settings() {
                 isOpen={addModelOpen}
                 onClose={() => setAddModelOpen(false)}
                 onAdd={handleAddModel}
-            />
-            <AddExtensionDialog
-                isOpen={addExtensionOpen}
-                onClose={() => setAddExtensionOpen(false)}
-                onAdd={handleAddExtension}
             />
             <KeyDialog
                 isOpen={addKeyOpen || !!editingKey}
