@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::handler::PromptError;
+use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
 
 /// A prompt that can be used to generate text from a model
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -109,7 +110,7 @@ impl PromptMessage {
         let mime_type = mime_type.into();
 
         // Validate base64 data
-        base64::decode(&data).map_err(|_| {
+        BASE64_STANDARD.decode(&data).map_err(|_| {
             PromptError::InvalidParameters("Image data must be valid base64".to_string())
         })?;
 
