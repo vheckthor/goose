@@ -13,6 +13,14 @@ export function AddExtensionDialog({ isOpen, onClose, onAdd }: AddExtensionDialo
     const [name, setName] = React.useState('');
     const [description, setDescription] = React.useState('Standard config');
 
+    // Reset form when dialog closes
+    React.useEffect(() => {
+        if (!isOpen) {
+            setName('');
+            setDescription('Standard config');
+        }
+    }, [isOpen]);
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const id = name.toLowerCase().replace(/\s+/g, '-');
@@ -23,13 +31,16 @@ export function AddExtensionDialog({ isOpen, onClose, onAdd }: AddExtensionDialo
             enabled: true
         });
         onClose();
-        setName('');
-        setDescription('Standard config');
     };
 
     return (
-        <BaseDialog title="Add Extension" isOpen={isOpen} onClose={onClose}>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <BaseDialog 
+            title="Add Extension" 
+            isOpen={isOpen} 
+            onClose={onClose}
+            onSubmit={handleSubmit}
+        >
+            <form id="keyForm" onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="text-sm font-medium">Name</label>
                     <Input

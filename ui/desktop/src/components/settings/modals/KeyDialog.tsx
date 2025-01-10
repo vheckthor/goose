@@ -17,13 +17,20 @@ export function KeyDialog({ isOpen, onClose, onSubmit, onDelete, initialKey }: K
     const [isValueVisible, setIsValueVisible] = React.useState(false);
     const isEditing = !!initialKey;
 
+    // Reset form when dialog closes (only if not editing)
+    React.useEffect(() => {
+        if (!isOpen && !isEditing) {
+            setName('');
+            setValue('');
+            setIsValueVisible(false);
+        }
+    }, [isOpen, isEditing]);
+
+    // Update form when initialKey changes
     React.useEffect(() => {
         if (initialKey) {
             setName(initialKey.name);
             setValue(initialKey.value);
-        } else {
-            setName('');
-            setValue('');
         }
     }, [initialKey]);
 
@@ -36,10 +43,6 @@ export function KeyDialog({ isOpen, onClose, onSubmit, onDelete, initialKey }: K
             value
         });
         onClose();
-        if (!isEditing) {
-            setName('');
-            setValue('');
-        }
     };
 
     return (
