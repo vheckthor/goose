@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from '../../ui/dialog';
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalTitle,
+} from '../../ui/modal';
 import { Button } from '../../ui/button';
 
 interface BaseDialogProps {
@@ -19,11 +19,11 @@ export function BaseDialog({ title, isOpen, onClose, onSubmit, children }: BaseD
     const isEditing = title.startsWith('Edit');
     
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                </DialogHeader>
+        <Modal open={isOpen} onOpenChange={onClose}>
+            <ModalContent>
+                <ModalHeader>
+                    <ModalTitle>{title}</ModalTitle>
+                </ModalHeader>
                 {children}
                 <div className="flex justify-end gap-2">
                     <Button type="button" variant="outline" onClick={onClose}>
@@ -33,7 +33,7 @@ export function BaseDialog({ title, isOpen, onClose, onSubmit, children }: BaseD
                         {isEditing ? 'Save Changes' : 'Add'}
                     </Button>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </ModalContent>
+        </Modal>
     );
 } 

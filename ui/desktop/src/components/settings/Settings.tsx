@@ -7,7 +7,7 @@ import { ToggleableItem } from './ToggleableItem';
 import { KeyItem } from './KeyItem';
 import { AddModelDialog } from './modals/AddModelDialog';
 import { KeyDialog } from './modals/KeyDialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '../ui/modal';
 import { Button } from '../ui/button';
 import { RevealKeysDialog } from './modals/RevealKeysDialog';
 
@@ -256,11 +256,11 @@ export default function Settings() {
             </Card>
 
             {/* Reset Confirmation Dialog */}
-            <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Reset Settings</DialogTitle>
-                    </DialogHeader>
+            <Modal open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+                <ModalContent>
+                    <ModalHeader>
+                        <ModalTitle>Reset Settings</ModalTitle>
+                    </ModalHeader>
                     <div className="py-4">
                         <p className="text-gray-600 dark:text-gray-300">
                             Are you sure you want to reset all settings to their default values? This cannot be undone.
@@ -280,8 +280,8 @@ export default function Settings() {
                             Reset Settings
                         </Button>
                     </div>
-                </DialogContent>
-            </Dialog>
+                </ModalContent>
+            </Modal>
 
             {/* Add the modals */}
             <AddModelDialog

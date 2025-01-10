@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Key } from './types';
 import { showToast } from '../ui/toast';
 import { Tooltip } from '../ui/Tooltip';
+import { EyeOpenIcon, EyeClosedIcon } from '@radix-ui/react-icons';
 
 interface KeyItemProps {
     keyData: Key;
@@ -35,7 +36,7 @@ export function KeyItem({ keyData, onEdit, onCopy }: KeyItemProps) {
                                 onClick={() => setIsValueVisible(!isValueVisible)}
                                 className="ml-2 text-gray-400 hover:text-gray-600"
                             >
-                                {isValueVisible ? '👁️' : '👁️‍🗨️'}
+                                {isValueVisible ? <EyeOpenIcon /> : <EyeClosedIcon />}
                             </button>
                         </Tooltip>
                         <Tooltip content="Copy to clipboard">
