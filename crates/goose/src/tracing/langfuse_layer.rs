@@ -61,11 +61,7 @@ impl LangfuseBatchManager {
             loop {
                 tokio::time::sleep(BATCH_INTERVAL).await;
                 if let Err(e) = manager.lock().await.send() {
-                    tracing::error!(
-                        error.msg = %e,
-                        error.type = %std::any::type_name_of_val(&e),
-                        "Failed to send batch to Langfuse"
-                    );
+                    tracing::error!(error = ?e, "Failed to send batch to Langfuse");
                 }
             }
         });

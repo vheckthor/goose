@@ -78,7 +78,7 @@ impl Agent for ReferenceAgent {
             .and_then(|msg| msg.content.first())
             .and_then(|c| c.as_text())
         {
-            debug!("user_message" = &content);
+            debug!(user_message = &content);
         }
 
         // Update conversation history for the start of the reply
