@@ -11,6 +11,8 @@ import { Modal, ModalContent, ModalHeader, ModalTitle } from '../ui/modal';
 import { Button } from '../ui/button';
 import { RevealKeysDialog } from './modals/RevealKeysDialog';
 import { showToast } from '../ui/toast';
+import { ExtensionKeysDialog } from './modals/ExtensionKeysDialog';
+import { AddExtensionDialog } from './modals/AddExtensionDialog';
 
 const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
 
@@ -27,8 +29,8 @@ const DEFAULT_SETTINGS: SettingsType = {
         { id: "binancedata", name: "Binance market data", description: "Standard config", enabled: true }
     ],
     keys: [
-        { id: "giskey", name: "GISKey", value: "*****************" },
-        { id: "awscognito", name: "AWScognito", value: "*****************" }
+        { id: "giskey", name: "GISKey", value: "12345678" },
+        { id: "awscognito", name: "AWScognito", value: "abcdefg" }
     ]
 };
 
@@ -87,6 +89,8 @@ export default function Settings() {
     const [editingKey, setEditingKey] = useState<Key | null>(null);
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [showAllKeys, setShowAllKeys] = useState(false);
+    const [selectedExtension, setSelectedExtension] = useState<Extension | null>(null);
+    const [addExtensionOpen, setAddExtensionOpen] = useState(false);
 
     const handleAddModel = (newModel: Model) => {
         setSettings(prev => ({
@@ -135,6 +139,25 @@ export default function Settings() {
         setSettings(DEFAULT_SETTINGS);
         setShowResetConfirm(false);
         showToast("Settings reset to default", "success");
+    };
+
+    const handleExtensionClick = (extension: Extension) => {
+        setSelectedExtension(extension);
+    };
+
+    const handleUpdateExtensionKeys = (updatedKeys: Key[]) => {
+        setSettings(prev => ({
+            ...prev,
+            keys: updatedKeys
+        }));
+    };
+
+    const handleAddExtension = (newExtension: Extension) => {
+        setSettings(prev => ({
+            ...prev,
+            extensions: [...prev.extensions, newExtension]
+        }));
+        setAddExtensionOpen(false);
     };
 
     return (
@@ -196,14 +219,21 @@ export default function Settings() {
                                     <section id="extensions">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-2xl font-semibold">Extensions</h2>
+                                            <button 
+                                                onClick={() => setAddExtensionOpen(true)}
+                                                className="text-indigo-500 hover:text-indigo-600 font-medium"
+                                            >
+                                                Add Extension
+                                            </button>
                                         </div>
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
                                         {settings.extensions.map(ext => (
-                                            <ToggleableItem
-                                                key={ext.id}
-                                                {...ext}
-                                                onToggle={handleExtensionToggle}
-                                            />
+                                            <div key={ext.id} onClick={() => handleExtensionClick(ext)}>
+                                                <ToggleableItem
+                                                    {...ext}
+                                                    onToggle={handleExtensionToggle}
+                                                />
+                                            </div>
                                         ))}
                                     </section>
 
@@ -305,6 +335,22 @@ export default function Settings() {
                 isOpen={showAllKeys}
                 onClose={() => setShowAllKeys(false)}
                 keys={settings.keys}
+            />
+
+            {selectedExtension && (
+                <ExtensionKeysDialog
+                    isOpen={!!selectedExtension}
+                    onClose={() => setSelectedExtension(null)}
+                    extension={selectedExtension}
+                    keys={settings.keys}
+                    onUpdateKeys={handleUpdateExtensionKeys}
+                />
+            )}
+
+            <AddExtensionDialog
+                isOpen={addExtensionOpen}
+                onClose={() => setAddExtensionOpen(false)}
+                onAdd={handleAddExtension}
             />
         </div>
     );

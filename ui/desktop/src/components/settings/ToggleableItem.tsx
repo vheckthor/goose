@@ -16,7 +16,7 @@ export function ToggleableItem({
     onToggle,
 }: ToggleableItemProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750">
             <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium dark:text-white">{name}</h3>
                 <button
