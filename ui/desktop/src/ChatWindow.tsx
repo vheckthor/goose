@@ -45,7 +45,6 @@ const CURRENT_VERSION = '0.0.0';
 const getLastSeenVersion = () => localStorage.getItem('lastSeenVersion');
 const setLastSeenVersion = (version: string) => localStorage.setItem('lastSeenVersion', version);
 
-
 export interface Chat {
   id: number;
   title: string;
