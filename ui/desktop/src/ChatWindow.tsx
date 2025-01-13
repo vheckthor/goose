@@ -8,6 +8,7 @@ import GooseMessage from './components/GooseMessage';
 import Input from './components/Input';
 import LoadingGoose from './components/LoadingGoose';
 import MoreMenu from './components/MoreMenu';
+import Settings from './components/settings/Settings';
 import Splash from './components/Splash';
 import { Card } from './components/ui/card';
 import { ScrollArea } from './components/ui/scroll-area';
@@ -453,6 +454,7 @@ export default function ChatWindow() {
                   />
                 }
               />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/chat/1" replace />} />
             </Routes>
           </div>
