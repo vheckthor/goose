@@ -7,31 +7,33 @@ import {
 import React, { useEffect, useState } from 'react';
 import { FaMoon, FaSun } from 'react-icons/fa';
 import VertDots from './ui/VertDots';
-import { useNavigate, useLocation } from 'react-router-dom';
-
+import { useNavigate } from 'react-router-dom';
 interface VersionInfo {
     current_version: string;
     available_versions: string[];
 }
 
 export default function MoreMenu() {
-    const navigate = useNavigate();
-    const location = useLocation();
+    const navigate = useNavigate(); 
     const [open, setOpen] = useState(false);
     const [versions, setVersions] = useState<VersionInfo | null>(null);
     const [showVersions, setShowVersions] = useState(false);
+
     const [useSystemTheme, setUseSystemTheme] = useState(() =>
         localStorage.getItem('use_system_theme') === 'true'
     );
+
     const [isDarkMode, setDarkMode] = useState(() => {
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return useSystemTheme 
-            ? systemPrefersDark 
-            : localStorage.getItem('theme') === 'dark';
+        if (useSystemTheme) {
+            return systemPrefersDark;
+        }
+        const savedTheme = localStorage.getItem('theme');
+        return savedTheme ? savedTheme === 'dark' : systemPrefersDark;
     });
 
-    // Fetch versions when menu opens
     useEffect(() => {
+        // Fetch available versions when the menu opens
         const fetchVersions = async () => {
             try {
                 const port = window.appConfig.get("GOOSE_SERVER__PORT");
@@ -51,35 +53,41 @@ export default function MoreMenu() {
         }
     }, [open]);
 
-    // Theme effects
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleThemeChange = (e: MediaQueryListEvent) => {
+        
+        // Handler for system theme changes
+        const handleThemeChange = (e: { matches: boolean }) => {
             if (useSystemTheme) {
                 setDarkMode(e.matches);
             }
         };
+
+        // Add listener for system theme changes
         mediaQuery.addEventListener('change', handleThemeChange);
+
+        // Initial setup
+        if (useSystemTheme) {
+            setDarkMode(mediaQuery.matches);
+        } else {
+            const savedTheme = localStorage.getItem('theme');
+            setDarkMode(savedTheme ? savedTheme === 'dark' : mediaQuery.matches);
+        }
+
+        // Cleanup
         return () => mediaQuery.removeEventListener('change', handleThemeChange);
     }, [useSystemTheme]);
 
     useEffect(() => {
-        document.documentElement.classList.toggle('dark', isDarkMode);
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
         if (!useSystemTheme) {
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
         }
     }, [isDarkMode, useSystemTheme]);
-
-    // Close menu on navigation
-    useEffect(() => {
-        setOpen(false);
-    }, [location.pathname]);
-
-    const handleVersionSelect = (version: string) => {
-        setOpen(false);
-        setShowVersions(false);
-        window.electron.createChatWindow('', undefined, version);
-    };
 
     const toggleTheme = () => {
         if (!useSystemTheme) {
@@ -93,16 +101,26 @@ export default function MoreMenu() {
         localStorage.setItem('use_system_theme', checked.toString());
         
         if (checked) {
+            // If enabling system theme, immediately sync with system preference
             const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             setDarkMode(systemPrefersDark);
-            localStorage.removeItem('theme');
+            localStorage.removeItem('theme'); // Remove manual theme setting
         }
+        // If disabling system theme, keep current theme state but don't update localStorage yet
+    };
+
+    const handleVersionSelect = (version: string) => {
+        setOpen(false);
+        setShowVersions(false);
+        // Create a new chat window with the selected version
+        window.electron.createChatWindow(undefined, undefined, version);
     };
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <button className="z-[100] absolute top-[-4px] right-[10px] w-[20px] h-[20px] cursor-pointer no-drag">
+                <button
+                    className="z-[100] absolute top-[-4px] right-[10px] w-[20px] h-[20px] cursor-pointer no-drag">
                     <VertDots size={18}/>
                 </button>
             </PopoverTrigger>
@@ -121,24 +139,24 @@ export default function MoreMenu() {
                                 onChange={toggleUseSystemTheme}
                             />
                         </div>
-                        {!useSystemTheme && (
-                            <div className="flex items-center justify-between p-2">
-                                <span className="text-sm">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
-                                <button
-                                    className={`relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none border-2 ${
-                                        isDarkMode ? 'bg-gray-600 border-gray-600' : 'bg-yellow-300 border-yellow-300'
-                                    }`}
-                                    onClick={toggleTheme}
+                        {!useSystemTheme && (<div className="flex items-center justify-between p-2">
+                            <span className="text-sm">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
+                            <button
+                                className={`relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none border-2 ${isDarkMode
+                                    ? 'bg-gray-600 border-gray-600'
+                                    : 'bg-yellow-300 border-yellow-300'}`}
+                                onClick={() => toggleTheme()}>
+                                <span
+                                    className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isDarkMode
+                                        ? 'translate-x-6' : 'translate-x-1'}`}
                                 >
-                                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
-                                        isDarkMode ? 'translate-x-6' : 'translate-x-1'
-                                    }`}>
-                                        {isDarkMode ? <FaMoon className="text-gray-200"/> : <FaSun className="text-yellow-500"/>}
-                                    </span>
-                                </button>
-                            </div>
-                        )}
-
+                                    {isDarkMode ? <FaMoon className="text-gray-200"/> : <FaSun
+                                        className="text-yellow-500"/>}
+                                </span>
+                            </button>
+                        </div>)}
+                        
+                        {/* Versions Menu */}
                         {versions && versions.available_versions.length > 0 && (
                             <>
                                 <button
@@ -165,7 +183,8 @@ export default function MoreMenu() {
                                 )}
                             </>
                         )}
-                        
+
+                        {/* Settings Menu */}
                         {process.env.NODE_ENV === 'development' && (
                             <button
                                 onClick={() => {
@@ -177,7 +196,7 @@ export default function MoreMenu() {
                                 Settings
                             </button>
                         )}
-
+                        
                         <button
                             onClick={() => {
                                 setOpen(false);
@@ -190,7 +209,7 @@ export default function MoreMenu() {
                         <button
                             onClick={() => {
                                 setOpen(false);
-                                window.electron.createChatWindow('');
+                                window.electron.createChatWindow();
                             }}
                             className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700"
                         >
