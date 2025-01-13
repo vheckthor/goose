@@ -12,6 +12,7 @@ import { Button } from '../ui/button';
 import { RevealKeysDialog } from './modals/RevealKeysDialog';
 import { showToast } from '../ui/toast';
 
+<<<<<<< HEAD
 const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
 
 const DEFAULT_SETTINGS: SettingsType = {
@@ -31,20 +32,73 @@ const DEFAULT_SETTINGS: SettingsType = {
         { id: "awscognito", name: "AWScognito", value: "*****************" }
     ]
 };
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+const MCP_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
+=======
+const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
 
 export default function Settings() {
     const navigate = useNavigate();
+<<<<<<< HEAD
     
     const [settings, setSettings] = React.useState<SettingsType>(() => {
         const saved = localStorage.getItem('user_settings');
         return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+    const [models, setModels] = React.useState({
+        gpt4: false,
+        gpt4lite: false,
+        claude: true,
+    });
+    const [mcps, setMcps] = React.useState({
+        fileviewer: true,
+        cloudthing: true,
+        mcpdice: true,
+        binancedata: true,
+=======
+    
+    // Initialize models state from localStorage or use default values
+    const [models, setModels] = React.useState(() => {
+        const savedModels = localStorage.getItem('settings_models');
+        return savedModels ? JSON.parse(savedModels) : {
+            gpt4: false,
+            gpt4lite: false,
+            claude: true,
+        };
     });
 
+    // Initialize extensions state from localStorage or use default values
+    const [extensions, setExtensions] = React.useState(() => {
+        const savedExtensions = localStorage.getItem('settings_extensions');
+        return savedExtensions ? JSON.parse(savedExtensions) : {
+            fileviewer: true,
+            cloudthing: true,
+            mcpdice: true,
+            binancedata: true,
+        };
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+    });
+
+<<<<<<< HEAD
     // Persist settings changes
     React.useEffect(() => {
         localStorage.setItem('user_settings', JSON.stringify(settings));
     }, [settings]);
 
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+=======
+    // Save models state to localStorage whenever it changes
+    React.useEffect(() => {
+        localStorage.setItem('settings_models', JSON.stringify(models));
+    }, [models]);
+
+    // Save extensions state to localStorage whenever it changes
+    React.useEffect(() => {
+        localStorage.setItem('settings_extensions', JSON.stringify(extensions));
+    }, [extensions]);
+
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
     const handleModelToggle = (modelId: string) => {
         setSettings(prev => ({
             ...prev,
@@ -55,15 +109,30 @@ export default function Settings() {
         }));
     };
 
+<<<<<<< HEAD
     const handleExtensionToggle = (extensionId: string) => {
         setSettings(prev => ({
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+    const handleMcpToggle = (mcpId: string) => {
+        setMcps(prev => ({
+=======
+    const handleExtensionToggle = (extensionId: string) => {
+        setExtensions(prev => ({
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
             ...prev,
+<<<<<<< HEAD
             extensions: prev.extensions.map(ext => 
                 ext.id === extensionId ? { ...ext, enabled: !ext.enabled } : ext
             )
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+            [mcpId]: !prev[mcpId]
+=======
+            [extensionId]: !prev[extensionId]
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
         }));
     };
 
+<<<<<<< HEAD
     const handleNavClick = (section: string, e: React.MouseEvent) => {
         e.preventDefault();
         const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
@@ -137,6 +206,27 @@ export default function Settings() {
         showToast("Settings reset to default", "success");
     };
 
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+=======
+    const handleNavClick = (section: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
+        const element = document.getElementById(section.toLowerCase());
+        
+        if (scrollArea && element) {
+            const topPos = element.offsetTop;
+            scrollArea.scrollTo({
+                top: topPos,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    const handleExit = () => {
+        navigate('/chat/1', { replace: true }); // Use replace to ensure clean navigation
+    };
+
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
     return (
         <div className="h-screen w-full p-[10px]">
             <Card className="h-full w-full bg-card-gradient dark:bg-dark-card-gradient border-none rounded-2xl p-6">
@@ -192,11 +282,32 @@ export default function Settings() {
                                         ))}
                                     </section>
 
+<<<<<<< HEAD
                                     {/* Extensions Section */}
                                     <section id="extensions">
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+                                    {/* MCPs Section */}
+                                    <section id="mcps">
+=======
+                                    {/* Extensions Section (formerly MCPs) */}
+                                    <section id="extensions">
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
                                         <div className="flex justify-between items-center mb-4">
+<<<<<<< HEAD
                                             <h2 className="text-2xl font-semibold">Extensions</h2>
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+                                            <h2 className="text-2xl font-semibold">MCPs</h2>
+                                            <button className="text-indigo-500 hover:text-indigo-600 font-medium">
+                                                Add MCPs
+                                            </button>
+=======
+                                            <h2 className="text-2xl font-semibold">Extensions</h2>
+                                            <button className="text-indigo-500 hover:text-indigo-600 font-medium">
+                                                Add Extensions
+                                            </button>
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
                                         </div>
+<<<<<<< HEAD
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
                                         {settings.extensions.map(ext => (
                                             <ToggleableItem
@@ -204,6 +315,69 @@ export default function Settings() {
                                                 {...ext}
                                                 onToggle={handleExtensionToggle}
                                             />
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+                                        <p className="text-gray-500 dark:text-gray-400 mb-4">{MCP_DESCRIPTION}</p>
+                                        {Object.entries(mcps).map(([id, enabled]) => (
+                                            <div key={id} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-medium dark:text-white">
+                                                        {id === 'fileviewer' ? 'File viewer' :
+                                                         id === 'cloudthing' ? 'Cloud thing' :
+                                                         id === 'mcpdice' ? 'MCP dice' : 'Binance market data'}
+                                                    </h3>
+                                                    <button 
+                                                        onClick={() => handleMcpToggle(id)}
+                                                        className={`
+                                                            relative inline-flex h-6 w-11 items-center rounded-full
+                                                            ${enabled ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-600'}
+                                                            transition-colors duration-200 ease-in-out focus:outline-none
+                                                        `}
+                                                    >
+                                                        <span
+                                                            className={`
+                                                                inline-block h-5 w-5 transform rounded-full bg-white shadow
+                                                                transition-transform duration-200 ease-in-out
+                                                                ${enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}
+                                                            `}
+                                                        />
+                                                    </button>
+                                                </div>
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                                                    Standard config
+                                                </p>
+                                            </div>
+=======
+                                        <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
+                                        {Object.entries(extensions).map(([id, enabled]) => (
+                                            <div key={id} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-medium dark:text-white">
+                                                        {id === 'fileviewer' ? 'File viewer' :
+                                                         id === 'cloudthing' ? 'Cloud thing' :
+                                                         id === 'mcpdice' ? 'MCP dice' : 'Binance market data'}
+                                                    </h3>
+                                                    <button 
+                                                        onClick={() => handleExtensionToggle(id)}
+                                                        className={`
+                                                            relative inline-flex h-6 w-11 items-center rounded-full
+                                                            ${enabled ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-600'}
+                                                            transition-colors duration-200 ease-in-out focus:outline-none
+                                                        `}
+                                                    >
+                                                        <span
+                                                            className={`
+                                                                inline-block h-5 w-5 transform rounded-full bg-white shadow
+                                                                transition-transform duration-200 ease-in-out
+                                                                ${enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'}
+                                                            `}
+                                                        />
+                                                    </button>
+                                                </div>
+                                                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                                                    Standard config
+                                                </p>
+                                            </div>
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
                                         ))}
                                     </section>
 
@@ -218,6 +392,7 @@ export default function Settings() {
                                                 Add new key
                                             </button>
                                         </div>
+<<<<<<< HEAD
                                         <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
                                         {settings.keys.map(keyItem => (
                                             <KeyItem
@@ -226,6 +401,35 @@ export default function Settings() {
                                                 onEdit={setEditingKey}
                                                 onCopy={handleCopyKey}
                                             />
+||||||| parent of ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
+                                        <p className="text-gray-500 dark:text-gray-400 mb-4">{MCP_DESCRIPTION}</p>
+                                        {['GISKey', 'AWScognito'].map(key => (
+                                            <div key={key} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-medium dark:text-white">{key}</h3>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-gray-500">{'*'.repeat(17)}</span>
+                                                        <button className="text-indigo-500 hover:text-indigo-600">
+                                                            ✏️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+=======
+                                        <p className="text-gray-500 dark:text-gray-400 mb-4">{EXTENSIONS_DESCRIPTION}</p>
+                                        {['GISKey', 'AWScognito'].map(key => (
+                                            <div key={key} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-2">
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-lg font-medium dark:text-white">{key}</h3>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-gray-500">{'*'.repeat(17)}</span>
+                                                        <button className="text-indigo-500 hover:text-indigo-600">
+                                                            ✏️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+>>>>>>> ea1dc08d (fix: resolve merge conflicts in router imports and navigation)
                                         ))}
 
                                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
