@@ -7,6 +7,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import { FaMoon, FaSun } from 'react-icons/fa';
 import VertDots from './ui/VertDots';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface VersionInfo {
     current_version: string;
@@ -14,6 +15,8 @@ interface VersionInfo {
 }
 
 export default function MoreMenu() {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [open, setOpen] = useState(false);
     const [versions, setVersions] = useState<VersionInfo | null>(null);
     const [showVersions, setShowVersions] = useState(false);
@@ -115,11 +118,15 @@ export default function MoreMenu() {
         window.electron.createChatWindow(undefined, undefined, version);
     };
 
+    // Close the menu when navigating
+    useEffect(() => {
+        setOpen(false);
+    }, [location.pathname]);
+
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <button
-                    className="z-[100] absolute top-[-4px] right-[10px] w-[20px] h-[20px] cursor-pointer no-drag">
+                <button className="z-[100] absolute top-[-4px] right-[10px] w-[20px] h-[20px] cursor-pointer no-drag">
                     <VertDots size={18}/>
                 </button>
             </PopoverTrigger>
@@ -130,6 +137,7 @@ export default function MoreMenu() {
                     sideOffset={5}
                 >
                     <div className="flex flex-col rounded-md">
+                        {/* Theme controls */}
                         <div className="flex items-center justify-between p-2">
                             <span className="text-sm">Use System Theme</span>
                             <input
@@ -138,23 +146,24 @@ export default function MoreMenu() {
                                 onChange={toggleUseSystemTheme}
                             />
                         </div>
-                        {!useSystemTheme && (<div className="flex items-center justify-between p-2">
-                            <span className="text-sm">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
-                            <button
-                                className={`relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none border-2 ${isDarkMode
-                                    ? 'bg-gray-600 border-gray-600'
-                                    : 'bg-yellow-300 border-yellow-300'}`}
-                                onClick={() => toggleTheme()}>
-                                <span
-                                    className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isDarkMode
-                                        ? 'translate-x-6' : 'translate-x-1'}`}
+                        {!useSystemTheme && (
+                            <div className="flex items-center justify-between p-2">
+                                <span className="text-sm">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
+                                <button
+                                    className={`relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none border-2 ${
+                                        isDarkMode ? 'bg-gray-600 border-gray-600' : 'bg-yellow-300 border-yellow-300'
+                                    }`}
+                                    onClick={toggleTheme}
                                 >
-                                    {isDarkMode ? <FaMoon className="text-gray-200"/> : <FaSun
-                                        className="text-yellow-500"/>}
-                                </span>
-                            </button>
-                        </div>)}
-                        
+                                    <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${
+                                        isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                                    }`}>
+                                        {isDarkMode ? <FaMoon className="text-gray-200"/> : <FaSun className="text-yellow-500"/>}
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+
                         {/* Versions Menu */}
                         {versions && versions.available_versions.length > 0 && (
                             <>
@@ -182,7 +191,21 @@ export default function MoreMenu() {
                                 )}
                             </>
                         )}
-                        
+
+                        {/* Settings (only in development) */}
+                        {process.env.NODE_ENV === 'development' && (
+                            <button
+                                onClick={() => {
+                                    setOpen(false);
+                                    navigate('/settings');
+                                }}
+                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700"
+                            >
+                                Settings
+                            </button>
+                        )}
+
+                        {/* Other actions */}
                         <button
                             onClick={() => {
                                 setOpen(false);
