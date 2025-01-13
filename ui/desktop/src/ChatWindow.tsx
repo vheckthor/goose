@@ -99,7 +99,7 @@ function ChatContent({
     setMessages,
   } = useChat({
     api: getApiUrl('/reply'),
-    initialMessages: chat?.messages || [],
+    initialMessages: (chat?.messages || []) as Message[],
     onToolCall: ({ toolCall }) => {
       updateWorking(Working.Working);
       setProgressMessage(`Executing tool: ${toolCall.toolName}`);
@@ -185,8 +185,7 @@ function ChatContent({
   const handleSubmit = (e: React.FormEvent) => {
     // Start power save blocker when sending a message
     window.electron.startPowerSaveBlocker();
-    const customEvent = e as CustomEvent;
-    const content = customEvent.detail?.value || '';
+    const content = (e as any).detail?.value || '';
     if (content.trim()) {
       setLastInteractionTime(Date.now());
       append({
@@ -372,7 +371,7 @@ const addSystemConfig = async (system: string) => {
 export default function ChatWindow() {
   // Shared function to create a chat window
   const openNewChatWindow = () => {
-    window.electron.createChatWindow();
+    window.electron.createChatWindow(''); // Pass empty string as query
   };
 
   // Add keyboard shortcut handler

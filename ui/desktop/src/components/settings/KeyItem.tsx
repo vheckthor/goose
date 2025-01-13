@@ -60,4 +60,4 @@ export function KeyItem({ keyData, onEdit, onCopy }: KeyItemProps) {
             </div>
         </div>
     );
-} 
+}

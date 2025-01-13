@@ -78,7 +78,7 @@ export default function MoreMenu() {
     const handleVersionSelect = (version: string) => {
         setOpen(false);
         setShowVersions(false);
-        window.electron.createChatWindow(undefined, undefined, version);
+        window.electron.createChatWindow('', undefined, version);
     };
 
     const toggleTheme = () => {
@@ -97,7 +97,13 @@ export default function MoreMenu() {
             setDarkMode(systemPrefersDark);
             localStorage.removeItem('theme');
         }
+        // If disabling system theme, keep current theme state but don't update localStorage yet
     };
+
+    // Close the menu when navigating
+    useEffect(() => {
+        setOpen(false);
+    }, [location.pathname]);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -113,6 +119,7 @@ export default function MoreMenu() {
                     sideOffset={5}
                 >
                     <div className="flex flex-col rounded-md">
+                        {/* Theme controls */}
                         <div className="flex items-center justify-between p-2">
                             <span className="text-sm">Use System Theme</span>
                             <input
@@ -138,7 +145,8 @@ export default function MoreMenu() {
                                 </button>
                             </div>
                         )}
-
+                        
+                        {/* Versions Menu */}
                         {versions && versions.available_versions.length > 0 && (
                             <>
                                 <button
@@ -165,7 +173,8 @@ export default function MoreMenu() {
                                 )}
                             </>
                         )}
-
+                        
+                        {/* Settings (only in development) */}
                         {process.env.NODE_ENV === 'development' && (
                             <button
                                 onClick={() => {
@@ -178,6 +187,7 @@ export default function MoreMenu() {
                             </button>
                         )}
 
+                        {/* Other actions */}
                         <button
                             onClick={() => {
                                 setOpen(false);
@@ -190,7 +200,7 @@ export default function MoreMenu() {
                         <button
                             onClick={() => {
                                 setOpen(false);
-                                window.electron.createChatWindow();
+                                window.electron.createChatWindow('');
                             }}
                             className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700"
                         >
