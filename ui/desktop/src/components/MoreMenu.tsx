@@ -30,6 +30,27 @@ export default function MoreMenu() {
             : localStorage.getItem('theme') === 'dark';
     });
 
+    // Fetch versions when menu opens
+    useEffect(() => {
+        const fetchVersions = async () => {
+            try {
+                const port = window.appConfig.get("GOOSE_SERVER__PORT");
+                const response = await fetch(`http://127.0.0.1:${port}/api/agent/versions`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                setVersions(data);
+            } catch (error) {
+                console.error('Failed to fetch versions:', error);
+            }
+        };
+        
+        if (open) {
+            fetchVersions();
+        }
+    }, [open]);
+
     // Theme effects
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -53,6 +74,12 @@ export default function MoreMenu() {
     useEffect(() => {
         setOpen(false);
     }, [location.pathname]);
+
+    const handleVersionSelect = (version: string) => {
+        setOpen(false);
+        setShowVersions(false);
+        window.electron.createChatWindow(undefined, undefined, version);
+    };
 
     const toggleTheme = () => {
         if (!useSystemTheme) {
@@ -110,6 +137,33 @@ export default function MoreMenu() {
                                     </span>
                                 </button>
                             </div>
+                        )}
+
+                        {versions && versions.available_versions.length > 0 && (
+                            <>
+                                <button
+                                    onClick={() => setShowVersions(!showVersions)}
+                                    className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700 flex justify-between items-center"
+                                >
+                                    <span>Versions</span>
+                                    <span className="text-xs">{showVersions ? '▼' : '▶'}</span>
+                                </button>
+                                {showVersions && (
+                                    <div className="pl-2 bg-gray-900">
+                                        {versions.available_versions.map((version) => (
+                                            <button
+                                                key={version}
+                                                onClick={() => handleVersionSelect(version)}
+                                                className={`w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700 ${
+                                                    version === versions.current_version ? 'text-green-400' : ''
+                                                }`}
+                                            >
+                                                {version} {version === versions.current_version && '(current)'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {process.env.NODE_ENV === 'development' && (
