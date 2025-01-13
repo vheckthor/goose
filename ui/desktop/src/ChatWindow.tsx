@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Message, useChat } from './ai-sdk-fork/useChat';
 import { ApiKeyWarning } from './components/ApiKeyWarning';
 import BottomMenu from './components/BottomMenu';
@@ -18,32 +18,13 @@ import WingToWing, { Working } from './components/WingToWing';
 import { getApiUrl } from './config';
 import { askAi } from './utils/askAI';
 
-// Add these type definitions at the top of the file
-declare global {
-  interface Window {
-    electron: {
-      stopPowerSaveBlocker: () => unknown;
-      startPowerSaveBlocker: () => unknown;
-      hideWindow: () => void;
-      createChatWindow: (query?: string, history?: string, version?: string) => void;
-      logInfo: (message: string) => void;
-      showNotification: (options: { title: string, body: string }) => void;
-      getBinaryPath: (name: string) => Promise<string>;
-      getConfig: () => { apiCredsMissing: boolean };
-      app: any; // Replace with proper type if available
-    };
-    appConfig: {
-      get: (key: string) => any;
-    };
-  }
-}
-
-// update this when you want to show the welcome screen again
+// update this when you want to show the welcome screen again - doesn't have to be an actual version, just anything woudln't have been seen before
 const CURRENT_VERSION = '0.0.0';
 
 // Get the last version from localStorage
 const getLastSeenVersion = () => localStorage.getItem('lastSeenVersion');
 const setLastSeenVersion = (version: string) => localStorage.setItem('lastSeenVersion', version);
+
 
 export interface Chat {
   id: number;
@@ -99,7 +80,7 @@ function ChatContent({
     setMessages,
   } = useChat({
     api: getApiUrl('/reply'),
-    initialMessages: (chat?.messages || []) as Message[],
+    initialMessages: chat?.messages || [],
     onToolCall: ({ toolCall }) => {
       updateWorking(Working.Working);
       setProgressMessage(`Executing tool: ${toolCall.toolName}`);
@@ -185,7 +166,8 @@ function ChatContent({
   const handleSubmit = (e: React.FormEvent) => {
     // Start power save blocker when sending a message
     window.electron.startPowerSaveBlocker();
-    const content = (e as any).detail?.value || '';
+    const customEvent = e as CustomEvent;
+    const content = customEvent.detail?.value || '';
     if (content.trim()) {
       setLastInteractionTime(Date.now());
       append({
@@ -371,7 +353,7 @@ const addSystemConfig = async (system: string) => {
 export default function ChatWindow() {
   // Shared function to create a chat window
   const openNewChatWindow = () => {
-    window.electron.createChatWindow(''); // Pass empty string as query
+    window.electron.createChatWindow();
   };
 
   // Add keyboard shortcut handler
@@ -446,9 +428,13 @@ export default function ChatWindow() {
     <div className="relative w-screen h-screen overflow-hidden dark:bg-dark-window-gradient bg-window-gradient flex flex-col">
       <div className="titlebar-drag-region" />
       {apiCredsMissing ? (
-        <ApiKeyWarning className="w-full h-full" />
-      ) : showWelcome && (!window?.appConfig?.get("REQUEST_DIR")) ? (
-        <WelcomeScreen className="w-full h-full" onDismiss={handleWelcomeDismiss} />
+        <div className="w-full h-full">
+          <ApiKeyWarning className="w-full h-full" />
+        </div>
+      ) : showWelcome && (!window.appConfig.get("REQUEST_DIR")) ? (
+        <div className="w-full h-full">
+          <WelcomeScreen className="w-full h-full" onDismiss={handleWelcomeDismiss} />
+        </div>
       ) : (
         <>
           <div style={{ display: mode === 'expanded' ? 'block' : 'none' }}>
@@ -472,6 +458,7 @@ export default function ChatWindow() {
               <Route path="*" element={<Navigate to="/chat/1" replace />} />
             </Routes>
           </div>
+
           <WingToWing onExpand={toggleMode} progressMessage={progressMessage} working={working} />
         </>
       )}
