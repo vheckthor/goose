@@ -88,12 +88,16 @@ impl Capabilities {
     // TODO IMPORTANT need to ensure this times out if the system command is broken!
     pub async fn add_system(&mut self, config: SystemConfig) -> SystemResult<()> {
         let mut client: McpClient = match config {
-            SystemConfig::Sse { ref uri } => {
-                let transport = SseTransport::new(uri);
+            SystemConfig::Sse { ref uri, ref envs } => {
+                let transport = SseTransport::new(uri, envs.get_env());
                 McpClient::new(transport.start().await?)
             }
-            SystemConfig::Stdio { ref cmd, ref args } => {
-                let transport = StdioTransport::new(cmd, args.to_vec());
+            SystemConfig::Stdio {
+                ref cmd,
+                ref args,
+                ref envs,
+            } => {
+                let transport = StdioTransport::new(cmd, args.to_vec(), envs.get_env());
                 McpClient::new(transport.start().await?)
             }
         };
