@@ -20,76 +20,39 @@ export default function MoreMenu() {
     const [open, setOpen] = useState(false);
     const [versions, setVersions] = useState<VersionInfo | null>(null);
     const [showVersions, setShowVersions] = useState(false);
-
     const [useSystemTheme, setUseSystemTheme] = useState(() =>
         localStorage.getItem('use_system_theme') === 'true'
     );
-
     const [isDarkMode, setDarkMode] = useState(() => {
         const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (useSystemTheme) {
-            return systemPrefersDark;
-        }
-        const savedTheme = localStorage.getItem('theme');
-        return savedTheme ? savedTheme === 'dark' : systemPrefersDark;
+        return useSystemTheme 
+            ? systemPrefersDark 
+            : localStorage.getItem('theme') === 'dark';
     });
 
-    useEffect(() => {
-        // Fetch available versions when the menu opens
-        const fetchVersions = async () => {
-            try {
-                const port = window.appConfig.get("GOOSE_SERVER__PORT");
-                const response = await fetch(`http://127.0.0.1:${port}/api/agent/versions`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                setVersions(data);
-            } catch (error) {
-                console.error('Failed to fetch versions:', error);
-            }
-        };
-        
-        if (open) {
-            fetchVersions();
-        }
-    }, [open]);
-
+    // Theme effects
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        
-        // Handler for system theme changes
-        const handleThemeChange = (e: { matches: boolean }) => {
+        const handleThemeChange = (e: MediaQueryListEvent) => {
             if (useSystemTheme) {
                 setDarkMode(e.matches);
             }
         };
-
-        // Add listener for system theme changes
         mediaQuery.addEventListener('change', handleThemeChange);
-
-        // Initial setup
-        if (useSystemTheme) {
-            setDarkMode(mediaQuery.matches);
-        } else {
-            const savedTheme = localStorage.getItem('theme');
-            setDarkMode(savedTheme ? savedTheme === 'dark' : mediaQuery.matches);
-        }
-
-        // Cleanup
         return () => mediaQuery.removeEventListener('change', handleThemeChange);
     }, [useSystemTheme]);
 
     useEffect(() => {
-        if (isDarkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
+        document.documentElement.classList.toggle('dark', isDarkMode);
         if (!useSystemTheme) {
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
         }
     }, [isDarkMode, useSystemTheme]);
+
+    // Close menu on navigation
+    useEffect(() => {
+        setOpen(false);
+    }, [location.pathname]);
 
     const toggleTheme = () => {
         if (!useSystemTheme) {
@@ -103,25 +66,11 @@ export default function MoreMenu() {
         localStorage.setItem('use_system_theme', checked.toString());
         
         if (checked) {
-            // If enabling system theme, immediately sync with system preference
             const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             setDarkMode(systemPrefersDark);
-            localStorage.removeItem('theme'); // Remove manual theme setting
+            localStorage.removeItem('theme');
         }
-        // If disabling system theme, keep current theme state but don't update localStorage yet
     };
-
-    const handleVersionSelect = (version: string) => {
-        setOpen(false);
-        setShowVersions(false);
-        // Create a new chat window with the selected version
-        window.electron.createChatWindow(undefined, undefined, version);
-    };
-
-    // Close the menu when navigating
-    useEffect(() => {
-        setOpen(false);
-    }, [location.pathname]);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -137,7 +86,6 @@ export default function MoreMenu() {
                     sideOffset={5}
                 >
                     <div className="flex flex-col rounded-md">
-                        {/* Theme controls */}
                         <div className="flex items-center justify-between p-2">
                             <span className="text-sm">Use System Theme</span>
                             <input
@@ -164,35 +112,6 @@ export default function MoreMenu() {
                             </div>
                         )}
 
-                        {/* Versions Menu */}
-                        {versions && versions.available_versions.length > 0 && (
-                            <>
-                                <button
-                                    onClick={() => setShowVersions(!showVersions)}
-                                    className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700 flex justify-between items-center"
-                                >
-                                    <span>Versions</span>
-                                    <span className="text-xs">{showVersions ? '▼' : '▶'}</span>
-                                </button>
-                                {showVersions && (
-                                    <div className="pl-2 bg-gray-900">
-                                        {versions.available_versions.map((version) => (
-                                            <button
-                                                key={version}
-                                                onClick={() => handleVersionSelect(version)}
-                                                className={`w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700 ${
-                                                    version === versions.current_version ? 'text-green-400' : ''
-                                                }`}
-                                            >
-                                                {version} {version === versions.current_version && '(current)'}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {/* Settings (only in development) */}
                         {process.env.NODE_ENV === 'development' && (
                             <button
                                 onClick={() => {
@@ -205,7 +124,6 @@ export default function MoreMenu() {
                             </button>
                         )}
 
-                        {/* Other actions */}
                         <button
                             onClick={() => {
                                 setOpen(false);
