@@ -10,6 +10,11 @@ export interface Extension {
     name: string;
     description: string;
     enabled: boolean;
+    relatedKeys?: string[];
+    config?: {
+        command: string;
+        args: string[];
+    };
 }
 
 export interface Key {

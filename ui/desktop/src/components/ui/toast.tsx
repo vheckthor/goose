@@ -3,6 +3,7 @@ export function showToast(message: string, type: 'success' | 'error') {
     toast.className = `
         fixed bottom-4 right-4 p-4 
         rounded-lg shadow-lg 
+        z-[100]
         ${type === 'success' 
             ? 'bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800' 
             : 'bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'

@@ -11,7 +11,7 @@ import { Modal, ModalContent, ModalHeader, ModalTitle } from '../ui/modal';
 import { Button } from '../ui/button';
 import { RevealKeysDialog } from './modals/RevealKeysDialog';
 import { showToast } from '../ui/toast';
-import { ExtensionKeysDialog } from './modals/ExtensionKeysDialog';
+import { ExtensionDetailsDialog } from './modals/ExtensionDetailsDialog';
 import { AddExtensionDialog } from './modals/AddExtensionDialog';
 
 const EXTENSIONS_DESCRIPTION = "The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.";
@@ -23,14 +23,57 @@ const DEFAULT_SETTINGS: SettingsType = {
         { id: "claude", name: "Claude", description: "Standard config", enabled: true }
     ],
     extensions: [
-        { id: "fileviewer", name: "File viewer", description: "Standard config", enabled: true },
-        { id: "cloudthing", name: "Cloud thing", description: "Standard config", enabled: true },
-        { id: "mcpdice", name: "MCP dice", description: "Standard config", enabled: true },
-        { id: "binancedata", name: "Binance market data", description: "Standard config", enabled: true }
+        { 
+            id: "fileviewer", 
+            name: "File viewer", 
+            description: "Local file system access for AI", 
+            enabled: true,
+            relatedKeys: ["fs_access_key"],
+            config: {
+                command: "/usr/local/bin/goosed",
+                args: ["mcp", "fileviewer"],
+            }
+        },
+        { 
+            id: "cloudthing", 
+            name: "Cloud thing", 
+            description: "AWS cloud integration", 
+            enabled: true,
+            relatedKeys: ["awscognito", "aws_secret"],
+            config: {
+                command: "/usr/local/bin/aws-helper",
+                args: ["cloud", "sync"],
+            }
+        },
+        { 
+            id: "mcpdice", 
+            name: "MCP dice", 
+            description: "Random number generation for AI", 
+            enabled: true,
+            relatedKeys: [],
+            config: {
+                command: "node",
+                args: ["mcp", "dice", "--mode=random"],
+            }
+        },
+        { 
+            id: "binancedata", 
+            name: "Binance market data", 
+            description: "Real-time cryptocurrency market data", 
+            enabled: true,
+            relatedKeys: ["binance_api_key", "binance_secret"],
+            config: {
+                command: "/usr/local/bin/market-data",
+                args: ["binance", "--realtime"],
+            }
+        }
     ],
     keys: [
-        { id: "giskey", name: "GISKey", value: "12345678" },
-        { id: "awscognito", name: "AWScognito", value: "abcdefg" }
+        { id: "fs_access_key", name: "File System Access", value: "fs_key_123" },
+        { id: "awscognito", name: "AWS Cognito", value: "aws_cog_456" },
+        { id: "aws_secret", name: "AWS Secret", value: "aws_secret_789" },
+        { id: "binance_api_key", name: "Binance API Key", value: "binance_key_123" },
+        { id: "binance_secret", name: "Binance Secret", value: "binance_secret_456" }
     ]
 };
 
@@ -158,6 +201,16 @@ export default function Settings() {
             extensions: [...prev.extensions, newExtension]
         }));
         setAddExtensionOpen(false);
+    };
+
+    const handleUpdateExtension = (updatedExtension: Extension) => {
+        setSettings(prev => ({
+            ...prev,
+            extensions: prev.extensions.map(ext => 
+                ext.id === updatedExtension.id ? updatedExtension : ext
+            )
+        }));
+        showToast("Extension updated successfully", "success");
     };
 
     return (
@@ -338,12 +391,13 @@ export default function Settings() {
             />
 
             {selectedExtension && (
-                <ExtensionKeysDialog
+                <ExtensionDetailsDialog
                     isOpen={!!selectedExtension}
                     onClose={() => setSelectedExtension(null)}
                     extension={selectedExtension}
                     keys={settings.keys}
                     onUpdateKeys={handleUpdateExtensionKeys}
+                    onUpdateExtension={handleUpdateExtension}
                 />
             )}
 
