@@ -10,6 +10,8 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 use tower::{Service, ServiceExt}; // for Service::ready()
 
+pub type BoxError = Box<dyn std::error::Error + Sync + Send>;
+
 /// Error type for MCP client operations.
 #[derive(Debug, Error)]
 pub enum Error {
@@ -31,22 +33,26 @@ pub enum Error {
     #[error("Timeout or service not ready")]
     NotReady,
 
-    #[error("{0}")]
-    BoxError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("Request timed out")]
+    Timeout(#[from] tower::timeout::error::Elapsed),
 
-    #[error("Call to '{server}' failed for '{method}' with params '{params}'. Error: {source}")]
+    #[error("Error from mcp-server: {0}")]
+    ServerBoxError(BoxError),
+
+    #[error("Call to '{server}' failed for '{method}' with params '{params}'. {source}")]
     McpServerError {
         method: String,
         server: String,
         params: Value,
         #[source]
-        source: Box<dyn std::error::Error + Send + Sync>,
+        source: BoxError,
     },
 }
 
-impl From<Box<dyn std::error::Error + Send + Sync>> for Error {
-    fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        Error::BoxError(err)
+// BoxError from mcp-server gets converted to our Error type
+impl From<BoxError> for Error {
+    fn from(err: BoxError) -> Self {
+        Error::ServerBoxError(err)
     }
 }
 
@@ -137,7 +143,7 @@ where
         let response_msg = service
             .call(request)
             .await
-            .map_err(|e| Error::MCPServerError {
+            .map_err(|e| Error::McpServerError {
                 server: self.server_info.as_ref().unwrap().name.clone(),
                 method: method.to_string(),
                 params: params.clone(),
@@ -193,10 +199,19 @@ where
         let notification = JsonRpcMessage::Notification(JsonRpcNotification {
             jsonrpc: "2.0".to_string(),
             method: method.to_string(),
-            params: Some(params),
+            params: Some(params.clone()),
         });
 
-        service.call(notification).await.map_err(Into::into)?;
+        service
+            .call(notification)
+            .await
+            .map_err(|e| Error::McpServerError {
+                server: self.server_info.as_ref().unwrap().name.clone(),
+                method: method.to_string(),
+                params: params.clone(),
+                source: Box::new(e.into()),
+            })?;
+
         Ok(())
     }
 
