@@ -66,7 +66,7 @@ impl DatabricksProvider {
             .send()
             .await?;
 
-        handle_response(payload, response).await?
+        handle_response(payload, response).await
     }
 
     async fn handle_moderation_response(&self, response: reqwest::Response) -> Result<Value> {
@@ -438,7 +438,7 @@ mod tests {
         // Mock response for completion
         let mock_response = create_mock_open_ai_response("my-databricks-model", "Hello!");
 
-        let moderator_mock_response = json!({
+        let _moderator_mock_response = json!({
             "usage": {
                 "prompt_tokens": 10,
                 "completion_tokens": 20,

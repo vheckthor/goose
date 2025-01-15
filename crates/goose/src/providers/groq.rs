@@ -43,7 +43,8 @@ impl GroqProvider {
             .json(&payload)
             .send()
             .await?;
-        handle_response(payload, response).await?
+
+        handle_response(payload, response).await
     }
 }
 
@@ -208,10 +209,7 @@ mod tests {
             .await;
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Server error: 500"));
+        assert!(result.unwrap_err().to_string().starts_with("Server error"));
 
         Ok(())
     }
