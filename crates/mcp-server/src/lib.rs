@@ -57,6 +57,9 @@ where
                     Ok(s) => s,
                     Err(e) => return Poll::Ready(Some(Err(TransportError::Utf8(e)))),
                 };
+                // Log incoming message here before serde conversion to
+                // track incomplete chunks which are not valid JSON
+                tracing::info!(json = %line, "incoming message");
 
                 // Parse JSON and validate message format
                 match serde_json::from_str::<serde_json::Value>(&line) {
@@ -77,10 +80,6 @@ where
                             ))));
                         }
 
-                        tracing::info!(
-                            json = %line,
-                            "incoming message"
-                        );
                         // Now try to parse as proper message
                         match serde_json::from_value::<JsonRpcMessage>(value) {
                             Ok(msg) => Poll::Ready(Some(Ok(msg))),
