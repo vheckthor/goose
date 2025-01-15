@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import Stop from "./ui/Stop";
 import { Attach, Send } from "./icons";
+import { htmlToMarkdown } from "../utils/htmlToMarkdown";
 
 interface InputProps {
   handleSubmit: (e: React.FormEvent) => void;
@@ -66,6 +67,46 @@ export default function Input({
     }
   };
 
+  const handlePaste = async (evt: React.ClipboardEvent) => {
+    evt.preventDefault();
+    
+    // Get the clipboard data
+    const clipboardData = evt.clipboardData;
+    
+    // Try to get HTML content first
+    const htmlContent = clipboardData.getData('text/html');
+    
+    if (htmlContent) {
+      // Convert HTML to Markdown
+      const markdownContent = htmlToMarkdown(htmlContent);
+      
+      // Insert the markdown content at cursor position
+      const textArea = textAreaRef.current;
+      if (textArea) {
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        const textBefore = value.substring(0, start);
+        const textAfter = value.substring(end);
+        
+        const newValue = textBefore + markdownContent + textAfter;
+        setValue(newValue);
+      }
+    } else {
+      // If no HTML content, just paste the plain text
+      const text = clipboardData.getData('text/plain');
+      const textArea = textAreaRef.current;
+      if (textArea) {
+        const start = textArea.selectionStart;
+        const end = textArea.selectionEnd;
+        const textBefore = value.substring(0, start);
+        const textAfter = value.substring(end);
+        
+        const newValue = textBefore + text + textAfter;
+        setValue(newValue);
+      }
+    }
+  };
+
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (value.trim()) {
@@ -94,6 +135,7 @@ export default function Input({
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         disabled={disabled}
         ref={textAreaRef}
         rows={1}
