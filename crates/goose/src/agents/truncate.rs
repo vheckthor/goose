@@ -18,14 +18,14 @@ use serde_json::Value;
 /// Agent impl. that truncates oldest messages when payload over LLM ctx-limit
 pub struct TruncateAgent {
     capabilities: Mutex<Capabilities>,
-    _token_counter: TokenCounter,
+    token_counter: TokenCounter,
 }
 
 impl TruncateAgent {
     pub fn new(provider: Box<dyn Provider>) -> Self {
         Self {
             capabilities: Mutex::new(Capabilities::new(provider)),
-            _token_counter: TokenCounter::new(),
+            token_counter: TokenCounter::new(),
         }
     }
 
@@ -46,7 +46,7 @@ impl TruncateAgent {
 
         let model = Some(model_name);
         let approx_count =
-            self._token_counter
+            self.token_counter
                 .count_everything(system_prompt, messages, tools, &resources, model);
 
         let mut new_messages = messages.to_vec();
@@ -76,7 +76,7 @@ impl TruncateAgent {
             .and_then(|c| c.as_text());
 
         if let Some(txt) = text {
-            let count = self._token_counter.count_tokens(txt, model);
+            let count = self.token_counter.count_tokens(txt, model);
             return count;
         }
 
@@ -130,7 +130,7 @@ impl Agent for TruncateAgent {
         let mut capabilities = self.capabilities.lock().await;
         let tools = capabilities.get_prefixed_tools().await?;
         let system_prompt = capabilities.get_system_prompt().await;
-        let _estimated_limit = capabilities
+        let estimated_limit = capabilities
             .provider()
             .get_model_config()
             .get_estimated_limit();
@@ -150,7 +150,7 @@ impl Agent for TruncateAgent {
                 &system_prompt,
                 &tools,
                 messages,
-                _estimated_limit,
+                estimated_limit,
                 &capabilities.provider().get_model_config().model_name,
                 &mut capabilities.get_resources().await?,
             )
@@ -208,7 +208,7 @@ impl Agent for TruncateAgent {
                     &system_prompt,
                     &tools,
                     &messages,
-                    _estimated_limit,
+                    estimated_limit,
                     &capabilities.provider().get_model_config().model_name,
                     &mut capabilities.get_resources().await?
                 ).await?;
