@@ -62,7 +62,6 @@ impl TruncateAgent {
             have been truncated to keep history within the LLM context-limit.";
             let alert_msg = Message::goose().with_text(alert_val);
             new_messages.push(alert_msg);
-
         }
 
         Ok(new_messages)
