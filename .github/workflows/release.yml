@@ -5,7 +5,7 @@ on:
   push:
     tags:
       - "v1.*"
-      - 'test.*'  # Allow testing with test tags
+      - 'test.*'  # TODO: remove after testing
   pull_request:
     branches:
       - "v1.0"
@@ -221,20 +221,22 @@ jobs:
         allowUpdates: true
         omitBody: true
         omitPrereleaseDuringUpdate: true
+        prerelease: true # TODO: remove after testing
+        draft: true # TODO: remove after testing
 
-    # Create/update the stable release
-    - name: Release stable
-      uses: ncipollo/release-action@v1
-      with:
-        tag: stable
-        name: Stable
-        token: ${{ secrets.GITHUB_TOKEN }}
-        artifacts: |
-          goose-*.tar.bz2
-          Goose*.zip
-        allowUpdates: true
-        omitBody: true
-        omitPrereleaseDuringUpdate: true
+    # # Create/update the stable release
+    # - name: Release stable
+    #   uses: ncipollo/release-action@v1
+    #   with:
+    #     tag: stable
+    #     name: Stable
+    #     token: ${{ secrets.GITHUB_TOKEN }}
+    #     artifacts: |
+    #       goose-*.tar.bz2
+    #       Goose*.zip
+    #     allowUpdates: true
+    #     omitBody: true
+    #     omitPrereleaseDuringUpdate: true
 
   # ------------------------------------
   # 4) PR Comment with Desktop Link
