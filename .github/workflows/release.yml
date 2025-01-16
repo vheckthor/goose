@@ -1,0 +1,270 @@
+# 1) For releasing tagged versions
+# 2) For PRs to the v1.0 branch AND only if code changes in "ui/desktop/**"
+# 3) Allow manual triggers
+on:
+  push:
+    tags:
+      - "v1.*"
+  pull_request:
+    branches:
+      - "v1.0"
+    paths:
+      - "ui/desktop/**"
+  workflow_dispatch:
+
+name: Release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ------------------------------------
+  # 1) Build CLI for multiple OS/Arch
+  # ------------------------------------
+  build-cli:
+    name: Build CLI
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        architecture: [ x86_64, aarch64 ] # Intel/AMD64, ARM64
+        include:
+          - os: ubuntu-latest
+            target-suffix: unknown-linux-gnu
+          - os: macos-latest
+            target-suffix: apple-darwin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build CLI
+        run: |
+          export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
+          rustup target add "${TARGET}"
+          cargo install cross --git https://github.com/cross-rs/cross
+          # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
+          CROSS_NO_WARNINGS=0 cross build --release --target ${TARGET} -p goose-cli
+          cd target/${TARGET}/release
+          tar -cjf goose-${TARGET}.tar.bz2 goose
+          echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}
+          path: ${{ env.ARTIFACT }}
+
+  # ------------------------------------
+  # 2) Build Desktop App (macOS only)
+  # ------------------------------------
+  build-desktop:
+    # Only run on macOS
+    runs-on: macos-latest
+    # "needs: []" ensures it runs in parallel with build-cli
+    needs: []
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/index
+          key: ${{ runner.os }}-cargo-index
+          restore-keys: |
+            ${{ runner.os }}-cargo-index
+
+      - name: Cache Cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-
+
+      - name: Build goosed
+        run: cargo build --release -p goose-server
+
+      - name: Copy binary into Electron folder
+        run: cp target/release/goosed ui/desktop/src/bin/goosed
+
+      - name: Add MacOS certs for signing and notarization
+        # Only run on tagged releases
+        if: startsWith(github.ref, 'refs/tags/v1.')
+        run: ./add-macos-cert.sh
+        working-directory: ui/desktop
+        env:
+          CERTIFICATE_OSX_APPLICATION: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 'lts/*'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ui/desktop
+
+      - name: Make default Goose App
+        run: |
+          attempt=0
+          max_attempts=2
+          until [ $attempt -ge $max_attempts ]; do
+            npm run bundle:default && break
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt failed. Retrying..."
+            sleep 5
+          done
+          if [ $attempt -ge $max_attempts ]; then
+            echo "Action failed after $max_attempts attempts."
+            exit 1
+          fi
+        working-directory: ui/desktop
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Upload Desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Goose-darwin-arm64
+          path: ui/desktop/out/Goose-darwin-arm64/Goose.zip
+
+      - name: Quick launch test (macOS)
+        run: |
+          xattr -cr "ui/desktop/out/Goose-darwin-arm64/Goose.app"
+          echo "Opening Goose.app..."
+          open -g "ui/desktop/out/Goose-darwin-arm64/Goose.app"
+          sleep 5
+          if pgrep -f "Goose.app/Contents/MacOS/Goose" > /dev/null; then
+            echo "App appears to be running."
+          else
+            echo "App did not stay open. Possible crash."
+            exit 1
+          fi
+          LOGFILE="$HOME/Library/Application Support/Goose/logs/main.log"
+          if [ -f "$LOGFILE" ]; then
+            echo "===== Log file contents ====="
+            cat "$LOGFILE"
+            echo "============================="
+            if grep -F "ChatWindow loaded" "$LOGFILE"; then
+              echo "Confirmed: 'ChatWindow loaded' found in logs!"
+            else
+              echo "Did not find 'ChatWindow loaded' in logs. Failing..."
+              exit 1
+            fi
+          else
+            echo "No log file found. Exiting with failure."
+            exit 1
+          fi
+          pkill -f "Goose.app/Contents/MacOS/Goose"
+
+  # ------------------------------------
+  # 3) Create/Update GitHub Release
+  # ------------------------------------
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [ build-cli, build-desktop ]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v1.')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+    # Create/update the versioned release
+    - name: Release versioned
+      uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        # This pattern will match both goose tar.bz2 artifacts and the Goose.zip
+        artifacts: |
+          goose-*.tar.bz2
+          Goose*.zip
+        allowUpdates: true
+        omitBody: true
+        omitPrereleaseDuringUpdate: true
+
+    # Create/update the stable release
+    - name: Release stable
+      uses: ncipollo/release-action@v1
+      with:
+        tag: stable
+        name: Stable
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: |
+          goose-*.tar.bz2
+          Goose*.zip
+        allowUpdates: true
+        omitBody: true
+        omitPrereleaseDuringUpdate: true
+
+  # ------------------------------------
+  # 4) PR Comment with Desktop Link
+  # ------------------------------------
+  pr-comment:
+    name: Add PR Comment
+    runs-on: ubuntu-latest
+    needs: [ build-desktop ]
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Find existing comment
+        id: find-comment
+        uses: peter-evans/find-comment@v2
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Desktop App build artifacts
+
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ### Desktop App for this PR
+            
+            The following build is available for testing:
+            
+            - [📱 macOS Desktop App (Universal, signed)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/Goose-darwin-arm64.zip)
+
+            The app is signed and notarized for macOS. After downloading, unzip the file and drag the Goose.app to your Applications folder.
+            
+            This link is provided by nightly.link and will work even if you're not logged into GitHub.
+          edit-mode: replace
