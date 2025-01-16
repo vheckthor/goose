@@ -29,7 +29,7 @@ impl TruncateAgent {
         }
     }
 
-    async fn prepare_inference(
+    async fn enforce_ctx_limit_pre_flight(
         &self,
         system_prompt: &str,
         tools: &[Tool],
@@ -146,7 +146,7 @@ impl Agent for TruncateAgent {
 
         // Update conversation history for the start of the reply
         let mut messages = self
-            .prepare_inference(
+            .enforce_ctx_limit_pre_flight(
                 &system_prompt,
                 &tools,
                 messages,
@@ -203,15 +203,6 @@ impl Agent for TruncateAgent {
                 }
 
                 yield message_tool_response.clone();
-
-                messages = self.prepare_inference(
-                    &system_prompt,
-                    &tools,
-                    &messages,
-                    estimated_limit,
-                    &capabilities.provider().get_model_config().model_name,
-                    &mut capabilities.get_resources().await?
-                ).await?;
 
                 messages.push(response);
                 messages.push(message_tool_response);
