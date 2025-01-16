@@ -12,7 +12,7 @@ use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
 use crate::token_counter::TokenCounter;
-use mcp_core::Tool;
+use mcp_core::{Role, Tool};
 use serde_json::Value;
 
 /// Agent impl. that truncates oldest messages when payload over LLM ctx-limit
@@ -52,9 +52,17 @@ impl TruncateAgent {
         let mut new_messages = messages.to_vec();
         if approx_count > target_limit {
             new_messages = self.chop_front_messages(messages, approx_count, target_limit, model);
+
             if new_messages.is_empty() {
                 return Err(SystemError::ContextLimit);
             }
+
+            // add goose message
+            let alert_val = "Some of the oldest messages in the conversation history \
+            have been truncated to keep history within the LLM context-limit.";
+            let alert_msg = Message::goose().with_text(alert_val);
+            new_messages.push(alert_msg);
+
         }
 
         Ok(new_messages)
@@ -149,16 +157,27 @@ impl Agent for TruncateAgent {
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
+                // keep goose messages in the history but dont send them to llm
+                let mut conv_history = messages.clone();
+                conv_history = conv_history.into_iter().filter(|msg| msg.role != Role::Goose).collect();
+
                 // Get completion from provider
                 let (response, usage) = capabilities.provider().complete(
                     &system_prompt,
-                    &messages,
+                    &conv_history,
                     &tools,
                 ).await?;
                 capabilities.record_usage(usage).await;
 
                 // Yield the assistant's response
                 yield response.clone();
+
+                // if ctx limit added goose message yield it
+                if let Some(msg) = messages.last() {
+                    if msg.role == Role::Goose {
+                        yield messages.last().unwrap().clone();
+                    }
+                }
 
                 tokio::task::yield_now().await;
 
