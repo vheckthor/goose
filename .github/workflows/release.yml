@@ -209,34 +209,34 @@ jobs:
         with:
           merge-multiple: true
 
-    # Create/update the versioned release
-    - name: Release versioned
-      uses: ncipollo/release-action@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        # This pattern will match both goose tar.bz2 artifacts and the Goose.zip
-        artifacts: |
-          goose-*.tar.bz2
-          Goose*.zip
-        allowUpdates: true
-        omitBody: true
-        omitPrereleaseDuringUpdate: true
-        prerelease: true # TODO: remove after testing
-        draft: true # TODO: remove after testing
+      # Create/update the versioned release
+      - name: Release versioned
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # This pattern will match both goose tar.bz2 artifacts and the Goose.zip
+          artifacts: |
+            goose-*.tar.bz2
+            Goose*.zip
+          allowUpdates: true
+          omitBody: true
+          omitPrereleaseDuringUpdate: true
+          prerelease: true # TODO: remove after testing
+          draft: true # TODO: remove after testing
 
-    # # Create/update the stable release
-    # - name: Release stable
-    #   uses: ncipollo/release-action@v1
-    #   with:
-    #     tag: stable
-    #     name: Stable
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    #     artifacts: |
-    #       goose-*.tar.bz2
-    #       Goose*.zip
-    #     allowUpdates: true
-    #     omitBody: true
-    #     omitPrereleaseDuringUpdate: true
+      # # Create/update the stable release
+      # - name: Release stable
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     tag: stable
+      #     name: Stable
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     artifacts: |
+      #       goose-*.tar.bz2
+      #       Goose*.zip
+      #     allowUpdates: true
+      #     omitBody: true
+      #     omitPrereleaseDuringUpdate: true
 
   # ------------------------------------
   # 4) PR Comment with Desktop Link
