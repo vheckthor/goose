@@ -46,13 +46,23 @@ jobs:
         with:
           toolchain: stable
 
+      # Only run this step on ubuntu-latest
+      - name: Install OpenSSL dev on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+
       - name: Build CLI
         run: |
           export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
           rustup target add "${TARGET}"
-          cargo install cross --git https://github.com/cross-rs/cross
+          
+          ## Cross-compiling Goose CLI is not working, so we're building natively
+          # cargo install cross --git https://github.com/cross-rs/cross
           # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          CROSS_NO_WARNINGS=0 cross build --release --target ${TARGET} -p goose-cli
+          # CROSS_NO_WARNINGS=0 cross build --release --target ${TARGET} -p goose-cli
+
+          # Trying without cross for now
+          cargo build --release --target ${TARGET} -p goose-cli
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose
           echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
