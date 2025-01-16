@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "v1.*"
+      - 'test.*'  # Allow testing with test tags
   pull_request:
     branches:
       - "v1.0"
