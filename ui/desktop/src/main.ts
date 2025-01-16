@@ -13,6 +13,40 @@ import { createEnvironmentMenu, EnvToggles, loadSettings, saveSettings, updateEn
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) app.quit();
 
+// deep linking
+// This event is fired when the user opens "goose://..."
+// Handle the protocol. In this case, we choose to show an Error Box.
+app.on('open-url', async (event, url) => {
+  // Prevent default handling
+  event.preventDefault();  
+  // Create a new window if none exist
+  
+
+  const parsedUrl = new URL(url);
+  const system = parsedUrl.searchParams.get("cmd");
+  const args = parsedUrl.searchParams.getAll("arg");
+  const description = parsedUrl.searchParams.get("description") || "";
+  const website = parsedUrl.searchParams.get("website") || "";
+  
+  const result = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Yes', 'No'],
+    title: 'Add MCP system',
+    detail: `${description} ${website} ${system} ${args}`.trim(),
+    message: `Add extension to goose?`
+  });
+  if (result === 0) {
+    await createChat(app, undefined, undefined, undefined, url);
+    // Add the system
+    // Send message to all existing windows
+    //BrowserWindow.getAllWindows().forEach(window => {
+    //  window.webContents.send('add-system', url);
+    //});
+  }
+
+})
+
+
 declare var MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare var MAIN_WINDOW_VITE_NAME: string;
 
@@ -103,7 +137,7 @@ const createLauncher = () => {
 let windowCounter = 0;
 const windowMap = new Map<number, BrowserWindow>();
 
-const createChat = async (app, query?: string, dir?: string, version?: string) => {
+const createChat = async (app, query?: string, dir?: string, version?: string, deepLink?: string) => {
   const env = version ? { GOOSE_AGENT_VERSION: version } : {};
 
   // Apply current environment settings before creating chat
@@ -129,7 +163,8 @@ const createChat = async (app, query?: string, dir?: string, version?: string) =
         GOOSE_PORT: port,
         GOOSE_WORKING_DIR: working_dir,
         GOOSE_AGENT_VERSION: agentVersion,
-        REQUEST_DIR: dir 
+        REQUEST_DIR: dir,
+        DEEP_LINK: deepLink,
       })],
     },
   });
@@ -179,6 +214,23 @@ const createChat = async (app, query?: string, dir?: string, version?: string) =
   mainWindow.on('blur', () => {
     unregisterDevToolsShortcut();
   });
+
+  globalShortcut.register('Alt+Command+Y', () => {
+    mainWindow.webContents.openDevTools();
+    console.log("Y PRESSED ABOUT TO TRY TO INSTALL MCP");
+
+    // FOR TESTING ONLY
+    const mockEvent = {
+      preventDefault: () => {
+        console.log('Default handling prevented.');
+      },
+    };
+
+    app.emit('open-url', mockEvent, "goose://extension?cmd=npx&arg=-y&arg=@modelcontextprotocol/server-memory&description=memory system&website=examplesite.com&env=KEYHERE=VALUEHERE");    
+    
+    
+  });
+
 
   windowMap.set(windowId, mainWindow);
   mainWindow.on('closed', () => {
@@ -464,3 +516,5 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+
