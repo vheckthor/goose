@@ -147,9 +147,11 @@ impl Agent for DefaultAgent {
             .expect("Failed to list systems")
     }
 
-    async fn passthrough(&self, _system: &str, _request: Value) -> SystemResult<Value> {
-        // TODO implement
-        Ok(Value::Null)
+    async fn passthrough(&self, system: &str, request: Value) -> SystemResult<Value> {
+        let capabilities = self.capabilities.lock().await;
+        
+        // Get the client/system that corresponds to the given system string
+       let system = capabilities.get_system(system).await?;
     }
 
     #[instrument(skip(self, messages), fields(user_message))]

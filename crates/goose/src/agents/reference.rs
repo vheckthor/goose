@@ -52,9 +52,21 @@ impl Agent for ReferenceAgent {
             .expect("Failed to list systems")
     }
 
-    async fn passthrough(&self, _system: &str, _request: Value) -> SystemResult<Value> {
-        // TODO implement
-        Ok(Value::Null)
+    async fn passthrough(&self, system: &str, request: Value) -> SystemResult<Value> {
+        let capabilities = self.capabilities.lock().await;
+        
+        // Get the client by name
+        let client = capabilities
+            .get_client_for_tool(&format!("{}__dummy", system))
+            .ok_or_else(|| SystemError::NotFound(system.to_string()))?;
+        
+        let client_guard = client.lock().await;
+        
+        // Forward the request to the client's execute endpoint
+        client_guard
+            .execute(request)
+            .await
+            .map_err(|e| SystemError::ExecutionError(e.to_string()))
     }
 
     #[instrument(skip(self, messages), fields(user_message))]
