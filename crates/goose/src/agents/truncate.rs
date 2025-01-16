@@ -51,16 +51,6 @@ impl TruncateAgent {
 
         let mut new_messages = messages.to_vec();
         if approx_count > target_limit {
-            let user_msg_size = self.text_content_size(new_messages.last(), model);
-            if user_msg_size > target_limit {
-                debug!(
-                    "[WARNING] User message {} exceeds token budget {}.",
-                    user_msg_size,
-                    user_msg_size - target_limit
-                );
-                return Err(SystemError::ContextLimit);
-            }
-
             new_messages = self.chop_front_messages(messages, approx_count, target_limit, model);
             if new_messages.is_empty() {
                 return Err(SystemError::ContextLimit);
