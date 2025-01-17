@@ -47,10 +47,7 @@ jobs:
           toolchain: stable
           target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build CLI
+      - name: Build CLI with cross
         env:
           CROSS_NO_WARNINGS: 0
         run: |
@@ -58,6 +55,7 @@ jobs:
           rustup target add "${TARGET}"
 
           # 'cross' is used to cross-compile for different architectures (see Cross.toml)
+          cargo install cross --git https://github.com/cross-rs/cross
           cross build --release --target ${TARGET} -p goose-cli
 
           # tar the goose binary as goose-<TARGET>.tar.bz2
