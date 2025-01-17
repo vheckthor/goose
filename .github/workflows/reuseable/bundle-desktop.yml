@@ -1,42 +1,31 @@
-# This workflow is triggered by a comment on an issue or PR with the text "/bundle-desktop".
-# It bundles the Desktop App, then creates a PR comment with a link to download the app.
+# This is a reusable workflow that bundles the Desktop App for macOS.
+# This gets used in:
+#  - release.yml
+#  - canary.yml
+#  - pr-comment-bundle-desktop.yml
+
+name: "Bundle Desktop App on macOS"
+
 on:
-  issue_comment:
-    types: [created]
-  workflow_dispatch:
-
-# permissions needed for reacting to IssueOps commands on issues and PRs
-permissions:
-  pull-requests: write
-  issues: write
-  checks: read
-
-name: Workflow to Bundle Desktop App
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_call:
+    secrets:
+      CERTIFICATE_OSX_APPLICATION:
+        required: true
+      CERTIFICATE_PASSWORD:
+        required: true
+      APPLE_ID:
+        required: true
+      APPLE_ID_PASSWORD:
+        required: true
+      APPLE_TEAM_ID:
+        required: true
 
 jobs:
-  trigger-on-command:
-    name: Trigger on "/bundle-desktop" PR comment
-    runs-on: ubuntu-latest
-    steps:
-      - uses: github/command@v1.3.0
-        id: command
-        with:
-          command: "/bundle-desktop"
-          reaction: "eyes"
-          allowed_contexts: pull_request
-
   bundle-desktop:
-    name: Bundle Desktop App on macOS
-    if: ${{ steps.command.outputs.continue == 'true' }}
-    # Only run on macOS
     runs-on: macos-latest
-    
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Rust
@@ -134,12 +123,11 @@ jobs:
             exit 1
           fi
           LOGFILE="$HOME/Library/Application Support/Goose/logs/main.log"
-          # Print the log and verify "ChatWindow loaded"
+          # Print the log and verify "ChatWindow loaded" is in the logs
           if [ -f "$LOGFILE" ]; then
             echo "===== Log file contents ====="
             cat "$LOGFILE"
             echo "============================="
-            # Check for evidence it ran in the logs:
             if grep -F "ChatWindow loaded" "$LOGFILE"; then
               echo "Confirmed: 'ChatWindow loaded' found in logs!"
             else
@@ -152,41 +140,3 @@ jobs:
           fi
           # Kill the app to clean up
           pkill -f "Goose.app/Contents/MacOS/Goose"
-
-  pr-comment:
-    name: PR Comment with Desktop App
-    runs-on: ubuntu-latest
-    needs: [ bundle-desktop ]
-    permissions:
-      pull-requests: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-
-      - name: Find existing comment
-        id: find-comment
-        uses: peter-evans/find-comment@v2
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: Desktop App build artifacts
-
-      - name: Create or update comment
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          comment-id: ${{ steps.find-comment.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ### Desktop App for this PR
-            
-            The following build is available for testing:
-            
-            - [📱 macOS Desktop App (arm64, signed)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/Goose-darwin-arm64.zip)
-
-            After downloading, unzip the file and drag the Goose.app to your Applications folder. The app is signed and notarized for macOS.
-            
-            This link is provided by nightly.link and will work even if you're not logged into GitHub.
-          edit-mode: replace
