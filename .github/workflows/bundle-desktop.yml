@@ -3,9 +3,6 @@
 #  - release.yml
 #  - canary.yml
 #  - pr-comment-bundle-desktop.yml
-
-name: "Bundle Desktop App on macOS"
-
 on:
   workflow_call:
     secrets:
@@ -20,10 +17,12 @@ on:
       APPLE_TEAM_ID:
         required: true
 
+name: Reusable workflow to bundle desktop app
+
 jobs:
   bundle-desktop:
     runs-on: macos-latest
-
+    name: Bundle Desktop App on macOS
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
