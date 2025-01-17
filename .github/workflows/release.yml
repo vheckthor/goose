@@ -59,28 +59,25 @@ jobs:
             libxcb1-dev
 
       # --- AARCH64 only ---
-      - name: Enable ARM64 arch
+      - name: Install system libraries on Ubuntu (aarch64)
         if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
         run: |
-          sudo dpkg --add-architecture arm64
           sudo apt-get update
-
-      - name: Install cross-compiler and ARM64 libs (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-        run: |
-          # This installs the aarch64 cross-compiler, plus the ARM64 version of libs
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
-            pkg-config-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
             libssl-dev:arm64 \
             libdbus-1-dev:arm64 \
-            libxcb1-dev:arm64
+            libxcb1-dev:arm64 \
+            pkg-config-aarch64-linux-gnu
 
-      - name: Configure cross pkg-config (aarch64)
+      - name: Configure environment for cross-compilation (aarch64)
         if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
         run: |
           echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
           echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
 
       - name: Build CLI
         run: |
