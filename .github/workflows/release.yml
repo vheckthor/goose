@@ -45,6 +45,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
 
       # --- X86_64 only ---
       - name: Install system libraries on Ubuntu (x86_64)
@@ -62,6 +63,7 @@ jobs:
       - name: Install system libraries on Ubuntu (aarch64)
         if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
