@@ -36,10 +36,10 @@ jobs:
             target-suffix: unknown-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
-        # TODO: Remove when we can fix this. Skip ARM64 builds on Ubuntu for now
-        exclude:
-          - os: ubuntu-latest
-            architecture: aarch64
+            ## TODO: Remove when we can fix this. Skip ARM64 builds on Ubuntu for now
+            #exclude:
+            #  - os: ubuntu-latest
+            #    architecture: aarch64
 
     steps:
       - name: Checkout
@@ -63,19 +63,26 @@ jobs:
             libdbus-1-dev \
             libxcb1-dev
 
-      # # --- AARCH64 only ---
-      # - name: Install system libraries on Ubuntu (aarch64)
-      #   if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-      #   run: |
-      #     sudo dpkg --add-architecture arm64
-      #     sudo apt-get update
-      #     sudo apt-get install -y \
-      #       gcc-aarch64-linux-gnu \
-      #       libc6-dev-arm64-cross \
-      #       libssl-dev:arm64 \
-      #       libdbus-1-dev:arm64 \
-      #       libxcb1-dev:arm64 \
-      #       pkg-config
+      # --- AARCH64 only ---
+      - name: Install system libraries on Ubuntu (aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+        run: |
+          CODENAME=$(lsb_release -sc)
+          sudo bash -c "cat <<EOF >> /etc/apt/sources.list
+          deb [arch=arm64] http://ports.ubuntu.com/ \$CODENAME main multiverse universe
+          deb [arch=arm64] http://ports.ubuntu.com/ \$CODENAME-security main multiverse universe
+          deb [arch=arm64] http://ports.ubuntu.com/ \$CODENAME-backports main multiverse universe
+          deb [arch=arm64] http://ports.ubuntu.com/ \$CODENAME-updates main multiverse universe
+          EOF"
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            libssl-dev:arm64 \
+            libdbus-1-dev:arm64 \
+            libxcb1-dev:arm64 \
+            pkg-config
 
       - name: Build CLI
         run: |
