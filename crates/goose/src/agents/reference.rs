@@ -7,7 +7,7 @@ use tracing::{debug, instrument};
 
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
-use crate::agents::system::{SystemConfig, SystemResult};
+use crate::agents::system::{SystemConfig, SystemError, SystemResult};
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
@@ -52,21 +52,20 @@ impl Agent for ReferenceAgent {
             .expect("Failed to list systems")
     }
 
-    async fn passthrough(&self, system: &str, request: Value) -> SystemResult<Value> {
+    async fn passthrough(&self, system: &str, method: &str, params: Value) -> SystemResult<Value> {
         let capabilities = self.capabilities.lock().await;
-        
-        // Get the client by name
         let client = capabilities
-            .get_client_for_tool(&format!("{}__dummy", system))
-            .ok_or_else(|| SystemError::NotFound(system.to_string()))?;
-        
-        let client_guard = client.lock().await;
-        
-        // Forward the request to the client's execute endpoint
-        client_guard
-            .execute(request)
+            .get_system(system)
             .await
-            .map_err(|e| SystemError::ExecutionError(e.to_string()))
+            .unwrap_or_else(|| panic!("System not found: {}", system));
+        let client = client.lock().await;
+
+        let result: Value = client
+            .forward_request(method, params)
+            .await
+            .map_err(SystemError::Client)?;
+
+        Ok(result)
     }
 
     #[instrument(skip(self, messages), fields(user_message))]

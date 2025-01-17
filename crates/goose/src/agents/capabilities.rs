@@ -316,9 +316,8 @@ impl Capabilities {
     }
 
     /// Retrieve a client by name, if it exists
-    pub async fn system(&self, system: &str) -> Option<Arc<Mutex<Box<dyn McpClientTrait>>>> {
+    pub async fn get_system(&self, system: &str) -> Option<Arc<Mutex<Box<dyn McpClientTrait>>>> {
         // Use the clients hashmap to get the client associated with the system name
         self.clients.get(system).cloned()
     }
 }
-
