@@ -29,10 +29,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-22.04, macos-latest ]
         architecture: [ x86_64, aarch64 ] # Intel/AMD64, ARM64
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target-suffix: unknown-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
@@ -49,7 +49,7 @@ jobs:
 
       # --- X86_64 only ---
       - name: Install system libraries on Ubuntu (x86_64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86_64'
+        if: matrix.os == 'ubuntu-22.04' && matrix.architecture == 'x86_64'
         run: |
           sudo apt-get update
           # Add needed libs: openssl, dbus, xcb, etc.
@@ -60,21 +60,25 @@ jobs:
             libxcb1-dev
 
       # --- AARCH64 only ---
-      - name: Install system libraries on Ubuntu (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+      - name: Enable ARM64 architecture
+        if: matrix.os == 'ubuntu-22.04' && matrix.architecture == 'aarch64'
         run: |
           sudo dpkg --add-architecture arm64
           sudo apt-get update
+
+      - name: Install system libraries on Ubuntu (aarch64)
+        if: matrix.os == 'ubuntu-22.04' && matrix.architecture == 'aarch64'
+        run: |
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
             libc6-dev-arm64-cross \
             libssl-dev:arm64 \
             libdbus-1-dev:arm64 \
             libxcb1-dev:arm64 \
-            pkg-config-aarch64-linux-gnu
+            pkg-config
 
       - name: Configure environment for cross-compilation (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+        if: matrix.os == 'ubuntu-22.04' && matrix.architecture == 'aarch64'
         run: |
           echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
           echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
