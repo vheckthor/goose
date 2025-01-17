@@ -6,7 +6,7 @@ pre-build = [
     "dpkg --add-architecture arm64",
     """\
     apt-get update --fix-missing && apt-get install -y \
-     pkg-config:arm64 \
+     pkg-config \
      libssl-dev:arm64 \
      libdbus-1-dev:arm64 \
      libxcb1-dev:arm64
