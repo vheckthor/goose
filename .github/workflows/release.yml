@@ -16,52 +16,7 @@ jobs:
   # 1) Build CLI for multiple OS/Arch
   # ------------------------------------
   build-cli:
-    name: Build CLI
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        architecture: [ x86_64, aarch64 ] # Intel/AMD64, ARM64
-        include:
-          - os: ubuntu-latest
-            target-suffix: unknown-linux-gnu
-          - os: macos-latest
-            target-suffix: apple-darwin
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
-
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build CLI
-        env:
-          CROSS_NO_WARNINGS: 0
-        run: |
-          export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
-          rustup target add "${TARGET}"
-          
-          # 'cross' is used to cross-compile for different architectures (see Cross.toml)
-          # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          cross build --release --target ${TARGET} -p goose-cli
-
-          cd target/${TARGET}/release
-          tar -cjf goose-${TARGET}.tar.bz2 goose
-          echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}
-          path: ${{ env.ARTIFACT }}
+    uses: ./.github/workflows/build-cli.yml
 
   # ------------------------------------
   # 2) Upload Install CLI Script (we only need to do this once)
