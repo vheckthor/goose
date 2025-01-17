@@ -26,7 +26,7 @@ jobs:
         id: command
         with:
           command: "/bundle-desktop"
-          reaction: "rocket"
+          reaction: "eyes"
           allowed_contexts: pull_request
 
   bundle-desktop:
@@ -180,8 +180,6 @@ jobs:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            🎉 Workflow completed successfully!
-
             ### Desktop App for this PR
             
             The following build is available for testing:
