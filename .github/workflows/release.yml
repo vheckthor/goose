@@ -61,9 +61,8 @@ jobs:
           export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
           rustup target add "${TARGET}"
           
-          # 'cross' is used to cross-compile for different linux architectures
           # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          CROSS_NO_WARNINGS=0 cross build --release --target ${TARGET} -p goose-cli
+          cargo build --release --target ${TARGET} -p goose-cli
 
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose
