@@ -55,11 +55,11 @@ jobs:
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
-          command: cross
+          command: build
           target: ${{ matrix.platform.target }}
           args: "--locked --release -p goose-cli" 
           strip: true
-
+          
       # Package and release the binary using houseabsolute/actions-rust-release
       - name: Publish artifacts and release
         uses: houseabsolute/actions-rust-release@v0
