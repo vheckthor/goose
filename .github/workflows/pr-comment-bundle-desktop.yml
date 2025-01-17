@@ -2,8 +2,7 @@
 # It bundles the Desktop App, then creates a PR comment with a link to download the app.
 on:
   issue_comment:
-    types:
-      - created
+    types: [created]
   workflow_dispatch:
 
 # permissions needed for reacting to IssueOps commands on issues and PRs
@@ -12,31 +11,27 @@ permissions:
   issues: write
   checks: read
 
-name: Trigger Workflow for Desktop App
+name: Workflow to Bundle Desktop App
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  trigger-release:
-    name: Trigger Release
+  trigger-on-command:
+    name: Trigger on "/bundle-desktop" PR comment
     runs-on: ubuntu-latest
-    if: startsWith(github.event.comment.body, '/bundle-desktop')
     steps:
-      - name: Respond to the Comment
-        uses: actions/github-script@v6
+      - uses: github/command@v1.3.0
+        id: command
         with:
-          script: |
-            const commentBody = `✅ Workflow started to bundle Desktop App! [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
-            const issueNumber = context.payload.issue.number;
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: issueNumber,
-              body: commentBody
-            });
+          command: "/bundle-desktop"
+          reaction: "rocket"
+          allowed_contexts: pull_request
 
   bundle-desktop:
+    name: Bundle Desktop App on macOS
+    if: ${{ steps.command.outputs.continue == 'true' }}
     # Only run on macOS
     runs-on: macos-latest
     
