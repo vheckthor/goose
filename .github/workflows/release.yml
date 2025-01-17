@@ -36,6 +36,10 @@ jobs:
             target-suffix: unknown-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
+        # TODO: Remove when we can fix this. Skip ARM64 builds on Ubuntu for now
+        exclude:
+          - os: ubuntu-latest
+            architecture: aarch64
 
     steps:
       - name: Checkout
@@ -59,27 +63,19 @@ jobs:
             libdbus-1-dev \
             libxcb1-dev
 
-      # --- AARCH64 only ---
-      - name: Install system libraries on Ubuntu (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            libssl-dev:arm64 \
-            libdbus-1-dev:arm64 \
-            libxcb1-dev:arm64 \
-            pkg-config-aarch64-linux-gnu
-
-      - name: Configure environment for cross-compilation (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-        run: |
-          echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
-          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/aarch64-linux-gnu/lib/pkgconfig" >> $GITHUB_ENV
-          echo "PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
+      # # --- AARCH64 only ---
+      # - name: Install system libraries on Ubuntu (aarch64)
+      #   if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+      #   run: |
+      #     sudo dpkg --add-architecture arm64
+      #     sudo apt-get update
+      #     sudo apt-get install -y \
+      #       gcc-aarch64-linux-gnu \
+      #       libc6-dev-arm64-cross \
+      #       libssl-dev:arm64 \
+      #       libdbus-1-dev:arm64 \
+      #       libxcb1-dev:arm64 \
+      #       pkg-config
 
       - name: Build CLI
         run: |
@@ -258,19 +254,21 @@ jobs:
           prerelease: true # TODO: remove after testing
           draft: true # TODO: remove after testing
 
-      # # Create/update the stable release
-      # - name: Release stable
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     tag: stable
-      #     name: Stable
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     artifacts: |
-      #       goose-*.tar.bz2
-      #       Goose*.zip
-      #     allowUpdates: true
-      #     omitBody: true
-      #     omitPrereleaseDuringUpdate: true
+      # Create/update the stable release
+      - name: Release stable
+        uses: ncipollo/release-action@v1
+        with:
+          tag: stable
+          name: Stable
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: |
+            goose-*.tar.bz2
+            Goose*.zip
+          allowUpdates: true
+          omitBody: true
+          omitPrereleaseDuringUpdate: true
+          prerelease: true # TODO: remove after testing
+          draft: true # TODO: remove after testing
 
   # ------------------------------------
   # 4) PR Comment with Desktop Link
