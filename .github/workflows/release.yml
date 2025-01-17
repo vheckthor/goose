@@ -36,17 +36,13 @@ jobs:
             target-suffix: unknown-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
-            ## TODO: Remove when we can fix this. Skip ARM64 builds on Ubuntu for now
-            #exclude:
-            #  - os: ubuntu-latest
-            #    architecture: aarch64
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
