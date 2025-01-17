@@ -10,7 +10,7 @@ on:
     branches:
       - v1.0
 
-name: Continuous Integration
+name: CI
 
 jobs:
   rust-format:

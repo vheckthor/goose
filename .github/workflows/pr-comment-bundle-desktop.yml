@@ -1,76 +1,44 @@
+# This workflow is triggered by a comment on an issue or PR with the text "/bundle-desktop".
+# It bundles the Desktop App, then creates a PR comment with a link to download the app.
 on:
-  push:
-    tags:
-      - "v1.*"
-      - 'test.*'  # TODO: remove after testing
+  issue_comment:
+    types:
+      - created
   workflow_dispatch:
 
-name: Release
+# permissions needed for reacting to IssueOps commands on issues and PRs
+permissions:
+  pull-requests: write
+  issues: write
+  checks: read
+
+name: Trigger Workflow for Desktop App
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ------------------------------------
-  # 1) Build CLI for multiple OS/Arch
-  # ------------------------------------
-  build-cli:
-    name: Build CLI
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        architecture: [ x86_64, aarch64 ] # Intel/AMD64, ARM64
-        include:
-          - os: ubuntu-latest
-            target-suffix: unknown-linux-gnu
-          - os: macos-latest
-            target-suffix: apple-darwin
-
+  trigger-release:
+    name: Trigger Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.comment.body, '/bundle-desktop')
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Respond to the Comment
+        uses: actions/github-script@v6
         with:
-          toolchain: stable
-          target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
+          script: |
+            const commentBody = `✅ Workflow started to bundle Desktop App! [View Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            const issueNumber = context.payload.issue.number;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: issueNumber,
+              body: commentBody
+            });
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Build CLI
-        env:
-          CROSS_NO_WARNINGS: 0
-        run: |
-          export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
-          rustup target add "${TARGET}"
-          
-          # 'cross' is used to cross-compile for different architectures (see Cross.toml)
-          # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          cross build --release --target ${TARGET} -p goose-cli
-
-          cd target/${TARGET}/release
-          tar -cjf goose-${TARGET}.tar.bz2 goose
-          echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}
-          path: ${{ env.ARTIFACT }}
-
-  # ------------------------------------------------------------
-  # 2) Bundle Desktop App (macOS only) - builds goosed and Electron app
-  # ------------------------------------------------------------
   bundle-desktop:
     # Only run on macOS
     runs-on: macos-latest
-    # "needs: []" ensures it runs in parallel with build-cli
-    needs: []
     
     steps:
       - name: Checkout
@@ -190,15 +158,12 @@ jobs:
           # Kill the app to clean up
           pkill -f "Goose.app/Contents/MacOS/Goose"
 
-  # ------------------------------------
-  # 3) Create/Update GitHub Release
-  # ------------------------------------
-  release:
-    name: Release
+  pr-comment:
+    name: PR Comment with Desktop App
     runs-on: ubuntu-latest
-    needs: [ build-cli, bundle-desktop ]
+    needs: [ bundle-desktop ]
     permissions:
-      contents: write
+      pull-requests: write
 
     steps:
       - name: Download all artifacts
@@ -206,33 +171,29 @@ jobs:
         with:
           merge-multiple: true
 
-      # Create/update the versioned release
-      - name: Release versioned
-        uses: ncipollo/release-action@v1
+      - name: Find existing comment
+        id: find-comment
+        uses: peter-evans/find-comment@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # This pattern will match both goose tar.bz2 artifacts and the Goose.zip
-          artifacts: |
-            goose-*.tar.bz2
-            Goose*.zip
-          allowUpdates: true
-          omitBody: true
-          omitPrereleaseDuringUpdate: true
-          prerelease: true # TODO: remove after testing
-          draft: true # TODO: remove after testing
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Desktop App build artifacts
 
-      # Create/update the stable release
-      - name: Release stable
-        uses: ncipollo/release-action@v1
+      - name: Create or update comment
+        uses: peter-evans/create-or-update-comment@v3
         with:
-          tag: stable
-          name: Stable
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: |
-            goose-*.tar.bz2
-            Goose*.zip
-          allowUpdates: true
-          omitBody: true
-          omitPrereleaseDuringUpdate: true
-          prerelease: true # TODO: remove after testing
-          draft: true # TODO: remove after testing
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🎉 Workflow completed successfully!
+
+            ### Desktop App for this PR
+            
+            The following build is available for testing:
+            
+            - [📱 macOS Desktop App (Universal, signed)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/Goose-darwin-arm64.zip)
+
+            The app is signed and notarized for macOS. After downloading, unzip the file and drag the Goose.app to your Applications folder.
+            
+            This link is provided by nightly.link and will work even if you're not logged into GitHub.
+          edit-mode: replace
