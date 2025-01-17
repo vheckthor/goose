@@ -71,7 +71,6 @@ fi
 
 # --- 4) Fetch GitHub Releases and locate the correct asset ID ---
 echo "Looking up the most recent goose binary release..."
-echo ""
 RELEASES=$(gh_curl https://$GITHUB_API_ENDPOINT/repos/$REPO/releases)
 
 # Parse JSON to find the asset ID
@@ -102,9 +101,7 @@ curl -sL --header 'Accept: application/octet-stream' \
 
 echo "Extracting $FILE..."
 tar -xjf "$FILE"
-
-echo "Cleaning up..."
-rm "$FILE"
+rm "$FILE" # clean up the downloaded tarball
 
 # Make binaries executable
 chmod +x goose
@@ -129,20 +126,6 @@ if [[ ":$PATH:" != *":$GOOSE_BIN_DIR:"* ]]; then
   echo ""
 fi
 
-
-# Check if the directory is in the PATH
-if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
-  echo "The directory $LOCAL_BIN is not in your PATH."
-  echo "To add it, append the following line to your shell configuration file (e.g., ~/.bashrc or ~/.zshrc):"
-  echo ""
-  echo "    export PATH=\"$LOCAL_BIN:\$PATH\""
-  echo ""
-  echo "Then reload your shell configuration file by running:"
-  echo ""
-  echo "    source ~/.bashrc    # or "
-fi
-
-
 # --- 8) Auto-configure Goose (Optional) ---
 CONFIG_ARGS="-n default"
 if [ -n "${GOOSE_PROVIDER:-}" ]; then
@@ -152,7 +135,9 @@ if [ -n "${GOOSE_MODEL:-}" ]; then
   CONFIG_ARGS="$CONFIG_ARGS -m $GOOSE_MODEL"
 fi
 
+echo ""
 echo "Configuring Goose with: '$CONFIG_ARGS'"
+echo ""
 "$GOOSE_BIN_DIR/$OUT_FILE" configure $CONFIG_ARGS
 
 echo ""
