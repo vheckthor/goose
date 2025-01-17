@@ -156,14 +156,10 @@ impl Agent for TruncateAgent {
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
-                // keep goose messages in the history but dont send them to llm
-                let mut conv_history = messages.clone();
-                conv_history = conv_history.into_iter().filter(|msg| msg.role != Role::Goose).collect();
-
                 // Get completion from provider
                 let (response, usage) = capabilities.provider().complete(
                     &system_prompt,
-                    &conv_history,
+                    &messages,
                     &tools,
                 ).await?;
                 capabilities.record_usage(usage).await;
