@@ -28,26 +28,26 @@ jobs:
       matrix:
         os: ${{ fromJson(inputs.operating-systems) }}
         architecture: ${{ fromJson(inputs.architectures) }}
-
         include:
-          # These are the standard two OSes & suffixes you originally had:
           - os: ubuntu-latest
             target-suffix: unknown-linux-gnu
-            # If you want: define additional custom fields here as needed
           - os: macos-latest
             target-suffix: apple-darwin
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Setup Rust 
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
 
-      - name: Build CLI with cross
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build CLI
         env:
           CROSS_NO_WARNINGS: 0
         run: |
@@ -55,7 +55,6 @@ jobs:
           rustup target add "${TARGET}"
 
           # 'cross' is used to cross-compile for different architectures (see Cross.toml)
-          cargo install cross --git https://github.com/cross-rs/cross
           cross build --release --target ${TARGET} -p goose-cli
 
           # tar the goose binary as goose-<TARGET>.tar.bz2

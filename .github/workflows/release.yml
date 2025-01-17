@@ -29,8 +29,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/upload-artifact@v4
         with:
-          name: install-cli.sh
-          path: install-cli.sh
+          name: download_cli.sh
+          path: download_cli.sh
   
   # ------------------------------------------------------------
   # 3) Bundle Desktop App (macOS only) - builds goosed and Electron app
@@ -69,7 +69,7 @@ jobs:
           artifacts: |
             goose-*.tar.bz2
             Goose*.zip
-            install-cli.sh
+            download_cli.sh
           allowUpdates: true
           omitBody: true
           omitPrereleaseDuringUpdate: true
@@ -86,7 +86,7 @@ jobs:
           artifacts: |
             goose-*.tar.bz2
             Goose*.zip
-            install-cli.sh
+            download_cli.sh
           allowUpdates: true
           omitBody: true
           omitPrereleaseDuringUpdate: true
