@@ -25,75 +25,47 @@ jobs:
   # ------------------------------------
   build-cli:
     name: Build CLI
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
-        architecture: [ x86_64, aarch64 ] # Intel/AMD64, ARM64
-        include:
-          - os: ubuntu-latest
-            target-suffix: unknown-linux-gnu
-          - os: macos-latest
-            target-suffix: apple-darwin
-        # TODO: Remove when we can fix this. Skip ARM64 builds on Ubuntu for now
-        exclude:
-          - os: ubuntu-latest
-            architecture: aarch64
+        platform:
+          - os-name: Linux-x86_64
+            runs-on: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
 
+          - os-name: Linux-aarch64
+            runs-on: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+
+          - os-name: macOS-x86_64
+            runs-on: macOS-latest
+            target: x86_64-apple-darwin
+
+          - os-name: macOS-aarch64
+            runs-on: macOS-latest
+            target: aarch64-apple-darwin
+
+    runs-on: ${{ matrix.platform.runs-on }}
     steps:
+      # Check out the code
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+      # Build the binary using houseabsolute/actions-rust-cross
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
         with:
-          toolchain: stable
-          target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
+          command: cross
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release -p goose-cli" 
+          strip: true
 
-      # --- X86_64 only ---
-      - name: Install system libraries on Ubuntu (x86_64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86_64'
-        run: |
-          sudo apt-get update
-          # Add needed libs: openssl, dbus, xcb, etc.
-          sudo apt-get install -y \
-            pkg-config \
-            libssl-dev \
-            libdbus-1-dev \
-            libxcb1-dev
-
-      # # --- AARCH64 only ---
-      # - name: Install system libraries on Ubuntu (aarch64)
-      #   if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-      #   run: |
-      #     sudo dpkg --add-architecture arm64
-      #     sudo apt-get update
-      #     sudo apt-get install -y \
-      #       gcc-aarch64-linux-gnu \
-      #       libc6-dev-arm64-cross \
-      #       libssl-dev:arm64 \
-      #       libdbus-1-dev:arm64 \
-      #       libxcb1-dev:arm64 \
-      #       pkg-config
-
-      - name: Build CLI
-        run: |
-          export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
-          rustup target add "${TARGET}"
-          
-          # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          cargo build --release --target ${TARGET} -p goose-cli
-
-          cd target/${TARGET}/release
-          tar -cjf goose-${TARGET}.tar.bz2 goose
-          echo "ARTIFACT=target/${TARGET}/release/goose-${TARGET}.tar.bz2" >> $GITHUB_ENV
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
+      # Package and release the binary using houseabsolute/actions-rust-release
+      - name: Publish artifacts and release
+        uses: houseabsolute/actions-rust-release@v0
         with:
-          name: goose-${{ matrix.architecture }}-${{ matrix.target-suffix }}
-          path: ${{ env.ARTIFACT }}
+          executable-name: goose
+          target: ${{ matrix.platform.target }}
 
   # ------------------------------------
   # 2) Build Desktop App (macOS only)
