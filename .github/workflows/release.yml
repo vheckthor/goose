@@ -47,75 +47,19 @@ jobs:
           toolchain: stable
           target: ${{ matrix.architecture }}-${{ matrix.target-suffix }}
 
-      # --- X86_64 only ---
-      - name: Install system libraries on Ubuntu (x86_64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86_64'
-        run: |
-          sudo apt-get update
-          # Add needed libs: openssl, dbus, xcb, etc.
-          sudo apt-get install -y \
-            pkg-config \
-            libssl-dev \
-            libdbus-1-dev \
-            libxcb1-dev
-
-      # --- AARCH64 only ---
-      - name: Install system libraries on Ubuntu (aarch64)
-        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
-        run: |
-          if [[ $ImageOS == "ubuntu24" ]]; then
-            cat <<EOF > deb822sources
-          Types: deb
-          URIs: http://archive.ubuntu.com/ubuntu/
-          Suites: noble
-          Components: main restricted universe
-          Architectures: amd64
-
-          Types: deb
-          URIs: http://security.ubuntu.com/ubuntu/
-          Suites: noble-security
-          Components: main restricted universe
-          Architectures: amd64
-
-          Types: deb
-          URIs: http://archive.ubuntu.com/ubuntu/
-          Suites: noble-updates
-          Components: main restricted universe
-          Architectures: amd64
-
-          Types: deb
-          URIs: http://azure.ports.ubuntu.com/ubuntu-ports/
-          Suites: noble
-          Components: main restricted multiverse universe
-          Architectures: arm64
-
-          Types: deb
-          URIs: http://azure.ports.ubuntu.com/ubuntu-ports/
-          Suites: noble-updates
-          Components: main restricted multiverse universe
-          Architectures: arm64
-          EOF
-
-            sudo mv deb822sources /etc/apt/sources.list.d/ubuntu.sources
-          fi
-
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            libc6-dev-arm64-cross \
-            libssl-dev:arm64 \
-            libdbus-1-dev:arm64 \
-            libxcb1-dev:arm64 \
-            pkg-config
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build CLI
+        env:
+          CROSS_NO_WARNINGS: 0
         run: |
           export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
           rustup target add "${TARGET}"
           
+          # 'cross' is used to cross-compile for different architectures (see Cross.toml)
           # Only 'goose' binary is needed for CLI release, skipping 'goosed' here
-          cargo build --release --target ${TARGET} -p goose-cli
+          cross build --release --target ${TARGET} -p goose-cli
 
           cd target/${TARGET}/release
           tar -cjf goose-${TARGET}.tar.bz2 goose
