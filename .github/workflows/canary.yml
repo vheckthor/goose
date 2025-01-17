@@ -85,7 +85,7 @@ jobs:
   # 3) Bundle Desktop App (macOS only) - builds goosed and Electron app
   # ------------------------------------------------------------
   bundle-desktop:
-    uses: ./.github/workflows/reuseable/bundle-desktop.yml
+    uses: ./.github/workflows/bundle-desktop.yml
     secrets:
       CERTIFICATE_OSX_APPLICATION: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
       CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
@@ -119,6 +119,7 @@ jobs:
           artifacts: |
             goose-*.tar.bz2
             Goose*.zip
+            install-cli.sh
           allowUpdates: true
           omitBody: true
           omitPrereleaseDuringUpdate: true

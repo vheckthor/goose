@@ -1,5 +1,5 @@
-# This is a reuseable workflow that bundles the Desktop App for macOS.
-# This gets used in:
+# This is a **reuseable** workflow that bundles the Desktop App for macOS.
+# It doesn't get triggered on its own. It gets used in multiple workflows:
 #  - release.yml
 #  - canary.yml
 #  - pr-comment-bundle-desktop.yml
