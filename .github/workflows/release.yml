@@ -46,20 +46,41 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install system libraries on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+      # --- X86_64 only ---
+      - name: Install system libraries on Ubuntu (x86_64)
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86_64'
         run: |
           sudo apt-get update
+          # Add needed libs: openssl, dbus, xcb, etc.
           sudo apt-get install -y \
             pkg-config \
             libssl-dev \
-            libdbus-1-dev
+            libdbus-1-dev \
+            libxcb1-dev
 
-      - name: Install cross-compiler for aarch64
+      # --- AARCH64 only ---
+      - name: Enable ARM64 arch
         if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Install cross-compiler and ARM64 libs (aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+        run: |
+          # This installs the aarch64 cross-compiler, plus the ARM64 version of libs
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            pkg-config-aarch64-linux-gnu \
+            libssl-dev:arm64 \
+            libdbus-1-dev:arm64 \
+            libxcb1-dev:arm64
+
+      - name: Configure cross pkg-config (aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.architecture == 'aarch64'
+        run: |
+          echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build CLI
         run: |
