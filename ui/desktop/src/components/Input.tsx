@@ -27,22 +27,54 @@ declare global {
   }
 }
 
-const FloatingToolbar = ({ style }: { style: React.CSSProperties }) => {
+interface FloatingToolbarProps {
+  style: React.CSSProperties;
+  onFormat: (type: string, selectedText: string) => void;
+  selectedText: string;
+}
+
+const FloatingToolbar = ({ style, onFormat, selectedText }: FloatingToolbarProps) => {
+  const handleButtonClick = (e: React.MouseEvent, type: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onFormat(type, selectedText);
+  };
+
   return (
     <div 
-      className="absolute flex items-center gap-3 px-3 py-2 rounded-[1000px] bg-black/5 dark:bg-white/5 transition-all duration-150"
+      className="absolute flex items-center gap-2 px-2.5 py-1.5 rounded-[1000px] bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all duration-150 backdrop-blur-sm"
       style={style}
     >
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
+      <Button 
+        size="icon" 
+        variant="ghost" 
+        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={(e) => handleButtonClick(e, 'bold')}
+      >
         <Bold className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
+      <Button 
+        size="icon" 
+        variant="ghost" 
+        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={(e) => handleButtonClick(e, 'italic')}
+      >
         <Italic className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
+      <Button 
+        size="icon" 
+        variant="ghost" 
+        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={(e) => handleButtonClick(e, 'code')}
+      >
         <Code className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
+      <Button 
+        size="icon" 
+        variant="ghost" 
+        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={(e) => handleButtonClick(e, 'link')}
+      >
         <Link className="h-4 w-4" />
       </Button>
     </div>
@@ -107,23 +139,33 @@ export default function Input({
       range.setStart(textNode, start);
       range.setEnd(textNode, end);
       
-      // Get selection coordinates
       const rects = range.getClientRects();
       if (rects.length > 0) {
         const editorRect = editor.getBoundingClientRect();
         const firstRect = rects[0];
+        const toolbarWidth = 200; // Approximate width of toolbar
+        const toolbarHeight = 40; // Approximate height of toolbar
         
         // Calculate position relative to editor
         let x = firstRect.left - editorRect.left;
         let y = firstRect.top - editorRect.top - textarea.scrollTop;
         let isPinned = false;
         
-        // If y would be negative (dot would appear above form), 
-        // pin to top-left of form
+        // Check boundaries
         if (y < 0) {
-          y = -4;  // Position slightly above the border
-          x = 0;  // Pin to left
+          y = -4;
+          x = 0;
           isPinned = true;
+        }
+        
+        // Check right boundary
+        if (x + toolbarWidth > editorRect.width) {
+          x = editorRect.width - toolbarWidth - 4;
+        }
+        
+        // Check bottom boundary
+        if (y + toolbarHeight > editorRect.height) {
+          y = editorRect.height - toolbarHeight - 4;
         }
 
         setSelectionCoords({
@@ -213,6 +255,45 @@ export default function Input({
     }
   };
 
+  const handleFormat = (type: string, selectedText: string) => {
+    const textarea = textAreaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    let newText = value;
+    let newCursorPos = start;
+
+    switch (type) {
+      case 'bold':
+        newText = value.substring(0, start) + `**${selectedText}**` + value.substring(end);
+        newCursorPos = start + 2 + selectedText.length;
+        break;
+      case 'italic':
+        newText = value.substring(0, start) + `*${selectedText}*` + value.substring(end);
+        newCursorPos = start + 1 + selectedText.length;
+        break;
+      case 'code':
+        newText = value.substring(0, start) + `\n\`\`\`\n${selectedText}\n\`\`\`\n` + value.substring(end);
+        newCursorPos = start + 5 + selectedText.length;
+        break;
+      case 'link':
+        newText = value.substring(0, start) + `[${selectedText}]()` + value.substring(end);
+        newCursorPos = start + selectedText.length + 3;
+        break;
+    }
+
+    setValue(newText);
+    
+    // Use setTimeout to ensure the new value is set before we try to focus and select
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
+
   return (
     <form
       onSubmit={onFormSubmit}
@@ -258,8 +339,10 @@ export default function Input({
             style={{
               left: `${selectionCoords.x}px`,
               top: `${selectionCoords.y}px`,
-              transform: 'translateY(-125%)',
+              transform: 'translateY(-112%)',
             }}
+            onFormat={handleFormat}
+            selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
           />
         )}
       </div>
