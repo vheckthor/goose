@@ -318,37 +318,131 @@ export default function Input({
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
+    const scrollTop = textarea.scrollTop;
     let newText = value;
-    let newCursorPos = start;
+    let newSelectionStart = start;
+    let newSelectionEnd = end;
 
-    switch (type) {
-      case 'bold':
-        newText = value.substring(0, start) + `**${selectedText}**` + value.substring(end);
-        newCursorPos = start + 2 + selectedText.length;
-        break;
-      case 'italic':
-        newText = value.substring(0, start) + `*${selectedText}*` + value.substring(end);
-        newCursorPos = start + 1 + selectedText.length;
-        break;
-      case 'code':
-        newText = value.substring(0, start) + `\n\`\`\`\n${selectedText}\n\`\`\`\n` + value.substring(end);
-        newCursorPos = start + 5 + selectedText.length;
-        break;
-      case 'link':
-        newText = value.substring(0, start) + `[${selectedText}]()` + value.substring(end);
-        newCursorPos = start + selectedText.length + 3;
-        break;
+    // Helper function to check if text is already formatted
+    const isAlreadyFormatted = (text: string, format: string) => {
+      switch (format) {
+        case 'bold':
+          return text.startsWith('**') && text.endsWith('**');
+        case 'italic':
+          return text.startsWith('*') && text.endsWith('*') && !text.startsWith('**');
+        case 'code':
+          return text.startsWith('```\n') && text.endsWith('\n```');
+        case 'link':
+          return text.match(/^\[.*\]\(.*\)$/);
+        default:
+          return false;
+      }
+    };
+
+    // Get the full text that might be formatted (including markers)
+    const getFormattedTextRange = (format: string) => {
+      let rangeStart = start;
+      let rangeEnd = end;
+      const beforeText = value.substring(0, start);
+      const afterText = value.substring(end);
+
+      switch (format) {
+        case 'bold':
+          if (beforeText.endsWith('**') && afterText.startsWith('**')) {
+            rangeStart -= 2;
+            rangeEnd += 2;
+          }
+          break;
+        case 'italic':
+          if (beforeText.endsWith('*') && afterText.startsWith('*')) {
+            rangeStart -= 1;
+            rangeEnd += 1;
+          }
+          break;
+        case 'code':
+          if (beforeText.endsWith('```\n') && afterText.startsWith('\n```')) {
+            rangeStart -= 4;
+            rangeEnd += 4;
+          }
+          break;
+        case 'link':
+          const beforeLink = beforeText.match(/\[$/);
+          const afterLink = afterText.match(/^\]\(\)/);
+          if (beforeLink && afterLink) {
+            rangeStart -= 1;
+            rangeEnd += 3;
+          }
+          break;
+      }
+      return { rangeStart, rangeEnd };
+    };
+
+    const { rangeStart, rangeEnd } = getFormattedTextRange(type);
+    const possiblyFormattedText = value.substring(rangeStart, rangeEnd);
+
+    if (isAlreadyFormatted(possiblyFormattedText, type)) {
+      // Remove formatting
+      switch (type) {
+        case 'bold':
+          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(2, -2) + value.substring(rangeEnd);
+          newSelectionStart = rangeStart;
+          newSelectionEnd = rangeEnd - 4;
+          break;
+        case 'italic':
+          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(1, -1) + value.substring(rangeEnd);
+          newSelectionStart = rangeStart;
+          newSelectionEnd = rangeEnd - 2;
+          break;
+        case 'code':
+          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(4, -4) + value.substring(rangeEnd);
+          newSelectionStart = rangeStart;
+          newSelectionEnd = rangeEnd - 8;
+          break;
+        case 'link':
+          const linkText = possiblyFormattedText.match(/^\[(.*)\]\((.*)\)$/);
+          if (linkText) {
+            newText = value.substring(0, rangeStart) + linkText[1] + value.substring(rangeEnd);
+            newSelectionStart = rangeStart;
+            newSelectionEnd = rangeStart + linkText[1].length;
+          }
+          break;
+      }
+    } else {
+      // Add formatting
+      switch (type) {
+        case 'bold':
+          newText = value.substring(0, start) + `**${selectedText}**` + value.substring(end);
+          newSelectionStart = start + 2;
+          newSelectionEnd = start + 2 + selectedText.length;
+          break;
+        case 'italic':
+          newText = value.substring(0, start) + `*${selectedText}*` + value.substring(end);
+          newSelectionStart = start + 1;
+          newSelectionEnd = start + 1 + selectedText.length;
+          break;
+        case 'code':
+          newText = value.substring(0, start) + `\n\`\`\`\n${selectedText}\n\`\`\`\n` + value.substring(end);
+          newSelectionStart = start + 5;
+          newSelectionEnd = start + 5 + selectedText.length;
+          break;
+        case 'link':
+          newText = value.substring(0, start) + `[${selectedText}]()` + value.substring(end);
+          newSelectionStart = start + 1;
+          newSelectionEnd = start + 1 + selectedText.length;
+          break;
+      }
     }
 
     setValue(newText);
     
-    // Use setTimeout to ensure the new value is set before we try to focus and select
-    setTimeout(() => {
+    // Use requestAnimationFrame to ensure DOM updates are complete
+    requestAnimationFrame(() => {
       if (textarea) {
         textarea.focus();
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.scrollTop = scrollTop; // Restore scroll position
+        textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
       }
-    }, 0);
+    });
   };
 
   return (
