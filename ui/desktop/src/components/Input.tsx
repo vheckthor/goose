@@ -156,7 +156,7 @@ export default function Input({
     editor.style.boxSizing = textareaStyles.boxSizing;
     editor.style.borderWidth = textareaStyles.borderWidth;
     editor.style.whiteSpace = 'pre-wrap';
-    editor.style.wordWrap = 'break-word';
+    editor.style.wordBreak = 'break-word';
     editor.style.display = 'block';
     editor.style.position = 'absolute';
     editor.style.top = '0';
@@ -339,23 +339,10 @@ export default function Input({
           height: 'auto'
         }}>
           {isPreview ? (
-            <>
-              <InputPreview 
-                text={value} 
-                previewRef={previewRef}
-              />
-              <div className="absolute top-0 left-0">
-                <FloatingToolbar 
-                  style={{
-                    transform: 'translateY(-115%)',
-                  }}
-                  onFormat={handleFormat}
-                  selectedText=""
-                  isPreview={isPreview}
-                  onPreviewToggle={() => setIsPreview(!isPreview)}
-                />
-              </div>
-            </>
+            <InputPreview 
+              text={value} 
+              previewRef={previewRef}
+            />
           ) : (
             <>
               <textarea
@@ -391,21 +378,36 @@ export default function Input({
                   display: 'none'
                 }}
               />
-              
-              {selectionCoords && (
-                <FloatingToolbar 
-                  style={{
-                    left: `${selectionCoords.x}px`,
-                    top: `${selectionCoords.y}px`,
-                    transform: 'translateY(-115%)',
-                  }}
-                  onFormat={handleFormat}
-                  selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
-                  isPreview={isPreview}
-                  onPreviewToggle={() => setIsPreview(!isPreview)}
-                />
-              )}
             </>
+          )}
+          
+          {/* Floating toolbar rendered for both modes */}
+          {(selectionCoords && !isPreview) && (
+            <FloatingToolbar 
+              style={{
+                left: `${selectionCoords.x}px`,
+                top: `${selectionCoords.y}px`,
+                transform: 'translateY(-115%)',
+              }}
+              onFormat={handleFormat}
+              selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
+              isPreview={isPreview}
+              onPreviewToggle={() => setIsPreview(!isPreview)}
+            />
+          )}
+          {/* Show toolbar at top-left corner in preview mode - using same position and transform as isPinned */}
+          {isPreview && (
+            <FloatingToolbar 
+              style={{
+                left: 0,
+                top: '-4px',
+                transform: 'translateY(-115%)',
+              }}
+              onFormat={handleFormat}
+              selectedText=""
+              isPreview={isPreview}
+              onPreviewToggle={() => setIsPreview(!isPreview)}
+            />
           )}
         </div>
       </div>
