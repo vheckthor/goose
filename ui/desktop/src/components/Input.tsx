@@ -30,19 +30,19 @@ declare global {
 const FloatingToolbar = ({ style }: { style: React.CSSProperties }) => {
   return (
     <div 
-      className="absolute flex items-center gap-1 p-1 rounded-lg shadow-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+      className="absolute flex items-center gap-3 px-3 py-2 rounded-[1000px] bg-black/5 dark:bg-white/5 transition-all duration-150"
       style={style}
     >
-      <Button size="icon" variant="ghost" className="h-8 w-8">
+      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
         <Bold className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8">
+      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
         <Italic className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8">
+      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
         <Code className="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" className="h-8 w-8">
+      <Button size="icon" variant="ghost" className="h-8 w-8 text-black/60 dark:text-white/60 bg-transparent hover:bg-black/10 dark:hover:bg-white/10">
         <Link className="h-4 w-4" />
       </Button>
     </div>
