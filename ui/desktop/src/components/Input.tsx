@@ -245,12 +245,36 @@ export default function Input({
   ) => {
     useEffect(() => {
       if (textAreaRef) {
-        textAreaRef.style.height = "0px"; // Reset height
+        // Store current scroll position
+        const scrollTop = textAreaRef.scrollTop;
+        
+        // Temporarily reset height to recalculate
+        textAreaRef.style.height = "0px";
         const scrollHeight = textAreaRef.scrollHeight;
-        textAreaRef.style.height = Math.min(scrollHeight, maxHeight) + "px";
+        
+        // Set new height
+        const newHeight = Math.min(scrollHeight, maxHeight);
+        textAreaRef.style.height = newHeight + "px";
+        setTextAreaHeight(newHeight);
+        
+        // Restore scroll position
+        textAreaRef.scrollTop = scrollTop;
       }
     }, [textAreaRef, value]);
   };
+
+  // Preserve height when toggling preview mode
+  useEffect(() => {
+    if (textAreaRef.current && !isPreview) {
+      textAreaRef.current.style.height = `${textAreaHeight}px`;
+      // Restore scroll position after a brief delay to ensure the DOM has updated
+      setTimeout(() => {
+        if (textAreaRef.current) {
+          textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight;
+        }
+      }, 0);
+    }
+  }, [isPreview, textAreaHeight]);
 
   const minHeight = "1rem";
   const maxHeight = 10 * 24;
