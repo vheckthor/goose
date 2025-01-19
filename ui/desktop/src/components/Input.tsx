@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import Stop from "./ui/Stop";
 import { Attach, Send } from "./icons";
-import { Bold, Italic, Code, Link } from "lucide-react";
+import { Bold, Italic, Code, Link, Eye } from "lucide-react";
+import { InputPreview } from "./InputPreview";
 
 interface InputProps {
   handleSubmit: (e: React.FormEvent) => void;
@@ -31,9 +32,11 @@ interface FloatingToolbarProps {
   style: React.CSSProperties;
   onFormat: (type: string, selectedText: string) => void;
   selectedText: string;
+  isPreview: boolean;
+  onPreviewToggle: () => void;
 }
 
-const FloatingToolbar = ({ style, onFormat, selectedText }: FloatingToolbarProps) => {
+const FloatingToolbar = ({ style, onFormat, selectedText, isPreview, onPreviewToggle }: FloatingToolbarProps) => {
   const handleButtonClick = (e: React.MouseEvent, type: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -48,34 +51,60 @@ const FloatingToolbar = ({ style, onFormat, selectedText }: FloatingToolbarProps
       <Button 
         size="icon" 
         variant="ghost" 
-        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        className={`h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10 ${
+          isPreview ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         onClick={(e) => handleButtonClick(e, 'bold')}
+        disabled={isPreview}
       >
         <Bold className="h-4 w-4" />
       </Button>
       <Button 
         size="icon" 
         variant="ghost" 
-        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        className={`h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10 ${
+          isPreview ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         onClick={(e) => handleButtonClick(e, 'italic')}
+        disabled={isPreview}
       >
         <Italic className="h-4 w-4" />
       </Button>
       <Button 
         size="icon" 
         variant="ghost" 
-        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        className={`h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10 ${
+          isPreview ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         onClick={(e) => handleButtonClick(e, 'code')}
+        disabled={isPreview}
       >
         <Code className="h-4 w-4" />
       </Button>
       <Button 
         size="icon" 
         variant="ghost" 
-        className="h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10"
+        className={`h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10 ${
+          isPreview ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         onClick={(e) => handleButtonClick(e, 'link')}
+        disabled={isPreview}
       >
         <Link className="h-4 w-4" />
+      </Button>
+      <Button 
+        size="icon" 
+        variant="ghost" 
+        className={`h-7 w-7 text-black/70 dark:text-white/70 bg-transparent hover:bg-black/10 dark:hover:bg-white/10 ${
+          isPreview ? 'bg-black/10 dark:bg-white/10' : ''
+        }`}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onPreviewToggle();
+        }}
+      >
+        <Eye className="h-4 w-4" />
       </Button>
     </div>
   );
@@ -88,7 +117,9 @@ export default function Input({
   onStop,
 }: InputProps) {
   const [value, setValue] = useState("");
+  const [isPreview, setIsPreview] = useState(false);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [selectionCoords, setSelectionCoords] = useState<SelectionCoords | null>(null);
 
@@ -206,6 +237,8 @@ export default function Input({
     }
   };
 
+  const [textAreaHeight, setTextAreaHeight] = useState<number>(0);
+
   const useAutosizeTextArea = (
     textAreaRef: HTMLTextAreaElement | null,
     value: string
@@ -300,51 +333,81 @@ export default function Input({
       className="flex relative h-auto px-[16px] pr-[68px] py-[1rem] border-t dark:border-gray-700"
     >
       <div className="relative flex-1">
-        <textarea
-          autoFocus
-          id="dynamic-textarea"
-          placeholder="What should goose do?"
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onSelect={updateSelection}
-          onScroll={handleScroll}
-          disabled={disabled}
-          ref={textAreaRef}
-          rows={1}
-          style={{
-            minHeight: `${minHeight}px`,
-            maxHeight: `${maxHeight}px`,
-            overflowY: "auto",
-            whiteSpace: 'pre-wrap',
-            wordWrap: 'break-word'
-          }}
-          className={`w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-14 resize-none ${
-            disabled ? "cursor-not-allowed opacity-50" : ""
-          }`}
-        />
-        
-        {/* Hidden editor for measuring selection */}
-        <div
-          ref={editorRef}
-          className="absolute top-0 left-0 w-full invisible pointer-events-none whitespace-pre-wrap break-words"
-          style={{
-            font: 'inherit',
-            display: 'none'
-          }}
-        />
-        
-        {selectionCoords && (
-          <FloatingToolbar 
-            style={{
-              left: `${selectionCoords.x}px`,
-              top: `${selectionCoords.y}px`,
-              transform: 'translateY(-112%)',
-            }}
-            onFormat={handleFormat}
-            selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
-          />
-        )}
+        <div className="relative" style={{
+          minHeight: `${minHeight}px`,
+          maxHeight: `${maxHeight}px`,
+          height: 'auto'
+        }}>
+          {isPreview ? (
+            <>
+              <InputPreview 
+                text={value} 
+                previewRef={previewRef}
+              />
+              <div className="absolute top-0 left-0">
+                <FloatingToolbar 
+                  style={{
+                    transform: 'translateY(-115%)',
+                  }}
+                  onFormat={handleFormat}
+                  selectedText=""
+                  isPreview={isPreview}
+                  onPreviewToggle={() => setIsPreview(!isPreview)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <textarea
+                autoFocus
+                id="dynamic-textarea"
+                placeholder="What should goose do?"
+                value={value}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onSelect={updateSelection}
+                onScroll={handleScroll}
+                disabled={disabled}
+                ref={textAreaRef}
+                rows={1}
+                style={{
+                  minHeight: `${minHeight}px`,
+                  maxHeight: `${maxHeight}px`,
+                  overflowY: "auto",
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word'
+                }}
+                className={`w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-14 resize-none ${
+                  disabled ? "cursor-not-allowed opacity-50" : ""
+                }`}
+              />
+              
+              {/* Hidden editor for measuring selection */}
+              <div
+                ref={editorRef}
+                className="absolute top-0 left-0 w-full invisible pointer-events-none whitespace-pre-wrap break-words"
+                style={{
+                  font: 'inherit',
+                  display: 'none'
+                }}
+              />
+              
+              {selectionCoords && (
+                <FloatingToolbar 
+                  style={{
+                    left: `${selectionCoords.x}px`,
+                    top: `${selectionCoords.y}px`,
+                    transform: 'translateY(-115%)',
+                  }}
+                  onFormat={handleFormat}
+                  selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
+                  isPreview={isPreview}
+                  onPreviewToggle={() => setIsPreview(!isPreview)}
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <Button
