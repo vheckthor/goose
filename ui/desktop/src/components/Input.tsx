@@ -32,7 +32,7 @@ export default function Input({
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
-  const { selectionCoords, updateSelection, handleScroll } = useSelectionCoords({
+  const { selectionCoords, updateSelection, handleScroll, updateSelectionAfterFormat } = useSelectionCoords({
     textAreaRef,
     editorRef
   });
@@ -44,6 +44,7 @@ export default function Input({
   }, [disabled, value]);
 
   const [textAreaHeight, setTextAreaHeight] = useState<number>(0);
+  const [scrollPosition, setScrollPosition] = useState(0);
 
   const useAutosizeTextArea = (
     textAreaRef: HTMLTextAreaElement | null,
@@ -69,18 +70,18 @@ export default function Input({
     }, [textAreaRef, value]);
   };
 
-  // Preserve height when toggling preview mode
+  // Preserve height and scroll position when toggling preview mode
   useEffect(() => {
     if (textAreaRef.current && !isPreview) {
       textAreaRef.current.style.height = `${textAreaHeight}px`;
       // Restore scroll position after a brief delay to ensure the DOM has updated
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         if (textAreaRef.current) {
-          textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight;
+          textAreaRef.current.scrollTop = scrollPosition;
         }
-      }, 0);
+      });
     }
-  }, [isPreview, textAreaHeight]);
+  }, [isPreview, textAreaHeight, scrollPosition]);
 
   const minHeight = "1rem";
   const maxHeight = 10 * 24;
@@ -119,25 +120,24 @@ export default function Input({
   };
 
   const handleTextChange = (newText: string, newSelectionStart: number, newSelectionEnd: number) => {
-    // Store current scroll position before any changes
-    const currentScrollTop = textAreaRef.current?.scrollTop || 0;
-    
     setValue(newText);
     
     // Use requestAnimationFrame to ensure DOM updates are complete
     requestAnimationFrame(() => {
       if (textAreaRef.current) {
-        // First restore the scroll position
-        textAreaRef.current.scrollTop = currentScrollTop;
-        
-        // Then set focus and selection
         textAreaRef.current.focus();
         textAreaRef.current.setSelectionRange(newSelectionStart, newSelectionEnd);
-        
-        // Finally update the floating toolbar position
-        updateSelection();
+        updateSelectionAfterFormat(newSelectionStart, newSelectionEnd);
       }
     });
+  };
+
+  // Store scroll position before toggling preview
+  const handlePreviewToggle = () => {
+    if (textAreaRef.current) {
+      setScrollPosition(textAreaRef.current.scrollTop);
+    }
+    setIsPreview(!isPreview);
   };
 
   return (
@@ -203,15 +203,19 @@ export default function Input({
                 transform: 'translateY(-115%)',
               }}
               value={value}
-              selectionStart={textAreaRef.current?.selectionStart || 0}
-              selectionEnd={textAreaRef.current?.selectionEnd || 0}
+              selectionStart={selectionCoords.selectionStart || 0}
+              selectionEnd={selectionCoords.selectionEnd || 0}
               onTextChange={handleTextChange}
-              selectedText={value.substring(textAreaRef.current?.selectionStart || 0, textAreaRef.current?.selectionEnd || 0)}
+              selectedText={value.substring(
+                selectionCoords.selectionStart || 0,
+                selectionCoords.selectionEnd || 0
+              )}
               isPreview={isPreview}
-              onPreviewToggle={() => setIsPreview(!isPreview)}
+              onPreviewToggle={handlePreviewToggle}
+              onSelectionUpdate={updateSelectionAfterFormat}
             />
           )}
-          {/* Show toolbar at top-left corner in preview mode - using same position and transform as isPinned */}
+          {/* Show toolbar at top-left corner in preview mode */}
           {isPreview && (
             <FloatingToolbar 
               style={{
@@ -225,7 +229,7 @@ export default function Input({
               onTextChange={handleTextChange}
               selectedText=""
               isPreview={isPreview}
-              onPreviewToggle={() => setIsPreview(!isPreview)}
+              onPreviewToggle={handlePreviewToggle}
             />
           )}
         </div>

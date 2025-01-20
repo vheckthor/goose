@@ -6,6 +6,8 @@ export interface SelectionCoords {
   absoluteY: number;
   scrollTop: number;
   isPinned?: boolean;
+  selectionStart?: number;
+  selectionEnd?: number;
 }
 
 interface UseSelectionCoordsProps {
@@ -61,8 +63,8 @@ export function useSelectionCoords({ textAreaRef, editorRef }: UseSelectionCoord
       if (rects.length > 0) {
         const editorRect = editor.getBoundingClientRect();
         const firstRect = rects[0];
-        const toolbarWidth = 200; // Approximate width of toolbar
-        const toolbarHeight = 40; // Approximate height of toolbar
+        const toolbarWidth = 200;
+        const toolbarHeight = 40; 
         
         // Calculate position relative to editor
         let x = firstRect.left - editorRect.left;
@@ -91,7 +93,9 @@ export function useSelectionCoords({ textAreaRef, editorRef }: UseSelectionCoord
           y,
           absoluteY: firstRect.top - editorRect.top,
           scrollTop: textarea.scrollTop,
-          isPinned
+          isPinned,
+          selectionStart: start,
+          selectionEnd: end
         });
       }
     }
@@ -124,9 +128,18 @@ export function useSelectionCoords({ textAreaRef, editorRef }: UseSelectionCoord
     }
   };
 
+  const updateSelectionAfterFormat = (start: number, end: number) => {
+    if (textAreaRef.current) {
+      textAreaRef.current.focus();
+      textAreaRef.current.setSelectionRange(start, end);
+      updateSelection();
+    }
+  };
+
   return {
     selectionCoords,
     updateSelection,
-    handleScroll
+    handleScroll,
+    updateSelectionAfterFormat
   };
 } 
