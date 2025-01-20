@@ -49,31 +49,52 @@ export const FloatingToolbar = ({
     switch (format) {
       case 'bold':
         if (beforeText.endsWith('**') && afterText.startsWith('**')) {
-          rangeStart -= 2;
-          rangeEnd += 2;
+          const openingIndex = beforeText.lastIndexOf('**');
+          const closingIndex = afterText.indexOf('**') + selectionEnd;
+          if (openingIndex !== -1 && closingIndex !== -1) {
+            rangeStart = openingIndex;
+            rangeEnd = closingIndex + 2;
+          }
         }
         break;
+        
       case 'italic':
-        if (beforeText.endsWith('*') && afterText.startsWith('*')) {
-          rangeStart -= 1;
-          rangeEnd += 1;
+        if (beforeText.endsWith('*') && !beforeText.endsWith('**') && 
+            afterText.startsWith('*') && !afterText.startsWith('**')) {
+          const openingIndex = beforeText.lastIndexOf('*');
+          const closingIndex = afterText.indexOf('*') + selectionEnd;
+          if (openingIndex !== -1 && closingIndex !== -1) {
+            rangeStart = openingIndex;
+            rangeEnd = closingIndex + 1;
+          }
         }
         break;
+        
       case 'code':
         if (beforeText.endsWith('```\n') && afterText.startsWith('\n```')) {
-          rangeStart -= 4;
-          rangeEnd += 4;
+          const openingIndex = beforeText.lastIndexOf('```\n');
+          const closingIndex = afterText.indexOf('\n```') + selectionEnd;
+          if (openingIndex !== -1 && closingIndex !== -1) {
+            rangeStart = openingIndex;
+            rangeEnd = closingIndex + 4;
+          }
         }
         break;
+        
       case 'link':
-        const beforeLink = beforeText.match(/\[$/);
-        const afterLink = afterText.match(/^\]\(\)/);
-        if (beforeLink && afterLink) {
-          rangeStart -= 1;
-          rangeEnd += 3;
+        const beforeLink = beforeText.lastIndexOf('[');
+        const afterCloseBracket = afterText.indexOf(']');
+        const afterOpenParen = afterText.indexOf('](', afterCloseBracket);
+        const afterCloseParen = afterText.indexOf(')', afterOpenParen);
+        
+        if (beforeLink !== -1 && afterCloseBracket !== -1 && 
+            afterOpenParen !== -1 && afterCloseParen !== -1) {
+          rangeStart = beforeLink;
+          rangeEnd = selectionEnd + afterCloseParen + 1;
         }
         break;
     }
+    
     return { rangeStart, rangeEnd };
   };
 
@@ -82,62 +103,79 @@ export const FloatingToolbar = ({
     e.stopPropagation();
 
     const { rangeStart, rangeEnd } = getFormattedTextRange(type);
-    const possiblyFormattedText = value.substring(rangeStart, rangeEnd);
-    let newText = value;
-    let newSelectionStart = selectionStart;
-    let newSelectionEnd = selectionEnd;
+    const selectedContent = value.substring(rangeStart, rangeEnd);
+    
+    let newText: string;
+    let newSelectionStart: number;
+    let newSelectionEnd: number;
 
-    if (isAlreadyFormatted(possiblyFormattedText, type)) {
-      // Remove formatting
-      switch (type) {
-        case 'bold':
-          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(2, -2) + value.substring(rangeEnd);
+    switch (type) {
+      case 'bold': {
+        const isBold = /^\*\*(.*)\*\*$/.test(selectedContent);
+        if (isBold) {
+          const unformattedText = selectedContent.slice(2, -2);
+          newText = value.substring(0, rangeStart) + unformattedText + value.substring(rangeEnd);
           newSelectionStart = rangeStart;
-          newSelectionEnd = rangeEnd - 4;
-          break;
-        case 'italic':
-          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(1, -1) + value.substring(rangeEnd);
+          newSelectionEnd = rangeStart + unformattedText.length;
+        } else {
+          newText = value.substring(0, selectionStart) + `**${selectedText}**` + value.substring(selectionEnd);
+          newSelectionStart = selectionStart + 2;
+          newSelectionEnd = selectionStart + selectedText.length + 2;
+        }
+        break;
+      }
+      
+      case 'italic': {
+        const isItalic = /^\*((?!\*).)*\*$/.test(selectedContent);
+        if (isItalic) {
+          const unformattedText = selectedContent.slice(1, -1);
+          newText = value.substring(0, rangeStart) + unformattedText + value.substring(rangeEnd);
           newSelectionStart = rangeStart;
-          newSelectionEnd = rangeEnd - 2;
-          break;
-        case 'code':
-          newText = value.substring(0, rangeStart) + possiblyFormattedText.slice(4, -4) + value.substring(rangeEnd);
+          newSelectionEnd = rangeStart + unformattedText.length;
+        } else {
+          newText = value.substring(0, selectionStart) + `*${selectedText}*` + value.substring(selectionEnd);
+          newSelectionStart = selectionStart + 1;
+          newSelectionEnd = selectionStart + selectedText.length + 1;
+        }
+        break;
+      }
+      
+      case 'code': {
+        const isCode = /^```\n([\s\S]*)\n```$/.test(selectedContent);
+        if (isCode) {
+          const unformattedText = selectedContent.slice(4, -4);
+          newText = value.substring(0, rangeStart) + unformattedText + value.substring(rangeEnd);
           newSelectionStart = rangeStart;
-          newSelectionEnd = rangeEnd - 8;
-          break;
-        case 'link':
-          const linkText = possiblyFormattedText.match(/^\[(.*)\]\((.*)\)$/);
+          newSelectionEnd = rangeStart + unformattedText.length;
+        } else {
+          newText = value.substring(0, selectionStart) + `\`\`\`\n${selectedText}\n\`\`\`\n` + value.substring(selectionEnd);
+          newSelectionStart = selectionStart + 4;
+          newSelectionEnd = selectionStart + selectedText.length + 4;
+        }
+        break;
+      }
+      
+      case 'link': {
+        const isLink = /^\[(.*)\]\((.*)\)$/.test(selectedContent);
+        if (isLink) {
+          const linkText = selectedContent.match(/^\[(.*)\]\((.*)\)$/);
           if (linkText) {
             newText = value.substring(0, rangeStart) + linkText[1] + value.substring(rangeEnd);
             newSelectionStart = rangeStart;
             newSelectionEnd = rangeStart + linkText[1].length;
+          } else {
+            return; // Invalid link format
           }
-          break;
-      }
-    } else {
-      // Add formatting
-      switch (type) {
-        case 'bold':
-          newText = value.substring(0, selectionStart) + `**${selectedText}**` + value.substring(selectionEnd);
-          newSelectionStart = selectionStart + 2;
-          newSelectionEnd = selectionStart + 2 + selectedText.length;
-          break;
-        case 'italic':
-          newText = value.substring(0, selectionStart) + `*${selectedText}*` + value.substring(selectionEnd);
-          newSelectionStart = selectionStart + 1;
-          newSelectionEnd = selectionStart + 1 + selectedText.length;
-          break;
-        case 'code':
-          newText = value.substring(0, selectionStart) + `\n\`\`\`\n${selectedText}\n\`\`\`\n` + value.substring(selectionEnd);
-          newSelectionStart = selectionStart + 5;
-          newSelectionEnd = selectionStart + 5 + selectedText.length;
-          break;
-        case 'link':
+        } else {
           newText = value.substring(0, selectionStart) + `[${selectedText}]()` + value.substring(selectionEnd);
-          newSelectionStart = selectionStart + 1;
-          newSelectionEnd = selectionStart + 1 + selectedText.length;
-          break;
+          newSelectionStart = selectionStart + selectedText.length + 3; // Position cursor in ()
+          newSelectionEnd = newSelectionStart;
+        }
+        break;
       }
+      
+      default:
+        return;
     }
 
     onTextChange(newText, newSelectionStart, newSelectionEnd);

@@ -55,7 +55,7 @@ export default function Input({
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     
-    if (start === end) {
+    if (start === end || start === null || end === null) {
       setSelectionCoords(null);
       return;
     }
@@ -231,14 +231,23 @@ export default function Input({
   };
 
   const handleTextChange = (newText: string, newSelectionStart: number, newSelectionEnd: number) => {
+    // Store current scroll position before any changes
+    const currentScrollTop = textAreaRef.current?.scrollTop || 0;
+    
     setValue(newText);
     
     // Use requestAnimationFrame to ensure DOM updates are complete
     requestAnimationFrame(() => {
       if (textAreaRef.current) {
+        // First restore the scroll position
+        textAreaRef.current.scrollTop = currentScrollTop;
+        
+        // Then set focus and selection
         textAreaRef.current.focus();
-        textAreaRef.current.scrollTop = textAreaRef.current.scrollTop; // Preserve scroll position
         textAreaRef.current.setSelectionRange(newSelectionStart, newSelectionEnd);
+        
+        // Finally update the floating toolbar position
+        updateSelection();
       }
     });
   };
