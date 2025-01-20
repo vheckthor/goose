@@ -13,14 +13,6 @@ interface InputProps {
   onStop?: () => void;
 }
 
-interface SelectionCoords {
-  x: number;
-  y: number;
-  absoluteY: number;
-  scrollTop: number;
-  isPinned?: boolean;
-}
-
 declare global {
   interface Window {
     electron: {

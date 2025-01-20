@@ -1,4 +1,4 @@
-import { useState, useEffect, RefObject } from 'react';
+import { useState, RefObject } from 'react';
 
 export interface SelectionCoords {
   x: number;
