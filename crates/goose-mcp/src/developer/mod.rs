@@ -43,6 +43,44 @@ impl Default for DeveloperRouter {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lazy_static::lazy_static;
+    use std::fs;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    lazy_static! {
+        static ref TEST_MUTEX: Mutex<()> = Mutex::new(());
+    }
+
+    #[test]
+    fn test_goosehints_when_present() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        fs::write(".goosehints", "Test hint content").unwrap();
+        let router = DeveloperRouter::new();
+        let instructions = router.instructions();
+
+        assert!(instructions.contains("Test hint content"));
+    }
+
+    #[test]
+    fn test_goosehints_when_missing() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        let dir = TempDir::new().unwrap();
+        std::env::set_current_dir(dir.path()).unwrap();
+
+        let router = DeveloperRouter::new();
+        let instructions = router.instructions();
+
+        assert!(!instructions.contains("Project Hints"));
+    }
+}
+
 impl DeveloperRouter {
     pub fn new() -> Self {
         // TODO consider rust native search tools, we could use
@@ -155,7 +193,9 @@ impl DeveloperRouter {
             }),
         );
 
-        let instructions = formatdoc! {r#"
+        // Get base instructions and working directory
+        let cwd = std::env::current_dir().expect("should have a current working dir");
+        let base_instructions = formatdoc! {r#"
             The developer system gives you the capabilities to edit code files and run shell commands,
             and can be used to solve a wide range of problems.
 
@@ -170,7 +210,19 @@ impl DeveloperRouter {
 
             "#,
             os=std::env::consts::OS,
-            cwd=std::env::current_dir().expect("should have a current working dir").to_string_lossy(),
+            cwd=cwd.to_string_lossy(),
+        };
+
+        // Check for and read .goosehints file if it exists
+        let hints_path = cwd.join(".goosehints");
+        let instructions = if hints_path.is_file() {
+            if let Ok(hints) = std::fs::read_to_string(&hints_path) {
+                format!("{base_instructions}\n### Project Hints\nThe developer system includes some hints for working on the project in this directory.\n{hints}")
+            } else {
+                base_instructions
+            }
+        } else {
+            base_instructions
         };
 
         Self {
