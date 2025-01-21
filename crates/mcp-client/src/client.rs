@@ -1,11 +1,8 @@
-use mcp_core::{
-    prompt::Prompt,
-    protocol::{
+use mcp_core::protocol::{
         CallToolResult, GetPromptResult, Implementation, InitializeResult, JsonRpcError,
         JsonRpcMessage, JsonRpcNotification, JsonRpcRequest, JsonRpcResponse, ListPromptsResult,
         ListResourcesResult, ListToolsResult, ReadResourceResult, ServerCapabilities,
-        METHOD_NOT_FOUND,
-    },
+        METHOD_NOT_FOUND
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -135,10 +132,11 @@ where
     }
 
     /// Send a JSON-RPC request and check we don't get an error response.
-    pub async fn send_request<R>(&self, method: &str, params: Value) -> Result<R, Error>
+    async fn send_request<R>(&self, method: &str, params: Value) -> Result<R, Error>
     where
         R: for<'de> Deserialize<'de>,
     {
+        println!("send_request: method={:?}, params={:?}", method, params);
         let mut service = self.service.lock().await;
         service.ready().await.map_err(|_| Error::NotReady)?;
 
@@ -159,7 +157,7 @@ where
                 params: params.clone(),
                 source: Box::new(e.into()),
             })?;
-
+        println!("response_msg: {:?}", response_msg);
         match response_msg {
             JsonRpcMessage::Response(JsonRpcResponse {
                 id, result, error, ..
@@ -313,6 +311,7 @@ where
     }
 
     async fn list_tools(&self, next_cursor: Option<String>) -> Result<ListToolsResult, Error> {
+        println!("list_tools");
         if !self.completed_initialization() {
             return Err(Error::NotInitialized);
         }
@@ -384,6 +383,7 @@ where
     }
 
     async fn forward_request(&self, method: &str, params: Value) -> Result<Value, Error> {
+        println!("Forwarding request to server: method={}, params={}", method, params);
         self.send_request(method, params).await
     }
 }

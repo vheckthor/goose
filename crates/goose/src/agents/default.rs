@@ -148,6 +148,7 @@ impl Agent for DefaultAgent {
     }
 
     async fn passthrough(&self, system: &str, method: &str, params: Value) -> SystemResult<Value> {
+        println!("in pass through");
         let capabilities = self.capabilities.lock().await;
         let client = capabilities
             .get_system(system)

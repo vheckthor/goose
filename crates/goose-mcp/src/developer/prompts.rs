@@ -23,6 +23,7 @@ pub fn create_prompts() -> Vec<Prompt> {
             .collect();
 
         prompts.push(Prompt::new(&template.id, &template.template, arguments));
+        println!("Loaded prompt: {}", template.id);
     }
 
     prompts

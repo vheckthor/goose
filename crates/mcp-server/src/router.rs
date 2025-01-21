@@ -258,6 +258,7 @@ pub trait Router: Send + Sync + 'static {
         req: JsonRpcRequest,
     ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
         async move {
+            println!("handling prompts list");
             let prompts = self.list_prompts().unwrap_or_default();
 
             let result = ListPromptsResult { prompts };
@@ -277,6 +278,7 @@ pub trait Router: Send + Sync + 'static {
         req: JsonRpcRequest,
     ) -> impl Future<Output = Result<JsonRpcResponse, RouterError>> + Send {
         async move {
+            println!("handling prompts get");
             // Validate and extract parameters
             let params = req
                 .params
@@ -294,6 +296,9 @@ pub trait Router: Send + Sync + 'static {
                 .and_then(Value::as_object)
                 .ok_or_else(|| RouterError::InvalidParams("Missing arguments object".into()))?;
 
+            println!("extracted arguments: {:?}", arguments);
+            println!("extracted name {:?}", prompt_name);
+
             // Fetch the prompt definition first
             let prompt = match self.list_prompts() {
                 Some(prompts) => prompts
@@ -304,6 +309,8 @@ pub trait Router: Send + Sync + 'static {
                     })?,
                 None => return Err(RouterError::PromptNotFound("No prompts available".into())),
             };
+
+            println!("extracted prompt {:?}", prompt);
 
             // Validate required arguments
             for arg in &prompt.arguments {
@@ -321,12 +328,16 @@ pub trait Router: Send + Sync + 'static {
                 }
             }
 
+            println!("validated arguments");
+
             // Now get the prompt content
             let description = self
                 .get_prompt(prompt_name)
                 .ok_or_else(|| RouterError::PromptNotFound("Prompt not found".into()))?
                 .await
                 .map_err(|e| RouterError::Internal(e.to_string()))?;
+
+            println!("extracted description {:?}", description);
 
             // Validate prompt arguments for potential security issues from user text input
             // Checks:
@@ -360,6 +371,8 @@ pub trait Router: Send + Sync + 'static {
                     }
                 }
             }
+
+            println!("validated arguments round 2");
 
             // Validate the prompt description length
             if description.len() > 10000 {

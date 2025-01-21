@@ -2,12 +2,13 @@ use mcp_core::protocol::{GetPromptResult, ListPromptsResult};
 
 use crate::state::AppState;
 use axum::{
-    extract::{Path, State},
+    extract::State,
     http::{HeaderMap, StatusCode},
     routing::post,
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize)]
 struct Prompt {
@@ -17,14 +18,21 @@ struct Prompt {
 }
 
 #[derive(Serialize, Deserialize)]
+struct ListPromptRequest {
+    system: String
+}
+
+#[derive(Serialize, Deserialize)]
 struct PromptRequest {
     system: String,
+    name: String,
+    arguments: Value
 }
 
 async fn list_prompts_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(request): Json<PromptRequest>,
+    Json(request): Json<ListPromptRequest>,
 ) -> Result<Json<ListPromptsResult>, StatusCode> {
     // Verify secret key
     let secret_key = headers
@@ -41,21 +49,21 @@ async fn list_prompts_handler(
 
     // Get prompts through agent passthrough
     let result = agent
-        .passthrough(&request.system, "list_prompts", serde_json::json!({}))
+        .passthrough(&request.system, "prompts/list", serde_json::json!({}))
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Deserialize the result to ListPromptsResult
     let prompts_result: ListPromptsResult =
         serde_json::from_value(result).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
     Ok(Json(prompts_result))
 }
 
 async fn get_prompt_handler(
-    Path(prompt_name): Path<String>,
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<PromptRequest>,
+    Json(request): Json<PromptRequest>,
 ) -> Result<Json<GetPromptResult>, StatusCode> {
     // Verify secret key
     let secret_key = headers
@@ -73,10 +81,11 @@ async fn get_prompt_handler(
     // Get prompt through agent passthrough
     let result = agent
         .passthrough(
-            &payload.system,
-            "get_prompt",
+            &request.system,
+            "prompts/get",
             serde_json::json!({
-                "name": prompt_name
+                "name": &request.name,
+                "arguments": &request.arguments,
             }),
         )
         .await
@@ -91,6 +100,6 @@ async fn get_prompt_handler(
 pub fn routes(state: AppState) -> Router {
     Router::new()
         .route("/prompts/list", post(list_prompts_handler))
-        .route("/prompts/get/:prompt_name", post(get_prompt_handler))
+        .route("/prompts/get", post(get_prompt_handler))
         .with_state(state)
 }

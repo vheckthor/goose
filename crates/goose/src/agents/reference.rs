@@ -54,12 +54,14 @@ impl Agent for ReferenceAgent {
 
     async fn passthrough(&self, system: &str, method: &str, params: Value) -> SystemResult<Value> {
         let capabilities = self.capabilities.lock().await;
+        tracing::info!("passthrough" = system, method);
         let client = capabilities
             .get_system(system)
             .await
             .unwrap_or_else(|| panic!("System not found: {}", system));
         let client = client.lock().await;
 
+        tracing::info!("forwarding request" = method);
         let result: Value = client
             .forward_request(method, params)
             .await
