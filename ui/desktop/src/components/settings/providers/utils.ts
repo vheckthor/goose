@@ -24,7 +24,6 @@ export async function getSecretsSettings(): Promise<Record<string, ProviderRespo
     }
 
     const data = await response.json() as Record<string, ProviderResponse>;
-    console.log("raw response", data)
     return data
 }
 
@@ -51,7 +50,6 @@ export function transformProviderSecretsResponse(data: Record<string, ProviderRe
             return a.order === -1 ? 1 : -1;
         });
 
-    console.log("transformed providers", transformedProviders)
     return transformedProviders
 }
 
