@@ -155,9 +155,37 @@ async fn add_extension(
     }
 }
 
-/// Registers the `/extensions/add` route with the Axum router.
+/// Handler for removing an extension by name
+async fn remove_extension(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(name): Json<String>,
+) -> Result<Json<ExtensionResponse>, StatusCode> {
+    // Verify the presence and validity of the secret key
+    let secret_key = headers
+        .get("X-Secret-Key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if secret_key != state.secret_key {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Acquire a lock on the agent and attempt to remove the extension
+    let mut agent = state.agent.lock().await;
+    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    agent.remove_extension(&name).await;
+
+    Ok(Json(ExtensionResponse {
+        error: false,
+        message: None,
+    }))
+}
+
+/// Registers the extension management routes with the Axum router.
 pub fn routes(state: AppState) -> Router {
     Router::new()
         .route("/extensions/add", post(add_extension))
+        .route("/extensions/remove", post(remove_extension))
         .with_state(state)
 }
