@@ -32,14 +32,14 @@ export default function App() {
   return (
       <ModelProvider>
         <ActiveKeysProvider>
-        {isLauncher ? <LauncherWindow /> : <ChatWindow />}
-        <ToastContainer
-            aria-label="Toast notifications"
-            position="top-right"
-            autoClose={3000}
-            closeOnClick
-            pauseOnHover
-        />
+          {isLauncher ? <LauncherWindow /> : <ChatWindow />}
+          <ToastContainer
+              aria-label="Toast notifications"
+              position="top-right"
+              autoClose={3000}
+              closeOnClick
+              pauseOnHover
+          />
         </ActiveKeysProvider>
       </ModelProvider>
   );

@@ -6,13 +6,15 @@ import BackButton from "../../ui/BackButton";
 import { SearchBar} from "./Search";
 import { useModel} from "./ModelContext";
 import { AddModelInline } from "./AddModelInline";
+import { useNavigate } from "react-router-dom";
 
 // TODO: handle darkmode
 export default function MoreModelsPage() {
     const { currentModel } = useModel(); // Access global state
+    const navigate = useNavigate();
 
     return (
-        <div className="flex min-h-screen bg-background text-foreground overflow-y-auto overflow-x-hidden">
+        <div className="flex min-h-screen bg-background text-foreground overflow-hidden">
             {/* Left-hand side exit button */}
             <aside className="w-48 border-r border-gray-100 dark:border-gray-700 px-2 pt-6">
                 <div className="sticky top-8">
@@ -20,7 +22,7 @@ export default function MoreModelsPage() {
                 </div>
             </aside>
 
-            <div className="container max-w-6xl mx-auto p-6">
+            <div className="container max-w-6xl mx-auto p-6 overflow-y-auto">
                 {/* First row: Title and buttons */}
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-semibold">More Models</h1>
@@ -28,7 +30,7 @@ export default function MoreModelsPage() {
                     <div className="flex items-center space-x-4">
                         <Button
                             variant="outline"
-                            onClick={() => console.log("Navigate to Configure Providers")}
+                            onClick={() => navigate("/settings/configure-providers")}
                         >
                             Configure Providers
                         </Button>
@@ -49,8 +51,8 @@ export default function MoreModelsPage() {
                     {/* Search section */}
                     <SearchBar />
 
-                    {/*Add model*/}
-                    <AddModelInline/>
+                    {/* Add model */}
+                    <AddModelInline />
 
                     {/* Provider buttons */}
                     <div className="space-y-4">

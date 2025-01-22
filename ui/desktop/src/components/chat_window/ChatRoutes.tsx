@@ -4,6 +4,7 @@ import { ChatContent } from "../../ChatWindow"
 import Settings  from "../settings/Settings"
 import Keys from "../settings/Keys"
 import MoreModelsSettings from "../settings/models/MoreModels";
+import {ProvidersPage} from "../settings/providers/ConfigureProviders";
 
 export const ChatRoutes = ({
                         chats,
@@ -30,6 +31,7 @@ export const ChatRoutes = ({
         />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/more-models" element={<MoreModelsSettings />} />
+        <Route path="/settings/configure-providers" element={<ProvidersPage />} />
         <Route path="/keys" element={<Keys />} />
         <Route path="*" element={<Navigate to="/chat/1" replace />} />
     </Routes>

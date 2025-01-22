@@ -1,6 +1,6 @@
 import { ProviderResponse, Provider, TransformedSecret, RawSecretStatus } from './types'
-import { getProvidersList } from '../../../utils/providerUtils'
-import { getApiUrl, getSecretKey } from "../../../config";
+import { getProvidersList } from '../../../../utils/providerUtils'
+import { getApiUrl, getSecretKey } from "../../../../config";
 
 export async function getSecretsSettings(): Promise<Record<string, ProviderResponse>> {
     const providerList = await getProvidersList();

@@ -6,11 +6,15 @@ export async function getActiveProviders(): Promise<string[]> {
         // Fetch the secrets settings
         const secretsSettings = await getSecretsSettings();
 
-        // Extract active providers based on `is_set` in `secret_status`
+        // Extract active providers based on `is_set` in `secret_status` or providers with no keys
         const activeProviders = Object.values(secretsSettings) // Convert object to array
             .filter((provider) => {
                 const apiKeyStatus = Object.values(provider.secret_status || {}); // Get all key statuses
-                return apiKeyStatus.some((key) => key.is_set); // Check if any key has `is_set: true`
+
+                // Include providers if:
+                // - They have at least one key set (`is_set: true`), OR
+                // - They have no keys (`secret_status` is empty or undefined)
+                return apiKeyStatus.some((key) => key.is_set) || apiKeyStatus.length === 0;
             })
             .map((provider) => provider.name || "Unknown Provider"); // Extract provider name
 
@@ -20,6 +24,7 @@ export async function getActiveProviders(): Promise<string[]> {
         return [];
     }
 }
+
 
 export async function getSecretsSettings(): Promise<Record<string, ProviderResponse>> {
     const providerList = await getProvidersList();

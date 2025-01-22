@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { useNavigate } from "react-router-dom";
-import { Settings as SettingsType, Model, Extension, Key } from "./types";
+import { Settings as SettingsType, Model, Key } from "./types";
 import { ToggleableItem } from "./ToggleableItem";
 import { KeyItem } from "./KeyItem";
 import { AddModelDialog } from "./modals/AddModelDialog";
@@ -85,14 +85,6 @@ export default function Settings() {
   React.useEffect(() => {
     localStorage.setItem("user_settings", JSON.stringify(settings));
   }, [settings]);
-
-  const handleModelToggle = async (model: Model) => {
-    try {
-      await handleModelSelection(model, "Settings"); // Use the provided model selection logic
-    } catch (error) {
-      console.error("Failed to switch model:", error);
-    }
-  };
 
   const handleExtensionToggle = (extensionId: string) => {
     setSettings((prev) => ({

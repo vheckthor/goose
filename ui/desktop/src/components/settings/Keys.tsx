@@ -9,10 +9,10 @@ import {
   getSecretsSettings,
   transformProviderSecretsResponse,
   transformSecrets,
-} from './providers/utils';
-import { ProviderSetupModal } from "../welcome_screen/ProviderSetupModal";
-import { Provider } from './providers/types'
-import { ProviderCard } from './providers/ProviderCard'
+} from './providers/old_stuff/utils';
+import { ProviderSetupModal } from "./modals/ProviderSetupModal";
+import { Provider } from './providers/old_stuff/types'
+import { ProviderCard } from './providers/old_stuff/ProviderCard'
 import { ConfirmDeletionModal } from './modals/ConfirmDeletionModal'
 
 
