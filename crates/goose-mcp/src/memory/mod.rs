@@ -93,8 +93,7 @@ impl MemoryRouter {
         );
 
         let instructions = formatdoc! {r#"
-             Memory Management System for Goose
-             This system allows storage and retrieval of categorized information with tagging support. It's designed to help
+             This extension allows storage and retrieval of categorized information with tagging support. It's designed to help
              manage important information across sessions in a systematic and organized manner.
              Capabilities:
              1. Store information in categories with optional tags for context-based retrieval.

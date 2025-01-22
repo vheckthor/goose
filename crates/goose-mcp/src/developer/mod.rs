@@ -158,7 +158,7 @@ impl DeveloperRouter {
         // Get base instructions and working directory
         let cwd = std::env::current_dir().expect("should have a current working dir");
         let base_instructions = formatdoc! {r#"
-            The developer system gives you the capabilities to edit code files and run shell commands,
+            The developer extension gives you the capabilities to edit code files and run shell commands,
             and can be used to solve a wide range of problems.
 
             You can use the shell tool to run any command that would work on the relevant operating system.
@@ -179,7 +179,7 @@ impl DeveloperRouter {
         let hints_path = cwd.join(".goosehints");
         let instructions = if hints_path.is_file() {
             if let Ok(hints) = std::fs::read_to_string(&hints_path) {
-                format!("{base_instructions}\n### Project Hints\nThe developer system includes some hints for working on the project in this directory.\n{hints}")
+                format!("{base_instructions}\n### Project Hints\nThe developer extension includes some hints for working on the project in this directory.\n{hints}")
             } else {
                 base_instructions
             }

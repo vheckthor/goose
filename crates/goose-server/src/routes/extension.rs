@@ -3,25 +3,25 @@ use std::collections::HashMap;
 use crate::state::AppState;
 use axum::{extract::State, routing::post, Json, Router};
 use goose::{
-    agents::{system::Envs, SystemConfig},
+    agents::{extension::Envs, ExtensionConfig},
     key_manager::{get_keyring_secret, KeyRetrievalStrategy},
 };
 use http::{HeaderMap, StatusCode};
 use serde::{Deserialize, Serialize};
 
-/// Enum representing the different types of system configuration requests.
+/// Enum representing the different types of extension configuration requests.
 #[derive(Deserialize)]
 #[serde(tag = "type")]
-enum SystemConfigRequest {
-    /// Server-Sent Events (SSE) system.
+enum ExtensionConfigRequest {
+    /// Server-Sent Events (SSE) extension.
     #[serde(rename = "sse")]
     Sse {
-        /// The URI endpoint for the SSE system.
+        /// The URI endpoint for the SSE extension.
         uri: String,
         /// List of environment variable keys. The server will fetch their values from the keyring.
         env_keys: Vec<String>,
     },
-    /// Standard I/O (stdio) system.
+    /// Standard I/O (stdio) extension.
     #[serde(rename = "stdio")]
     Stdio {
         /// The command to execute.
@@ -31,30 +31,30 @@ enum SystemConfigRequest {
         /// List of environment variable keys. The server will fetch their values from the keyring.
         env_keys: Vec<String>,
     },
-    /// Built-in system that is part of the goose binary.
+    /// Built-in extension that is part of the goose binary.
     #[serde(rename = "builtin")]
     Builtin {
-        /// The name of the built-in system.
+        /// The name of the built-in extension.
         name: String,
     },
 }
 
-/// Response structure for adding a system.
+/// Response structure for adding an extension.
 ///
 /// - `error`: Indicates whether an error occurred (`true`) or not (`false`).
 /// - `message`: Provides detailed error information when `error` is `true`.
 #[derive(Serialize)]
-struct SystemResponse {
+struct ExtensionResponse {
     error: bool,
     message: Option<String>,
 }
 
-/// Handler for adding a new system configuration.
-async fn add_system(
+/// Handler for adding a new extension configuration.
+async fn add_extension(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(request): Json<SystemConfigRequest>,
-) -> Result<Json<SystemResponse>, StatusCode> {
+    Json(request): Json<ExtensionConfigRequest>,
+) -> Result<Json<ExtensionResponse>, StatusCode> {
     // Verify the presence and validity of the secret key.
     let secret_key = headers
         .get("X-Secret-Key")
@@ -68,9 +68,9 @@ async fn add_system(
     // Initialize a vector to collect any missing keys.
     let mut missing_keys = Vec::new();
 
-    // Construct SystemConfig with Envs populated from keyring based on provided env_keys.
-    let system_config: SystemConfig = match request {
-        SystemConfigRequest::Sse { uri, env_keys } => {
+    // Construct ExtensionConfig with Envs populated from keyring based on provided env_keys.
+    let extension_config: ExtensionConfig = match request {
+        ExtensionConfigRequest::Sse { uri, env_keys } => {
             let mut env_map = HashMap::new();
             for key in env_keys {
                 match get_keyring_secret(&key, KeyRetrievalStrategy::KeyringOnly) {
@@ -84,7 +84,7 @@ async fn add_system(
             }
 
             if !missing_keys.is_empty() {
-                return Ok(Json(SystemResponse {
+                return Ok(Json(ExtensionResponse {
                     error: true,
                     message: Some(format!(
                         "Missing secrets for keys: {}",
@@ -93,12 +93,12 @@ async fn add_system(
                 }));
             }
 
-            SystemConfig::Sse {
+            ExtensionConfig::Sse {
                 uri,
                 envs: Envs::new(env_map),
             }
         }
-        SystemConfigRequest::Stdio {
+        ExtensionConfigRequest::Stdio {
             cmd,
             args,
             env_keys,
@@ -116,7 +116,7 @@ async fn add_system(
             }
 
             if !missing_keys.is_empty() {
-                return Ok(Json(SystemResponse {
+                return Ok(Json(ExtensionResponse {
                     error: true,
                     message: Some(format!(
                         "Missing secrets for keys: {}",
@@ -125,39 +125,39 @@ async fn add_system(
                 }));
             }
 
-            SystemConfig::Stdio {
+            ExtensionConfig::Stdio {
                 cmd,
                 args,
                 envs: Envs::new(env_map),
             }
         }
-        SystemConfigRequest::Builtin { name } => SystemConfig::Builtin { name },
+        ExtensionConfigRequest::Builtin { name } => ExtensionConfig::Builtin { name },
     };
 
-    // Acquire a lock on the agent and attempt to add the system.
+    // Acquire a lock on the agent and attempt to add the extension.
     let mut agent = state.agent.lock().await;
     let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
-    let response = agent.add_system(system_config).await;
+    let response = agent.add_extension(extension_config).await;
 
     // Respond with the result.
     match response {
-        Ok(_) => Ok(Json(SystemResponse {
+        Ok(_) => Ok(Json(ExtensionResponse {
             error: false,
             message: None,
         })),
         Err(e) => {
-            eprintln!("Failed to add system configuration: {:?}", e);
-            Ok(Json(SystemResponse {
+            eprintln!("Failed to add extension configuration: {:?}", e);
+            Ok(Json(ExtensionResponse {
                 error: true,
-                message: Some("Failed to add system configuration".to_string()),
+                message: Some("Failed to add extension configuration".to_string()),
             }))
         }
     }
 }
 
-/// Registers the `/systems/add` route with the Axum router.
+/// Registers the `/extensions/add` route with the Axum router.
 pub fn routes(state: AppState) -> Router {
     Router::new()
-        .route("/systems/add", post(add_system))
+        .route("/extensions/add", post(add_extension))
         .with_state(state)
 }

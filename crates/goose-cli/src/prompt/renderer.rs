@@ -69,11 +69,11 @@ impl ToolRenderer for DefaultRenderer {
 }
 
 #[derive(Clone)]
-pub struct BashDeveloperSystemRenderer;
+pub struct BashDeveloperExtensionRenderer;
 
-impl ToolRenderer for BashDeveloperSystemRenderer {
+impl ToolRenderer for BashDeveloperExtensionRenderer {
     fn tool_name(&self) -> String {
-        "DeveloperSystem__bash".to_string()
+        "DeveloperExtension__bash".to_string()
     }
 
     fn request(&self, tool_request: &ToolRequest, theme: &str) {

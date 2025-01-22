@@ -1,15 +1,15 @@
-# Systems Design Guide
+# Extensions Design Guide
 
-This document describes the design and implementation of the Systems framework in Goose, which enables AI agents to interact with different systems through a unified tool-based interface.
+This document describes the design and implementation of the Extensions framework in Goose, which enables AI agents to interact with different extensions through a unified tool-based interface.
 
 ## Core Concepts
 
-### System
-A System represents any component that can be operated by an AI agent. Systems expose their capabilities through Tools and maintain their own state. The core interface is defined by the `System` trait:
+### Extension
+An Extension represents any component that can be operated by an AI agent. Extensions expose their capabilities through Tools and maintain their own state. The core interface is defined by the `Extension` trait:
 
 ```rust
 #[async_trait]
-pub trait System: Send + Sync {
+pub trait Extension: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn instructions(&self) -> &str;
@@ -20,7 +20,7 @@ pub trait System: Send + Sync {
 ```
 
 ### Tools
-Tools are the primary way Systems expose functionality to agents. Each tool has:
+Tools are the primary way Extensions expose functionality to agents. Each tool has:
 - A name
 - A description
 - A set of parameters
@@ -37,7 +37,7 @@ async fn echo(&self, params: Value) -> AgentResult<Value>
 
 ### Component Overview
 
-1. **System Trait**: The core interface that all systems must implement
+1. **Extension Trait**: The core interface that all extensions must implement
 2. **Error Handling**: Specialized error types for tool execution
 3. **Proc Macros**: Simplify tool definition and registration [*not yet implemented*]
 
@@ -45,9 +45,9 @@ async fn echo(&self, params: Value) -> AgentResult<Value>
 
 The system uses two main error types:
 - `ToolError`: Specific errors related to tool execution
-- `anyhow::Error`: General purpose errors for system status and other operations
+- `anyhow::Error`: General purpose errors for extension status and other operations
 
-This split allows precise error handling for tool execution while maintaining flexibility for general system operations.
+This split allows precise error handling for tool execution while maintaining flexibility for general extension operations.
 
 ## Best Practices
 
@@ -58,16 +58,16 @@ This split allows precise error handling for tool execution while maintaining fl
 3. **Error Handling**: Return specific errors when possible, the errors become "prompts"
 4. **State Management**: Be explicit about state modifications
 
-### System Implementation
+### Extension Implementation
 
-1. **State Encapsulation**: Keep system state private and controlled
+1. **State Encapsulation**: Keep extension state private and controlled
 2. **Error Propagation**: Use `?` operator with `ToolError` for tool execution
 3. **Status Clarity**: Provide clear, structured status information
 4. **Documentation**: Document all tools and their effects
 
 ### Example Implementation
 
-Here's a complete example of a simple system:
+Here's a complete example of a simple extension:
 
 ```rust
 use goose_macros::tool;
@@ -93,24 +93,24 @@ impl FileSystem {
 }
 
 #[async_trait]
-impl System for FileSystem {
+impl Extension for FileSystem {
     // ... implement trait methods ...
 }
 ```
 
 ## Testing
 
-Systems should be tested at multiple levels:
+Extensions should be tested at multiple levels:
 1. Unit tests for individual tools
-2. Integration tests for system behavior
+2. Integration tests for extension behavior
 3. Property tests for tool invariants
 
 Example test:
 ```rust
 #[tokio::test]
 async fn test_echo_tool() {
-    let system = TestSystem::new();
-    let result = system.call_tool(
+    let extension = TestExtension::new();
+    let result = extension.call_tool(
         "echo",
         hashmap!{ "message" => json!("hello") }
     ).await;
