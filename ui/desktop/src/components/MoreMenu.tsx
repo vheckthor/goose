@@ -206,17 +206,16 @@ export default function MoreMenu() {
             )}
 
             {/* Settings Menu */}
-            {process.env.NODE_ENV === "development" && (
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  navigate("/settings");
-                }}
-                className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700"
-              >
-                Settings
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setOpen(false);
+                navigate("/settings");
+              }}
+              className="w-full text-left px-2 py-1.5 text-sm hover:bg-gray-700"
+            >
+              Settings
+            </button>
+
 
             <button
               onClick={() => {
