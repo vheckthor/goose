@@ -4,8 +4,8 @@ import ChatWindow from './ChatWindow';
 import ErrorScreen from './components/ErrorScreen';
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
-import { ModelProvider} from "./components/settings/models/ModelContext";
-import { ActiveKeysProvider } from "./components/settings/api_keys/ActiveKeysContext";
+import { ModelProvider } from './components/settings/models/ModelContext';
+import { ActiveKeysProvider } from './components/settings/api_keys/ActiveKeysContext';
 import { loadStoredExtensionConfigs } from './extensions';
 
 export default function App() {
@@ -22,7 +22,7 @@ export default function App() {
     window.electron.on('fatal-error', handleFatalError);
 
     // Load stored extension configs when the app starts
-    loadStoredExtensionConfigs().catch(error => {
+    loadStoredExtensionConfigs().catch((error) => {
       console.error('Failed to load stored extension configs:', error);
     });
 
@@ -36,17 +36,17 @@ export default function App() {
   }
 
   return (
-      <ModelProvider>
-        <ActiveKeysProvider>
-          {isLauncher ? <LauncherWindow /> : <ChatWindow />}
-          <ToastContainer
-              aria-label="Toast notifications"
-              position="top-right"
-              autoClose={3000}
-              closeOnClick
-              pauseOnHover
-          />
-        </ActiveKeysProvider>
-      </ModelProvider>
+    <ModelProvider>
+      <ActiveKeysProvider>
+        {isLauncher ? <LauncherWindow /> : <ChatWindow />}
+        <ToastContainer
+          aria-label="Toast notifications"
+          position="top-right"
+          autoClose={3000}
+          closeOnClick
+          pauseOnHover
+        />
+      </ActiveKeysProvider>
+    </ModelProvider>
   );
 }
