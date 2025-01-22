@@ -3,6 +3,7 @@ import { Clock } from 'lucide-react';
 import { Model } from "./ModelContext"
 import { useHandleModelSelection } from "./utils";
 import { useModel } from "./ModelContext";
+import { ModelRadioList } from "./ModelRadioList";
 
 const MAX_RECENT_MODELS = 3
 
@@ -134,58 +135,34 @@ export function RecentModels() {
 }
 
 export function RecentModelsRadio() {
-    const { recentModels } = useRecentModels(); // Access recent models
-    const handleModelSelection = useHandleModelSelection(); // Access the model selection handler
-    const { currentModel } = useModel(); // Get the current selected model
-    const [selectedModel, setSelectedModel] = useState<string | null>(null); // Track the currently selected model
-
-    // Initialize selectedModel with the currentModel on component mount
-    useEffect(() => {
-        if (currentModel) {
-            setSelectedModel(currentModel.name);
-        }
-    }, [currentModel]);
-
-    const handleRadioChange = async (model: Model) => {
-        if (selectedModel === model.name) {
-            // Display feedback for already selected model
-            console.log(`Model "${model.name}" is already active.`);
-            return;
-        }
-
-        setSelectedModel(model.name); // Update the selected model locally
-        await handleModelSelection(model, "RecentModels"); // Switch the model using the handler
-    };
-
     return (
         <div className="space-y-4">
             <h2 className="text-2xl font-semibold">Recent Models</h2>
-            {recentModels.map((model) => (
-                <label
-                    key={model.name}
-                    className="flex items-center justify-between p-4 cursor-pointer"
-                >
-                    <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">{model.name}</p>
-                        <p className="font-medium">{model.provider}</p>
-                    </div>
-                    <div className="relative">
-                        <input
-                            type="radio"
-                            name="recentModels"
-                            value={model.name}
-                            checked={selectedModel === model.name}
-                            onChange={() => handleRadioChange(model)}
-                            className="peer sr-only" // Hide the default radio button
-                        />
-                        <div className="h-4 w-4 rounded-full border border-gray-400 dark:border-gray-500
-                                      peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
-                                      peer-checked:bg-white dark:peer-checked:bg-black
-                                      transition-all duration-200 ease-in-out">
+            <ModelRadioList 
+                renderItem={({ model, isSelected, onSelect }) => (
+                    <label key={model.name} className="flex items-center justify-between p-4 cursor-pointer">
+                        <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">{model.name}</p>
+                            <p className="font-medium">{model.provider}</p>
                         </div>
-                    </div>
-                </label>
-            ))}
+                        <div className="relative">
+                            <input
+                                type="radio"
+                                name="recentModels"
+                                value={model.name}
+                                checked={isSelected}
+                                onChange={onSelect}
+                                className="peer sr-only"
+                            />
+                            <div className="h-4 w-4 rounded-full border border-gray-400 dark:border-gray-500
+                                peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
+                                peer-checked:bg-white dark:peer-checked:bg-black
+                                transition-all duration-200 ease-in-out">
+                            </div>
+                        </div>
+                    </label>
+                )}
+            />
         </div>
     );
 }
