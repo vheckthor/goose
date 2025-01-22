@@ -617,9 +617,7 @@ impl DeveloperRouter {
 
         Ok(vec![
             Content::text("Screenshot captured").with_audience(vec![Role::Assistant]),
-            Content::image(data, "image/png")
-                .with_audience(vec![Role::User])
-                .with_priority(0.0),
+            Content::image(data, "image/png").with_priority(0.0),
         ])
     }
 }
