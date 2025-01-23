@@ -1,7 +1,13 @@
 import React from 'react';
 import { ProviderGrid } from '../settings/providers/ProviderGrid';
 import { ScrollArea } from '../ui/scroll-area';
-import BackButton from '../ui/BackButton';
+
+// Extending React CSSProperties to include custom webkit property
+declare module 'react' {
+  interface CSSProperties {
+    WebkitAppRegion?: string; // Now TypeScript knows about WebkitAppRegion
+  }
+}
 
 interface WelcomeScreenProps {
   onSubmit?: () => void;
@@ -9,7 +15,10 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onSubmit }: WelcomeScreenProps) {
   return (
-    <div className="h-screen w-full">
+    <div
+      className="h-screen w-full select-none"
+      style={{ WebkitAppRegion: 'drag' as React.CSSProperties }}
+    >
       {/* Add draggable title bar region */}
       <div className="h-[36px] w-full bg-transparent window-drag" />
 
