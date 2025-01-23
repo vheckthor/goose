@@ -15,14 +15,15 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onSubmit }: WelcomeScreenProps) {
   return (
-    <div
-      className="h-screen w-full select-none"
-      style={{ WebkitAppRegion: 'drag' as React.CSSProperties }}
-    >
-      {/* Add draggable title bar region */}
-      <div className="h-[36px] w-full bg-transparent window-drag" />
+    <div className="h-screen w-full select-none">
+      {/* Draggable title bar region */}
+      <div className="h-[36px] w-full bg-transparent" style={{ WebkitAppRegion: 'drag' }} />
 
-      <div className="h-[calc(100vh-36px)] w-full bg-white dark:bg-gray-800 overflow-hidden p-2 pt-0">
+      {/* Content area - explicitly set as non-draggable */}
+      <div
+        className="h-[calc(100vh-36px)] w-full bg-white dark:bg-gray-800 overflow-hidden p-2 pt-0"
+        style={{ WebkitAppRegion: 'no-drag' }}
+      >
         <ScrollArea className="h-full w-full">
           <div className="flex min-h-full">
             {/* Content Area */}
