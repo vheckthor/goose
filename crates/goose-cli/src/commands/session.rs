@@ -3,14 +3,21 @@ use std::process;
 
 use crate::prompt::rustyline::RustylinePrompt;
 use crate::session::{ensure_session_dir, get_most_recent_session, Session};
-use goose::agents::extension::ExtensionError;
+use console::style;
+use goose::agents::extension::{Envs, ExtensionError};
 use goose::agents::AgentFactory;
-use goose::config::{Config, ExtensionManager};
+use goose::config::{Config, ExtensionConfig, ExtensionManager};
 use goose::providers::create;
+use std::path::Path;
 
 use mcp_client::transport::Error as McpClientError;
 
-pub async fn build_session(name: Option<String>, resume: bool) -> Session<'static> {
+pub async fn build_session(
+    name: Option<String>,
+    resume: bool,
+    extension: Option<String>,
+    builtin: Option<String>,
+) -> Session<'static> {
     // Load config and get provider/model
     let config = Config::global();
 
@@ -19,10 +26,10 @@ pub async fn build_session(name: Option<String>, resume: bool) -> Session<'stati
         .expect("No provider configured. Run 'goose configure' first");
     let session_dir = ensure_session_dir().expect("Failed to create session directory");
 
-    let model = config
+    let model: String = config
         .get("GOOSE_MODEL")
         .expect("No model configured. Run 'goose configure' first");
-    let model_config = goose::model::ModelConfig::new(model);
+    let model_config = goose::model::ModelConfig::new(model.clone());
     let provider = create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent
@@ -51,6 +58,48 @@ pub async fn build_session(name: Option<String>, resume: bool) -> Session<'stati
                     process::exit(1);
                 });
         }
+    }
+
+    // Add extension if provided
+    if let Some(extension_str) = extension {
+        let mut parts: Vec<&str> = extension_str.split_whitespace().collect();
+        let mut envs = std::collections::HashMap::new();
+
+        // Parse environment variables (format: KEY=value)
+        while let Some(part) = parts.first() {
+            if !part.contains('=') {
+                break;
+            }
+            let env_part = parts.remove(0);
+            let (key, value) = env_part.split_once('=').unwrap();
+            envs.insert(key.to_string(), value.to_string());
+        }
+
+        if parts.is_empty() {
+            eprintln!("No command provided in extension string");
+            process::exit(1);
+        }
+
+        let cmd = parts.remove(0).to_string();
+        let config = ExtensionConfig::Stdio {
+            cmd,
+            args: parts.iter().map(|s| s.to_string()).collect(),
+            envs: Envs::new(envs),
+        };
+
+        agent.add_extension(config).await.unwrap_or_else(|e| {
+            eprintln!("Failed to start extension: {}", e);
+            process::exit(1);
+        });
+    }
+
+    // Add builtin extension if provided
+    if let Some(name) = builtin {
+        let config = ExtensionConfig::Builtin { name };
+        agent.add_extension(config).await.unwrap_or_else(|e| {
+            eprintln!("Failed to start builtin extension: {}", e);
+            process::exit(1);
+        });
     }
 
     // If resuming, try to find the session
@@ -91,5 +140,28 @@ pub async fn build_session(name: Option<String>, resume: bool) -> Session<'stati
     }
 
     let prompt = Box::new(RustylinePrompt::new());
+
+    display_session_info(resume, &provider_name, &model, &session_file);
     Session::new(agent, prompt, session_file)
+}
+
+fn display_session_info(resume: bool, provider: &str, model: &str, session_file: &Path) {
+    let start_session_msg = if resume {
+        "resuming session |"
+    } else {
+        "starting session |"
+    };
+    println!(
+        "{} {} {} {} {}",
+        style(start_session_msg).dim(),
+        style("provider:").dim(),
+        style(provider).cyan().dim(),
+        style("model:").dim(),
+        style(model).cyan().dim(),
+    );
+    println!(
+        "    {} {}",
+        style("logging to").dim(),
+        style(session_file.display()).dim().cyan(),
+    );
 }

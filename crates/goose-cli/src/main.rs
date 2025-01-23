@@ -61,6 +61,24 @@ enum Command {
             long_help = "Continue from a previous chat session. If --session is provided, resumes that specific session. Otherwise resumes the last used session."
         )]
         resume: bool,
+
+        /// Add a stdio extension with environment variables and command
+        #[arg(
+            long = "with-extension",
+            value_name = "COMMAND",
+            help = "Add a stdio extension (e.g., 'GITHUB_TOKEN=xyz npx -y @modelcontextprotocol/server-github')",
+            long_help = "Add a stdio extension from a full command with environment variables. Format: 'ENV1=val1 ENV2=val2 command args...'"
+        )]
+        extension: Option<String>,
+
+        /// Add a builtin extension by name
+        #[arg(
+            long = "with-builtin",
+            value_name = "NAME",
+            help = "Add a builtin extension by name (e.g., 'developer')",
+            long_help = "Add a builtin extension that is bundled with goose by specifying its name"
+        )]
+        builtin: Option<String>,
     },
 
     /// Execute commands from an instruction file
@@ -106,6 +124,24 @@ enum Command {
             long_help = "Continue from a previous run, maintaining the execution state and context."
         )]
         resume: bool,
+
+        /// Add a stdio extension with environment variables and command
+        #[arg(
+            long = "with-extension",
+            value_name = "COMMAND",
+            help = "Add a stdio extension with environment variables and command (e.g., 'GITHUB_TOKEN=xyz npx -y @modelcontextprotocol/server-github')",
+            long_help = "Add a stdio extension with environment variables and command. Format: 'ENV1=val1 ENV2=val2 command args...'"
+        )]
+        extension: Option<String>,
+
+        /// Add a builtin extension by name
+        #[arg(
+            long = "with-builtin",
+            value_name = "NAME",
+            help = "Add a builtin extension by name (e.g., 'developer')",
+            long_help = "Add a builtin extension that is compiled into goose by specifying its name"
+        )]
+        builtin: Option<String>,
     },
 
     /// List available agent versions
@@ -136,8 +172,13 @@ async fn main() -> Result<()> {
         Some(Command::Mcp { name }) => {
             let _ = run_server(&name).await;
         }
-        Some(Command::Session { name, resume }) => {
-            let mut session = build_session(name, resume).await;
+        Some(Command::Session {
+            name,
+            resume,
+            extension,
+            builtin,
+        }) => {
+            let mut session = build_session(name, resume, extension, builtin).await;
             setup_logging(session.session_file().file_stem().and_then(|s| s.to_str()))?;
 
             let _ = session.start().await;
@@ -148,6 +189,8 @@ async fn main() -> Result<()> {
             input_text,
             name,
             resume,
+            extension,
+            builtin,
         }) => {
             // Validate that we have some input source
             if instructions.is_none() && input_text.is_none() {
@@ -167,7 +210,7 @@ async fn main() -> Result<()> {
                     .expect("Failed to read from stdin");
                 stdin
             };
-            let mut session = build_session(name, resume).await;
+            let mut session = build_session(name, resume, extension, builtin).await;
             let _ = session.headless_start(contents.clone()).await;
             return Ok(());
         }

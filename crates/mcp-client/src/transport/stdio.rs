@@ -60,7 +60,7 @@ impl StdioActor {
                 "Process ended unexpectedly".to_string()
             };
 
-            tracing::error!("Process stderr: {}", err_msg);
+            tracing::info!("Process stderr: {}", err_msg);
             let _ = self
                 .error_sender
                 .send(Error::StdioProcessError(err_msg))

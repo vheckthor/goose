@@ -87,7 +87,7 @@ pub fn setup_logging(name: Option<&str>) -> Result<()> {
     // Build the subscriber with required layers
     let subscriber = Registry::default()
         .with(file_layer.with_filter(env_filter)) // Gets all logs
-        .with(console_layer.with_filter(LevelFilter::INFO)); // Controls log levels
+        .with(console_layer.with_filter(LevelFilter::WARN)); // Controls log levels
 
     // Initialize with Langfuse if available
     if let Some(langfuse) = langfuse_layer::create_langfuse_observer() {
