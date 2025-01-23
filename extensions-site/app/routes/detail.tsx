@@ -46,9 +46,11 @@ export default function DetailPage() {
   const { id } = useParams();
   const [server, setServer] = useState<Server | null>(null);
   const [isCommandVisible, setIsCommandVisible] = useState(true);
+  const serverUrl = "https://block.github.io/goose/v1/extensions/servers.json";
+
 
   useEffect(() => {
-    fetch("/servers.json")
+    fetch(serverUrl)
       .then((res) => res.json())
       .then((servers) => {
         const matchingServer = servers.find((s: Server) => s.id === id);
