@@ -30,7 +30,7 @@ const providers: Provider[] = [
 export function WelcomeModal({
   onSubmit,
 }: {
-  onSubmit: (apiKey: string, providerId: string) => void;
+  onSubmit: (apiKey: string, providerId: Provider) => void;
 }) {
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -45,24 +45,28 @@ export function WelcomeModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedProvider) {
-      onSubmit(apiKey, selectedProvider.id); // Call the parent's onSubmit with the API key and provider ID
+      onSubmit(apiKey, selectedProvider); // Call the parent's onSubmit with the API key and provider ID
     }
     setApiKey(''); // Reset API key field
     setIsModalOpen(false); // Close the modal
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 max-w-3xl">
       <h1 className="text-2xl font-bold mb-6">Welcome to Goose</h1>
       <p className="mb-4">Select a provider to get started:</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {providers.map((provider) => (
           <Card key={provider.id} className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center space-x-4">
-              <CardTitle>{provider.name}</CardTitle>
+            <CardHeader className="p-3">
+              <CardTitle className="text-base">{provider.name}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Button onClick={() => handleProviderSelect(provider)} className="w-full">
+            <CardContent className="p-3 pt-0">
+              <Button
+                onClick={() => handleProviderSelect(provider)}
+                className="w-full text-sm"
+                size="sm"
+              >
                 Configure
               </Button>
             </CardContent>
@@ -71,7 +75,7 @@ export function WelcomeModal({
       </div>
 
       <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <ModalContent>
+        <ModalContent className="sm:max-w-[425px]">
           <ModalHeader>
             <ModalTitle>Configure {selectedProvider?.name}</ModalTitle>
             <ModalDescription>

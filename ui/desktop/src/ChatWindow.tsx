@@ -500,10 +500,21 @@ export default function ChatWindow() {
           />
           */}
         {showWelcomeModal && (
-          <>
-            {console.log('Rendering WelcomeModal')}
-            <WelcomeModal onSubmit={handleModalSubmit} />
-          </>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/98 backdrop-blur-md">
+            <div className="w-full max-w-3xl">
+              <WelcomeModal
+                onSubmit={async (apiKey: string, selectedProvider: Provider) => {
+                  try {
+                    setSelectedProvider(selectedProvider);
+                    await handleModalSubmit(apiKey);
+                  } catch (error) {
+                    console.error('Error in modal submit:', error);
+                    throw error;
+                  }
+                }}
+              />
+            </div>
+          </div>
         )}
       </ChatLayout>
     </div>
