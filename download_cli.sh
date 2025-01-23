@@ -15,8 +15,9 @@ set -euo pipefail
 #
 # Environment variables:
 #   GOOSE_BIN_DIR  - Directory to which Goose will be installed (default: $HOME/.local/bin)
-#   GOOSE_PROVIDER - Optional: provider for goose (passed to "goose configure")
-#   GOOSE_MODEL    - Optional: model for goose (passed to "goose configure")
+#   GOOSE_PROVIDER - Optional: provider for goose
+#   GOOSE_MODEL    - Optional: model for goose
+#   ** other provider specific environment variables (eg. DATABRICKS_HOST)
 ##############################################################################
 
 # --- 1) Check for curl ---
@@ -98,24 +99,11 @@ if [[ ":$PATH:" != *":$GOOSE_BIN_DIR:"* ]]; then
   echo ""
 fi
 
-# --- 7) Auto-configure Goose (Optional) ---
-CONFIG_ARGS=""
-if [ -n "${GOOSE_PROVIDER:-}" ]; then
-  CONFIG_ARGS="$CONFIG_ARGS -p $GOOSE_PROVIDER"
-fi
-if [ -n "${GOOSE_MODEL:-}" ]; then
-  CONFIG_ARGS="$CONFIG_ARGS -m $GOOSE_MODEL"
-fi
-
-# Print a different message based on whether CONFIG_ARGS is set
+# --- 7) Configure Goose (Optional) ---
 echo ""
-if [ -n "$CONFIG_ARGS" ]; then
-  echo "Configuring Goose with: '$CONFIG_ARGS'"
-else
-  echo "Configuring Goose"
-fi
+echo "Configuring Goose"
 echo ""
-"$GOOSE_BIN_DIR/$OUT_FILE" configure $CONFIG_ARGS
+"$GOOSE_BIN_DIR/$OUT_FILE" configure
 
 echo ""
 echo "Goose installed successfully! Run '$OUT_FILE session' to get started."

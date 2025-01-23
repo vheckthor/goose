@@ -130,10 +130,11 @@ export function ProviderGrid({ onSubmit }: ProviderGridProps) {
 
   const handleConfigure = async (provider) => {
     const providerId = provider.id.toLowerCase();
-    await initializeSystem(providerId, null);
 
     const modelName = getDefaultModel(providerId);
     const model = createSelectedModel(providerId, modelName);
+
+    await initializeSystem(providerId, model.name);
 
     switchModel(model);
     addRecentModel(model);
