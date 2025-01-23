@@ -1,62 +1,102 @@
-import React, { useEffect, useState } from 'react';
-import { ProviderSetupModal } from '../settings/ProviderSetupModal';
-import { Card } from '../ui/card';
-import { ProviderList } from '../settings/providers/old_stuff/ProvidersList';
-import { getProvidersList, Provider } from '../../utils/providerUtils';
+import React, { useState } from 'react';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import {
+  Modal,
+  ModalContent,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from '../ui/modal';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
-export const WelcomeModal = ({
-  selectedProvider,
-  setSelectedProvider,
+type Provider = {
+  id: string;
+  name: string;
+};
+
+const providers: Provider[] = [
+  { id: 'openai', name: 'OpenAI' },
+  { id: 'anthropic', name: 'Anthropic' },
+  { id: 'google', name: 'Google' },
+  { id: 'ollama', name: 'Ollama' },
+  { id: 'groq', name: 'Groq' },
+  { id: 'openrouter', name: 'OpenRouter' },
+  { id: 'databricks', name: 'Databricks' },
+];
+
+export function WelcomeModal({
   onSubmit,
 }: {
-  selectedProvider: Provider | string | null;
-  setSelectedProvider: React.Dispatch<React.SetStateAction<Provider | null>>;
-  onSubmit: (apiKey: string) => void;
-}) => {
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  onSubmit: (apiKey: string, providerId: string) => void;
+}) {
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        const providerList = await getProvidersList();
-        // Filter for only "anthropic" and "openai"
-        const filteredProviders = providerList.filter((provider) =>
-          ['anthropic', 'openai'].includes(provider.id)
-        );
-        setProviders(filteredProviders);
-      } catch (err) {
-        console.error('Failed to fetch providers:', err);
-        setError('Unable to load providers. Please try again.');
-      }
-    };
+  const handleProviderSelect = (provider: Provider) => {
+    console.log('Selected Provider:', provider);
+    setSelectedProvider(provider);
+    setIsModalOpen(true);
+  };
 
-    fetchProviders();
-  }, []);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedProvider) {
+      onSubmit(apiKey, selectedProvider.id); // Call the parent's onSubmit with the API key and provider ID
+    }
+    setApiKey(''); // Reset API key field
+    setIsModalOpen(false); // Close the modal
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9999]">
-      {selectedProvider ? (
-        <ProviderSetupModal
-          provider={selectedProvider.name}
-          onSubmit={onSubmit}
-          onCancel={() => setSelectedProvider(null)}
-          model={''} // placeholder
-          endpoint={''} // placeholder
-        />
-      ) : (
-        <Card className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden p-[16px] pt-[24px]">
-          <h2 className="text-2xl font-medium mb-6 dark:text-white">Select a Provider</h2>
-          {error ? (
-            <p className="text-center text-red-500">{error}</p>
-          ) : (
-            <ProviderList
-              providers={providers} // Use state here
-              onProviderSelect={setSelectedProvider}
-            />
-          )}
-        </Card>
-      )}
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6">Welcome to Goose</h1>
+      <p className="mb-4">Select a provider to get started:</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {providers.map((provider) => (
+          <Card key={provider.id} className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center space-x-4">
+              <CardTitle>{provider.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => handleProviderSelect(provider)} className="w-full">
+                Configure
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <ModalContent>
+          <ModalHeader>
+            <ModalTitle>Configure {selectedProvider?.name}</ModalTitle>
+            <ModalDescription>
+              Enter your API key for {selectedProvider?.name} to get started.
+            </ModalDescription>
+          </ModalHeader>
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="apiKey">API Key</Label>
+                <Input
+                  id="apiKey"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+            </div>
+            <ModalFooter>
+              <Button type="submit">Submit</Button>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
     </div>
   );
-};
+}

@@ -411,6 +411,7 @@ export default function ChatWindow() {
 
   const handleModalSubmit = async (apiKey: string) => {
     try {
+      console.log('here 233');
       const trimmedKey = apiKey.trim();
 
       if (!selectedProvider) {
@@ -499,11 +500,10 @@ export default function ChatWindow() {
           />
           */}
         {showWelcomeModal && (
-          <WelcomeModal
-            selectedProvider={selectedProvider}
-            setSelectedProvider={setSelectedProvider}
-            onSubmit={handleModalSubmit}
-          />
+          <>
+            {console.log('Rendering WelcomeModal')}
+            <WelcomeModal onSubmit={handleModalSubmit} />
+          </>
         )}
       </ChatLayout>
     </div>
