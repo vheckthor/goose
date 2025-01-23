@@ -123,60 +123,86 @@ pub async fn configure_provider_dialog() -> Result<bool, Box<dyn Error>> {
             continue;
         }
 
-        // Try to get existing value from environment or config
-        let existing: Result<String, _> = if key.secret {
-            config.get_secret(&key.name)
-        } else {
-            config.get(&key.name)
-        };
+        // First check if the value is set via environment variable
+        let from_env = std::env::var(&key.name).ok();
 
-        match existing {
-            Ok(_) => {
-                let _ = cliclack::log::info(format!("{} is already configured", key.name));
-                if cliclack::confirm("Would you like to update this value?").interact()? {
-                    let new_value: String = if key.secret {
-                        cliclack::password(format!("Enter new value for {}", key.name))
-                            .mask('▪')
-                            .interact()?
-                    } else {
-                        cliclack::input(format!("Enter new value for {}", key.name)).interact()?
-                    };
-
+        match from_env {
+            Some(env_value) => {
+                let _ =
+                    cliclack::log::info(format!("{} is set via environment variable", key.name));
+                if cliclack::confirm("Would you like to save this value to your config file?")
+                    .initial_value(true)
+                    .interact()?
+                {
                     if key.secret {
-                        config.set_secret(&key.name, Value::String(new_value))?;
+                        config.set_secret(&key.name, Value::String(env_value))?;
                     } else {
-                        config.set(&key.name, Value::String(new_value))?;
+                        config.set(&key.name, Value::String(env_value))?;
                     }
+                    let _ = cliclack::log::info(format!("Saved {} to config file", key.name));
                 }
             }
-            Err(_) => {
-                let value: String = if key.secret {
-                    cliclack::password(format!(
-                        "Provider {} requires {}, please enter a value",
-                        provider_meta.display_name, key.name
-                    ))
-                    .mask('▪')
-                    .interact()?
+            None => {
+                // No env var, check config/secret storage
+                let existing: Result<String, _> = if key.secret {
+                    config.get_secret(&key.name)
                 } else {
-                    cliclack::input(format!(
-                        "Provider {} requires {}, please enter a value",
-                        provider_meta.display_name, key.name
-                    ))
-                    .interact()?
+                    config.get(&key.name)
                 };
 
-                if key.secret {
-                    config.set_secret(&key.name, Value::String(value))?;
-                } else {
-                    config.set(&key.name, Value::String(value))?;
+                match existing {
+                    Ok(_) => {
+                        let _ = cliclack::log::info(format!("{} is already configured", key.name));
+                        if cliclack::confirm("Would you like to update this value?").interact()? {
+                            let new_value: String = if key.secret {
+                                cliclack::password(format!("Enter new value for {}", key.name))
+                                    .mask('▪')
+                                    .interact()?
+                            } else {
+                                cliclack::input(format!("Enter new value for {}", key.name))
+                                    .interact()?
+                            };
+
+                            if key.secret {
+                                config.set_secret(&key.name, Value::String(new_value))?;
+                            } else {
+                                config.set(&key.name, Value::String(new_value))?;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        let value: String = if key.secret {
+                            cliclack::password(format!(
+                                "Provider {} requires {}, please enter a value",
+                                provider_meta.display_name, key.name
+                            ))
+                            .mask('▪')
+                            .interact()?
+                        } else {
+                            cliclack::input(format!(
+                                "Provider {} requires {}, please enter a value",
+                                provider_meta.display_name, key.name
+                            ))
+                            .interact()?
+                        };
+
+                        if key.secret {
+                            config.set_secret(&key.name, Value::String(value))?;
+                        } else {
+                            config.set(&key.name, Value::String(value))?;
+                        }
+                    }
                 }
             }
         }
     }
 
     // Select model, defaulting to the provider's recommended model
+    let default_model = config
+        .get("GOOSE_MODEL")
+        .unwrap_or(provider_meta.default_model.clone());
     let model: String = cliclack::input("Enter a model from that provider:")
-        .default_input(&provider_meta.default_model)
+        .default_input(&default_model)
         .interact()?;
 
     // Update config with new values

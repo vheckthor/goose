@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use bat::WrappingMode;
 use console::style;
@@ -11,7 +12,92 @@ use serde_json::Value;
 use super::Theme;
 
 const MAX_STRING_LENGTH: usize = 40;
+const MAX_PATH_LENGTH: usize = 60;
 const INDENT: &str = "    ";
+
+/// Shortens a path string by abbreviating directory names while keeping the last two components intact.
+/// If the path starts with the user's home directory, it will be replaced with ~.
+///
+/// # Examples
+/// ```
+/// let path = "/Users/alice/Development/very/long/path/to/file.txt";
+/// assert_eq!(
+///     shorten_path(path),
+///     "~/D/v/l/p/to/file.txt"
+/// );
+/// ```
+fn shorten_path(path: &str) -> String {
+    let path = PathBuf::from(path);
+
+    // First try to convert to ~ if it's in home directory
+    let home = dirs::home_dir();
+    let path_str = if let Some(home) = home {
+        if let Ok(stripped) = path.strip_prefix(home) {
+            format!("~/{}", stripped.display())
+        } else {
+            path.display().to_string()
+        }
+    } else {
+        path.display().to_string()
+    };
+
+    // If path is already short enough, return as is
+    if path_str.len() <= MAX_PATH_LENGTH {
+        return path_str;
+    }
+
+    let parts: Vec<_> = path_str.split('/').collect();
+
+    // If we have 3 or fewer parts, return as is
+    if parts.len() <= 3 {
+        return path_str;
+    }
+
+    // Keep the first component (empty string before root / or ~) and last two components intact
+    let mut shortened = vec![parts[0].to_string()];
+
+    // Shorten middle components to their first letter
+    for component in &parts[1..parts.len() - 2] {
+        if !component.is_empty() {
+            shortened.push(component.chars().next().unwrap_or('?').to_string());
+        }
+    }
+
+    // Add the last two components
+    shortened.push(parts[parts.len() - 2].to_string());
+    shortened.push(parts[parts.len() - 1].to_string());
+
+    shortened.join("/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shorten_path() {
+        // Test a long path without home directory
+        let long_path = "/Users/test/Development/this/is/a/very/long/nested/deeply/example.txt";
+        let shortened = shorten_path(long_path);
+        assert!(
+            shortened.len() < long_path.len(),
+            "Shortened path '{}' should be shorter than original '{}'",
+            shortened,
+            long_path
+        );
+        assert!(
+            shortened.ends_with("deeply/example.txt"),
+            "Shortened path '{}' should end with 'deeply/example.txt'",
+            shortened
+        );
+
+        // Test a short path (shouldn't be modified)
+        assert_eq!(shorten_path("/usr/local/bin"), "/usr/local/bin");
+
+        // Test path with less than 3 components
+        assert_eq!(shorten_path("/usr/local"), "/usr/local");
+    }
+}
 
 /// Implement the ToolRenderer trait for each tool that you want to render in the prompt.
 pub trait ToolRenderer: ToolRendererClone {
@@ -69,11 +155,54 @@ impl ToolRenderer for DefaultRenderer {
 }
 
 #[derive(Clone)]
+pub struct TextEditorRenderer;
+
+impl ToolRenderer for TextEditorRenderer {
+    fn tool_name(&self) -> String {
+        "developer__text_editor".to_string()
+    }
+
+    fn request(&self, tool_request: &ToolRequest, theme: &str) {
+        match &tool_request.tool_call {
+            Ok(call) => {
+                default_print_request_header(call);
+
+                // Print path first with special formatting
+                if let Some(Value::String(path)) = call.arguments.get("path") {
+                    println!(
+                        "{}: {}",
+                        style("path").dim(),
+                        style(shorten_path(path)).green()
+                    );
+                }
+
+                // Print other arguments normally, excluding path
+                if let Some(args) = call.arguments.as_object() {
+                    let mut other_args = serde_json::Map::new();
+                    for (k, v) in args {
+                        if k != "path" {
+                            other_args.insert(k.clone(), v.clone());
+                        }
+                    }
+                    print_params(&Value::Object(other_args), 0);
+                }
+                print_newline();
+            }
+            Err(e) => print_markdown(&e.to_string(), theme),
+        }
+    }
+
+    fn response(&self, tool_response: &ToolResponse, theme: &str) {
+        default_response_renderer(tool_response, theme);
+    }
+}
+
+#[derive(Clone)]
 pub struct BashDeveloperExtensionRenderer;
 
 impl ToolRenderer for BashDeveloperExtensionRenderer {
     fn tool_name(&self) -> String {
-        "DeveloperExtension__bash".to_string()
+        "developer__shell".to_string()
     }
 
     fn request(&self, tool_request: &ToolRequest, theme: &str) {
