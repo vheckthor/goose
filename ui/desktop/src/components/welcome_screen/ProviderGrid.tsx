@@ -1,105 +1,22 @@
 import React from 'react';
-import { Check, Plus } from 'lucide-react';
-import { Button } from '../../ui/button';
-import { supported_providers, required_keys, provider_aliases } from '../models/hardcoded_stuff';
-import { useActiveKeys } from '../api_keys/ActiveKeysContext';
-import { getProviderDescription } from './Provider';
-import { ProviderSetupModal } from '../ProviderSetupModal';
-import { useModel } from '../models/ModelContext';
-import { useRecentModels } from '../models/RecentModels';
-import { createSelectedModel } from '../models/utils';
-import { getDefaultModel } from '../models/hardcoded_stuff';
-import { initializeSystem } from '../../../utils/providerUtils';
-import { getApiUrl, getSecretKey } from '../../../config';
+import { Button } from '../ui/button';
+import {
+  supported_providers,
+  required_keys,
+  provider_aliases,
+} from '../settings/models/hardcoded_stuff';
+import { useActiveKeys } from '../settings/api_keys/ActiveKeysContext';
+import { getProviderDescription } from '../settings/providers/Provider';
+import { ProviderSetupModal } from '../settings/ProviderSetupModal';
+import { useModel } from '../settings/models/ModelContext';
+import { useRecentModels } from '../settings/models/RecentModels';
+import { createSelectedModel } from '../settings/models/utils';
+import { getDefaultModel } from '../settings/models/hardcoded_stuff';
+import { initializeSystem } from '../../utils/providerUtils';
+import { getApiUrl, getSecretKey } from '../../config';
 import { toast } from 'react-toastify';
-import { getActiveProviders } from '../api_keys/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/Tooltip';
-import { useNavigate } from 'react-router-dom';
-import { BaseProviderGrid } from './BaseProviderGrid';
-
-interface ProviderCardProps {
-  name: string;
-  description: string;
-  isConfigured: boolean;
-  onConfigure: () => void;
-  onAddKeys: () => void;
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-function getArticle(word: string): string {
-  return 'aeiouAEIOU'.indexOf(word[0]) >= 0 ? 'an' : 'a';
-}
-
-function ProviderCard({
-  name,
-  description,
-  isConfigured,
-  onConfigure,
-  onAddKeys,
-  isSelected,
-  onSelect,
-}: ProviderCardProps) {
-  return (
-    <div
-      onClick={() => isConfigured && onSelect()}
-      className={`relative bg-white dark:bg-gray-800 rounded-lg border 
-        ${
-          isSelected
-            ? 'border-blue-500 dark:border-blue-400 shadow-[0_0_0_1px] shadow-blue-500/50'
-            : 'border-gray-200 dark:border-gray-700'
-        } 
-        p-3 transition-all duration-200 h-[140px] overflow-hidden
-        ${isConfigured ? 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-300' : ''}
-      `}
-    >
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate mr-2">
-            {name}
-          </h3>
-          {isConfigured && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-100 dark:bg-green-900/30 shrink-0">
-                    <Check className="h-3 w-3 text-green-600 dark:text-green-500" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    You have {getArticle(name)} {name} API Key set in your environment
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-      </div>
-
-      <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-1.5 mb-3 leading-normal overflow-y-auto max-h-[48px] pr-1">
-        {description}
-      </p>
-
-      <div className="absolute bottom-2 right-3">
-        {!isConfigured && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddKeys();
-            }}
-            className="rounded-full h-7 px-3 min-w-[90px] bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 text-xs"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Key
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+import { getActiveProviders } from '../settings/api_keys/utils';
+import { BaseProviderGrid } from '../settings/providers/BaseProviderGrid';
 
 interface ProviderGridProps {
   onSubmit?: () => void;
@@ -111,7 +28,6 @@ export function ProviderGrid({ onSubmit }: ProviderGridProps) {
   const [showSetupModal, setShowSetupModal] = React.useState(false);
   const { switchModel } = useModel();
   const { addRecentModel } = useRecentModels();
-  const navigate = useNavigate();
 
   const providers = React.useMemo(() => {
     return supported_providers.map((providerName) => {
