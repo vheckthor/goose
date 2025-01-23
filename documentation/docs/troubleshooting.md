@@ -7,20 +7,20 @@ Goose like any system may run into occasional issues. This guide provides soluti
 
 ## Common Issues and How to Handle Them
 
-### **Goose Edits Files**
+### Goose Edits Files
 Goose can and will edit files as part of its workflow. To avoid losing personal changes:
 - **Use Version Control**: Stage your personal edits and leave Goose edits unstaged until reviewed.
 - **Consider Separate Commits**: Use individual commits for Goose's edits, so you can easily revert them if needed.
 
 ---
 
-### **Interrupting Goose**
+### Interrupting Goose
 If Goose is heading in the wrong direction or gets stuck, you can interrupt it:
 - **Command**: Press `CTRL+C` to stop Goose, correct its actions, or provide additional information.
 
 ---
 
-### **Goose Stuck in a Loop or Unresponsive During Long Sessions**
+### Goose Stuck in a Loop or Unresponsive During Long Sessions
 In rare cases, Goose may enter a "death loop" or become unresponsive during a long session. This is often resolved by ending the current session, and starting a new session.
 
 1. Hold down `Ctrl + C` to cancel
