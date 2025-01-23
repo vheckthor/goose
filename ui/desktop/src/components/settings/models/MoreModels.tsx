@@ -8,6 +8,7 @@ import { useModel } from './ModelContext';
 import { AddModelInline } from './AddModelInline';
 import { useNavigate } from 'react-router-dom';
 import { ScrollArea } from '../../ui/scroll-area';
+import { ChangeModelInline } from './ChangeModelInline';
 
 export default function MoreModelsPage() {
   const { currentModel } = useModel();
@@ -69,18 +70,10 @@ export default function MoreModelsPage() {
                   <SearchBar />
                 </section>
 
-                {/* Add Model Section */}
+                {/* Change Model Section */}
                 <section>
-                  <h2 className="text-lg font-medium mb-4">Add Model</h2>
-                  <AddModelInline />
-                </section>
-
-                {/* Provider Section */}
-                <section>
-                  <h2 className="text-lg font-medium mb-4">Browse by Provider</h2>
-                  <div>
-                    <ProviderButtons />
-                  </div>
+                  <h2 className="text-lg font-medium mb-4">Change Model</h2>
+                  <ChangeModelInline />
                 </section>
 
                 {/* Recent Models Section */}
