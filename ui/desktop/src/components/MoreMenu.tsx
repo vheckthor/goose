@@ -4,6 +4,9 @@ import { FaMoon, FaSun } from 'react-icons/fa';
 import VertDots from './ui/VertDots';
 import { useNavigate } from 'react-router-dom';
 import { More } from './icons';
+import { Settings, Grid, MessageSquare } from 'lucide-react';
+import { Button } from './ui/button';
+
 interface VersionInfo {
   current_version: string;
   available_versions: string[];

@@ -34,7 +34,7 @@ function ConfirmationModal({ message, onConfirm, onCancel }) {
 }
 
 // Utility Functions
-function getProviderDescription(provider) {
+export function getProviderDescription(provider) {
   const descriptions = {
     OpenAI: 'Access GPT-4, GPT-3.5 Turbo, and other OpenAI models',
     Anthropic: 'Access Claude and other Anthropic models',

@@ -9,7 +9,6 @@ import GooseMessage from './components/GooseMessage';
 import Input from './components/Input';
 import LoadingGoose from './components/LoadingGoose';
 import MoreMenu from './components/MoreMenu';
-import Splash from './components/Splash';
 import { Card } from './components/ui/card';
 import { ScrollArea } from './components/ui/scroll-area';
 import UserMessage from './components/UserMessage';
@@ -18,12 +17,13 @@ import { askAi } from './utils/askAI';
 import { getStoredModel, Provider } from './utils/providerUtils';
 import { ChatLayout } from './components/chat_window/ChatLayout';
 import { ChatRoutes } from './components/chat_window/ChatRoutes';
-import { WelcomeModal } from './components/welcome_screen/WelcomeModal';
+import { WelcomeScreen } from './components/welcome_screen/WelcomeScreen';
 import { getStoredProvider, initializeSystem } from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
 import { useRecentModels } from './components/settings/models/RecentModels';
 import { createSelectedModel } from './components/settings/models/utils';
 import { getDefaultModel } from './components/settings/models/hardcoded_stuff';
+import Splash from './components/Splash';
 
 declare global {
   interface Window {
@@ -380,6 +380,11 @@ export default function ChatWindow() {
 
   window.electron.logInfo('ChatWindow loaded');
 
+  // Fix the handleSubmit function syntax
+  const handleSubmit = () => {
+    setShowWelcomeModal(false);
+  };
+
   useEffect(() => {
     // Check if we already have a provider set
     const config = window.electron.getConfig();
@@ -407,43 +412,6 @@ export default function ChatWindow() {
     }
 
     return response;
-  };
-
-  const handleModalSubmit = async (apiKey: string) => {
-    try {
-      const trimmedKey = apiKey.trim();
-
-      if (!selectedProvider) {
-        throw new Error('No provider selected');
-      }
-
-      // Store the API key
-      const secretKey = `${selectedProvider.id.toUpperCase()}_API_KEY`;
-      await storeSecret(secretKey, trimmedKey);
-
-      // Initialize the system with the selected provider
-      await initializeSystem(selectedProvider.id, null);
-
-      // get the default model
-      const modelName = getDefaultModel(selectedProvider.id);
-
-      // create model object
-      const model = createSelectedModel(selectedProvider.id, modelName);
-
-      // Call the context's switchModel to track the set model state in the front end
-      switchModel(model);
-
-      // Keep track of the recently used models
-      addRecentModel(model);
-
-      // Save provider selection and close modal
-      localStorage.setItem('GOOSE_PROVIDER', selectedProvider.id);
-      console.log('set up provider with default model', selectedProvider.id, modelName);
-      setShowWelcomeModal(false);
-    } catch (error) {
-      console.error('Failed to setup provider:', error);
-      throw error;
-    }
   };
 
   // Initialize system on load if we have a stored provider
@@ -480,6 +448,12 @@ export default function ChatWindow() {
     setupStoredProvider();
   }, []);
 
+  // Render WelcomeScreen at root level if showing
+  if (showWelcomeModal) {
+    return <WelcomeScreen onSubmit={handleSubmit} />;
+  }
+
+  // Only render ChatLayout if not showing welcome screen
   return (
     <div>
       <ChatLayout mode={mode}>
@@ -491,20 +465,6 @@ export default function ChatWindow() {
           setProgressMessage={setProgressMessage}
           setWorking={setWorking}
         />
-        {/*
-          <WingToWing
-              onExpand={toggleMode}
-              progressMessage={progressMessage}
-              working={working}
-          />
-          */}
-        {showWelcomeModal && (
-          <WelcomeModal
-            selectedProvider={selectedProvider}
-            setSelectedProvider={setSelectedProvider}
-            onSubmit={handleModalSubmit}
-          />
-        )}
       </ChatLayout>
     </div>
   );
