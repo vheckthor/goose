@@ -24,23 +24,30 @@ pub async fn handle_configure() -> Result<(), Box<dyn Error>> {
         );
         println!();
         cliclack::intro(style(" goose-configure ").on_cyan().black())?;
-        configure_provider_dialog().await?;
-        println!(
-            "\n  {}: Run '{}' again to adjust your config or add extensions",
-            style("Tip").green().italic(),
-            style("goose configure").cyan()
-        );
-
-        // Since we are setting up for the first time, we'll also enable the developer system
-        ExtensionManager::set(
-            "developer",
-            ExtensionEntry {
-                enabled: true,
-                config: ExtensionConfig::Builtin {
-                    name: "developer".to_string(),
+        if configure_provider_dialog().await? {
+            println!(
+                "\n  {}: Run '{}' again to adjust your config or add extensions",
+                style("Tip").green().italic(),
+                style("goose configure").cyan()
+            );
+            // Since we are setting up for the first time, we'll also enable the developer system
+            ExtensionManager::set(
+                "developer",
+                ExtensionEntry {
+                    enabled: true,
+                    config: ExtensionConfig::Builtin {
+                        name: "developer".to_string(),
+                    },
                 },
-            },
-        )?;
+            )?;
+        } else {
+            let _ = config.clear();
+            println!(
+                "\n  {}: We did not save your config, inspect your credentials\n   and run '{}' again to ensure goose can connect",
+                style("Warning").yellow().italic(),
+                style("goose configure").cyan()
+            );
+        }
 
         Ok(())
     } else {
@@ -74,14 +81,14 @@ pub async fn handle_configure() -> Result<(), Box<dyn Error>> {
         match action {
             "toggle" => toggle_extensions_dialog(),
             "add" => configure_extensions_dialog(),
-            "providers" => configure_provider_dialog().await,
+            "providers" => configure_provider_dialog().await.and(Ok(())),
             _ => unreachable!(),
         }
     }
 }
 
 /// Dialog for configuring the AI provider and model
-pub async fn configure_provider_dialog() -> Result<(), Box<dyn Error>> {
+pub async fn configure_provider_dialog() -> Result<bool, Box<dyn Error>> {
     // Get global config instance
     let config = Config::global();
 
@@ -208,15 +215,15 @@ pub async fn configure_provider_dialog() -> Result<(), Box<dyn Error>> {
             }
 
             cliclack::outro("Configuration saved successfully")?;
+            Ok(true)
         }
         Err(e) => {
             println!("{:?}", e);
             spin.stop("We could not connect!");
-            let _ = cliclack::outro("Try rerunning configure and check your credentials.");
+            let _ = cliclack::outro("The provider configuration was invalid");
+            Ok(false)
         }
     }
-
-    Ok(())
 }
 
 /// Configure extensions that can be used with goose

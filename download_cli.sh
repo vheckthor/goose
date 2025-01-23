@@ -89,22 +89,18 @@ fi
 echo "Moving goose to $GOOSE_BIN_DIR/$OUT_FILE"
 mv goose "$GOOSE_BIN_DIR/$OUT_FILE"
 
-# --- 6) Check PATH and give instructions if needed ---
-if [[ ":$PATH:" != *":$GOOSE_BIN_DIR:"* ]]; then
-  echo ""
-  echo "Warning: $GOOSE_BIN_DIR is not in your PATH."
-  echo "Add it to your PATH by editing ~/.bashrc, ~/.zshrc, or similar:"
-  echo "    export PATH=\"$GOOSE_BIN_DIR:\$PATH\""
-  echo "Then reload your shell (e.g. 'source ~/.bashrc', 'source ~/.zshrc') to apply changes."
-  echo ""
-fi
-
-# --- 7) Configure Goose (Optional) ---
+# --- 6) Configure Goose (Optional) ---
 echo ""
 echo "Configuring Goose"
 echo ""
 "$GOOSE_BIN_DIR/$OUT_FILE" configure
 
-echo ""
-echo "Goose installed successfully! Run '$OUT_FILE session' to get started."
-echo ""
+# --- 7) Check PATH and give instructions if needed ---
+if [[ ":$PATH:" != *":$GOOSE_BIN_DIR:"* ]]; then
+  echo ""
+  echo "Warning: Goose installed, but $GOOSE_BIN_DIR is not in your PATH."
+  echo "Add it to your PATH by editing ~/.bashrc, ~/.zshrc, or similar:"
+  echo "    export PATH=\"$GOOSE_BIN_DIR:\$PATH\""
+  echo "Then reload your shell (e.g. 'source ~/.bashrc', 'source ~/.zshrc') to apply changes."
+  echo ""
+fi
