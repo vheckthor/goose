@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { Settings as SettingsType } from './types';
-import { FullExtensionConfig, replaceWithShims } from '../../extensions';
+import { FullExtensionConfig, replaceWithShims, extendGoosed } from '../../extensions';
 import { ConfigureExtensionModal } from './extensions/ConfigureExtensionModal';
+import { ManualExtensionModal } from './extensions/ManualExtensionModal';
 import { showToast } from '../ui/toast';
 import BackButton from '../ui/BackButton';
 import { RecentModelsRadio } from './models/RecentModels';
@@ -94,6 +96,7 @@ export default function Settings() {
 
   const [extensionBeingConfigured, setExtensionBeingConfigured] =
     useState<FullExtensionConfig | null>(null);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   // Persist settings changes
   React.useEffect(() => {
@@ -249,16 +252,26 @@ export default function Settings() {
                 <section id="extensions">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-textStandard">Extensions</h2>
-                    <button
-                      onClick={() =>
-                        window.electron.openInChrome(
-                          'https://silver-disco-nvm6v4e.pages.github.io/'
-                        )
-                      }
-                      className="text-indigo-500 hover:text-indigo-600 font-medium"
-                    >
-                      Add Extensions
-                    </button>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => setIsManualModalOpen(true)}
+                        className="text-indigo-500 hover:text-indigo-600 font-medium"
+                        title="Add Manually"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>{' '}
+                      |
+                      <button
+                        onClick={() =>
+                          window.electron.openInChrome(
+                            'https://silver-disco-nvm6v4e.pages.github.io/'
+                          )
+                        }
+                        className="text-indigo-500 hover:text-indigo-600 font-medium"
+                      >
+                        Browse Extensions
+                      </button>
+                    </div>
                   </div>
                   <p className="text-sm text-textStandard mb-4">{EXTENSIONS_DESCRIPTION}</p>
                   {settings.extensions.length === 0 ? (
@@ -291,6 +304,45 @@ export default function Settings() {
         }}
         extension={extensionBeingConfigured}
         onSubmit={handleExtensionConfigSubmit}
+      />
+
+      <ManualExtensionModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        onSubmit={async (extension) => {
+          // Create config for extendGoosed
+          const config = {
+            type: extension.type,
+            ...(extension.type === 'stdio' && {
+              cmd: await replaceWithShims(extension.cmd),
+              args: extension.args || [],
+            }),
+            ...(extension.type === 'sse' && {
+              uri: extension.uri,
+            }),
+            ...(extension.type === 'builtin' && {
+              name: extension.name,
+            }),
+            env_keys: extension.env_keys,
+          };
+
+          try {
+            const success = await extendGoosed(config);
+            if (success) {
+              setSettings((prev) => ({
+                ...prev,
+                extensions: [...prev.extensions, extension],
+              }));
+              setIsManualModalOpen(false);
+              showToast('Extension added successfully', 'success');
+            } else {
+              throw new Error('Failed to add extension');
+            }
+          } catch (error) {
+            console.error('Error adding extension:', error);
+            showToast('Error adding extension', 'error');
+          }
+        }}
       />
     </div>
   );

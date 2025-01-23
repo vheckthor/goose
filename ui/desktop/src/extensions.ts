@@ -111,11 +111,6 @@ export const extendGoosed = async (config: ExtensionConfig) => {
   console.log('extendGoosed', config);
   // allowlist the CMD for stdio type
   if (config.type === 'stdio') {
-    const allowedCMDs = ['goosed', 'npx', 'uvx'];
-    if (!allowedCMDs.includes(config.cmd)) {
-      console.error(`System ${config.cmd} is not supported right now`);
-      return;
-    }
     config.cmd = await replaceWithShims(config.cmd);
   }
 

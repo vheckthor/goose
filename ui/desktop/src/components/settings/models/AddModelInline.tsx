@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { createSelectedModel, useHandleModelSelection } from './utils';
 import { useActiveKeys } from '../api_keys/ActiveKeysContext';
 import { goose_models } from './hardcoded_stuff';
+import { createDarkSelectStyles, darkSelectTheme } from '../../ui/select-styles';
 
 export function AddModelInline() {
   const { activeKeys } = useActiveKeys(); // Access active keys from context
@@ -82,91 +83,8 @@ export function AddModelInline() {
           }}
           placeholder="Select provider"
           isClearable
-          styles={{
-            control: (base) => ({
-              ...base,
-              minWidth: '200px',
-              backgroundColor: '#1a1b1e', // Dark background
-              borderColor: '#2a2b2e',
-              color: '#ffffff',
-            }),
-            menu: (base) => ({
-              ...base,
-              backgroundColor: '#1a1b1e', // Dark solid background
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-              border: '1px solid #2a2b2e',
-              // Force solid background
-              background: '#1a1b1e',
-            }),
-            menuList: (base) => ({
-              ...base,
-              backgroundColor: '#1a1b1e', // Dark solid background
-              background: '#1a1b1e', // Force solid background
-              padding: '4px',
-            }),
-            option: (base, state) => ({
-              ...base,
-              backgroundColor: state.isFocused
-                ? '#2a2b2e' // Slightly lighter when focused
-                : '#1a1b1e', // Dark background
-              color: '#ffffff', // White text
-              cursor: 'pointer',
-              // Force solid background
-              background: state.isFocused ? '#2a2b2e' : '#1a1b1e',
-              ':hover': {
-                backgroundColor: '#2a2b2e', // Same as focused
-                color: '#ffffff',
-                background: '#2a2b2e', // Force solid background
-              },
-              padding: '8px',
-              margin: '2px 0',
-              borderRadius: '4px',
-            }),
-            singleValue: (base) => ({
-              ...base,
-              color: '#ffffff', // White text
-            }),
-            input: (base) => ({
-              ...base,
-              color: '#ffffff', // White text
-            }),
-            placeholder: (base) => ({
-              ...base,
-              color: '#9ca3af', // Gray text
-            }),
-            dropdownIndicator: (base) => ({
-              ...base,
-              color: '#9ca3af', // Gray color for the dropdown arrow
-              ':hover': {
-                color: '#ffffff', // White on hover
-              },
-            }),
-            indicatorSeparator: (base) => ({
-              ...base,
-              backgroundColor: '#2a2b2e', // Dark separator
-            }),
-          }}
-          theme={(theme) => ({
-            ...theme,
-            colors: {
-              ...theme.colors,
-              primary: '#2a2b2e',
-              primary75: '#2a2b2e',
-              primary50: '#2a2b2e',
-              primary25: '#2a2b2e',
-              neutral0: '#1a1b1e',
-              neutral5: '#1a1b1e',
-              neutral10: '#2a2b2e',
-              neutral20: '#2a2b2e',
-              neutral30: '#3a3b3e',
-              neutral40: '#ffffff',
-              neutral50: '#ffffff',
-              neutral60: '#ffffff',
-              neutral70: '#ffffff',
-              neutral80: '#ffffff',
-              neutral90: '#ffffff',
-            },
-          })}
+          styles={createDarkSelectStyles('200px')}
+          theme={darkSelectTheme}
         />
         <div className="relative" style={{ minWidth: '150px', maxWidth: '250px' }}>
           <Input
