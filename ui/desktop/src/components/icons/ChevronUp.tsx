@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Back({ className = '' }) {
+export default function ChevronUp({ className = '' }) {
   return (
     <svg
       width="1.5rem"
@@ -14,7 +14,7 @@ export default function Back({ className = '' }) {
       <path
         fillRule="evenodd"
         clipRule="evenodd"
-        d="M.5 12c0-.413.17-.807.47-1.09l9-8.5a1.5 1.5 0 1 1 2.06 2.18L5.773 10.5H21.5a1.5 1.5 0 1 1 0 3H5.773l6.257 5.91a1.5 1.5 0 1 1-2.06 2.18l-9-8.5A1.5 1.5 0 0 1 .5 12Z"
+        d="M17.293 9.293a1 1 0 0 1 1.414 0l5 5a1 1 0 0 1-1.414 1.414L18 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414l5-5Z"
         fill="currentColor"
       ></path>
     </svg>

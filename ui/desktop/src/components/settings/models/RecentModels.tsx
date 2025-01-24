@@ -96,38 +96,32 @@ export function RecentModels() {
   return (
     <div className="space-y-2">
       {recentModels.map((model) => (
-        <label key={model.name} className="block cursor-pointer">
-          <div
-            className="flex items-center justify-between p-4 transition-colors
-                            hover:text-gray-900 dark:hover:text-white"
-            onClick={() => handleRadioChange(model)}
-          >
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <input
-                  type="radio"
-                  name="recentModels"
-                  value={model.name}
-                  checked={selectedModel === model.name}
-                  onChange={() => handleRadioChange(model)}
-                  className="peer sr-only"
-                />
-                <div
-                  className="h-4 w-4 rounded-full border border-gray-400 dark:border-gray-500
-                                              peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
-                                              peer-checked:bg-white dark:peer-checked:bg-black
-                                              transition-all duration-200 ease-in-out"
-                ></div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">{model.name}</p>
-                <p className="font-medium">{model.provider}</p>
+        <label key={model.name} className="flex justify-between items-center py-2 cursor-pointer">
+          <div className="relative" onClick={() => handleRadioChange(model)}>
+            <div className="flex flex-row items-center">
+              <input
+                type="radio"
+                name="recentModels"
+                value={model.name}
+                checked={selectedModel === model.name}
+                onChange={() => handleRadioChange(model)}
+                className="peer sr-only"
+              />
+              <div
+                className="h-4 w-4 rounded-full border border-gray-400 dark:border-gray-500 mr-4
+                                peer-checked:border-[6px] peer-checked:border-black dark:peer-checked:border-white
+                                peer-checked:bg-white dark:peer-checked:bg-black
+                                transition-all duration-200 ease-in-out"
+              ></div>
+              <div className="">
+                <p className="text-sm text-textStandard">{model.name}</p>
+                <p className="text-xs text-textSubtle">{model.provider}</p>
               </div>
             </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <Clock className="w-4 h-4 mr-2" />
-              {model.lastUsed ? getRelativeTimeString(model.lastUsed) : 'N/A'}
-            </div>
+          </div>
+          <div className="flex items-center text-sm text-textSubtle">
+            <Clock className="w-4 h-4 mr-2" />
+            {model.lastUsed ? getRelativeTimeString(model.lastUsed) : 'N/A'}
           </div>
         </label>
       ))}
@@ -137,16 +131,12 @@ export function RecentModels() {
 
 export function RecentModelsRadio() {
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">Recent Models</h2>
+    <div className="space-y-2">
+      <h2 className="text-md font-medium text-textStandard">Recently used</h2>
       <ModelRadioList
         renderItem={({ model, isSelected, onSelect }) => (
-          <label key={model.name} className="flex items-center justify-between p-4 cursor-pointer">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{model.name}</p>
-              <p className="font-medium">{model.provider}</p>
-            </div>
-            <div className="relative">
+          <label key={model.name} className="flex items-center py-2 cursor-pointer">
+            <div className="relative mr-4">
               <input
                 type="radio"
                 name="recentModels"
@@ -161,6 +151,11 @@ export function RecentModelsRadio() {
                                 peer-checked:bg-white dark:peer-checked:bg-black
                                 transition-all duration-200 ease-in-out"
               ></div>
+            </div>
+
+            <div className="">
+              <p className="text-sm text-textStandard">{model.name}</p>
+              <p className="text-xs text-textSubtle">{model.provider}</p>
             </div>
           </label>
         )}

@@ -127,21 +127,17 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm">
-      <Card className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden p-[16px] pt-[24px] pb-0">
-        <div className="px-8 pb-0 space-y-8">
+    <div className="fixed inset-0 bg-black/20 dark:bg-white/20 backdrop-blur-sm">
+      <Card className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] bg-bgApp rounded-xl overflow-hidden shadow-none p-[16px] pt-[24px] pb-0">
+        <div className="px-4 pb-0 space-y-8">
           <div className="flex">
-            <h2 className="text-2xl font-regular dark:text-white text-gray-900">
-              Add Extension Manually
-            </h2>
+            <h2 className="text-2xl font-regular text-textStandard">Add Extension Manually</h2>
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Type
-                </label>
+                <label className="block text-sm font-medium text-textStandard mb-2">Type</label>
                 <Select
                   options={typeOptions}
                   value={typeOptions.find((option) => option.value === formData.type)}
@@ -154,9 +150,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  ID *
-                </label>
+                <label className="block text-sm font-medium text-textStandard mb-2">ID *</label>
                 <Input
                   type="text"
                   value={formData.id || ''}
@@ -167,9 +161,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Name *
-                </label>
+                <label className="block text-sm font-medium text-textStandard mb-2">Name *</label>
                 <Input
                   type="text"
                   value={formData.name || ''}
@@ -180,7 +172,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-textStandard mb-2">
                   Description *
                 </label>
                 <Input
@@ -194,7 +186,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
 
               {formData.type === 'stdio' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-textStandard mb-2">
                     Command * (command and arguments separated by spaces)
                   </label>
                   <Input
@@ -210,9 +202,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
 
               {formData.type === 'sse' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    URI *
-                  </label>
+                  <label className="block text-sm font-medium text-textStandard mb-2">URI *</label>
                   <Input
                     type="text"
                     value={formData.uri || ''}
@@ -224,7 +214,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-textStandard mb-2">
                   Environment Variables
                 </label>
                 <div className="flex gap-2 mb-2">
@@ -242,7 +232,12 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
                     placeholder="Value"
                     className="flex-1"
                   />
-                  <Button type="button" onClick={handleAddEnvVar}>
+
+                  <Button
+                    type="button"
+                    onClick={handleAddEnvVar}
+                    className="bg-bgApp hover:bg-bgApp shadow-none border border-borderSubtle hover:border-borderStandard transition-colors text-textStandard"
+                  >
                     Add
                   </Button>
                 </div>
@@ -273,11 +268,11 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
               </div>
             </div>
 
-            <div className="mt-[8px] ml-[-24px] mr-[-24px] pt-[16px]">
+            <div className="mt-[8px] -ml-8 -mr-8 pt-8">
               <Button
                 type="submit"
                 variant="ghost"
-                className="w-full h-[60px] rounded-none border-t dark:border-gray-600 text-lg hover:bg-gray-50 hover:dark:text-black dark:text-white dark:border-gray-600 font-regular"
+                className="w-full h-[60px] rounded-none border-t border-borderSubtle text-md hover:bg-bgSubtle text-textProminent font-regular"
               >
                 Add Extension
               </Button>
@@ -288,7 +283,7 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
                   resetForm();
                   onClose();
                 }}
-                className="w-full h-[60px] rounded-none border-t dark:border-gray-600 text-gray-400 hover:bg-gray-50 dark:border-gray-600 text-lg font-regular"
+                className="w-full h-[60px] rounded-none border-t border-borderSubtle hover:text-textStandard text-textSubtle hover:bg-bgSubtle text-md font-regular"
               >
                 Cancel
               </Button>

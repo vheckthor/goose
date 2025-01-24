@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useModel } from './settings/models/ModelContext';
 import { useRecentModels } from './settings/models/RecentModels'; // Hook for recent models
-import { ChevronUp, ChevronDown, Sliders } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 import { ModelRadioList } from './settings/models/ModelRadioList';
 import { useNavigate } from 'react-router-dom';
+import { Document, ChevronUp, ChevronDown } from './icons';
 
 export default function BottomMenu({ hasMessages }) {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
@@ -47,10 +48,10 @@ export default function BottomMenu({ hasMessages }) {
   }, [isModelMenuOpen]);
 
   return (
-    <div className="flex justify-between relative border-t dark:border-gray-700 text-bottom-menu dark:text-bottom-menu-dark pl-[15px] text-[10px] h-[30px] leading-[30px] align-middle bg-bottom-menu-background dark:bg-bottom-menu-background-dark rounded-b-2xl">
+    <div className="flex justify-between items-center text-textSubtle relative bg-bgSubtle border-t border-borderSubtle text-xs pl-4 h-[40px] pb-1 align-middle">
       {/* Directory Chooser - Always visible */}
       <span
-        className="cursor-pointer"
+        className="cursor-pointer flex items-center [&>svg]:size-4"
         onClick={async () => {
           console.log('Opening directory chooser');
           if (hasMessages) {
@@ -60,7 +61,9 @@ export default function BottomMenu({ hasMessages }) {
           }
         }}
       >
+        <Document className="mr-1" />
         Working in {window.appConfig.get('GOOSE_WORKING_DIR')}
+        <ChevronUp className="ml-1" />
       </span>
 
       {/* Model Selector Dropdown - Only in development */}
@@ -71,28 +74,27 @@ export default function BottomMenu({ hasMessages }) {
         >
           <span>{currentModel?.name || 'Select Model'}</span>
           {isModelMenuOpen ? (
-            <ChevronUp className="w-4 h-4 ml-1" />
-          ) : (
             <ChevronDown className="w-4 h-4 ml-1" />
+          ) : (
+            <ChevronUp className="w-4 h-4 ml-1" />
           )}
         </div>
 
         {/* Dropdown Menu */}
         {isModelMenuOpen && (
-          <div className="absolute bottom-[30px] right-0 w-[300px] bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg">
-            <div className="p-2">
+          <div className="absolute bottom-[24px] right-0 w-[300px] bg-bgApp rounded-lg border border-borderSubtle">
+            <div className="">
               <ModelRadioList
-                className="divide-y divide-gray-100 dark:divide-gray-700"
+                className="divide-y divide-borderSubtle"
                 renderItem={({ model, isSelected, onSelect }) => (
                   <label key={model.name} className="block cursor-pointer">
                     <div
-                      className="flex items-center justify-between p-3 transition-colors
-                      hover:text-gray-900 dark:hover:text-white"
+                      className="flex items-center justify-between p-2 text-textStandard hover:bg-bgSubtle transition-colors"
                       onClick={onSelect}
                     >
                       <div>
-                        <p className="text-sm font-semibold">{model.name}</p>
-                        <p className="text-xs text-muted-foreground">{model.provider}</p>
+                        <p className="text-sm ">{model.name}</p>
+                        <p className="text-xs text-textSubtle">{model.provider}</p>
                       </div>
                       <div className="relative">
                         <input
@@ -115,8 +117,8 @@ export default function BottomMenu({ hasMessages }) {
                 )}
               />
               <div
-                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700
-                  border-t-2 border-gray-200 dark:border-gray-600"
+                className="flex items-center justify-between text-textStandard p-2 cursor-pointer hover:bg-bgStandard
+                  border-t border-borderSubtle mt-2"
                 onClick={() => {
                   setIsModelMenuOpen(false);
                   navigate('/settings');

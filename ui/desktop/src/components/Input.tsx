@@ -82,12 +82,18 @@ export default function Input({
   return (
     <form
       onSubmit={onFormSubmit}
-      className="flex relative h-auto px-[16px] pr-[68px] py-[1rem] border-t dark:border-gray-700"
+      className="flex relative h-auto px-[16px] pr-[68px] py-[1rem] border-t border-borderSubtle"
     >
+      {/* loading */}
+      {/* {isLoading && (
+        <div className="absolute top-[-2px] left-0 w-full h-[2px]">
+          <div className="absolute w-[300px] h-[2px] bg-gradient-to-r from-blockTeal to-blockOrange animate-gradient-loader"></div>
+        </div>
+      )} */}
       <textarea
         autoFocus
         id="dynamic-textarea"
-        placeholder="What should goose do?"
+        placeholder="What can goose help with?"
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
@@ -99,7 +105,7 @@ export default function Input({
           maxHeight: `${maxHeight}px`,
           overflowY: 'auto',
         }}
-        className={`w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-14 resize-none ${
+        className={`w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-base resize-none text-textStandard ${
           disabled ? 'cursor-not-allowed opacity-50' : ''
         }`}
       />
@@ -109,8 +115,8 @@ export default function Input({
         variant="ghost"
         onClick={handleFileSelect}
         disabled={disabled}
-        className={`absolute right-[40px] top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 ${
-          disabled ? 'opacity-50 cursor-not-allowed' : ''
+        className={`absolute right-[40px] top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard ${
+          disabled ? 'text-textSubtle cursor-not-allowed' : ''
         }`}
       >
         <Attach />
@@ -121,7 +127,7 @@ export default function Input({
           size="icon"
           variant="ghost"
           onClick={onStop}
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-100 dark:bg-indigo-800 dark:text-indigo-200 text-indigo-600 hover:opacity-50 [&_svg]:size-5"
+          className="absolute right-2 top-1/2 -translate-y-1/2 [&_svg]:size-5 text-textSubtle hover:text-textStandard"
         >
           <Stop size={24} />
         </Button>
@@ -131,8 +137,8 @@ export default function Input({
           size="icon"
           variant="ghost"
           disabled={disabled || !value.trim()}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-800 ${
-            disabled || !value.trim() ? 'opacity-50 cursor-not-allowed' : ''
+          className={`absolute right-2 top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard ${
+            disabled || !value.trim() ? 'text-textSubtle cursor-not-allowed' : ''
           }`}
         >
           <Send />

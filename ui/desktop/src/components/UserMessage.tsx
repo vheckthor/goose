@@ -8,9 +8,9 @@ export default function UserMessage({ message }) {
   const urls = extractUrls(message.content, []);
 
   return (
-    <div className="flex justify-end mb-[16px] w-full">
+    <div className="flex justify-end mt-[16px] w-full opacity-0 animate-[appear_150ms_ease-in_forwards]">
       <div className="flex-col max-w-[85%]">
-        <div className="flex bg-user-bubble dark:bg-user-bubble-dark text-goose-text-light dark:text-goose-text-light-dark rounded-2xl p-4">
+        <div className="flex bg-slate text-white rounded-xl rounded-br-none py-2 px-3">
           <MarkdownContent content={message.content} className="text-white" />
         </div>
         {urls.length > 0 && (

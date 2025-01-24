@@ -5,21 +5,22 @@ import { ToolCallArguments } from './ToolCallArguments';
 import MarkdownContent from './MarkdownContent';
 import { snakeToTitleCase } from '../utils';
 import { LoadingPlaceholder } from './LoadingPlaceholder';
+import { ChevronUp } from 'lucide-react';
 
 export default function ToolInvocations({ toolInvocations }) {
   return (
-    <div className="flex flex-col">
+    <>
       {toolInvocations.map((toolInvocation) => (
         <ToolInvocation key={toolInvocation.toolCallId} toolInvocation={toolInvocation} />
       ))}
-    </div>
+    </>
   );
 }
 
 function ToolInvocation({ toolInvocation }) {
   return (
-    <div className="flex flex-col w-full">
-      <Card className="bg-tool-card dark:bg-tool-card-dark text-tool dark:text-tool-dark p-4 mb-2">
+    <div className="w-full">
+      <Card className="">
         <ToolCall call={toolInvocation} />
         {toolInvocation.state === 'result' ? (
           <ToolResult result={toolInvocation} />
@@ -45,14 +46,14 @@ function ToolCall({ call }: ToolCallProps) {
     <div>
       <div className="flex items-center">
         <Box size={15} />
-        <span className="ml-[8px] text-tool-bold dark:text-tool-bold-dark">
-          {snakeToTitleCase(call.toolName.substring(call.toolName.lastIndexOf('__') + 2))}
+        <span className="ml-[8px] text-sm text-textStandard font-medium tracking-widest">
+          {call.toolName.substring(call.toolName.lastIndexOf('__') + 2).toUpperCase()}
         </span>
       </div>
 
       {call.args && <ToolCallArguments args={call.args} />}
 
-      <div className="self-stretch h-px bg-black/5 dark:bg-white/5 my-[10px] rounded-sm" />
+      <div className="self-stretch h-px my-[10px] -mx-4 bg-borderSubtle" />
     </div>
   );
 }
@@ -115,7 +116,7 @@ function ToolResult({ result }: ToolResultProps) {
   };
 
   return (
-    <div className="mt-2 pt-2">
+    <div className="mt-2">
       {filteredResults.map((item: ResultItem, index: number) => {
         const isExpanded = shouldShowExpanded(item, index);
         // minimize if priority is not set or < 0.5
@@ -124,9 +125,14 @@ function ToolResult({ result }: ToolResultProps) {
         return (
           <div key={index} className="relative">
             {shouldMinimize && (
-              <button onClick={() => toggleExpand(index)} className="mb-1 p-1 flex items-center">
-                {isExpanded ? '▼ Output' : '▶ Output'}{' '}
-                {/* Unicode triangles as expand/collapse indicators */}
+              <button
+                onClick={() => toggleExpand(index)}
+                className="mb-1 p-1 flex items-center text-textStandard"
+              >
+                <span className="mr-2">Output</span>
+                <ChevronUp
+                  className={`h-5 w-5 transition-all origin-center ${!isExpanded ? 'rotate-180' : ''}`}
+                />
               </button>
             )}
             {(isExpanded || !shouldMinimize) && (
@@ -134,7 +140,7 @@ function ToolResult({ result }: ToolResultProps) {
                 {item.type === 'text' && item.text && (
                   <MarkdownContent
                     content={item.text}
-                    className="text-tool-result-green whitespace-pre-wrap p-2 max-w-full overflow-x-auto"
+                    className="whitespace-pre-wrap p-2 max-w-full overflow-x-auto"
                   />
                 )}
                 {item.type === 'image' && item.data && item.mimeType && (

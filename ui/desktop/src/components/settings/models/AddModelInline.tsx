@@ -86,7 +86,7 @@ export function AddModelInline() {
           styles={createDarkSelectStyles('200px')}
           theme={darkSelectTheme}
         />
-        <div className="relative" style={{ minWidth: '150px', maxWidth: '250px' }}>
+        <div className="relative" style={{ minWidth: '150px' }}>
           <Input
             type="text"
             placeholder="Model name"

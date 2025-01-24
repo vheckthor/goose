@@ -6,31 +6,28 @@ import { ConfigureProvidersGrid } from './ConfigureProvidersGrid';
 
 export default function ConfigureProviders() {
   return (
-    <div className="h-screen w-full pt-[36px]">
-      <div className="h-full w-full bg-white dark:bg-gray-800 overflow-hidden p-2 pt-0">
-        <ScrollArea className="h-full w-full">
-          <div className="flex min-h-full">
-            {/* Left Navigation - further reduced width */}
-            <div className="w-24 border-r border-gray-100 dark:border-gray-700 px-2 pt-2">
-              <div className="sticky top-8">
-                <BackButton className="mb-4" />
-              </div>
-            </div>
+    <div className="h-screen w-full">
+      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
 
-            {/* Content Area */}
-            <div className="flex-1 px-16 py-8 pt-[20px]">
-              <div className="max-w-5xl space-y-12">
-                <div className="flex items-center gap-4 mb-8">
-                  <h1 className="text-2xl font-semibold tracking-tight">Configure Providers</h1>
-                </div>
-                <div className="relative z-10">
-                  <ConfigureProvidersGrid />
-                </div>
-              </div>
+      <ScrollArea className="h-full w-full">
+        <div className="px-8 pt-6 pb-4">
+          <BackButton />
+          <h1 className="text-3xl font-medium text-textStandard mt-1">Configure</h1>
+        </div>
+
+        <div className=" py-8 pt-[20px]">
+          <div className="flex justify-between items-center mb-6 border-b border-borderSubtle px-8">
+            <h2 className="text-xl font-medium text-textStandard">Providers</h2>
+          </div>
+
+          {/* Content Area */}
+          <div className="max-w-5xl pt-4 px-8">
+            <div className="relative z-10">
+              <ConfigureProvidersGrid />
             </div>
           </div>
-        </ScrollArea>
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

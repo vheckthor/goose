@@ -4,7 +4,7 @@
 
 /* Cash Sans */
 
-@font-face {
+/* @font-face {
   font-family: 'CashSans';
   src: url('./fonts/CashSans-Regular.woff2') format('woff2');
   font-weight: normal;
@@ -30,11 +30,78 @@
   src: url('./fonts/CashSansMono-Regular.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
+} */
+
+@font-face {
+  font-family: Cash Sans;
+  src: url(https://cash-f.squarecdn.com/static/fonts/cashsans/woff2/CashSans-Regular.woff2)
+    format('woff2');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: Cash Sans;
+  src: url(https://cash-f.squarecdn.com/static/fonts/cashsans/woff2/CashSans-Medium.woff2)
+    format('woff2');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: Cash Sans;
+  src: url(https://cash-f.squarecdn.com/static/fonts/cashsans/woff2/CashSans-Semibold.woff2)
+    format('woff2');
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: Cash Sans;
+  src: url(https://cash-f.squarecdn.com/static/fonts/cashsans/woff2/CashSans-Bold.woff2)
+    format('woff2');
+  font-weight: 700;
+  font-style: normal;
 }
 
 @layer base {
   :root {
-    --radius: 0.5rem;
+    --spring-easing: linear(
+      0,
+      0.009,
+      0.035 2.1%,
+      0.141,
+      0.281 6.7%,
+      0.723 12.9%,
+      0.938 16.7%,
+      1.017,
+      1.077,
+      1.121,
+      1.149 24.3%,
+      1.159,
+      1.163,
+      1.161,
+      1.154 29.9%,
+      1.129 32.8%,
+      1.051 39.6%,
+      1.017 43.1%,
+      0.991,
+      0.977 51%,
+      0.974 53.8%,
+      0.975 57.1%,
+      0.997 69.8%,
+      1.003 76.9%,
+      1.004 83.8%,
+      1
+    );
+    --spring-duration: 1.333s;
+
+    /* custom slate */
+    --slate: #393838;
+
+    /* block */
+    --block-teal: #13bbaf;
+    --block-orange: #ff4f00;
 
     /* start arcade colors */
     --constant-white: #ffffff;
@@ -104,20 +171,6 @@
     }
     /* end arcade colors */
   }
-
-  .inter-app-type {
-    color: rgba(0, 0, 0, 0.9);
-    font-family: Inter;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: normal;
-  }
-
-  /* Dark mode styles */
-  .dark .inter-app-type {
-    color: rgba(255, 255, 255, 0.9);
-  }
 }
 
 @layer components {
@@ -133,56 +186,6 @@
 
   .no-drag {
     -webkit-app-region: no-drag;
-  }
-
-  .ask-goose-type {
-    color: #000;
-    font-family: 'Square Sans Mono';
-    font-size: 16px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
-    letter-spacing: 1.6px;
-  }
-
-  .dark .ask-goose-type {
-    color: #9d9d9d;
-  }
-
-  .tool-form-button {
-    color: #7a7efb;
-    text-align: center;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 600;
-    line-height: var(--Type-styles-Paragraph-leading-20, 22px);
-    letter-spacing: var(--Type-styles-Paragraph-tracking-20, 0px);
-    background: var(--fill-40, rgba(0, 0, 0, 0.05));
-  }
-
-  .dark .tool-form-button {
-    color: #7a7efb;
-    background: var(--fill-40, rgba(255, 255, 255, 0.1));
-  }
-
-  .tab-type {
-    color: rgba(91, 91, 91, 0.8);
-    font-size: 10px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: normal;
-  }
-
-  .dark .tab-type {
-    color: rgba(164, 164, 164, 0.8);
-  }
-
-  body {
-    color: black;
-  }
-
-  .dark body {
-    color: white;
   }
 
   .bg-inline-code {

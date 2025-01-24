@@ -166,75 +166,65 @@ export default function Settings() {
   };
 
   return (
-    <div className="h-screen w-full pt-[36px]">
-      <div className="h-full w-full bg-white dark:bg-gray-800 overflow-hidden p-2 pt-0">
-        <ScrollArea className="h-full w-full">
-          <div className="flex min-h-full">
-            {/* Left Navigation */}
-            <div className="w-48 border-gray-100 dark:border-gray-700 px-2 pt-2">
-              <div className="sticky top-8">
-                <BackButton
-                  onClick={() => {
-                    navigate('/chat/1', { replace: true });
-                  }}
-                  className="mb-4"
-                />
-                <div className="space-y-2">
-                  {['Models', 'Extensions'].map((section) => (
-                    <button
-                      key={section}
-                      onClick={(e) => handleNavClick(section, e)}
-                      className="block w-full text-left px-3 py-2 rounded-lg transition-colors
-                                                  text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      {section}
-                    </button>
-                  ))}
+    <div className="h-screen w-full">
+      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
+
+      <ScrollArea className="h-full w-full">
+        <div className="flex flex-col pb-24">
+          <div className="px-8 pt-6 pb-4">
+            <BackButton
+              onClick={() => {
+                navigate('/chat/1', { replace: true });
+              }}
+            />
+            <h1 className="text-3xl font-medium text-textStandard mt-1">Settings</h1>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 py-8 pt-[20px]">
+            <div className="space-y-8">
+              <section id="models">
+                <div className="flex justify-between items-center mb-6 border-b border-borderSubtle px-8">
+                  <h2 className="text-xl font-medium text-textStandard">Models</h2>
+                  <button
+                    onClick={() => navigate('/settings/more-models')}
+                    className="text-indigo-500 hover:text-indigo-600 text-sm"
+                  >
+                    Browse
+                  </button>
                 </div>
-              </div>
-            </div>
+                <div className="px-8">
+                  <RecentModelsRadio />
+                </div>
+              </section>
 
-            {/* Content Area */}
-            <div className="flex-1 px-16 py-8 pt-[20px]">
-              <div className="space-y-12">
-                <section id="models">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-textStandard">Models</h2>
+              <section id="extensions">
+                <div className="flex justify-between items-center mb-6 border-b border-borderSubtle px-8">
+                  <h2 className="text-xl font-semibold text-textStandard">Extensions</h2>
+                  <div className="flex gap-4">
                     <button
-                      onClick={() => navigate('/settings/more-models')}
-                      className="text-indigo-500 hover:text-indigo-600 font-medium"
+                      onClick={() => setIsManualModalOpen(true)}
+                      className="text-indigo-500 hover:text-indigo-600 text-sm"
+                      title="Add Manually"
                     >
-                      More Models
+                      {/* <Plus className="h-4 w-4" /> */}
+                      Add
+                    </button>
+
+                    <button
+                      onClick={() => window.electron.openInChrome(EXTENSIONS_SITE_LINK)}
+                      className="text-indigo-500 hover:text-indigo-600 text-sm"
+                    >
+                      Browse
                     </button>
                   </div>
-                  <RecentModelsRadio />
-                </section>
+                </div>
 
-                <section id="extensions">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold text-textStandard">Extensions</h2>
-                    <div className="flex gap-4">
-                      <button
-                        onClick={() => setIsManualModalOpen(true)}
-                        className="text-indigo-500 hover:text-indigo-600 font-medium"
-                        title="Add Manually"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>{' '}
-                      |
-                      <button
-                        onClick={() => window.electron.openInChrome(EXTENSIONS_SITE_LINK)}
-                        className="text-indigo-500 hover:text-indigo-600 font-medium"
-                      >
-                        Browse Extensions
-                      </button>
-                    </div>
-                  </div>
+                <div className="px-8">
                   <p className="text-sm text-textStandard mb-4">{EXTENSIONS_DESCRIPTION}</p>
+
                   {settings.extensions.length === 0 ? (
-                    <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                      No Extensions Added
-                    </p>
+                    <p className="text-textSubtle text-center py-4">No Extensions Added</p>
                   ) : (
                     settings.extensions.map((ext) => (
                       <ExtensionItem
@@ -245,12 +235,12 @@ export default function Settings() {
                       />
                     ))
                   )}
-                </section>
-              </div>
+                </div>
+              </section>
             </div>
           </div>
-        </ScrollArea>
-      </div>
+        </div>
+      </ScrollArea>
 
       <ConfigureExtensionModal
         isOpen={!!extensionBeingConfigured}

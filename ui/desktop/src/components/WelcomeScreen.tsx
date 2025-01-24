@@ -10,7 +10,7 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ className, onDismiss }: WelcomeScreenProps) {
   return (
     <Card
-      className={`flex flex-col items-center justify-center p-8 space-y-6 bg-card-gradient dark:bg-dark-card-gradient w-full h-full ${className}`}
+      className={`flex flex-col items-center justify-center p-8 space-y-6 bg-bgApp w-full h-full ${className}`}
     >
       <div className="w-16 h-16">
         <Bird />

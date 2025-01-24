@@ -41,18 +41,14 @@ export function ProviderButtons() {
           {activeKeys.map((provider) => (
             <Button
               key={provider}
-              variant="default"
-              className={`h-9 px-4 text-sm whitespace-nowrap shrink-0
+              variant="ghost"
+              className={`text-sm whitespace-nowrap shrink-0
                                 ${
                                   selectedProvider === provider
-                                    ? 'bg-white text-gray-800 dark:bg-gray-800 dark:text-white'
-                                    : 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900'
+                                    ? 'bg-bgSubtle text-textStandard border-borderStandard'
+                                    : 'bg-bgApp border-borderSubtle text-textSubtle'
                                 }
-                                rounded-full shadow-md border-none
-                                hover:bg-gray-700 hover:text-white
-                                focus:outline-none focus:ring-0
-                                focus-visible:ring-0 focus-visible:outline-none
-                                dark:hover:bg-gray-300 dark:hover:text-gray-900`}
+                                rounded-full shadow-none border`}
               onClick={() => {
                 setSelectedProvider(selectedProvider === provider ? null : provider);
               }}
@@ -89,10 +85,9 @@ export function ProviderButtons() {
             href={providerLinks[selectedProvider]}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-sm text-blue-600 dark:text-blue-400 
-                            hover:underline mt-4"
+            className="text-indigo-500 hover:text-indigo-600 text-sm"
           >
-            Browse more {selectedProvider} models...
+            Browse more {selectedProvider} models
           </a>
         </div>
       )}
