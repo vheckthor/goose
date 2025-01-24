@@ -99,7 +99,7 @@ export function ServerCard({ server }: { server: MCPServer }) {
                       transition: { duration: 0.1 },
                     }}
                   >
-                    goose session --with-system "{server.command}"
+                    goose session --with-extension "{server.command}"
                   </motion.code>
                 )}
               </AnimatePresence>

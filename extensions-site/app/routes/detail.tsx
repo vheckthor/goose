@@ -141,7 +141,7 @@ export default function DetailPage() {
                 <h4 className="font-medium">Command</h4>
               </div>
               <code className="block bg-gray-100 dark:bg-gray-900 p-2 rounded text-sm dark:text-gray-300">
-                goose session --with-system "{server.command}"
+                goose session --with-extension "{server.command}"
               </code>
             </div>
 

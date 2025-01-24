@@ -60,7 +60,7 @@ You can also bring in any third-party extension of your choice using the [MCP se
 You can start a tailored goose session with specific extensions directly from the CLI. To do this, run the following command:
 
 ```bash
-goose session --with-system "<system_url>"
+goose session --with-extension "<extension command>"
 ```
 
 :::note
