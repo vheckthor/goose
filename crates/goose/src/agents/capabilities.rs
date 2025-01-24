@@ -67,7 +67,7 @@ impl ResourceItem {
 
 /// Sanitizes a string by replacing invalid characters with underscores.
 /// Valid characters match [a-zA-Z0-9_-]
-fn sanitize(input: String) -> String {
+fn normalize(input: String) -> String {
     let mut result = String::with_capacity(input.len());
     for c in input.chars() {
         result.push(match c {
@@ -76,7 +76,7 @@ fn sanitize(input: String) -> String {
             _ => '_',                           // Replace any other non-ASCII character with '_'
         });
     }
-    result
+    result.to_lowercase()
 }
 
 impl Capabilities {
@@ -143,7 +143,7 @@ impl Capabilities {
             .await
             .map_err(|e| ExtensionError::Initialization(config.clone(), e))?;
 
-        let sanitized_name = sanitize(config.name().to_string());
+        let sanitized_name = normalize(config.name().to_string());
 
         // Store instructions if provided
         if let Some(instructions) = init_result.instructions {
@@ -177,7 +177,7 @@ impl Capabilities {
 
     /// Get aggregated usage statistics
     pub async fn remove_extension(&mut self, name: &str) -> ExtensionResult<()> {
-        let sanitized_name = sanitize(name.to_string());
+        let sanitized_name = normalize(name.to_string());
 
         self.clients.remove(&sanitized_name);
         self.instructions.remove(&sanitized_name);
@@ -602,22 +602,22 @@ mod tests {
 
         // Add some mock clients
         capabilities.clients.insert(
-            sanitize("test_client".to_string()),
+            normalize("test_client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         capabilities.clients.insert(
-            sanitize("__client".to_string()),
+            normalize("__client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         capabilities.clients.insert(
-            sanitize("__cli__ent__".to_string()),
+            normalize("__cli__ent__".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         capabilities.clients.insert(
-            sanitize("client 🚀".to_string()),
+            normalize("client 🚀".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
@@ -651,17 +651,17 @@ mod tests {
 
         // Add some mock clients
         capabilities.clients.insert(
-            sanitize("test_client".to_string()),
+            normalize("test_client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         capabilities.clients.insert(
-            sanitize("__cli__ent__".to_string()),
+            normalize("__cli__ent__".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         capabilities.clients.insert(
-            sanitize("client 🚀".to_string()),
+            normalize("client 🚀".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
