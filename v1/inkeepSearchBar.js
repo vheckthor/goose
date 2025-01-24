@@ -6,7 +6,7 @@
     inkeepSearchBarScript.crossOrigin = "anonymous";
     document.body.appendChild(inkeepSearchBarScript);
     inkeepSearchBarScript.addEventListener("load", function () {
-      const inkeepConfigSearchBar = {"baseSettings":{"apiKey":"inkeepApiKey","integrationId":"inkeepIntegrationId","organizationId":"inkeepOrgId","primaryBrandColor":"#1E1E1E"},"aiChatSettings":{"chatSubjectName":"goose","botAvatarSrcUrl":"https://storage.googleapis.com/organization-image-assets/block-botAvatarSrcUrl-1737745528096.png","botAvatarDarkSrcUrl":"https://storage.googleapis.com/organization-image-assets/block-botAvatarDarkSrcUrl-1737745527450.png","getHelpCallToActions":[{"name":"GitHub","url":"https://github.com/block/goose","icon":{"builtIn":"FaGithub"}}],"quickQuestions":["What is Goose?"]}};
+      const inkeepConfigSearchBar = {"baseSettings":{"apiKey":"5bcaf7108a8d61a3ea37ee6c7d592f3d1fe76d091aadda6c","integrationId":"cm6b6mj8v00sjs601v6u4rjnf","organizationId":"org_GW7VeRk82JIdk426","primaryBrandColor":"#1E1E1E"},"aiChatSettings":{"chatSubjectName":"goose","botAvatarSrcUrl":"https://storage.googleapis.com/organization-image-assets/block-botAvatarSrcUrl-1737745528096.png","botAvatarDarkSrcUrl":"https://storage.googleapis.com/organization-image-assets/block-botAvatarDarkSrcUrl-1737745527450.png","getHelpCallToActions":[{"name":"GitHub","url":"https://github.com/block/goose","icon":{"builtIn":"FaGithub"}}],"quickQuestions":["What is Goose?"]}};
       (function listenerFunction({ inkeepConfig, componentType }) {
   if (!inkeepConfig) {
     throw new Error(
