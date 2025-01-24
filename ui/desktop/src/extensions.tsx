@@ -39,7 +39,8 @@ export interface ExtensionPayload {
   env_keys?: string[];
 }
 
-export const BUILT_IN_EXTENSIONS = [
+// Create a copy that preserves the default enabled state for non-caged mode
+export const DEFAULT_BUILT_IN_EXTENSIONS = [
   {
     id: 'developer',
     name: 'Developer',
@@ -87,6 +88,14 @@ export const BUILT_IN_EXTENSIONS = [
   },*/
 ];
 
+// Export BUILT_IN_EXTENSIONS as a function that considers freedom mode
+export function getBuiltInExtensions(freedom: string = 'caged') {
+  return DEFAULT_BUILT_IN_EXTENSIONS.map((ext) => ({
+    ...ext,
+    enabled: freedom === 'caged' ? false : ext.enabled,
+  }));
+}
+
 function sanitizeName(name: string) {
   return name.toLowerCase().replace(/-/g, '').replace(/_/g, '').replace(/\s/g, '');
 }
@@ -96,6 +105,23 @@ export async function addExtension(
   silent: boolean = false
 ): Promise<Response> {
   try {
+    // Check if in caged mode
+    const userSettingsStr = localStorage.getItem('user_settings');
+    const userSettings = userSettingsStr ? JSON.parse(userSettingsStr) : null;
+
+    if (userSettings?.freedom === 'caged') {
+      const errorMessage = 'Cannot add extensions in Caged mode';
+      if (!silent) {
+        toast.error(
+          <div>
+            <strong>Cannot Add Extension</strong>
+            <div>{errorMessage}</div>
+          </div>
+        );
+      }
+      throw new Error(errorMessage);
+    }
+
     // Create the config based on the extension type
     const config = {
       type: extension.type,
@@ -209,6 +235,18 @@ export async function loadAndAddStoredExtensions() {
 
     if (userSettingsStr) {
       const userSettings = JSON.parse(userSettingsStr);
+      // If in caged mode, ensure no extensions are enabled
+      if (userSettings.freedom === 'caged') {
+        userSettings.extensions = userSettings.extensions.map((ext: any) => ({
+          ...ext,
+          enabled: false,
+        }));
+        localStorage.setItem('user_settings', JSON.stringify(userSettings));
+        // Don't attempt to add any extensions in caged mode
+        return;
+      }
+
+      // Only try to add extensions if not in caged mode
       const enabledExtensions = userSettings.extensions.filter((ext: any) => ext.enabled);
       console.log('Adding extensions from localStorage: ', enabledExtensions);
       for (const ext of enabledExtensions) {
@@ -216,13 +254,12 @@ export async function loadAndAddStoredExtensions() {
       }
     } else {
       console.log('Saving default builtin extensions to localStorage');
-      // TODO - Revisit
+      // Get default settings with extensions based on default freedom mode (caged)
+      const defaultExtensions = getBuiltInExtensions('caged');
+      // Store configs but don't enable any extensions since we start in caged mode
       // @ts-expect-error "we actually do always have all the properties required for builtins, but tsc cannot tell for some reason"
-      BUILT_IN_EXTENSIONS.forEach(async (extension: FullExtensionConfig) => {
+      defaultExtensions.forEach((extension: FullExtensionConfig) => {
         storeExtensionConfig(extension);
-        if (extension.enabled) {
-          await addExtension(extension, true);
-        }
       });
     }
   } catch (error) {

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import { getApiUrl, getSecretKey } from '../../config';
 import { Settings as SettingsType } from './types';
 import {
   FullExtensionConfig,
   addExtension,
   removeExtension,
-  BUILT_IN_EXTENSIONS,
+  getBuiltInExtensions,
+  DEFAULT_BUILT_IN_EXTENSIONS,
 } from '../../extensions';
 import { ConfigureExtensionModal } from './extensions/ConfigureExtensionModal';
 import { ManualExtensionModal } from './extensions/ManualExtensionModal';
@@ -15,6 +16,8 @@ import { ConfigureBuiltInExtensionModal } from './extensions/ConfigureBuiltInExt
 import BackButton from '../ui/BackButton';
 import { RecentModelsRadio } from './models/RecentModels';
 import { ExtensionItem } from './extensions/ExtensionItem';
+import { FreedomLevel, GooseFreedom } from './freedom/FreedomLevel';
+import { toast } from 'react-toastify';
 
 const EXTENSIONS_DESCRIPTION =
   'The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.';
@@ -42,8 +45,9 @@ const DEFAULT_SETTINGS: SettingsType = {
       enabled: true,
     },
   ],
-  // @ts-expect-error "we actually do always have all the properties required for builtins, but tsc cannot tell for some reason"
-  extensions: BUILT_IN_EXTENSIONS,
+  // Get default extensions with all disabled in caged mode (default)
+  extensions: getBuiltInExtensions('caged'),
+  freedom: 'caged' as GooseFreedom, // Default to most restrictive mode
 };
 
 export default function Settings() {
@@ -56,14 +60,24 @@ export default function Settings() {
     let currentSettings = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
 
     // Ensure built-in extensions are included if not already present
-    BUILT_IN_EXTENSIONS.forEach((builtIn) => {
+    const builtIns = getBuiltInExtensions(currentSettings.freedom || 'caged');
+    builtIns.forEach((builtIn) => {
       const exists = currentSettings.extensions.some(
         (ext: FullExtensionConfig) => ext.id === builtIn.id
       );
       if (!exists) {
-        currentSettings.extensions.push(builtIn);
+        // If in caged mode, ensure extension is disabled
+        currentSettings.extensions.push({
+          ...builtIn,
+          enabled: currentSettings.freedom === 'caged' ? false : builtIn.enabled,
+        });
       }
     });
+
+    // Ensure freedom level is set
+    if (!currentSettings.freedom) {
+      currentSettings.freedom = DEFAULT_SETTINGS.freedom;
+    }
 
     return currentSettings;
   });
@@ -123,6 +137,25 @@ export default function Settings() {
 
     const newEnabled = !extension.enabled;
 
+    // If trying to enable an extension in caged mode, show error and return
+    if (newEnabled && settings.freedom === 'caged') {
+      toast.error(
+        <div>
+          <strong>Cannot Add Extension</strong>
+          <div>Extensions cannot be added in Caged mode</div>
+        </div>,
+        {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        }
+      );
+      return;
+    }
+
     const originalSettings = settings;
 
     // Optimistically update local component state
@@ -135,14 +168,48 @@ export default function Settings() {
 
     let response: Response;
 
-    if (newEnabled) {
-      response = await addExtension(extension);
-    } else {
-      response = await removeExtension(extension.name);
-    }
+    try {
+      if (newEnabled) {
+        response = await addExtension(extension);
+      } else {
+        response = await removeExtension(extension.name);
+      }
 
-    if (!response.ok) {
+      if (!response.ok) {
+        // Revert settings and show error
+        setSettings(originalSettings);
+        toast.error(
+          <div>
+            <strong>Extension Error</strong>
+            <div>{newEnabled ? 'Failed to add extension' : 'Failed to remove extension'}</div>
+          </div>,
+          {
+            position: 'top-right',
+            autoClose: 3000,
+            hideProgressBar: true,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          }
+        );
+      }
+    } catch (error) {
+      // Revert settings and show error
       setSettings(originalSettings);
+      toast.error(
+        <div>
+          <strong>Extension Error</strong>
+          <div>Unexpected error occurred</div>
+        </div>,
+        {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        }
+      );
     }
   };
 
@@ -184,8 +251,127 @@ export default function Settings() {
     navigate('/settings', { replace: true });
   };
 
+  const handleFreedomChange = async (freedom: GooseFreedom) => {
+    try {
+      const originalSettings = settings;
+
+      // If switching to caged mode, disable all extensions first
+      if (freedom === 'caged') {
+        // Create an array of promises for disabling all enabled extensions
+        const disablePromises = settings.extensions
+          .filter((ext) => ext.enabled)
+          .map(async (ext) => {
+            try {
+              const response = await removeExtension(ext.name);
+              if (!response.ok) {
+                throw new Error(`Failed to disable extension: ${ext.name}`);
+              }
+            } catch (error) {
+              console.error(`Error disabling extension ${ext.name}:`, error);
+              throw error;
+            }
+          });
+
+        try {
+          await Promise.all(disablePromises);
+        } catch (error) {
+          // If any extension fails to disable, revert settings and show error
+          setSettings(originalSettings);
+          toast.error(
+            <div>
+              <strong>Error Setting Caged Mode</strong>
+              <div>Failed to disable all extensions</div>
+            </div>,
+            {
+              position: 'top-right',
+              autoClose: 3000,
+              hideProgressBar: true,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+            }
+          );
+          return;
+        }
+      }
+
+      // Update the settings state with new freedom level and disabled extensions if caged
+      setSettings((prev) => ({
+        ...prev,
+        freedom,
+        extensions:
+          freedom === 'caged'
+            ? prev.extensions.map((ext) => ({ ...ext, enabled: false }))
+            : prev.extensions,
+      }));
+
+      // Send the update to the backend
+      const response = await fetch(getApiUrl('/agent/freedom'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Secret-Key': getSecretKey(),
+        },
+        body: JSON.stringify({
+          freedom: freedom.toLowerCase(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update freedom level on server');
+      }
+
+      // Log the change
+      window.electron.logInfo(`Freedom level changed to: ${freedom}`);
+
+      // Show success toast if switching to caged mode
+      if (freedom === 'caged') {
+        toast.success(
+          <div>
+            <strong>Caged Mode Enabled</strong>
+            <div>All extensions have been disabled</div>
+          </div>,
+          {
+            position: 'top-right',
+            autoClose: 3000,
+            hideProgressBar: true,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update freedom level:', error);
+      // Revert the local state if the server update failed
+      const saved = localStorage.getItem('user_settings');
+      if (saved) {
+        const savedSettings = JSON.parse(saved);
+        setSettings((prev) => ({
+          ...prev,
+          freedom: savedSettings.freedom,
+        }));
+      }
+      // Show error toast
+      toast.error(
+        <div>
+          <strong>Error</strong>
+          <div>Failed to update freedom level</div>
+        </div>,
+        {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        }
+      );
+    }
+  };
+
   const isBuiltIn = (extensionId: string) => {
-    return BUILT_IN_EXTENSIONS.some((builtIn) => builtIn.id === extensionId);
+    return DEFAULT_BUILT_IN_EXTENSIONS.some((builtIn) => builtIn.id === extensionId);
   };
 
   return (
@@ -206,6 +392,18 @@ export default function Settings() {
           {/* Content Area */}
           <div className="flex-1 py-8 pt-[20px]">
             <div className="space-y-8">
+              <section id="freedom">
+                <div className="flex justify-between items-center mb-6 border-b border-borderSubtle px-8">
+                  <h2 className="text-xl font-medium text-textStandard">Freedom Level</h2>
+                </div>
+                <div className="px-8">
+                  <p className="text-sm text-textStandard mb-4">
+                    Control how much freedom Goose has to use tools and interact with your system.
+                  </p>
+                  <FreedomLevel value={settings.freedom} onChange={handleFreedomChange} />
+                </div>
+              </section>
+
               <section id="models">
                 <div className="flex justify-between items-center mb-6 border-b border-borderSubtle px-8">
                   <h2 className="text-xl font-medium text-textStandard">Models</h2>
@@ -227,10 +425,18 @@ export default function Settings() {
                   <div className="flex gap-4">
                     <button
                       onClick={() => setIsManualModalOpen(true)}
-                      className="text-indigo-500 hover:text-indigo-600 text-sm"
-                      title="Add Manually"
+                      className={`text-sm ${
+                        settings.freedom === 'caged'
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-indigo-500 hover:text-indigo-600'
+                      }`}
+                      title={
+                        settings.freedom === 'caged'
+                          ? 'Cannot add extensions in caged mode'
+                          : 'Add Manually'
+                      }
+                      disabled={settings.freedom === 'caged'}
                     >
-                      {/* <Plus className="h-4 w-4" /> */}
                       Add
                     </button>
 
@@ -294,6 +500,25 @@ export default function Settings() {
         isOpen={isManualModalOpen}
         onClose={() => setIsManualModalOpen(false)}
         onSubmit={async (extension) => {
+          // Prevent adding extensions in caged mode
+          if (settings.freedom === 'caged') {
+            toast.error(
+              <div>
+                <strong>Cannot Add Extension</strong>
+                <div>Extensions cannot be added in Caged mode</div>
+              </div>,
+              {
+                position: 'top-right',
+                autoClose: 3000,
+                hideProgressBar: true,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+              }
+            );
+            return;
+          }
+
           const response = await addExtension(extension);
 
           if (response.ok) {
