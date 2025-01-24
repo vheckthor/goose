@@ -107,9 +107,9 @@ function ToolResult({ result }: ToolResultProps) {
   };
 
   const shouldShowExpanded = (item: ResultItem, index: number) => {
+    // (priority is defined and > 0.5) OR already in the expandedItems
     return (
-      item.annotations?.priority === undefined ||
-      item.annotations?.priority >= 0.5 ||
+      (item.annotations?.priority !== undefined && item.annotations?.priority >= 0.5) ||
       expandedItems.includes(index)
     );
   };
@@ -118,8 +118,9 @@ function ToolResult({ result }: ToolResultProps) {
     <div className="mt-2 pt-2">
       {filteredResults.map((item: ResultItem, index: number) => {
         const isExpanded = shouldShowExpanded(item, index);
+        // minimize if priority is not set or < 0.5
         const shouldMinimize =
-          item.annotations?.priority !== undefined && item.annotations?.priority < 0.5;
+          item.annotations?.priority === undefined || item.annotations?.priority < 0.5;
         return (
           <div key={index} className="relative">
             {shouldMinimize && (
