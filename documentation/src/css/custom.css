@@ -201,8 +201,8 @@ html {
   margin-bottom: 32px;
 }
 
-.footer .container {
-  border-top: 2px solid var(--border-prominent);
+.footer {
+  border-top: 2px solid var(--border-subtle);
   padding-top: 24px;
 }
 
