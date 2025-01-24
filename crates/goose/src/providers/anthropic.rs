@@ -12,6 +12,13 @@ use crate::model::ModelConfig;
 use mcp_core::tool::Tool;
 
 pub const ANTHROPIC_DEFAULT_MODEL: &str = "claude-3-5-sonnet-latest";
+pub const ANTHROPIC_KNOWN_MODELS: &[&str] = &[
+    "claude-3-5-sonnet-latest",
+    "claude-3-5-haiku-latest",
+    "claude-3-opus-latest",
+];
+
+pub const ANTHROPIC_DOC_URL: &str = "https://docs.anthropic.com/en/docs/about-claude/models";
 
 #[derive(serde::Serialize)]
 pub struct AnthropicProvider {
@@ -73,6 +80,11 @@ impl Provider for AnthropicProvider {
             "Anthropic",
             "Claude and other models from Anthropic",
             ANTHROPIC_DEFAULT_MODEL,
+            ANTHROPIC_KNOWN_MODELS
+                .iter()
+                .map(|&s| s.to_string())
+                .collect(),
+            ANTHROPIC_DOC_URL,
             vec![
                 ConfigKey::new("ANTHROPIC_API_KEY", true, true, None),
                 ConfigKey::new(

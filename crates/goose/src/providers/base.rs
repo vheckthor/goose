@@ -16,6 +16,11 @@ pub struct ProviderMetadata {
     pub description: String,
     /// The default/recommended model for this provider
     pub default_model: String,
+    /// A list of currently known models
+    /// TODO: eventually query the apis directly
+    pub known_models: Vec<String>,
+    /// Link to the docs where models can be found
+    pub model_doc_link: String,
     /// Required configuration keys
     pub config_keys: Vec<ConfigKey>,
 }
@@ -26,6 +31,8 @@ impl ProviderMetadata {
         display_name: &str,
         description: &str,
         default_model: &str,
+        known_models: Vec<String>,
+        model_doc_link: &str,
         config_keys: Vec<ConfigKey>,
     ) -> Self {
         Self {
@@ -33,6 +40,8 @@ impl ProviderMetadata {
             display_name: display_name.to_string(),
             description: description.to_string(),
             default_model: default_model.to_string(),
+            known_models,
+            model_doc_link: model_doc_link.to_string(),
             config_keys,
         }
     }
@@ -43,6 +52,8 @@ impl ProviderMetadata {
             display_name: "".to_string(),
             description: "".to_string(),
             default_model: "".to_string(),
+            known_models: vec![],
+            model_doc_link: "".to_string(),
             config_keys: vec![],
         }
     }

@@ -11,7 +11,10 @@ use serde_json::Value;
 use std::time::Duration;
 
 pub const OLLAMA_HOST: &str = "http://localhost:11434";
-pub const OLLAMA_MODEL: &str = "qwen2.5";
+pub const OLLAMA_DEFAULT_MODEL: &str = "qwen2.5";
+// Ollama can run many models, we only provide the default
+pub const OLLAMA_KNOWN_MODELS: &[&str] = &[OLLAMA_DEFAULT_MODEL];
+pub const OLLAMA_DOC_URL: &str = "https://ollama.com/library";
 
 #[derive(serde::Serialize)]
 pub struct OllamaProvider {
@@ -62,7 +65,9 @@ impl Provider for OllamaProvider {
             "ollama",
             "Ollama",
             "Local open source models",
-            OLLAMA_MODEL,
+            OLLAMA_DEFAULT_MODEL,
+            OLLAMA_KNOWN_MODELS.iter().map(|&s| s.to_string()).collect(),
+            OLLAMA_DOC_URL,
             vec![ConfigKey::new(
                 "OLLAMA_HOST",
                 false,

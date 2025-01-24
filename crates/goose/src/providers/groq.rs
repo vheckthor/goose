@@ -12,6 +12,9 @@ use std::time::Duration;
 
 pub const GROQ_API_HOST: &str = "https://api.groq.com";
 pub const GROQ_DEFAULT_MODEL: &str = "llama-3.3-70b-versatile";
+pub const GROQ_KNOWN_MODELS: &[&str] = &["gemma2-9b-it", "llama-3.3-70b-versatile"];
+
+pub const GROQ_DOC_URL: &str = "https://console.groq.com/docs/models";
 
 #[derive(serde::Serialize)]
 pub struct GroqProvider {
@@ -75,6 +78,8 @@ impl Provider for GroqProvider {
             "Groq",
             "Fast inference with Groq hardware",
             GROQ_DEFAULT_MODEL,
+            GROQ_KNOWN_MODELS.iter().map(|&s| s.to_string()).collect(),
+            GROQ_DOC_URL,
             vec![
                 ConfigKey::new("GROQ_API_KEY", true, true, None),
                 ConfigKey::new("GROQ_HOST", false, false, Some(GROQ_API_HOST)),

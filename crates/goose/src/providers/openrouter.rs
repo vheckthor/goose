@@ -16,6 +16,10 @@ use mcp_core::tool::Tool;
 pub const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-3.5-sonnet";
 pub const OPENROUTER_MODEL_PREFIX_ANTHROPIC: &str = "anthropic";
 
+// OpenRouter can run many models, we suggest the default
+pub const OPENROUTER_KNOWN_MODELS: &[&str] = &[OPENROUTER_DEFAULT_MODEL];
+pub const OPENROUTER_DOC_URL: &str = "https://openrouter.ai/models";
+
 #[derive(serde::Serialize)]
 pub struct OpenRouterProvider {
     #[serde(skip)]
@@ -161,6 +165,11 @@ impl Provider for OpenRouterProvider {
             "OpenRouter",
             "Router for many model providers",
             OPENROUTER_DEFAULT_MODEL,
+            OPENROUTER_KNOWN_MODELS
+                .iter()
+                .map(|&s| s.to_string())
+                .collect(),
+            OPENROUTER_DOC_URL,
             vec![
                 ConfigKey::new("OPENROUTER_API_KEY", true, true, None),
                 ConfigKey::new(

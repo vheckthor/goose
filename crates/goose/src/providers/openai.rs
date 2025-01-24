@@ -14,6 +14,16 @@ use crate::model::ModelConfig;
 use mcp_core::tool::Tool;
 
 pub const OPEN_AI_DEFAULT_MODEL: &str = "gpt-4o";
+pub const OPEN_AI_KNOWN_MODELS: &[&str] = &[
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-3.5-turbo",
+    "o1",
+    "o1-mini",
+];
+
+pub const OPEN_AI_DOC_URL: &str = "https://platform.openai.com/docs/models";
 
 #[derive(Debug, serde::Serialize)]
 pub struct OpenAiProvider {
@@ -73,6 +83,11 @@ impl Provider for OpenAiProvider {
             "OpenAI",
             "GPT-4 and other OpenAI models",
             OPEN_AI_DEFAULT_MODEL,
+            OPEN_AI_KNOWN_MODELS
+                .iter()
+                .map(|&s| s.to_string())
+                .collect(),
+            OPEN_AI_DOC_URL,
             vec![
                 ConfigKey::new("OPENAI_API_KEY", true, true, None),
                 ConfigKey::new("OPENAI_HOST", false, false, Some("https://api.openai.com")),

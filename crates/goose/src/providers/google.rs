@@ -12,6 +12,16 @@ use std::time::Duration;
 
 pub const GOOGLE_API_HOST: &str = "https://generativelanguage.googleapis.com";
 pub const GOOGLE_DEFAULT_MODEL: &str = "gemini-2.0-flash-exp";
+pub const GOOGLE_KNOWN_MODELS: &[&str] = &[
+    "models/gemini-1.5-pro-latest",
+    "models/gemini-1.5-pro",
+    "models/gemini-1.5-flash-latest",
+    "models/gemini-1.5-flash",
+    "models/gemini-2.0-flash-exp",
+    "models/gemini-2.0-flash-thinking-exp-01-21",
+];
+
+pub const GOOGLE_DOC_URL: &str = "https://ai.google/get-started/our-models/";
 
 #[derive(Debug, serde::Serialize)]
 pub struct GoogleProvider {
@@ -77,6 +87,8 @@ impl Provider for GoogleProvider {
             "Google Gemini",
             "Gemini models from Google AI",
             GOOGLE_DEFAULT_MODEL,
+            GOOGLE_KNOWN_MODELS.iter().map(|&s| s.to_string()).collect(),
+            GOOGLE_DOC_URL,
             vec![
                 ConfigKey::new("GOOGLE_API_KEY", true, true, None),
                 ConfigKey::new("GOOGLE_HOST", false, false, Some(GOOGLE_API_HOST)),
