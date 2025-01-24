@@ -1,9 +1,8 @@
+use super::base::Config;
+use crate::agents::ExtensionConfig;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-use super::base::Config;
-use crate::agents::ExtensionConfig;
 
 const DEFAULT_EXTENSION: &str = "developer";
 
@@ -52,13 +51,13 @@ impl ExtensionManager {
     }
 
     /// Set or update an extension configuration
-    pub fn set(name: &str, entry: ExtensionEntry) -> Result<()> {
+    pub fn set(entry: ExtensionEntry) -> Result<()> {
         let config = Config::global();
 
         let mut extensions: HashMap<String, ExtensionEntry> =
             config.get("extensions").unwrap_or_else(|_| HashMap::new());
 
-        extensions.insert(name.to_string(), entry);
+        extensions.insert(entry.config.name().parse()?, entry);
         config.set("extensions", serde_json::to_value(extensions)?)?;
         Ok(())
     }
@@ -90,9 +89,19 @@ impl ExtensionManager {
     }
 
     /// Get all extensions and their configurations
-    pub fn get_all() -> Result<HashMap<String, ExtensionEntry>> {
+    pub fn get_all() -> Result<Vec<ExtensionEntry>> {
         let config = Config::global();
-        Ok(config.get("extensions").unwrap_or_else(|_| HashMap::new()))
+        let extensions: HashMap<String, ExtensionEntry> =
+            config.get("extensions").unwrap_or(HashMap::new());
+        Ok(Vec::from_iter(extensions.values().cloned()))
+    }
+
+    /// Get all extension names
+    pub fn get_all_names() -> Result<Vec<String>> {
+        let config = Config::global();
+        Ok(config
+            .get("extensions")
+            .unwrap_or_else(|_| get_keys(Default::default())))
     }
 
     /// Check if an extension is enabled
@@ -103,4 +112,7 @@ impl ExtensionManager {
 
         Ok(extensions.get(name).map(|e| e.enabled).unwrap_or(false))
     }
+}
+fn get_keys(entries: HashMap<String, ExtensionEntry>) -> Vec<String> {
+    entries.into_keys().collect()
 }

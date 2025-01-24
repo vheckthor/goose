@@ -31,15 +31,12 @@ pub async fn handle_configure() -> Result<(), Box<dyn Error>> {
                 style("goose configure").cyan()
             );
             // Since we are setting up for the first time, we'll also enable the developer system
-            ExtensionManager::set(
-                "developer",
-                ExtensionEntry {
-                    enabled: true,
-                    config: ExtensionConfig::Builtin {
-                        name: "developer".to_string(),
-                    },
+            ExtensionManager::set(ExtensionEntry {
+                enabled: true,
+                config: ExtensionConfig::Builtin {
+                    name: "developer".to_string(),
                 },
-            )?;
+            })?;
         } else {
             let _ = config.clear();
             println!(
@@ -267,7 +264,7 @@ pub fn toggle_extensions_dialog() -> Result<(), Box<dyn Error>> {
     // Create a list of extension names and their enabled status
     let extension_status: Vec<(String, bool)> = extensions
         .iter()
-        .map(|(name, entry)| (name.clone(), entry.enabled))
+        .map(|entry| (entry.config.name().to_string(), entry.enabled))
         .collect();
 
     // Get currently enabled extensions for the selection
@@ -347,26 +344,23 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 .interact()?
                 .to_string();
 
-            ExtensionManager::set(
-                &extension,
-                ExtensionEntry {
-                    enabled: true,
-                    config: ExtensionConfig::Builtin {
-                        name: extension.clone(),
-                    },
+            ExtensionManager::set(ExtensionEntry {
+                enabled: true,
+                config: ExtensionConfig::Builtin {
+                    name: extension.clone(),
                 },
-            )?;
+            })?;
 
             cliclack::outro(format!("Enabled {} extension", style(extension).green()))?;
         }
         "stdio" => {
-            let extensions = ExtensionManager::get_all()?;
+            let extensions = ExtensionManager::get_all_names()?;
             let name: String = cliclack::input("What would you like to call this extension?")
                 .placeholder("my-extension")
                 .validate(move |input: &String| {
                     if input.is_empty() {
                         Err("Please enter a name")
-                    } else if extensions.contains_key(input) {
+                    } else if extensions.contains(input) {
                         Err("An extension with this name already exists")
                     } else {
                         Ok(())
@@ -412,28 +406,26 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            ExtensionManager::set(
-                &name,
-                ExtensionEntry {
-                    enabled: true,
-                    config: ExtensionConfig::Stdio {
-                        cmd,
-                        args,
-                        envs: Envs::new(envs),
-                    },
+            ExtensionManager::set(ExtensionEntry {
+                enabled: true,
+                config: ExtensionConfig::Stdio {
+                    name: name.clone(),
+                    cmd,
+                    args,
+                    envs: Envs::new(envs),
                 },
-            )?;
+            })?;
 
             cliclack::outro(format!("Added {} extension", style(name).green()))?;
         }
         "sse" => {
-            let extensions = ExtensionManager::get_all()?;
+            let extensions = ExtensionManager::get_all_names()?;
             let name: String = cliclack::input("What would you like to call this extension?")
                 .placeholder("my-remote-extension")
                 .validate(move |input: &String| {
                     if input.is_empty() {
                         Err("Please enter a name")
-                    } else if extensions.contains_key(input) {
+                    } else if extensions.contains(input) {
                         Err("An extension with this name already exists")
                     } else {
                         Ok(())
@@ -476,16 +468,14 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            ExtensionManager::set(
-                &name,
-                ExtensionEntry {
-                    enabled: true,
-                    config: ExtensionConfig::Sse {
-                        uri,
-                        envs: Envs::new(envs),
-                    },
+            ExtensionManager::set(ExtensionEntry {
+                enabled: true,
+                config: ExtensionConfig::Sse {
+                    name: name.clone(),
+                    uri,
+                    envs: Envs::new(envs),
                 },
-            )?;
+            })?;
 
             cliclack::outro(format!("Added {} extension", style(name).green()))?;
         }

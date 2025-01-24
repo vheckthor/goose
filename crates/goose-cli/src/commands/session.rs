@@ -41,10 +41,11 @@ pub async fn build_session(
     .expect("Failed to create agent");
 
     // Setup extensions for the agent
-    for (name, extension) in ExtensionManager::get_all().expect("should load extensions") {
+    for extension in ExtensionManager::get_all().expect("should load extensions") {
         if extension.enabled {
+            let config = extension.config.clone();
             agent
-                .add_extension(extension.config.clone())
+                .add_extension(config.clone())
                 .await
                 .unwrap_or_else(|e| {
                     let err = match e {
@@ -53,8 +54,11 @@ pub async fn build_session(
                         }
                         _ => e.to_string(),
                     };
-                    println!("Failed to start extension: {}, {:?}", name, err);
-                    println!("Please check extension configuration for {}.", name);
+                    println!("Failed to start extension: {}, {:?}", config.name(), err);
+                    println!(
+                        "Please check extension configuration for {}.",
+                        config.name()
+                    );
                     process::exit(1);
                 });
         }
@@ -81,7 +85,14 @@ pub async fn build_session(
         }
 
         let cmd = parts.remove(0).to_string();
+        //this is an ephemeral extension so name does not matter
+        let name = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(8)
+            .map(char::from)
+            .collect();
         let config = ExtensionConfig::Stdio {
+            name,
             cmd,
             args: parts.iter().map(|s| s.to_string()).collect(),
             envs: Envs::new(envs),

@@ -98,24 +98,22 @@ impl Capabilities {
     /// Add a new MCP extension based on the provided client type
     // TODO IMPORTANT need to ensure this times out if the extension command is broken!
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
-        let mut client: Box<dyn McpClientTrait> = match config {
-            ExtensionConfig::Sse { ref uri, ref envs } => {
+        let mut client: Box<dyn McpClientTrait> = match &config {
+            ExtensionConfig::Sse { uri, envs, .. } => {
                 let transport = SseTransport::new(uri, envs.get_env());
                 let handle = transport.start().await?;
                 let service = McpService::with_timeout(handle, Duration::from_secs(300));
                 Box::new(McpClient::new(service))
             }
             ExtensionConfig::Stdio {
-                ref cmd,
-                ref args,
-                ref envs,
+                cmd, args, envs, ..
             } => {
                 let transport = StdioTransport::new(cmd, args.to_vec(), envs.get_env());
                 let handle = transport.start().await?;
                 let service = McpService::with_timeout(handle, Duration::from_secs(300));
                 Box::new(McpClient::new(service))
             }
-            ExtensionConfig::Builtin { ref name } => {
+            ExtensionConfig::Builtin { name } => {
                 // For builtin extensions, we run the current executable with mcp and extension name
                 let cmd = std::env::current_exe()
                     .expect("should find the current executable")
@@ -148,18 +146,18 @@ impl Capabilities {
         // Store instructions if provided
         if let Some(instructions) = init_result.instructions {
             self.instructions
-                .insert(init_result.server_info.name.clone(), instructions);
+                .insert(config.name().to_string(), instructions);
         }
 
         // if the server is capable if resources we track it
         if init_result.capabilities.resources.is_some() {
             self.resource_capable_extensions
-                .insert(sanitize(init_result.server_info.name.clone()));
+                .insert(sanitize(config.name().to_string()));
         }
 
-        // Store the client
+        // Store the client using the provided name
         self.clients.insert(
-            sanitize(init_result.server_info.name.clone()),
+            sanitize(config.name().to_string()),
             Arc::new(Mutex::new(client)),
         );
 
@@ -180,15 +178,13 @@ impl Capabilities {
     /// Get aggregated usage statistics
     pub async fn remove_extension(&mut self, name: &str) -> ExtensionResult<()> {
         self.clients.remove(name);
+        self.instructions.remove(name);
+        self.resource_capable_extensions.remove(name);
         Ok(())
     }
 
     pub async fn list_extensions(&self) -> ExtensionResult<Vec<String>> {
-        let mut extensions = Vec::new();
-        for name in self.clients.keys() {
-            extensions.push(name.clone());
-        }
-        Ok(extensions)
+        Ok(self.clients.keys().cloned().collect())
     }
 
     pub async fn get_usage(&self) -> Vec<ProviderUsage> {
