@@ -2,9 +2,10 @@ import React from 'react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { FullExtensionConfig, replaceWithShims } from '../../../extensions';
+import { FullExtensionConfig } from '../../../extensions';
 import { getApiUrl, getSecretKey } from '../../../config';
-import { showToast } from '../../ui/toast';
+import { addExtension } from '../../../extensions';
+import { toast } from 'react-toastify';
 
 interface ConfigureExtensionModalProps {
   isOpen: boolean;
@@ -62,41 +63,18 @@ export function ConfigureExtensionModal({
         }
       }
 
-      // Then add the system configuration
-      const extensionConfig = {
-        type: extension.type,
-        ...(extension.type === 'stdio' && {
-          cmd: await replaceWithShims(extension.cmd),
-          args: extension.args || [],
-        }),
-        ...(extension.type === 'sse' && {
-          uri: extension.uri,
-        }),
-        ...(extension.type === 'builtin' && {
-          name: extension.name,
-        }),
-        env_keys: extension.env_keys,
-      };
-
-      const response = await fetch(getApiUrl('/extensions/add'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Secret-Key': getSecretKey(),
-        },
-        body: JSON.stringify(extensionConfig),
-      });
+      const response = await addExtension(extension);
 
       if (!response.ok) {
         throw new Error('Failed to add system configuration');
       }
 
-      showToast(`Successfully configured the ${extension.name} extension`, 'success');
+      toast.success(`Successfully configured the ${extension.name} extension`);
       onSubmit();
       onClose();
     } catch (error) {
       console.error('Error configuring extension:', error);
-      showToast('Failed to configure extension', 'error');
+      toast.error('Failed to configure extension');
     } finally {
       setIsSubmitting(false);
     }

@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Message, useChat } from './ai-sdk-fork/useChat';
 import { getApiUrl, getSecretKey } from './config';
-import { extendGoosedFromUrl } from './extensions';
-import { useNavigate } from 'react-router-dom';
 import BottomMenu from './components/BottomMenu';
 import FlappyGoose from './components/FlappyGoose';
 import GooseMessage from './components/GooseMessage';
@@ -24,6 +22,7 @@ import { useRecentModels } from './components/settings/models/RecentModels';
 import { createSelectedModel } from './components/settings/models/utils';
 import { getDefaultModel } from './components/settings/models/hardcoded_stuff';
 import Splash from './components/Splash';
+import { loadAndAddStoredExtensions } from './extensions';
 
 declare global {
   interface Window {
@@ -336,18 +335,6 @@ export default function ChatWindow() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
-
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Listen for goose:// deep links
-    window.electron.on('add-extension', (_, link) => {
-      window.electron.logInfo('Received message for add-extension: ' + link);
-      console.log('Received message for add-extension:', link);
-      extendGoosedFromUrl(link, navigate);
-      window.electron.logInfo('extended called: ' + link);
-    });
-  }, [navigate]);
 
   // Get initial query and history from URL parameters
   const searchParams = new URLSearchParams(window.location.search);

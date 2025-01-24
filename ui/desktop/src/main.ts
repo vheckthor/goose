@@ -110,6 +110,7 @@ const createLauncher = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       additionalArguments: [JSON.stringify(appConfig)],
+      partition: 'persist:goose',
     },
     skipTaskbar: true,
     alwaysOnTop: true,
@@ -175,6 +176,7 @@ const createChat = async (app, query?: string, dir?: string, version?: string) =
           REQUEST_DIR: dir,
         }),
       ],
+      partition: 'persist:goose', // Add this line to ensure persistence
     },
   });
 

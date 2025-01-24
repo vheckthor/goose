@@ -1,15 +1,19 @@
 import { getApiUrl, getSecretKey } from './config';
 import { NavigateFunction } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { getStoredProvider } from './utils/providerUtils';
 
 // ExtensionConfig type matching the Rust version
 export type ExtensionConfig =
   | {
       type: 'sse';
+      name: string;
       uri: string;
       env_keys?: string[];
     }
   | {
       type: 'stdio';
+      name: string;
       cmd: string;
       args: string[];
       env_keys?: string[];
@@ -23,13 +27,151 @@ export type ExtensionConfig =
 // FullExtensionConfig type matching all the fields that come in deep links and are stored in local storage
 export type FullExtensionConfig = ExtensionConfig & {
   id: string;
-  name: string;
   description: string;
   enabled: boolean;
 };
 
+export interface ExtensionPayload {
+  name?: string;
+  type?: string;
+  cmd?: string;
+  args?: string[];
+  uri?: string;
+  env_keys?: string[];
+}
+
+export const BUILT_IN_EXTENSIONS = [
+  {
+    id: 'developer',
+    name: 'Developer',
+    description: 'General development tools useful for software engineering.',
+    enabled: true,
+    type: 'builtin',
+    env_keys: [],
+  },
+  {
+    id: 'nondeveloper',
+    name: 'Non-Developer',
+    description: "General assisant tools that don't require you to be a developer or engineer.",
+    enabled: false,
+    type: 'builtin',
+    env_keys: [],
+  },
+  {
+    id: 'memory',
+    name: 'Memory',
+    description: 'Teach goose your preferences as you go.',
+    enabled: false,
+    type: 'builtin',
+    env_keys: [],
+  },
+  {
+    id: 'jetbrains',
+    name: 'Jetbrains',
+    description: 'Integration with any Jetbrains IDE',
+    enabled: false,
+    type: 'builtin',
+    env_keys: [],
+  },
+  {
+    id: 'google_drive',
+    name: 'Google Drive',
+    description: 'Built-in Google Drive integration for file management and access',
+    enabled: false,
+    type: 'builtin',
+    env_keys: [
+      'GOOGLE_DRIVE_OAUTH_PATH',
+      'GOOGLE_DRIVE_CREDENTIALS_PATH',
+      'GOOGLE_DRIVE_OAUTH_CONFIG',
+    ],
+  },
+];
+
+export async function addExtension(
+  extension: FullExtensionConfig,
+  silent: boolean = false
+): Promise<Response> {
+  try {
+    // Create the config based on the extension type
+    const config = {
+      type: extension.type,
+      ...(extension.type === 'stdio' && {
+        name: extension.name,
+        cmd: await replaceWithShims(extension.cmd),
+        args: extension.args || [],
+      }),
+      ...(extension.type === 'sse' && {
+        name: extension.name,
+        uri: extension.uri,
+      }),
+      ...(extension.type === 'builtin' && {
+        name: extension.name.toLowerCase().replace(/-/g, '').replace(/\s/g, '_'),
+      }),
+      env_keys: extension.env_keys,
+    };
+
+    const response = await fetch(getApiUrl('/extensions/add'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Secret-Key': getSecretKey(),
+      },
+      body: JSON.stringify(config),
+    });
+
+    const data = await response.json();
+
+    if (!data.error) {
+      if (!silent) {
+        toast.success(`Successfully added extension`);
+      }
+      return response;
+    }
+
+    const errorMessage = `Error adding ${extension.name} extension ${data.message ? `. ${data.message}` : ''}`;
+    console.error(errorMessage);
+    toast.error(errorMessage);
+    return response;
+  } catch (error) {
+    const errorMessage = `Failed to add ${extension.name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    console.error(errorMessage);
+    toast.error(errorMessage);
+    throw error;
+  }
+}
+
+export async function removeExtension(name: string): Promise<Response> {
+  try {
+    const response = await fetch(getApiUrl('/extensions/remove'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Secret-Key': getSecretKey(),
+      },
+      body: JSON.stringify(name),
+    });
+
+    const data = await response.json();
+
+    if (!data.error) {
+      toast.success(`Successfully removed ${name} extension`);
+      return response;
+    }
+
+    const errorMessage = `Error removing ${name} extension${data.message ? `. ${data.message}` : ''}`;
+    console.error(errorMessage);
+    toast.error(errorMessage);
+    return response;
+  } catch (error) {
+    const errorMessage = `Failed to remove ${name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    console.error(errorMessage);
+    toast.error(errorMessage);
+    throw error;
+  }
+}
+
 // Store extension config in user_settings
-const storeExtensionConfig = (config: FullExtensionConfig) => {
+function storeExtensionConfig(config: FullExtensionConfig) {
   try {
     const userSettingsStr = localStorage.getItem('user_settings');
     const userSettings = userSettingsStr
@@ -51,47 +193,37 @@ const storeExtensionConfig = (config: FullExtensionConfig) => {
   } catch (error) {
     console.error('Error storing extension config:', error);
   }
-};
+}
 
-// Load stored extension configs from user_settings
-export const loadStoredExtensionConfigs = async (): Promise<void> => {
+export async function loadAndAddStoredExtensions() {
   try {
     const userSettingsStr = localStorage.getItem('user_settings');
-
-    //console.log('Loading stored extension configs from user_settings', userSettingsStr);
 
     if (userSettingsStr) {
       const userSettings = JSON.parse(userSettingsStr);
       const enabledExtensions = userSettings.extensions.filter((ext: any) => ext.enabled);
-      //console.log('Enabled extensions:', enabledExtensions);
-
+      console.log('Adding extensions from localStorage: ', enabledExtensions);
       for (const ext of enabledExtensions) {
-        // Convert extension format back to ExtensionConfig
-        console.log('Loading extension:', ext);
-
-        const config: ExtensionConfig = {
-          type: 'stdio', // Assuming all stored extensions are stdio type for now
-          cmd: ext.cmd,
-          args: ext.args || [],
-          env_keys: ext.env_keys || [],
-        };
-
-        console.log('ext config', config);
-
-        await extendGoosed(config);
+        await addExtension(ext, true);
       }
-
-      console.log(
-        'Loaded stored extension configs from user_settings and activated extensions with agent'
-      );
+    } else {
+      console.log('Saving default builtin extensions to localStorage');
+      // TODO - Revisit
+      // @ts-expect-error "we actually do always have all the properties required for builtins, but tsc cannot tell for some reason"
+      BUILT_IN_EXTENSIONS.forEach(async (extension: FullExtensionConfig) => {
+        storeExtensionConfig(extension);
+        if (extension.enabled) {
+          await addExtension(extension, true);
+        }
+      });
     }
   } catch (error) {
-    console.error('Error loading stored extension configs:', error);
+    console.error('Error loading and activating extensions from localStorage: ', error);
   }
-};
+}
 
 // Update the path to the binary based on the command
-export const replaceWithShims = async (cmd: string): Promise<string> => {
+export async function replaceWithShims(cmd: string) {
   const binaryPathMap: Record<string, string> = {
     goosed: await window.electron.getBinaryPath('goosed'),
     npx: await window.electron.getBinaryPath('npx'),
@@ -104,53 +236,17 @@ export const replaceWithShims = async (cmd: string): Promise<string> => {
   }
 
   return cmd;
-};
+}
 
-// Extend Goosed with a new system configuration
-export const extendGoosed = async (config: ExtensionConfig) => {
-  console.log('extendGoosed', config);
-  // allowlist the CMD for stdio type
-  if (config.type === 'stdio') {
-    config.cmd = await replaceWithShims(config.cmd);
-  }
-
-  try {
-    const response = await fetch(getApiUrl('/extensions/add'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Secret-Key': getSecretKey(),
-      },
-      body: JSON.stringify(config),
-    });
-    const data = await response.json();
-
-    if (response.ok && !data.error) {
-      console.log(`Successfully added system config: ${JSON.stringify(config)}`);
-    } else {
-      throw new Error(data.message || `Failed to add system config: ${response.statusText}`);
-    }
-    console.log(`Successfully added system config: ${JSON.stringify(config)}`);
-    return true;
-  } catch (error) {
-    console.log(`Error adding system config:`, error);
-    return false;
-  }
-};
-
-// Check if extension requires env vars
-const envVarsRequired = (config: ExtensionConfig): boolean => {
+function envVarsRequired(config: ExtensionConfig) {
   return config.env_keys?.length > 0;
-};
+}
 
-// Extend Goosed from a goose://extension URL
-export const extendGoosedFromUrl = async (url: string, navigate: NavigateFunction) => {
+export async function addExtensionFromDeepLink(url: string, navigate: NavigateFunction) {
   if (!url.startsWith('goose://extension')) {
     console.log('Invalid URL: URL must use the goose://extension scheme');
     return;
   }
-
-  console.log('extendGoosedFromUrl', url);
 
   const parsedUrl = new URL(url);
 
@@ -203,9 +299,5 @@ export const extendGoosedFromUrl = async (url: string, navigate: NavigateFunctio
   }
 
   // If no env vars are required, proceed with extending Goosed
-  const success = await extendGoosed(config);
-
-  if (!success) {
-    console.log('Error installing extension from url', url);
-  }
-};
+  await addExtension(config);
+}

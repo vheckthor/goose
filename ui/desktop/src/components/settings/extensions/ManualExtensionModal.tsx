@@ -3,9 +3,10 @@ import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { FullExtensionConfig } from '../../../extensions';
-import { showToast } from '../../ui/toast';
+import { toast } from 'react-toastify';
 import Select from 'react-select';
 import { createDarkSelectStyles, darkSelectTheme } from '../../ui/select-styles';
+import { getApiUrl, getSecretKey } from '../../../config';
 
 interface ManualExtensionModalProps {
   isOpen: boolean;
@@ -23,7 +24,8 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
     commandInput: '',
   });
   const [envKey, setEnvKey] = useState('');
-  const [envKeys, setEnvKeys] = useState<string[]>([]);
+  const [envValue, setEnvValue] = useState('');
+  const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>([]);
 
   const typeOptions = [
     { value: 'stdio', label: 'Standard IO' },
@@ -31,47 +33,71 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
     { value: 'builtin', label: 'Built-in' },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.id || !formData.name || !formData.description) {
-      showToast('Please fill in all required fields', 'error');
+      toast.error('Please fill in all required fields');
       return;
     }
 
     if (formData.type === 'stdio' && !formData.commandInput) {
-      showToast('Command is required for stdio type', 'error');
+      toast.error('Command is required for stdio type');
       return;
     }
 
     if (formData.type === 'sse' && !formData.uri) {
-      showToast('URI is required for SSE type', 'error');
+      toast.error('URI is required for SSE type');
       return;
     }
 
     if (formData.type === 'builtin' && !formData.name) {
-      showToast('Name is required for builtin type', 'error');
+      toast.error('Name is required for builtin type');
       return;
     }
 
-    // Parse command input into cmd and args
-    let cmd = '';
-    let args: string[] = [];
-    if (formData.type === 'stdio' && formData.commandInput) {
-      const parts = formData.commandInput.trim().split(/\s+/);
-      [cmd, ...args] = parts;
+    try {
+      // Store environment variables as secrets
+      for (const envVar of envVars) {
+        const storeResponse = await fetch(getApiUrl('/secrets/store'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Secret-Key': getSecretKey(),
+          },
+          body: JSON.stringify({
+            key: envVar.key,
+            value: envVar.value.trim(),
+          }),
+        });
+
+        if (!storeResponse.ok) {
+          throw new Error(`Failed to store environment variable: ${envVar.key}`);
+        }
+      }
+
+      // Parse command input into cmd and args
+      let cmd = '';
+      let args: string[] = [];
+      if (formData.type === 'stdio' && formData.commandInput) {
+        const parts = formData.commandInput.trim().split(/\s+/);
+        [cmd, ...args] = parts;
+      }
+
+      const extension: FullExtensionConfig = {
+        ...formData,
+        type: formData.type!,
+        enabled: true,
+        env_keys: envVars.map((v) => v.key),
+        ...(formData.type === 'stdio' && { cmd, args }),
+      } as FullExtensionConfig;
+
+      onSubmit(extension);
+      resetForm();
+    } catch (error) {
+      console.error('Error configuring extension:', error);
+      toast.error('Failed to configure extension');
     }
-
-    const extension: FullExtensionConfig = {
-      ...formData,
-      type: formData.type!,
-      enabled: true,
-      env_keys: envKeys,
-      ...(formData.type === 'stdio' && { cmd, args }),
-    } as FullExtensionConfig;
-
-    onSubmit(extension);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -81,19 +107,21 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
       args: [],
       commandInput: '',
     });
-    setEnvKeys([]);
+    setEnvVars([]);
     setEnvKey('');
+    setEnvValue('');
   };
 
-  const handleAddEnvKey = () => {
-    if (envKey && !envKeys.includes(envKey)) {
-      setEnvKeys([...envKeys, envKey]);
+  const handleAddEnvVar = () => {
+    if (envKey && !envVars.some((v) => v.key === envKey)) {
+      setEnvVars([...envVars, { key: envKey, value: envValue }]);
       setEnvKey('');
+      setEnvValue('');
     }
   };
 
-  const handleRemoveEnvKey = (key: string) => {
-    setEnvKeys(envKeys.filter((k) => k !== key));
+  const handleRemoveEnvVar = (key: string) => {
+    setEnvVars(envVars.filter((v) => v.key !== key));
   };
 
   if (!isOpen) return null;
@@ -204,25 +232,37 @@ export function ManualExtensionModal({ isOpen, onClose, onSubmit }: ManualExtens
                     type="text"
                     value={envKey}
                     onChange={(e) => setEnvKey(e.target.value)}
-                    placeholder="Add environment variable key"
+                    placeholder="Environment variable name"
                     className="flex-1"
                   />
-                  <Button type="button" onClick={handleAddEnvKey}>
+                  <Input
+                    type="text"
+                    value={envValue}
+                    onChange={(e) => setEnvValue(e.target.value)}
+                    placeholder="Value"
+                    className="flex-1"
+                  />
+                  <Button type="button" onClick={handleAddEnvVar}>
                     Add
                   </Button>
                 </div>
-                {envKeys.length > 0 && (
+                {envVars.length > 0 && (
                   <div className="space-y-2">
-                    {envKeys.map((key) => (
+                    {envVars.map((envVar) => (
                       <div
-                        key={key}
+                        key={envVar.key}
                         className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded"
                       >
-                        <span className="text-sm">{key}</span>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{envVar.key}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                            = {envVar.value}
+                          </span>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => handleRemoveEnvKey(key)}
-                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleRemoveEnvVar(envVar.key)}
+                          className="text-red-500 hover:text-red-700 ml-2"
                         >
                           Remove
                         </button>

@@ -1,5 +1,5 @@
 import { getApiUrl, getSecretKey } from '../config';
-import { extendGoosed } from '../extensions';
+import { loadAndAddStoredExtensions } from '../extensions';
 import { GOOSE_PROVIDER } from '../env_vars';
 import { Model } from '../components/settings/models/ModelContext';
 
@@ -75,14 +75,19 @@ const addAgent = async (provider: string, model: string) => {
 
 export const initializeSystem = async (provider: string, model: string) => {
   try {
-    console.log('initializing with provider', provider, 'model', model);
+    console.log('initializing agent with provider', provider, 'model', model);
     await addAgent(provider.toLowerCase(), model);
-    await extendGoosed({
-      type: 'builtin',
-      name: 'developer',
-    });
+
+    // TODO - Needs to be replaced with something which can interface
+    // with the agent to tell when it is ready to add extensions
+    setTimeout(() => {
+      window.electron.logInfo('Loading and adding stored extension configs');
+      loadAndAddStoredExtensions().catch((error) => {
+        console.error('Failed to load and add stored extension configs:', error);
+      });
+    }, 5000);
   } catch (error) {
-    console.error('Failed to initialize system:', error);
+    console.error('Failed to initialize agent:', error);
     throw error;
   }
 };
