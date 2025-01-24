@@ -1,18 +1,18 @@
 use async_trait::async_trait;
 use futures::stream::BoxStream;
-use std::collections::VecDeque;
 use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
 use super::Agent;
 use crate::agents::capabilities::{Capabilities, ResourceItem};
 use crate::agents::system::{SystemConfig, SystemError, SystemResult};
+use crate::conversation::Conversation;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
 use crate::token_counter::TokenCounter;
-use mcp_core::{Role, Tool};
+use mcp_core::{ Tool};
 use serde_json::Value;
 
 /// Agent impl. that truncates oldest messages when payload over LLM ctx-limit
@@ -49,6 +49,7 @@ impl TruncateAgent {
                 .count_everything(system_prompt, messages, tools, &resources);
 
         let mut new_messages = messages.to_vec();
+
         if approx_count > target_limit {
             new_messages = self.drop_messages(messages, approx_count, target_limit);
             if new_messages.is_empty() {
@@ -86,29 +87,29 @@ impl TruncateAgent {
             approx_count - target_limit
         );
 
-        let user_msg_size = self.text_content_size(messages.last());
-        if messages.last().unwrap().role == Role::User && user_msg_size > target_limit {
-            debug!(
-                "[WARNING] User message {} exceeds token budget {}.",
-                user_msg_size,
-                user_msg_size - target_limit
-            );
-            return Vec::new();
+        if let Ok(mut conversation) = Conversation::parse(messages, &self.token_counter) {
+            if let Some(last_interaction) = conversation.interactions.last() {
+                if last_interaction.token_count > target_limit {
+                    conversation.interactions.pop();
+                }
+            }
+
+            let mut current_tokens = approx_count;
+            let mut keep = 0;
+            for (i, interaction) in conversation.interactions.iter().enumerate() {
+                keep = i;
+                if current_tokens < target_limit {
+                    break;
+                }
+                current_tokens = current_tokens.saturating_sub(interaction.token_count);
+            }
+
+            let final_conv = Conversation::new(conversation.interactions[keep..].to_vec());
+            let ret = final_conv.render();
+            return ret;
         }
 
-        let mut truncated_conv: VecDeque<Message> = VecDeque::from(messages.to_vec());
-        let mut current_tokens = approx_count;
-
-        while current_tokens > target_limit && truncated_conv.len() > 1 {
-            let user_msg = truncated_conv.pop_front().unwrap();
-            let user_msg_size = self.text_content_size(Some(&user_msg));
-            let assistant_msg = truncated_conv.pop_front().unwrap();
-            let assistant_msg_size = self.text_content_size(Some(&assistant_msg));
-
-            current_tokens = current_tokens.saturating_sub(user_msg_size + assistant_msg_size);
-        }
-
-        Vec::from(truncated_conv)
+        vec![]
     }
 }
 
@@ -206,16 +207,22 @@ impl Agent for TruncateAgent {
                 let tool_resp_size = self.text_content_size(
                     Some(&message_tool_response),
                 );
-                if tool_resp_size > estimated_limit {
-                    // don't push assistant response or tool_response into history
-                    // last message is `user message => tool call`, remove it from history too
-                    messages.pop();
-                    continue;
+                if tool_resp_size < estimated_limit {
+                    yield message_tool_response.clone();
                 }
 
-                yield message_tool_response.clone();
                 messages.push(response);
                 messages.push(message_tool_response);
+
+                messages = self
+                    .enforce_ctx_limit(
+                        &system_prompt,
+                        &tools,
+                        &messages,
+                        estimated_limit,
+                        &mut capabilities.get_resources().await?,
+                    )
+                    .await?
             }
         }))
     }
@@ -293,8 +300,9 @@ mod tests {
     }
 
     const SMALL_MESSAGE: &str = "This is a test, this is just a test, this is only a test.\n";
+    const TOOL_MESSAGE: &str = "I am a tool response. Tooly Tool Tool McToolFace III.\n";
 
-    async fn call_enforce_ctx_limit(conversation: &[Message]) -> anyhow::Result<Vec<Message>> {
+    async fn call_enforce_ctx_limit(conversation: &[Message], target_limit: Option<usize>) -> anyhow::Result<Vec<Message>> {
         let mock_model_config =
             ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
         let provider = Box::new(MockProvider {
@@ -305,69 +313,67 @@ mod tests {
         let mut capabilities = agent.capabilities.lock().await;
         let tools = capabilities.get_prefixed_tools().await?;
         let system_prompt = capabilities.get_system_prompt().await;
-        let estimated_limit = capabilities
-            .provider()
-            .get_model_config()
-            .get_estimated_limit();
+        let estimated_limit = if let Some(limit) = target_limit {
+            limit
+        } else {
+            capabilities
+                .provider()
+                .get_model_config()
+                .get_estimated_limit()
+        };
 
-        let messages = agent
-            .enforce_ctx_limit(
-                &system_prompt,
-                &tools,
-                conversation,
-                estimated_limit,
-                &mut capabilities.get_resources().await?,
-            )
-            .await?;
+        let approx_count =
+            agent.token_counter
+                .count_everything(&system_prompt, conversation, &tools, &[]);
+
+        let messages = agent.drop_messages(conversation, approx_count, estimated_limit);
 
         Ok(messages)
     }
 
     fn create_basic_valid_conversation(
         interactions_count: usize,
-        is_tool_use: bool,
+        tool_use_limit: usize,
     ) -> Vec<Message> {
-        let mut conversation = Vec::<Message>::new();
+        let mut conv = Vec::<Message>::new();
 
-        if is_tool_use {
-            (0..interactions_count).for_each(|i| {
-                let tool_output = format!("{:?}{}", SMALL_MESSAGE, i);
-                conversation.push(
-                    Message::user()
-                        .with_tool_response("id:0", Ok(vec![Content::text(tool_output)])),
-                );
-                conversation.push(Message::assistant().with_text(format!(
-                    "{:?}{}",
-                    SMALL_MESSAGE,
-                    i + 1
-                )));
-            });
-        } else {
-            (0..interactions_count).for_each(|i| {
-                conversation.push(Message::user().with_text(format!("{:?}{}", SMALL_MESSAGE, i)));
-                conversation.push(Message::assistant().with_text(format!(
-                    "{:?}{}",
-                    SMALL_MESSAGE,
-                    i + 1
-                )));
-            });
+        for i in 0..interactions_count {
+            let usr_msg = Message::user().with_text(format!("{:?}{}", SMALL_MESSAGE, i));
+            let assistant_msg_txt = format!("{:?}{}", SMALL_MESSAGE, i + 1);
+            let assistant_msg = Message::assistant().with_text(assistant_msg_txt);
+            conv.push(usr_msg);
+            conv.push(assistant_msg);
+
+            if tool_use_limit > 0 {
+                // let timestamp = std::time::UNIX_EPOCH.elapsed().unwrap().as_millis();
+                // let rand_tool_use_count = timestamp % tool_use_limit as u128;
+
+                for i in 0..tool_use_limit {
+                    let tool_output = format!("{:?}{}", TOOL_MESSAGE, i);
+                    let content = vec![Content::text(tool_output)];
+                    conv.push(Message::user().with_tool_response("id:0", Ok(content)));
+
+                    let assistant_summary = format!("{:?}{}", SMALL_MESSAGE, i + 1);
+                    conv.push(Message::assistant().with_text(assistant_summary));
+                }
+            }
         }
 
-        conversation
+        conv
     }
     #[tokio::test]
     async fn test_simple_conversation_no_truncation() -> anyhow::Result<()> {
-        let conversation = create_basic_valid_conversation(1, false);
-        let messages = call_enforce_ctx_limit(&conversation).await?;
+        let conversation = create_basic_valid_conversation(1, 0);
+        let messages = call_enforce_ctx_limit(&conversation, None).await?;
         assert_eq!(messages.len(), conversation.len());
         Ok(())
     }
     #[tokio::test]
     async fn test_truncation_when_conversation_history_too_big() -> anyhow::Result<()> {
-        let conversation = create_basic_valid_conversation(5000, false);
-        let messages = call_enforce_ctx_limit(&*conversation).await?;
-        assert_eq!(conversation.len() > messages.len(), true);
-        assert_eq!(messages.len() > 0, true);
+        let conversation = create_basic_valid_conversation(5000, 0);
+        let messages = call_enforce_ctx_limit(&*conversation, None).await?;
+        assert!(conversation.len() > messages.len(), "Conversation should be truncated");
+        assert!(!messages.is_empty(), "Messages should not be empty");
         Ok(())
     }
 
@@ -377,21 +383,23 @@ mod tests {
             .take(10000)
             .collect::<Vec<&str>>()
             .join("");
-        let mut conversation = create_basic_valid_conversation(3, false);
+        let mut conversation = create_basic_valid_conversation(3, 0);
         conversation.push(Message::user().with_text(oversized_message));
 
-        let messages = call_enforce_ctx_limit(&*conversation).await;
+        let result = call_enforce_ctx_limit(&*conversation, None).await;
 
-        assert!(matches!(messages, Err(_, ..)));
+        assert_eq!(result?.len(), conversation.len() - 1, "Conversation should be truncated");
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_truncation_when_tool_response_set_too_big() -> anyhow::Result<()> {
-        let conversation = create_basic_valid_conversation(5000, true);
-        let messages = call_enforce_ctx_limit(&*conversation).await?;
-        assert_eq!(conversation.len() > messages.len(), true);
-        assert_eq!(messages.len() > 0, true);
+    async fn test_truncation_when_too_many_tool_responses() -> anyhow::Result<()> {
+        let conversation = create_basic_valid_conversation(3, 3);
+        let messages = call_enforce_ctx_limit(&*conversation, Some(500)).await?;
+
+        assert!(conversation.len() > messages.len(), "Conversation should be truncated");
+        assert!(!messages.is_empty(), "Messages should not be empty");
+
         Ok(())
     }
 }
