@@ -81,7 +81,7 @@ const config: Config = {
         {to: '/blog', label: 'Blog', position: 'left'},
         {href: 'https://discord.gg/block-opensource', label: 'Discord', position: 'left'},
         {
-          href: 'https://github.com/facebook/docusaurus',
+          href: 'https://github.com/block/goose',
           label: 'GitHub',
           position: 'right',
         },

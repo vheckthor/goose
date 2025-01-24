@@ -49,7 +49,7 @@ The process will look similar to the example below:
     goose configure
     ```
     2. Select `Configure Providers` from the menu.
-    3. Follow the prompts to choose your LLM privider and enter or update your API key. 
+    3. Follow the prompts to choose your LLM provider and enter or update your API key. 
 
     **Example:**
 
