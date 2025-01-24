@@ -107,7 +107,7 @@ You will need to have credits in your LLM Provider account (when necessary) to b
 
 You can also configure Extensions to extend Goose's functionality, including adding new ones or toggling them on and off. For detailed instructions, visit the [Using Extensions Guide][using-extensions].
 
-[using-extensions]: https://block.github.io/goose/configuration.html
-[providers]: https://block.github.io/goose/plugins/providers.html
-[handling-rate-limits]: https://block.github.io/goose/v1/docs/guidance/handling-llm-rate-limits-with-goose
+[using-extensions]: /docs/configuration/managing-extensions
+[providers]: /docs/configuration/providers
+[handling-rate-limits]: /docs/guides/handling-llm-rate-limits-with-goose
 [mcp]: https://www.anthropic.com/news/model-context-protocol

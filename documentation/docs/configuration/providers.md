@@ -7,11 +7,11 @@ import TabItem from '@theme/TabItem';
 
 # Supported LLM Providers
 
-Goose supports a variety of LLM providers to interact with. You can configure your chosen provider or see available options by running `goose configure` in the CLI or visiting the settings page on the goose UI.
+You can use Goose with your preferred LLM. Goose supports a variety of LLM providers. To configure your chosen provider or see available options, run `goose configure` in the CLI or visit the `Provider Settings` page in the Goose UI.
 
 <Tabs>
   <TabItem value="cli" label="Goose CLI" default>
-    1. Run: 
+    1. Run the following command: 
     ```sh
     goose configure
     ```
@@ -30,7 +30,7 @@ Goose supports a variety of LLM providers to interact with. You can configure yo
   </TabItem>
 </Tabs>
 
-## Currently Available Providers
+## Available Providers
 
 - OpenAI
 - Databricks
@@ -41,73 +41,73 @@ Goose supports a variety of LLM providers to interact with. You can configure yo
 - OpenRouter
 
 
-## OpenAI
+### OpenAI
 
 OpenAI offers powerful language models that include GPT-4, GPT-3.5-turbo, and more.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Select `OpenAI` from the list of available providers.
 3. Enter your `OPENAI_API_KEY` when prompted, which you can obtain by registering at [OpenAI's platform](https://platform.openai.com/api-keys).
 
-## Databricks
+### Databricks
 
 Databricks is a data analytics and AI platform that provides access to various AI models and tools. They offer integration with popular models and custom model deployment.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Select `Databricks` as your provider.
 3. Enter your `DATABRICKS_HOST` and `DATABRICKS_TOKEN`, which can be generated in your [Databricks Account Settings](https://www.databricks.com/).
 
-## Ollama
+### Ollama
 
 Ollama is an open-source project that allows running large language models locally. It supports various open-source models and provides an API for integration.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Select `Ollama` and follow the steps to download and set up your models as detailed on [Ollama's site](https://ollama.com/). Requires `OLLAMA_HOST`.
 
-## Anthropic
+### Anthropic
 
 Anthropic is an AI research company that offers advanced language models through its API. Their primary model is Claude, which comes in various versions.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Choose `Anthropic` and provide the `ANTHROPIC_API_KEY`, obtainable via [Anthropic's platform](https://www.anthropic.com/).
 
-## Google Gemini
+### Google Gemini
 
 Google Gemini is a suite of large language models developed by Google. It offers multimodal capabilities and can be accessed through the [Google AI Studio](https://ai.google.dev/gemini-api/docs).
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Pick `Google Gemini` from the list of providers and input your `GOOGLE_API_KEY`. .
 
-## Groq
+### Groq
 
 Groq is an AI company that offers high-performance inference for large language models. They provide access to various models through their API.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```
 2. Select `Groq` from the list of providers and input your `GROQ_API_KEY`, set up via the [Groq Console](https://groq.com/).
 
-## OpenRouter
+### OpenRouter
 
 OpenRouter is a platform that provides access to multiple AI models from various providers through a single API. It simplifies the process of using different AI models in applications.
 
-1. Run the goose configuration command and choose "Configure Providers":
+1. Run the following command and choose "Configure Providers":
    ```sh
    goose configure
    ```

@@ -5,11 +5,13 @@ title: Quickstart
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+
 # Goose in 5 minutes
 
-## Quickstart guide
+## Quickstart
 
-Goose is a developer agent that supercharges your software development by automating an array of coding tasks directly in your terminal. This Quickstart guide will show you how to get started with Goose, whether you prefer using the command-line interface (CLI) or the desktop UI.
+Goose is a developer AI agent that supercharges your software development by automating coding tasks. This Quickstart will guide you through getting started with Goose and covers using both the CLI and Desktop UI.
+
 
 ### Installation
 
@@ -36,7 +38,7 @@ Goose is a developer agent that supercharges your software development by automa
 ### Running Goose
 
 #### Set up a provider
-Goose works with a set of [supported LLM providers][providers] that you can obtain an API key from if you don't already have one. You'll be prompted to set an API key if you haven't set one previously when you run Goose.
+Goose works with [supported LLM providers][providers]. When you first run Goose, you'll be prompted to supply an API key from your preferred LLM provider.
 
 The process will look similar to the example below:
 
@@ -56,22 +58,22 @@ The process will look similar to the example below:
 #### Start a session
 <Tabs>
     <TabItem value="cli" label="Goose CLI" default>
-        From your terminal, navigate to the directory you'd like to start from and run:
+        From your terminal, navigate to the directory from which you'd like to start, and run:
         ```sh
         goose session 
         ```
     </TabItem>
     <TabItem value="ui" label="Goose UI">
-        Starting a session in the Goose UI is straightforward. After choosing your provider, you’ll see the session interface ready for use.
+        After choosing an LLM provider, you’ll see the session interface ready for use.
         
-        Type your questions, tasks, or instructions directly into the input field, and Goose will get to work immediately. 
+        Type your questions, tasks, or instructions directly into the input field, and Goose will immediately get to work. 
 
         ![Install Extension](./assets/guides/ui-session-interface.png)
     </TabItem>
 </Tabs>
 
 #### Make Goose do the work for you
-You will see the Goose prompt `G❯`:
+You will see the Goose prompt `G❯`. From here, you can interact with Goose in conversational sessions. Think of it as you're giving directions to a junior developer. 
 
 ```
 G❯ type your instructions here exactly as you would speak to a developer.
@@ -80,70 +82,73 @@ G❯ type your instructions here exactly as you would speak to a developer.
 Here's an example:
 
 ```
-G❯ Create a JavaScript project that fetches and displays weather for a user specified city using a public API
+G❯ Create a JavaScript project that fetches and displays weather for a user-specified city using a public API
 ```
 
-Now you are interacting with Goose in conversational sessions. Think of it like you're giving directions to a junior developer. The default toolkit allows Goose to take actions through shell commands and file edits. You can interrupt Goose with `CTRL+D` or `ESC+Enter` at any time to help redirect its efforts.
+You can interrupt Goose with `CTRL+D` or `ESC+Enter` at any time to help redirect its efforts.
 
 #### Exit the session
 
-If you are looking to exit, use `CTRL+C`.
+To end a session, use `CTRL+C`.
 
 #### Resume a session
 
-When you exit a session, it will save the history in `~/.config/goose/sessions` directory. You can then resume your last saved session later, using:
+When you exit a session, it will save the history in the  `~/.config/goose/sessions` directory. You can later resume your last saved session by using:
 
 ``` sh
 goose session --resume
 ```
 
-Check out the [Managing Goose sessions][managing-sessions] to learn more about working with sessions in Goose.
+Check out [Managing Goose sessions][managing-sessions] to learn more about working with sessions in Goose.
 
 
-To see more documentation on the available CLI commands, check out the [CLI Commands Guide][cli]. If you’d like to develop your own CLI commands for Goose, check out the [Contributing document][contributing].
+Be sure to check out the available [CLI commands][cli]. If you’d like to develop your own CLI commands for Goose, check out the [Contributing guide][contributing].
 
 
 ### Running a Goose task
 
-You can run Goose to do things just as a one off, such as tidying up, and then exiting:
+As an alternative to the chat interface, you can also provide instructions to Goose via files. In this example, Goose will execute the commands that are specified in `instructions.md`:
 
 ```sh
 goose run instructions.md
 ```
 
-You can also use process substitution to provide instructions directly from the command line:
+Alternatively, you can use process substitution to provide instructions:
 
 ```sh
 goose run <(echo "Create a new Python file that prints hello world")
 ```
 
-This will run until completion as best it can. You can also pass `--resume` and it will re-use the first session it finds for context.
+This will run until completion as best it can. You can also pass `--resume` and it will re-use the first session it finds for context:
+
+```sh
+goose run --resume more_instructions.md
+```
 
 ### Extending Goose Functionality
 
-Goose Extensions are add-ons utilizing [Anthropic's Model Context Protocol(MCP)][MCP], that enhance Goose's functionality by connecting it with different applications and tools you already use in your workflow. Extensions can be used to add new features, automate tasks, and integrate with other systems.
+[Goose Extensions][extensions-guide] are add-ons built on the [Model Context Protocol(MCP)][MCP]. They enhance Goose's functionality by integrating with the applications and tools you already use in your workflow. Extensions can be used to add new features, access data, and integrate with other systems.
 
-For more information on how to add or remove extensions, see the [Using Extensions Guide][extensions-guide].
+For more information on how to add or remove extensions, see [Managing Extensions][extensions-guide].
 
 **Goose as a Github Action**
 
-There is also an experimental Github action to run Goose as part of your workflow (e.g., if you ask it to fix an issue):
-https://github.com/marketplace/actions/goose-ai-developer-agent
+There is an experimental [GitHub action](https://github.com/marketplace/actions/goose-ai-developer-agent) to run Goose as part of your workflow (e.g., if you ask it to fix an issue).
+
 
 ## Additional tips
 
-You can place a `.goosehints` file in `~/.config/goose/.goosehints` for hints personal to you. Goose will automatically load these within your sessions. For more tips and tricks to enhance your experience, check out the [Quick Tips Guide][quick-tips].
+You can provide Goose with a set of hints that it will automatically use in every session with you. To do so, create a file  named `.goosehints` and save it in `~/.config/goose/.goosehints`. For additional tips to enhance your experience, check out [Quick Tips][quick-tips].
 
 
 
-[handling-rate-limits]: https://block.github.io/goose/v1/docs/guidance/handling-llm-rate-limits-with-goose
+[handling-rate-limits]: /docs/guides/handling-llm-rate-limits-with-goose
 [openai-key]: https://platform.openai.com/api-keys
-[getting-started]: https://block.github.io/goose/guidance/getting-started.html
-[providers]: https://block.github.io/goose/plugins/providers.html
-[managing-sessions]: https://block.github.io/goose/guidance/managing-goose-sessions.html
-[contributing]: https://block.github.io/goose/v1/docs/contributing
-[quick-tips]: https://block.github.io/goose/v1/docs/guidance/tips
-[extensions-guide]: https://block.github.io/goose/v1/docs/getting-started/using-extensions
-[cli]: https://block.github.io/goose/v1/docs/guides/goose-cli-commands
-[goose-ui]: https://block.github.io/goose/v1/docs/plugins/cli
+[getting-started]: /docs/category/getting-started
+[providers]: /docs/configuration/providers
+[managing-sessions]: /docs/guides/managing-goose-sessions
+[contributing]: https://github.com/block/goose/blob/main/CONTRIBUTING.md
+[quick-tips]: /docs/guides/tips
+[extensions-guide]: /docs/configuration/managing-extensions
+[cli]: /docs/guides/goose-cli-commands
 [MCP]: https://www.anthropic.com/news/model-context-protocol

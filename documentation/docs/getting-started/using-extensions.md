@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 title: Using Extensions
 ---
 import Tabs from '@theme/Tabs';
@@ -7,17 +7,17 @@ import TabItem from '@theme/TabItem';
 
 # Using Extensions
 
-Goose Extensions are add-ons that provide are a way to extend the functionality of Goose. They also provide a way to connect Goose with applications and tools you already use in your workflow. These extensions can be used to add new features, automate tasks, or integrate with other systems.
+Goose Extensions are add-ons that provide a way to extend the functionality of Goose by connecting with applications and tools you already use in your workflow. These extensions can be used to add new features, access data and resources, or integrate with other systems.
 
 ### Adding An Extension
-You can expand Goose's capabilities by adding extensions. Built-in extensions are pre-installed with Goose, while external extensions can be integrated via [Anthropic's Model Context Protocol (MCP)][mcp].
+When you install Goose, a few built-in extensions are included. In addition, you can add external extensions that were developed on the [Model Context Protocol (MCP)][mcp].
 
 <Tabs>
   <TabItem value="cli" label="Goose CLI" default>
     
-    **To add a Built-in, Command-line or Remote extension:**
+    **To add an extension:**
 
-    1. run the following command:
+    1. Run the following command:
     ```sh
     goose configure
     ```
@@ -59,7 +59,7 @@ You can expand Goose's capabilities by adding extensions. Built-in extensions ar
 
 ### Toggle Extensions
 
-You can manage extensions by enabling or disabling them based on your workflow needs. Built-in tools in the CLI and UI allow you to toggle extensions on or off as required.
+You can manage extensions by enabling or disabling them based on your workflow needs. Both, the CLI and UI, allow you to toggle extensions on or off as necessary.
 
 <Tabs>
   <TabItem value="cli" label="Goose CLI" default>
@@ -103,8 +103,8 @@ You can manage extensions by enabling or disabling them based on your workflow n
 
 Visit the [Installation Guide][installation-guide] for detailed instructions on how to update your LLM provider.
 
-[providers]: https://block.github.io/goose/plugins/providers.html
-[handling-rate-limits]: https://block.github.io/goose/v1/docs/guidance/handling-llm-rate-limits-with-goose
+[providers]: /docs/configuration/providers
+[handling-rate-limits]: /docs/guides/handling-llm-rate-limits-with-goose
 [mcp]: https://www.anthropic.com/news/model-context-protocol
-[installation-guide]: https://block.github.io/goose/v1/docs/installation/#update-a-provider
+[installation-guide]: /docs/installation/#update-a-provider
 [extensions-directory]: https://silver-disco-nvm6v4e.pages.github.io/

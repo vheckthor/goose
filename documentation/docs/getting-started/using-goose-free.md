@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 3
 title: Using Goose for Free
 ---
 
@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 # Using Goose for Free
 
-Goose is a free and open-source developer agent that you can start using right away, but not all supported [LLM Providers][providers] provide a free tier. 
+Goose is a free and open source developer AI agent that you can start using right away, but not all supported [LLM Providers][providers] provide a free tier. 
 
 Below, we outline a couple of free options and how to get started with them.
 
@@ -43,11 +43,11 @@ To set up Google Gemini with Goose, follow these steps:
 
 ## Limitations
 
-These free options are a great way to get started with Goose and explore its capabilities. However, if you need more advanced features or higher usage limits, you can always upgrade to a paid plan.
+These free options are a great way to get started with Goose and explore its capabilities. However, if you need more advanced features or higher usage limits, you can upgrade to a paid plan with your LLM provider.
 
 ---
 
-This guide will continue to be updated with more free options as they become available. If you have any questions or need help with a specific provider, feel free to reach out to us on [Discord](https://discord.gg/block-opensource) or on the [Goose repo](https://github.com/block/goose).
+If you have any questions or need help with a specific provider, feel free to reach out to us on [Discord](https://discord.gg/block-opensource) or on the [Goose repo](https://github.com/block/goose).
 
 
-[providers]: https://block.github.io/goose/plugins/providers.html
+[providers]: /docs/configuration/providers

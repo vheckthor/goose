@@ -1,9 +1,11 @@
 ---
 sidebar_position: 1
+title: Managing Sessions
 ---
+
 # Managing Goose Sessions
 
-Goose sessions are your way to interact with Goose, providing a space to ask questions and prompt action. In this guide, we'll cover how to start, end, save, resume, and delete a session. 
+A session is a single, continuous interaction between you and Goose, providing a space to ask questions and prompt action. In this guide, we'll cover how to start, exit, save, resume, and delete a session. 
 
 
 ## Starting a Session 
@@ -18,6 +20,7 @@ By default, Goose will provide a random string as the name of your session. If y
 ```
 goose session -n react-migration
 ```
+
 You'll know your session has started when your terminal looks similar to the following:
 
 ```
@@ -26,20 +29,14 @@ logging to ~/.config/goose/sessions/react-migration.json1
 ```
 
 :::info
-    If this is your first session, Goose will prompt you for an API key to access an LLM (Large Language Model) of your choice. For more information on setting up your API key, see the [Installation Guide](https://block.github.io/goose/v1/docs/installation#set-up-a-provider). Here is the list of [Goose-supported LLMs](https://block.github.io/goose/plugins/providers.html).
+    If this is your first session, Goose will prompt you for an API key to access an LLM (Large Language Model) of your choice. For more information on setting up your API key, see the [Installation Guide](/docs/installation#set-up-a-provider). Here is the list of [supported LLMs](/docs/configuration/providers).
 :::
+
 ## Exiting a Session
 
-To exit a session, hold down `Ctrl` + `C` to cancel and automatically save it. Alternatively, you can type `exit` to save and exit the session.
+To save and exit a session, hold down `Ctrl` + `C`. Alternatively, you can type `exit` to save and exit the session.
 
-
-Your session will be stored locally in a path similar to:
-
-```
-~/.config/goose/sessions
-```
-
-This path is typically found in your `Users` folder.
+Your session will be stored locally in `~/.config/goose/sessions`.
 
 ## Resuming a Session
 

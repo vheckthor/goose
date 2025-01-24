@@ -1,4 +1,7 @@
-# Goose CLI Commands
+---
+sidebar_position: 2
+---
+# CLI Commands
 
 Goose provides a command-line interface (CLI) with several commands for managing sessions, configurations and extensions. Below is a list of the available commands and their  descriptions:
 
@@ -6,16 +9,16 @@ Goose provides a command-line interface (CLI) with several commands for managing
 
 ### help
 
-This command is used for displaying the help menu for the Goose CLI
+Used to display the help menu
 
 **Usage:**
 ```bash
 goose --help
 ```
 
-### --version
+### version
 
-This command is used for checking the current Goose version you have installed
+Used to check the current Goose version you have installed
 
 **Usage:**
 ```bash
@@ -24,25 +27,25 @@ goose --version
 
 ### agents
 
-This command is used for listing all available agents.
+Used to list all available agents
 
 **Usage:**
 ```bash
 goose agents
 ```
 
-### `mcp <name>`
+### mcp
 
-Run one of the mcp servers bundled with goose, specified by the `<name>` parameter.
+Run an enabled MCP server specified by `<name>` (e.g. 'Google Drive')
 
 **Usage:**
 ```bash
 goose mcp <name>
 ```
 
-### `session [options]`
+### session [options]
 
-Start or resume interactive chat sessions with goose. 
+Start or resume sessions.
 
 **Options:**
 - **`-n, --name <NAME>`** : Name for the chat session (e.g., `'project-x'`)
@@ -61,7 +64,7 @@ Start or resume interactive chat sessions with goose.
 goose session --resume
 ```
 
-### `run [options]`
+### run [options]
 
 Execute commands from an instruction file or stdin
 
@@ -78,13 +81,20 @@ Execute commands from an instruction file or stdin
 goose run --instructions plan.md
 ```
 
-### `configure [options]`
+### configure [options]
 
-Configure Goose settings - set providers, models etc. Can be run without any arguments.
+Configure Goose to set providers, models, etc. 
 
 - **`-p, --provider <PROVIDER>`**: AI Provider to use (e.g., 'openai', 'databricks', 'ollama')
 - **`-m, --model <MODEL>`**: Model to use (e.g., 'gpt-4', 'llama2')
 
+
+**Usage:**
+```bash
+goose configure --provider 'openai' --model 'gpt-4'
+```
+
+This command can also be run without any arguments, in which case you'll be prompted to make selections.
 
 **Usage:**
 ```bash
