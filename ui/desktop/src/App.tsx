@@ -9,20 +9,35 @@ import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
 import { ModelProvider } from './components/settings/models/ModelContext';
 import { ActiveKeysProvider } from './components/settings/api_keys/ActiveKeysContext';
+import { extractExtensionName } from './components/settings/extensions/utils';
 
 export default function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [pendingLink, setPendingLink] = useState<string | null>(null);
-  const [isInstalling, setIsInstalling] = useState(false); // NEW: Track installation progress
+  const [modalMessage, setModalMessage] = useState<string>('');
+  const [isInstalling, setIsInstalling] = useState(false); // Track installation progress
   const searchParams = new URLSearchParams(window.location.search);
   const isLauncher = searchParams.get('window') === 'launcher';
   const navigate = useNavigate();
 
+  // Utility function to extract the command from the link
+  function extractCommand(link: string): string {
+    const url = new URL(link);
+    const cmd = url.searchParams.get('cmd') || 'Unknown Command';
+    const args = url.searchParams.getAll('arg').map(decodeURIComponent);
+    return `${cmd} ${args.join(' ')}`.trim(); // Combine the command and arguments
+  }
+
   useEffect(() => {
     const handleAddExtension = (_, link: string) => {
+      const command = extractCommand(link); // Extract and format the command
+      const extName = extractExtensionName(link);
       window.electron.logInfo(`Adding extension from deep link ${link}`);
       setPendingLink(link); // Save the link for later use
+      setModalMessage(
+        `Are you sure you want to install the ${extName} extension?\n\n\nCommand: ${command}`
+      ); // Display command
       setModalVisible(true); // Show confirmation modal
     };
 
@@ -80,8 +95,8 @@ export default function App() {
       {modalVisible && (
         <ConfirmationModal
           isOpen={modalVisible}
-          title="Confirm Extension Installation"
-          message="Are you sure you want to install this extension?"
+          title="Confirm Extension Install"
+          message={modalMessage}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           isSubmitting={isInstalling}
