@@ -79,13 +79,12 @@ export default function App() {
     <>
       {modalVisible && (
         <ConfirmationModal
+          isOpen={modalVisible}
           title="Confirm Extension Installation"
-          message={`Do you want to install the extension from this link?`}
+          message="Are you sure you want to install this extension?"
           onConfirm={handleConfirm}
           onCancel={handleCancel}
-          confirmLabel="Install"
-          cancelLabel="Cancel"
-          disableConfirm={isInstalling} // Disable the button if installing
+          isSubmitting={isInstalling}
         />
       )}
       <ModelProvider>

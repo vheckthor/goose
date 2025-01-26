@@ -1,34 +1,50 @@
-import { Button } from './button';
+import { BaseModal } from './BaseModal';
 import React from 'react';
 
 export function ConfirmationModal({
+  isOpen,
   title,
   message,
   onConfirm,
   onCancel,
   confirmLabel = 'Yes',
   cancelLabel = 'No',
+  isSubmitting = false,
+}: {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  isSubmitting?: boolean; // To handle debounce state
 }) {
   return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[9999]">
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">{title}</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{message}</p>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onCancel} className="rounded-full px-4">
-              {cancelLabel}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={onConfirm}
-              className="rounded-full px-4 'bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:!text-black border-borderStandard hover:bg-slate text-sm whitespace-nowrap shrink-0 bg-bgSubtle text-textStandard shadow-none border px-4 py-2'"
-            >
-              {confirmLabel}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <BaseModal
+      isOpen={isOpen}
+      title={title}
+      onClose={onCancel}
+      actions={
+        <>
+          <button
+            onClick={onConfirm}
+            disabled={isSubmitting}
+            className="w-full h-[60px] rounded-none border-t dark:border-gray-600 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 dark:border-gray-600 text-lg font-regular"
+          >
+            {isSubmitting ? 'Processing...' : confirmLabel}
+          </button>
+          <button
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="w-full h-[60px] rounded-none border-t dark:border-gray-600 text-gray-400 text-lg font-regular hover:bg-gray-50"
+          >
+            {cancelLabel}
+          </button>
+        </>
+      }
+    >
+      <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+    </BaseModal>
   );
 }
