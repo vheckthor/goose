@@ -95,7 +95,7 @@ export default function App() {
       {modalVisible && (
         <ConfirmationModal
           isOpen={modalVisible}
-          title="Confirm Extension Install"
+          title="Confirm Extension Installation"
           message={modalMessage}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
