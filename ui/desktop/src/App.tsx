@@ -36,7 +36,7 @@ export default function App() {
       window.electron.logInfo(`Adding extension from deep link ${link}`);
       setPendingLink(link); // Save the link for later use
       setModalMessage(
-        `Are you sure you want to install the ${extName} extension?\n\n\nCommand: ${command}`
+        `Are you sure you want to install the ${extName} extension?\n\nCommand: ${command}`
       ); // Display command
       setModalVisible(true); // Show confirmation modal
     };

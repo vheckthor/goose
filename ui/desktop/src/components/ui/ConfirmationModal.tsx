@@ -44,7 +44,7 @@ export function ConfirmationModal({
         </>
       }
     >
-      <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+      <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{message}</p>
     </BaseModal>
   );
 }
