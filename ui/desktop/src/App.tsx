@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import LauncherWindow from './LauncherWindow';
 import ChatWindow from './ChatWindow';
 import ErrorScreen from './components/ErrorScreen';
-import ConfirmationModal from './components/ConfirmationModal';
+import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
 import { ModelProvider } from './components/settings/models/ModelContext';

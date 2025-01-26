@@ -22,7 +22,7 @@ export function ConfirmationModal({
             <Button
               variant="primary"
               onClick={onConfirm}
-              className="rounded-full px-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
+              className="rounded-full px-4 'bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:!text-black border-borderStandard hover:bg-slate text-sm whitespace-nowrap shrink-0 bg-bgSubtle text-textStandard shadow-none border px-4 py-2'"
             >
               {confirmLabel}
             </Button>
