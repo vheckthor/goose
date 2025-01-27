@@ -509,6 +509,12 @@ impl Capabilities {
 
         result
     }
+
+    /// Retrieve a client by name, if it exists
+    pub async fn get_client(&self, extension: &str) -> Option<Arc<Mutex<Box<dyn McpClientTrait>>>> {
+        // Use the clients hashmap to get the client associated with the system name
+        self.clients.get(extension).cloned()
+    }
 }
 
 #[cfg(test)]

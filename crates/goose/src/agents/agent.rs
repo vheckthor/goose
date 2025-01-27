@@ -24,8 +24,7 @@ pub trait Agent: Send + Sync {
     async fn list_extensions(&self) -> Vec<String>;
 
     /// Pass through a JSON-RPC request to a specific extension
-    async fn passthrough(&self, extension: &str, request: Value) -> ExtensionResult<Value>;
-
+    async fn passthrough(&self, extension: &str, method: &str, params: Value) -> ExtensionResult<Value>;
     /// Get the total usage of the agent
     async fn usage(&self) -> Vec<ProviderUsage>;
 }

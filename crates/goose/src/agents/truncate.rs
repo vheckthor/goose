@@ -7,7 +7,7 @@ use tracing::{debug, error, instrument, warn};
 
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
-use crate::agents::extension::{ExtensionConfig, ExtensionResult};
+use crate::agents::extension::{ExtensionConfig, ExtensionResult, ExtensionError};
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
@@ -97,9 +97,21 @@ impl Agent for TruncateAgent {
             .expect("Failed to list extensions")
     }
 
-    async fn passthrough(&self, _extension: &str, _request: Value) -> ExtensionResult<Value> {
-        // TODO implement
-        Ok(Value::Null)
+    async fn passthrough(&self, extension: &str, method: &str, params: Value) -> ExtensionResult<Value> {
+        println!("in pass through");
+        let capabilities = self.capabilities.lock().await;
+        let client = capabilities
+            .get_client(extension)
+            .await
+            .unwrap_or_else(|| panic!("System not found: {}", extension));
+        let client = client.lock().await;
+
+        let result: Value = client
+            .forward_request(method, params)
+            .await
+            .map_err(ExtensionError::Client)?;
+
+        Ok(result)
     }
 
     #[instrument(skip(self, messages), fields(user_message))]

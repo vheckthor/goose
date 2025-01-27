@@ -56,7 +56,7 @@ impl Agent for ReferenceAgent {
             .expect("Failed to list extensions")
     }
 
-    async fn passthrough(&self, _extension: &str, _request: Value) -> ExtensionResult<Value> {
+    async fn passthrough(&self, _extension: &str, _method: &str, _params: Value) -> ExtensionResult<Value> {
         // TODO implement
         Ok(Value::Null)
     }
