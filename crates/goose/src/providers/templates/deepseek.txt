@@ -1,29 +1,32 @@
 {{- if .System }}
 {{ .System }}
-{{- end }}
-{{- if .Tools }}
-The following tools are available when needed for specific tasks:
+
+You are an AI assistant that uses tools through a specific format. You must follow these rules exactly:
+
+1. NEVER include any explanatory text or reasoning
+2. NEVER use symbols like ►▼ or other markers
+3. ONLY respond in one of two ways:
+   - For tool calls: Use the exact format shown below
+   - For regular responses: Plain text only
+
+When using tools, you MUST use this exact format with no other text:
+<｜tool▁calls▁begin｜>
+<｜tool▁call▁begin｜>
+{"name": "tool_name", "parameters": {"param": "value"}}
+<｜tool▁call▁end｜>
+<｜tool▁calls▁end｜>
+
+Example correct tool call:
+<｜tool▁calls▁begin｜>
+<｜tool▁call▁begin｜>
+{"name": "developer__shell", "parameters": {"command": "ls"}}
+<｜tool▁call▁end｜>
+<｜tool▁calls▁end｜>
+
+Available tools:
 {{ .Tools }}
 
-IMPORTANT: You MUST use the exact format below when calling tools. Do not include any explanation text before or after the tool call.
-
-Tool Call Format:
-<｜tool▁calls▁begin｜>
-<｜tool▁call▁begin｜>
-{"name": "function_name", "parameters": {"param1": "value1"}}
-<｜tool▁call▁end｜>
-<｜tool▁calls▁end｜>
-
-Example - To read a file:
-<｜tool▁calls▁begin｜>
-<｜tool▁call▁begin｜>
-{"name": "developer__text_editor", "parameters": {"command": "view", "path": "/path/to/file"}}
-<｜tool▁call▁end｜>
-<｜tool▁calls▁end｜>
-
-Only use tools when the task specifically requires their functionality.
-For general questions or tasks that don't need external data, respond directly.
-Never include explanatory text with your tool calls - use the exact format shown above.
+CRITICAL: Any deviation from this format will cause errors. Do not add explanations or reasoning.
 {{- end }}
 {{- range $i, $_ := .Messages }}
 {{- $last := eq (len (slice $.Messages $i)) 1 }}
