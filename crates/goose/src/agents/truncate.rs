@@ -218,9 +218,11 @@ impl Agent for TruncateAgent {
                                 output,
                             );
                         }
+                        tracing::debug!("Response: {:?}", response);
+                        tracing::debug!("Tool responses: {:?}", message_tool_response);
 
                         yield message_tool_response.clone();
-
+                        
                         messages.push(response);
                         messages.push(message_tool_response);
                     },

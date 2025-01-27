@@ -475,6 +475,9 @@ impl Capabilities {
     /// Dispatch a single tool call to the appropriate client
     #[instrument(skip(self, tool_call), fields(input, output))]
     pub async fn dispatch_tool_call(&self, tool_call: ToolCall) -> ToolResult<Vec<Content>> {
+        debug!(
+            "input" = serde_json::to_string(&tool_call).unwrap(),
+        );
         let result = if tool_call.name == "platform__read_resource" {
             // Check if the tool is read_resource and handle it separately
             self.read_resource(tool_call.arguments.clone()).await
@@ -503,7 +506,7 @@ impl Capabilities {
         };
 
         debug!(
-            "input" = serde_json::to_string(&tool_call).unwrap(),
+            // "input" = serde_json::to_string(&tool_call).unwrap(),
             "output" = serde_json::to_string(&result).unwrap(),
         );
 

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use serde_json::Value;
+use serde_json::{Value, json};
 use regex::Regex;
 
 use mcp_core::role::Role;
@@ -8,46 +8,19 @@ use crate::message::MessageContent;
 
 #[derive(Clone, serde::Serialize)]
 pub struct TemplatedToolConfig {
-    pub template: String,
-    pub start_delimiters: Vec<String>,
-    pub end_delimiters: Vec<String>,
-    pub tool_call_start: String,
-    pub tool_call_end: String,
-    pub tool_output_start: String,
-    pub tool_output_end: String,
     pub stop_tokens: Vec<String>,
-    pub role_markers: HashMap<Role, String>,
 }
 
 impl TemplatedToolConfig {
     pub fn deepseek_style() -> Self {
-        let mut role_markers = HashMap::new();
-        role_markers.insert(Role::User, "<｜User｜>".to_string());
-        role_markers.insert(Role::Assistant, "<｜Assistant｜>".to_string());
-        role_markers.insert(Role::Tool, "".to_string());
-
         Self {
-            template: include_str!("templates/deepseek.txt").to_string(),
-            start_delimiters: vec!["<｜tool▁calls▁begin｜>".to_string()],
-            end_delimiters: vec!["<｜tool▁calls▁end｜>".to_string()],
-            tool_call_start: "<｜tool▁call▁begin｜>".to_string(),
-            tool_call_end: "<｜tool▁call▁end｜>".to_string(),
-            tool_output_start: "<｜tool▁output▁begin｜>".to_string(),
-            tool_output_end: "<｜tool▁output▁end｜>".to_string(),
-            stop_tokens: vec![
-                "<｜begin▁of▁sentence｜>".to_string(),
-                "<｜end▁of▁sentence｜>".to_string(),
-                "<｜User｜>".to_string(),
-                "<｜Assistant｜>".to_string(),
-            ],
-            role_markers,
+            stop_tokens: vec![],  // No special stop tokens needed anymore
         }
     }
 }
 
 pub struct TemplateContext<'a> {
     pub system: Option<&'a str>,
-    pub messages: &'a [crate::message::Message],
     pub tools: Option<&'a [Tool]>,
 }
 
@@ -88,63 +61,29 @@ impl TemplateRenderer {
         // Add tools if present
         if let Some(tools) = context.tools {
             if !tools.is_empty() {
-                output.push_str("The following tools are available when needed for specific tasks:\n");
+                output.push_str("Available tools:\n");
                 for tool in tools {
-                    output.push_str(&format!("- {}: {}\n", tool.name, tool.description));
+                    // Create the desired schema format
+                    let desired_schema = json!({
+                        "name": {
+                            "type": "string"
+                        },
+                        "parameters": tool.input_schema,
+                        "required": ["name", "parameters"]
+                    });
+                    output.push_str(&format!("- Tool name: {}\nTool description: {}\nTool input schema: {}\n", tool.name, tool.description, desired_schema));
                 }
-                output.push_str("\nOnly use tools when the task specifically requires their functionality.\n");
-                output.push_str("For general questions or tasks that don't need external data, respond directly.\n\n");
-                output.push_str("Tool calls should be formatted as JSON objects with 'name' and 'parameters' fields.\n");
-                output.push_str("Example:\n");
-                output.push_str(r#"{"name": "tool_name", "parameters": {"param1": "value1"}}"#);
-                output.push_str("\n\n");
+                output.push_str("\nTo use a tool, respond with a JSON object with 'name' and 'parameters' fields.\n\n");
+                output.push_str("Only use tools when needed. For general questions, respond directly without using tools.\n\n");
             }
         }
-
-        // Add conversation history
-        for message in context.messages {
-            match message.role {
-                Role::User => {
-                    output.push_str(&self.config.role_markers[&Role::User]);
-                    output.push_str("\n");
-                    output.push_str(&message.as_concat_text());
-                    output.push_str("\n");
-                }
-                Role::Assistant => {
-                    output.push_str(&self.config.role_markers[&Role::Assistant]);
-                    output.push_str("\n");
-                    if message.is_tool_call() {
-                        for content in &message.content {
-                            if let MessageContent::ToolRequest(request) = content {
-                                if let Ok(tool_call) = &request.tool_call {
-                                    output.push_str(&format!(
-                                        r#"{{"name": "{}", "parameters": {}}}"#,
-                                        tool_call.name, tool_call.arguments
-                                    ));
-                                    output.push_str("\n");
-                                }
-                            }
-                        }
-                    } else {
-                        output.push_str(&message.as_concat_text());
-                        output.push_str("\n");
-                    }
-                }
-                Role::Tool => {
-                    output.push_str(&message.as_concat_text());
-                    output.push_str("\n");
-                }
-            }
-        }
-
-        // Add final assistant marker for response
-        output.push_str(&self.config.role_markers[&Role::Assistant]);
-        output.push_str("\n");
 
         output
     }
 
     pub fn parse_tool_calls(&self, response: &str) -> Vec<ToolCall> {
+        use std::collections::HashSet;
+        let mut seen_calls = HashSet::new();
         let mut tool_calls = Vec::new();
         
         // Find all matches of the tool call pattern in the text
@@ -155,7 +94,13 @@ impl TemplateRenderer {
                     parsed.get("name").and_then(|n| n.as_str()),
                     parsed.get("parameters"),
                 ) {
-                    tool_calls.push(ToolCall::new(name, parameters.clone()));
+                    // Create a string that uniquely identifies this tool call
+                    let tool_call_key = format!("{}:{}", name, parameters.to_string());
+                    
+                    // Only add if we haven't seen this exact tool call before
+                    if seen_calls.insert(tool_call_key) {
+                        tool_calls.push(ToolCall::new(name, parameters.clone()));
+                    }
                 }
             }
         }
