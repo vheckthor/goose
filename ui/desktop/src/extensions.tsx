@@ -74,18 +74,6 @@ export const DEFAULT_BUILT_IN_EXTENSIONS = [
     type: 'builtin',
     env_keys: [],
   },
-  /* TODO re-enable when we have a smoother auth flow {
-    id: 'google_drive',
-    name: 'Google Drive',
-    description: 'Built-in Google Drive integration for file management and access',
-    enabled: false,
-    type: 'builtin',
-    env_keys: [
-      'GOOGLE_DRIVE_OAUTH_PATH',
-      'GOOGLE_DRIVE_CREDENTIALS_PATH',
-      'GOOGLE_DRIVE_OAUTH_CONFIG',
-    ],
-  },*/
 ];
 
 // Export BUILT_IN_EXTENSIONS as a function that considers freedom mode
@@ -105,21 +93,34 @@ export async function addExtension(
   silent: boolean = false
 ): Promise<Response> {
   try {
-    // Check if in caged mode
+    // Check freedom level restrictions
     const userSettingsStr = localStorage.getItem('user_settings');
     const userSettings = userSettingsStr ? JSON.parse(userSettingsStr) : null;
 
-    if (userSettings?.freedom === 'caged') {
-      const errorMessage = 'Cannot add extensions in Caged mode';
-      if (!silent) {
-        toast.error(
-          <div>
-            <strong>Cannot Add Extension</strong>
-            <div>{errorMessage}</div>
-          </div>
-        );
-      }
-      throw new Error(errorMessage);
+    if (!userSettings?.freedom) {
+      throw new Error('Freedom level not set');
+    }
+
+    // Enforce freedom level restrictions
+    switch (userSettings.freedom) {
+      case 'caged':
+        throw new Error('No extensions can be enabled in Caged mode');
+      case 'cage_free':
+        if (extension.type !== 'builtin') {
+          throw new Error('Only built-in extensions are allowed in Cage Free mode');
+        }
+        break;
+      case 'free_range':
+        // Allow built-in extensions and external extensions
+        if (extension.type !== 'builtin') {
+          // Additional verification will be handled elsewhere
+        }
+        break;
+      case 'wild':
+        // All extensions are allowed
+        break;
+      default:
+        throw new Error('Invalid freedom level');
     }
 
     // Create the config based on the extension type
@@ -160,12 +161,16 @@ export async function addExtension(
 
     const errorMessage = `Error adding ${extension.name} extension ${data.message ? `. ${data.message}` : ''}`;
     console.error(errorMessage);
-    toast.error(errorMessage);
+    if (!silent) {
+      toast.error(errorMessage);
+    }
     return response;
   } catch (error) {
     const errorMessage = `Failed to add ${extension.name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
     console.error(errorMessage);
-    toast.error(errorMessage);
+    if (!silent) {
+      toast.error(errorMessage);
+    }
     throw error;
   }
 }
@@ -192,12 +197,16 @@ export async function removeExtension(name: string, silent: boolean = false): Pr
 
     const errorMessage = `Error removing ${name} extension${data.message ? `. ${data.message}` : ''}`;
     console.error(errorMessage);
-    toast.error(errorMessage);
+    if (!silent) {
+      toast.error(errorMessage);
+    }
     return response;
   } catch (error) {
     const errorMessage = `Failed to remove ${name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
     console.error(errorMessage);
-    toast.error(errorMessage);
+    if (!silent) {
+      toast.error(errorMessage);
+    }
     throw error;
   }
 }
@@ -246,8 +255,31 @@ export async function loadAndAddStoredExtensions() {
         return;
       }
 
-      // Only try to add extensions if not in caged mode
-      const enabledExtensions = userSettings.extensions.filter((ext: any) => ext.enabled);
+      // For cage_free mode, only enable built-in extensions
+      if (userSettings.freedom === 'cage_free') {
+        userSettings.extensions = userSettings.extensions.map((ext: any) => ({
+          ...ext,
+          enabled: ext.type === 'builtin' ? ext.enabled : false,
+        }));
+        localStorage.setItem('user_settings', JSON.stringify(userSettings));
+      }
+
+      // Get the list of extensions that should be enabled based on freedom level
+      const enabledExtensions = userSettings.extensions.filter((ext: any) => {
+        if (!ext.enabled) return false;
+
+        switch (userSettings.freedom) {
+          case 'cage_free':
+            return ext.type === 'builtin';
+          case 'free_range':
+            return true; // Allow all extensions in free_range mode  for now
+          case 'wild':
+            return true;
+          default:
+            return false;
+        }
+      });
+
       console.log('Adding extensions from localStorage: ', enabledExtensions);
       for (const ext of enabledExtensions) {
         await addExtension(ext, true);
@@ -385,6 +417,16 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
     return;
   }
 
-  // If no env vars are required, proceed with extending Goosed
-  await addExtension(config);
+  // Get current freedom level before attempting to add
+  const userSettingsStr = localStorage.getItem('user_settings');
+  const userSettings = userSettingsStr ? JSON.parse(userSettingsStr) : null;
+
+  // Only proceed with adding if in appropriate freedom level
+  if (userSettings?.freedom === 'free_range' || userSettings?.freedom === 'wild') {
+    await addExtension(config);
+  } else {
+    handleError(
+      'Failed to install extension: Current freedom level does not allow adding new extensions'
+    );
+  }
 }

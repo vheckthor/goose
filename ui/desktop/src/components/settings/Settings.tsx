@@ -137,23 +137,28 @@ export default function Settings() {
 
     const newEnabled = !extension.enabled;
 
-    // If trying to enable an extension in caged mode, show error and return
-    if (newEnabled && settings.freedom === 'caged') {
-      toast.error(
-        <div>
-          <strong>Cannot Add Extension</strong>
-          <div>Extensions cannot be added in Caged mode</div>
-        </div>,
-        {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        }
-      );
-      return;
+    // Check permissions based on freedom level
+    if (newEnabled) {
+      if (settings.freedom === 'caged') {
+        toast.error(
+          <div>
+            <strong>Cannot Enable Extension</strong>
+            <div>No extensions can be enabled in Caged mode</div>
+          </div>
+        );
+        return;
+      }
+
+      // For cage_free, only allow built-in extensions
+      if (settings.freedom === 'cage_free' && !isBuiltIn(extensionId)) {
+        toast.error(
+          <div>
+            <strong>Cannot Enable Extension</strong>
+            <div>Only built-in extensions are allowed in Cage Free mode</div>
+          </div>
+        );
+        return;
+      }
     }
 
     const originalSettings = settings;
@@ -182,15 +187,7 @@ export default function Settings() {
           <div>
             <strong>Extension Error</strong>
             <div>{newEnabled ? 'Failed to add extension' : 'Failed to remove extension'}</div>
-          </div>,
-          {
-            position: 'top-right',
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          }
+          </div>
         );
       }
     } catch (error) {
@@ -200,15 +197,7 @@ export default function Settings() {
         <div>
           <strong>Extension Error</strong>
           <div>Unexpected error occurred</div>
-        </div>,
-        {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        }
+        </div>
       );
     }
   };
@@ -281,28 +270,55 @@ export default function Settings() {
             <div>
               <strong>Error Setting Caged Mode</strong>
               <div>Failed to disable all extensions</div>
-            </div>,
-            {
-              position: 'top-right',
-              autoClose: 3000,
-              hideProgressBar: true,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-            }
+            </div>
           );
           return;
         }
       }
 
-      // Update the settings state with new freedom level and disabled extensions if caged
+      // If switching to cage_free, disable all non-built-in extensions
+      if (freedom === 'cage_free') {
+        const disablePromises = settings.extensions
+          .filter((ext) => ext.enabled && !isBuiltIn(ext.id))
+          .map(async (ext) => {
+            try {
+              const response = await removeExtension(ext.name);
+              if (!response.ok) {
+                throw new Error(`Failed to disable extension: ${ext.name}`);
+              }
+            } catch (error) {
+              console.error(`Error disabling extension ${ext.name}:`, error);
+              throw error;
+            }
+          });
+
+        try {
+          await Promise.all(disablePromises);
+        } catch (error) {
+          setSettings(originalSettings);
+          toast.error(
+            <div>
+              <strong>Error Setting Cage Free Mode</strong>
+              <div>Failed to disable non-built-in extensions</div>
+            </div>
+          );
+          return;
+        }
+      }
+
+      // Update the settings state with new freedom level and disabled extensions if needed
       setSettings((prev) => ({
         ...prev,
         freedom,
-        extensions:
-          freedom === 'caged'
-            ? prev.extensions.map((ext) => ({ ...ext, enabled: false }))
-            : prev.extensions,
+        extensions: prev.extensions.map((ext) => ({
+          ...ext,
+          enabled:
+            freedom === 'caged'
+              ? false
+              : freedom === 'cage_free' && !isBuiltIn(ext.id)
+                ? false
+                : ext.enabled,
+        })),
       }));
 
       // Send the update to the backend
@@ -324,21 +340,20 @@ export default function Settings() {
       // Log the change
       window.electron.logInfo(`Freedom level changed to: ${freedom}`);
 
-      // Show success toast if switching to caged mode
+      // Show success toast based on the mode change
       if (freedom === 'caged') {
         toast.success(
           <div>
             <strong>Caged Mode Enabled</strong>
             <div>All extensions have been disabled</div>
-          </div>,
-          {
-            position: 'top-right',
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          }
+          </div>
+        );
+      } else if (freedom === 'cage_free') {
+        toast.success(
+          <div>
+            <strong>Cage Free Mode Enabled</strong>
+            <div>Only built-in extensions are allowed</div>
+          </div>
         );
       }
     } catch (error) {
@@ -357,15 +372,7 @@ export default function Settings() {
         <div>
           <strong>Error</strong>
           <div>Failed to update freedom level</div>
-        </div>,
-        {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        }
+        </div>
       );
     }
   };
@@ -426,23 +433,33 @@ export default function Settings() {
                     <button
                       onClick={() => setIsManualModalOpen(true)}
                       className={`text-sm ${
-                        settings.freedom === 'caged'
+                        settings.freedom !== 'wild'
                           ? 'text-gray-400 cursor-not-allowed'
                           : 'text-indigo-500 hover:text-indigo-600'
                       }`}
                       title={
-                        settings.freedom === 'caged'
-                          ? 'Cannot add extensions in caged mode'
+                        settings.freedom !== 'wild'
+                          ? 'Manual extension addition only allowed in Wild mode'
                           : 'Add Manually'
                       }
-                      disabled={settings.freedom === 'caged'}
+                      disabled={settings.freedom !== 'wild'}
                     >
                       Add
                     </button>
 
                     <button
                       onClick={() => window.electron.openInChrome(EXTENSIONS_SITE_LINK)}
-                      className="text-indigo-500 hover:text-indigo-600 text-sm"
+                      className={`text-sm ${
+                        settings.freedom === 'caged' || settings.freedom === 'cage_free'
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-indigo-500 hover:text-indigo-600'
+                      }`}
+                      title={
+                        settings.freedom === 'caged' || settings.freedom === 'cage_free'
+                          ? 'Browsing extensions requires Free Range or Wild mode'
+                          : 'Browse extensions'
+                      }
+                      disabled={settings.freedom === 'caged' || settings.freedom === 'cage_free'}
                     >
                       Browse
                     </button>
@@ -500,21 +517,13 @@ export default function Settings() {
         isOpen={isManualModalOpen}
         onClose={() => setIsManualModalOpen(false)}
         onSubmit={async (extension) => {
-          // Prevent adding extensions in caged mode
-          if (settings.freedom === 'caged') {
+          // Check freedom level restrictions
+          if (settings.freedom !== 'wild') {
             toast.error(
               <div>
                 <strong>Cannot Add Extension</strong>
-                <div>Extensions cannot be added in Caged mode</div>
-              </div>,
-              {
-                position: 'top-right',
-                autoClose: 3000,
-                hideProgressBar: true,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-              }
+                <div>Manual extension addition is only allowed in Wild mode</div>
+              </div>
             );
             return;
           }
@@ -527,8 +536,6 @@ export default function Settings() {
               extensions: [...prev.extensions, extension],
             }));
             setIsManualModalOpen(false);
-          } else {
-            // TODO - Anything for the UI state beyond validation?
           }
         }}
       />

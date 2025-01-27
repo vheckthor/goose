@@ -12,22 +12,22 @@ const freedomOptions: FreedomOption[] = [
   {
     value: 'caged',
     label: 'Caged',
-    description: 'Does not allow use of any tools',
+    description: 'No tools or extensions allowed',
   },
   {
     value: 'cage_free',
     label: 'Cage Free',
-    description: 'Allows read-only tools',
+    description: 'Only built-in tools allowed, no adding or browsing extensions',
   },
   {
     value: 'free_range',
     label: 'Free Range',
-    description: 'Allows all tools but asks for permission',
+    description: 'Built-in tools and browsing extension site allowed, no manual additions',
   },
   {
     value: 'wild',
     label: 'Wild',
-    description: 'Allows all tools without restrictions',
+    description: 'Full access - can use, browse, and manually add extensions',
   },
 ];
 

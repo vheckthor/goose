@@ -8,13 +8,14 @@ use tracing::{debug, instrument};
 use super::agent::GooseFreedom;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
-use crate::agents::extension::{ExtensionConfig, ExtensionResult};
+use crate::agents::extension::{ExtensionConfig, ExtensionError, ExtensionResult};
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::register_agent;
 use crate::token_counter::TokenCounter;
 use indoc::indoc;
+use mcp_client::Error::Forbidden;
 use mcp_core::tool::Tool;
 use serde_json::{json, Value};
 
@@ -38,14 +39,16 @@ impl ReferenceAgent {
     async fn should_allow_tool(&self, tool_name: &str) -> bool {
         let freedom = self.freedom_level.lock().await.clone();
         match freedom {
-            GooseFreedom::Caged => false,
+            GooseFreedom::Caged => false, // No tools allowed
             GooseFreedom::CageFree => {
-                !tool_name.contains("write")
-                    && !tool_name.contains("create")
-                    && !tool_name.contains("delete")
+                // Only built-in tools allowed
+                tool_name.starts_with("developer__")
+                    || tool_name.starts_with("computercontroller__")
+                    || tool_name.starts_with("memory__")
+                    || tool_name.starts_with("jetbrains__")
+                    || tool_name.starts_with("platform__")
             }
-            GooseFreedom::FreeRange => true, // Tools will ask for permission in the UI
-            GooseFreedom::Wild => true,
+            GooseFreedom::FreeRange | GooseFreedom::Wild => true, // All tools allowed
         }
     }
 }
@@ -53,6 +56,29 @@ impl ReferenceAgent {
 #[async_trait]
 impl Agent for ReferenceAgent {
     async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
+        // Check freedom level restrictions first
+        let freedom = self.freedom_level.lock().await.clone();
+        match freedom {
+            GooseFreedom::Caged => {
+                return Err(ExtensionError::Client(Forbidden(
+                    "Extensions cannot be added in Caged mode".to_string(),
+                )));
+            }
+            GooseFreedom::CageFree => match &extension {
+                ExtensionConfig::Builtin { .. } => {}
+                _ => {
+                    return Err(ExtensionError::Client(Forbidden(
+                        "Only built-in extensions are allowed in Cage Free mode".to_string(),
+                    )));
+                }
+            },
+            GooseFreedom::FreeRange => match &extension {
+                ExtensionConfig::Builtin { .. } => {}
+                ExtensionConfig::Sse { .. } | ExtensionConfig::Stdio { .. } => {}
+            },
+            GooseFreedom::Wild => {} // All extensions allowed
+        }
+
         let mut capabilities = self.capabilities.lock().await;
         capabilities.add_extension(extension).await
     }
@@ -249,18 +275,28 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cage_free_mode_restricts_dangerous_tools() {
+    async fn test_cage_free_mode_allows_only_builtin_tools() {
         let mut agent = setup_agent().await;
         agent.set_freedom_level(GooseFreedom::CageFree).await;
 
-        // Should deny dangerous tools
-        assert!(!agent.should_allow_tool("developer__write_file").await);
-        assert!(!agent.should_allow_tool("developer__create_file").await);
-        assert!(!agent.should_allow_tool("developer__delete_file").await);
-
-        // Should allow safe tools
+        // Should allow built-in tools
         assert!(agent.should_allow_tool("developer__shell").await);
+        assert!(
+            agent
+                .should_allow_tool("computercontroller__web_search")
+                .await
+        );
+        assert!(agent.should_allow_tool("memory__remember_memory").await);
+        assert!(
+            agent
+                .should_allow_tool("jetbrains__get_open_in_editor_file_text")
+                .await
+        );
         assert!(agent.should_allow_tool("platform__read_resource").await);
+
+        // Should deny non-built-in tools
+        assert!(!agent.should_allow_tool("custom__tool").await);
+        assert!(!agent.should_allow_tool("external__tool").await);
     }
 
     #[tokio::test]
@@ -268,11 +304,9 @@ mod tests {
         let mut agent = setup_agent().await;
         agent.set_freedom_level(GooseFreedom::FreeRange).await;
 
-        assert!(agent.should_allow_tool("developer__write_file").await);
-        assert!(agent.should_allow_tool("developer__create_file").await);
-        assert!(agent.should_allow_tool("developer__delete_file").await);
         assert!(agent.should_allow_tool("developer__shell").await);
-        assert!(agent.should_allow_tool("platform__read_resource").await);
+        assert!(agent.should_allow_tool("custom__tool").await);
+        assert!(agent.should_allow_tool("external__tool").await);
     }
 
     #[tokio::test]
@@ -280,10 +314,8 @@ mod tests {
         let mut agent = setup_agent().await;
         agent.set_freedom_level(GooseFreedom::Wild).await;
 
-        assert!(agent.should_allow_tool("developer__write_file").await);
-        assert!(agent.should_allow_tool("developer__create_file").await);
-        assert!(agent.should_allow_tool("developer__delete_file").await);
         assert!(agent.should_allow_tool("developer__shell").await);
-        assert!(agent.should_allow_tool("platform__read_resource").await);
+        assert!(agent.should_allow_tool("custom__tool").await);
+        assert!(agent.should_allow_tool("external__tool").await);
     }
 }
