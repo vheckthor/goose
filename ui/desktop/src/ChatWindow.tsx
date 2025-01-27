@@ -15,12 +15,13 @@ import { askAi } from './utils/askAI';
 import { ChatLayout } from './components/chat_window/ChatLayout';
 import { ChatRoutes } from './components/chat_window/ChatRoutes';
 import { WelcomeScreen } from './components/welcome_screen/WelcomeScreen';
-import {getStoredModel, getStoredProvider, useInitializeSystem} from './utils/providerUtils';
+import {getStoredModel, getStoredProvider, initializeSystem} from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
 import { useRecentModels } from './components/settings/models/RecentModels';
 import { createSelectedModel } from './components/settings/models/utils';
 import { getDefaultModel } from './components/settings/models/hardcoded_stuff';
 import Splash from './components/Splash';
+import {useStoredExtensions} from "./components/settings/extensions/StoredExtensionsContext";
 
 
 declare global {
@@ -315,8 +316,8 @@ export default function ChatWindow() {
   };
   const { switchModel, currentModel } = useModel(); // Access switchModel via useModel
   const { addRecentModel } = useRecentModels(); // Access addRecentModel from useRecentModels
+  const { storedExtensions } = useStoredExtensions()
 
-  const initializeSystem = useInitializeSystem();
 
   // Add keyboard shortcut handler
   useEffect(() => {
@@ -407,11 +408,11 @@ export default function ChatWindow() {
       const storedProvider = getStoredProvider(config);
       const storedModel = getStoredModel();
 
-      console.log("DEBUG -- BOOTING UP")
+      console.log("setupStoredProvider")
 
       if (storedProvider) {
         try {
-          await initializeSystem(storedProvider, storedModel);
+          await initializeSystem(storedProvider, storedModel, storedExtensions);
 
           if (!storedModel) {
             const modelName = getDefaultModel(storedProvider.toLowerCase());

@@ -127,6 +127,8 @@ export async function addExtension(
     });
 
     const data = await response.json();
+    console.log("[addExtension]: data:", data)
+    console.log("config", config)
 
     if (!data.error) {
       if (!silent) {
@@ -214,12 +216,15 @@ export async function loadAndAddStoredExtensions(): Promise<FullExtensionConfig[
 
     const { extensions = [] } = userSettings;
 
+    console.log('[loadAndAddStoredExtensions]: found these extensions in localStorage:', userSettings)
+    console.log('[loadAndAddStoredExtensions]: this is the value of extensions: ', extensions)
+
     // Activate extensions marked as enabled
     const enabledExtensions = extensions.filter((ext: FullExtensionConfig) => ext.enabled);
     console.log('[loadAndAddStoredExtensions]: Adding enabled extensions from localStorage: ', enabledExtensions);
 
     for (const ext of enabledExtensions) {
-      console.log("um...")
+      console.log("[loadAndAddStoredExtensions]: trying to enable extension", ext)
       await addExtension(ext, true);
     }
 
@@ -235,13 +240,14 @@ export async function loadAndAddStoredExtensions(): Promise<FullExtensionConfig[
 
 async function ensureBuiltInsAreStoredAndAdded(extensions) {
   let allExtensions: FullExtensionConfig[] = [...extensions];
-  console.log("going through builtins")
+  console.log("[ensureBuiltInsAreStoredAndAdded] going through builtins")
 
   // Ensure built-in extensions are stored if missing
   for (const builtIn of BUILT_IN_EXTENSIONS) {
     console.log(builtIn)
     const exists = extensions.some((ext: FullExtensionConfig) => ext.id === builtIn.id);
     if (!exists) {
+      console.log("Adding builtin", builtIn.name)
       allExtensions.push(builtIn); // Add to the return list
       if (builtIn.enabled) {
         await addExtension(builtIn, true); // Add if enabled

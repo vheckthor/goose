@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {useNavigate} from "react-router-dom";
-import {FullExtensionConfig, addExtension, removeExtension, BUILT_IN_EXTENSIONS} from "../../extensions";
+import {FullExtensionConfig, BUILT_IN_EXTENSIONS} from "../../extensions";
 import {ScrollArea} from "@radix-ui/themes";
 import BackButton from "../ui/BackButton";
 import {ModelsSection} from "./models/ModelsSection";
@@ -21,47 +21,36 @@ const DEFAULT_SETTINGS: SettingsType = {
 export default function Settings() {
   const navigate = useNavigate();
   // Access extensions and toggleExtension from context
-  const { installedExtensions: extensions, toggleExtension, addExtension, removeExtension } = useStoredExtensions();
+  const { storedExtensions: extensions, toggleExtension, addExtension, removeExtension } = useStoredExtensions();
 
   const [extensionBeingConfigured, setExtensionBeingConfigured] =
       useState<FullExtensionConfig | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   const handleManualExtensionSubmit = async (extension: FullExtensionConfig) => {
-    const response = await addExtension(extension);
-
-    if (response.ok) {
-      addExtension((prev) => [...prev, extension]);
-      setIsManualModalOpen(false);
-    } else {
-      console.error('Failed to add manual extension'); // Handle error as needed
-    }
+    await addExtension(extension);
+    setIsManualModalOpen(false);
   };
 
   const handleExtensionConfigSubmit = () => {
     setExtensionBeingConfigured(null);
-    navigate('/settings', { replace: true });
   };
 
   const isBuiltIn = (extensionId: string) => {
     return BUILT_IN_EXTENSIONS.some((builtIn) => builtIn.id === extensionId);
   };
 
-  const handleExtensionRemove = async () => {
+  const handleExtensionRemove = async (extension: FullExtensionConfig) => {
     if (!extensionBeingConfigured) return;
 
     try {
       // Remove extension from localStorage and context
-      removeExtension((prev) =>
-          prev.filter((ext) => ext.id !== extensionBeingConfigured.id)
-      );
-
+      removeExtension(extension.id)
       // Notify the user
       toast.success(`Successfully removed ${extensionBeingConfigured.name} extension`);
 
       // Close the modal and reset the state
       setExtensionBeingConfigured(null);
-      navigate('/settings', { replace: true });
     } catch (error) {
       console.error('Failed to remove extension:', error);
       toast.error(`Failed to remove ${extensionBeingConfigured.name} extension`);

@@ -2,10 +2,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import {FullExtensionConfig, BUILT_IN_EXTENSIONS, loadAndAddStoredExtensions} from '../../../extensions';
 import {addExtension as addExtensionToBackend} from "../../../extensions";
 import {removeExtension as removeExtensionFromBackend} from "../../../extensions";
+import {getStoredExtensionsAndBuiltIns} from "./utils";
 
 const StoredExtensionsContext = createContext<
     | {
-    installedExtensions: FullExtensionConfig[];
+    storedExtensions: FullExtensionConfig[];
     toggleExtension: (extension: string) => void;
     removeExtension: (extension: string) => void;
     addExtension: (extension: FullExtensionConfig) => Promise<void>;
@@ -16,19 +17,17 @@ const StoredExtensionsContext = createContext<
 
 export const StoredExtensionsProvider = ({ children }: { children: ReactNode }) => {
     const [storedExtensions, setStoredExtensions] = useState<FullExtensionConfig[]>([]);
-    console.log("herehehe")
-    // Load extensions on initialization
+    // Get extensions from local storage / builtins on initialization
     useEffect(() => {
         const loadExtensions = async () => {
-            const storedExtensions = await loadAndAddStoredExtensions(); // handles loading extensions in the backend
-            console.log("12345", storedExtensions)
+            const storedExtensions = await getStoredExtensionsAndBuiltIns();
             setStoredExtensions(storedExtensions);
         };
 
         loadExtensions();
     }, []);
 
-    // Persist extensions to localStorage
+    // responsible for writing storedExtensions to localStorage whenever the state changes
     useEffect(() => {
         localStorage.setItem(
             'user_settings',
@@ -36,6 +35,7 @@ export const StoredExtensionsProvider = ({ children }: { children: ReactNode }) 
         );
     }, [storedExtensions]);
 
+    // function to add a single extension configuration (config) to the storedExtensions array only if it doesn’t already exist
     const storeExtensionConfig = (config: FullExtensionConfig) => {
         setStoredExtensions((prev) => {
             const exists = prev.some((ext) => ext.id === config.id);
@@ -47,76 +47,70 @@ export const StoredExtensionsProvider = ({ children }: { children: ReactNode }) 
     };
 
     const toggleExtension = async (extensionId: string) => {
-        setStoredExtensions((prev) => {
-            const updatedExtensions = prev.map((ext) => {
+        setStoredExtensions((prev) =>
+            prev.map((ext) => {
                 if (ext.id === extensionId) {
                     const updatedExtension = { ...ext, enabled: !ext.enabled };
 
-                    // Notify backend
+                    // Notify backend asynchronously
                     if (updatedExtension.enabled) {
-                        addExtensionToBackend(updatedExtension); // Enable extension
+                        addExtensionToBackend(updatedExtension).catch((error) => {
+                            console.error(`Failed to enable extension ${updatedExtension.name} in backend:`, error);
+                        });
                     } else {
-                        removeExtensionFromBackend(updatedExtension.id); // Disable extension
+                        removeExtensionFromBackend(updatedExtension.id).catch((error) => {
+                            console.error(`Failed to disable extension ${updatedExtension.name} in backend:`, error);
+                        });
                     }
 
-                    return updatedExtension;
+                    return updatedExtension; // Update the state with the toggled extension
                 }
-                return ext;
-            });
-
-            // Persist to localStorage
-            localStorage.setItem('user_settings', JSON.stringify({ extensions: updatedExtensions }));
-
-            return updatedExtensions;
-        });
+                return ext; // Return unchanged extensions
+            })
+        );
     };
 
+    // Add a new extension (with duplicate prevention)
     const addExtension = async (extension: FullExtensionConfig): Promise<void> => {
-        // Update state
         setStoredExtensions((prev) => {
-            const updatedExtensions = [...prev, extension];
-
-            // Persist to localStorage
-            localStorage.setItem('user_settings', JSON.stringify({ extensions: updatedExtensions }));
-
-            return updatedExtensions;
+            // Prevent duplicates by checking for the same `id`
+            const exists = prev.some((ext) => ext.id === extension.id);
+            if (!exists) {
+                return [...prev, extension]; // Add the extension if it doesn't exist
+            }
+            return prev; // Return the existing state if the extension already exists
         });
 
-        // Optionally notify backend (make async)
+        // Notify backend asynchronously
         try {
-            await addExtensionToBackend(extension); // Replace with your backend call if needed
+            await addExtensionToBackend(extension); // Replace with your backend call
         } catch (error) {
             console.error('Failed to notify backend about new extension:', error);
         }
     };
 
-
     const removeExtension = async (extensionId: string) => {
         setStoredExtensions((prev) => {
             const updatedExtensions = prev.filter((ext) => ext.id !== extensionId);
 
-            // Persist to localStorage
-            localStorage.setItem('user_settings', JSON.stringify({ extensions: updatedExtensions }));
-
-            return updatedExtensions;
-        });
-
-        // Notify backend after updating the state
-        const extensionToRemove = storedExtensions.find((ext) => ext.id === extensionId);
-        if (extensionToRemove) {
-            try {
-                await removeExtensionFromBackend(extensionToRemove.id);
-            } catch (error) {
-                console.error(`Error removing extension ${extensionToRemove.id} from backend:`, error);
+            // Notify backend about the removal
+            const extensionToRemove = prev.find((ext) => ext.id === extensionId);
+            if (extensionToRemove) {
+                removeExtensionFromBackend(extensionToRemove.id)
+                    .catch((error) => {
+                        console.error(`Error removing extension ${extensionToRemove.id} from backend:`, error);
+                    });
             }
-        }
+
+            return updatedExtensions; // Update the state
+        });
     };
 
 
     return (
         <StoredExtensionsContext.Provider
             value={{
-                installedExtensions: storedExtensions,
+                storedExtensions: storedExtensions,
                 toggleExtension,
                 removeExtension,
                 addExtension,

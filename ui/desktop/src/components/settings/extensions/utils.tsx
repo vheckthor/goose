@@ -78,3 +78,43 @@ export function useExtensions() {
 
   return { extensions, toggleExtension, removeExtensionById, setExtensions };
 }
+
+export async function getStoredExtensionsAndBuiltIns(): Promise<FullExtensionConfig[]> {
+  try {
+    const userSettingsStr = localStorage.getItem('user_settings');
+    const userSettings = userSettingsStr
+        ? JSON.parse(userSettingsStr)
+        : { extensions: [] };
+
+    const { extensions = [] } = userSettings;
+
+    console.log('[loadStoredExtensionsAndBuiltIns]: found these extensions in localStorage:', userSettings)
+    console.log('[loadStoredExtensionsAndBuiltIns]: this is the value of extensions: ', extensions)
+
+    // handle builtins -- add them to list of all extensions for saving downstream in localstorage
+    const allExtensions = await ensureBuiltInsAreStoredAndAdded(extensions)
+
+    return allExtensions; // Return the full list of extensions
+  } catch (error) {
+    console.error('Error loading and activating extensions from localStorage: ', error);
+    return [];
+  }
+}
+
+async function ensureBuiltInsAreStoredAndAdded(extensions) {
+  let allExtensions: FullExtensionConfig[] = [...extensions];
+  console.log("[ensureBuiltInsAreStoredAndAdded] going through builtins")
+
+  // Ensure built-in extensions are stored if missing
+  for (const builtIn of BUILT_IN_EXTENSIONS) {
+    console.log(builtIn)
+    const exists = extensions.some((ext: FullExtensionConfig) => ext.id === builtIn.id);
+    if (!exists) {
+      console.log("Adding builtin", builtIn.name)
+      allExtensions.push(builtIn); // Add to the return list
+    }
+  }
+
+  console.log("full extensions list:", allExtensions)
+  return allExtensions
+}
