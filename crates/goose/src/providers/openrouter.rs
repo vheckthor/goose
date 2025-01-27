@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage};
 use super::errors::ProviderError;
+use super::templates::{TemplateRenderer, TemplateContext, TemplatedToolConfig};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat};
 use crate::message::Message;
 use crate::model::ModelConfig;
@@ -14,6 +15,7 @@ use mcp_core::tool::Tool;
 
 pub const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-3.5-sonnet";
 pub const OPENROUTER_MODEL_PREFIX_ANTHROPIC: &str = "anthropic";
+pub const OPENROUTER_MODEL_PREFIX_DEEPSEEK: &str = "deepseek";
 
 // OpenRouter can run many models, we suggest the default
 pub const OPENROUTER_KNOWN_MODELS: &[&str] = &[OPENROUTER_DEFAULT_MODEL];
@@ -26,6 +28,8 @@ pub struct OpenRouterProvider {
     host: String,
     api_key: String,
     model: ModelConfig,
+    #[serde(skip)]
+    template_renderer: Option<TemplateRenderer>,
 }
 
 impl Default for OpenRouterProvider {
@@ -47,11 +51,19 @@ impl OpenRouterProvider {
             .timeout(Duration::from_secs(600))
             .build()?;
 
+        // Initialize template renderer for models that need it
+        let template_renderer = if model.model_name.starts_with(OPENROUTER_MODEL_PREFIX_DEEPSEEK) {
+            Some(TemplateRenderer::new(TemplatedToolConfig::deepseek_style()))
+        } else {
+            None
+        };
+
         Ok(Self {
             client,
             host,
             api_key,
             model,
+            template_renderer,
         })
     }
 
@@ -73,6 +85,10 @@ impl OpenRouterProvider {
             .await?;
 
         handle_response_openai_compat(response).await
+    }
+
+    fn uses_templated_tools(&self) -> bool {
+        self.model.model_name.starts_with(OPENROUTER_MODEL_PREFIX_DEEPSEEK)
     }
 }
 
@@ -133,27 +149,55 @@ fn update_request_for_anthropic(original_payload: &Value) -> Value {
 }
 
 fn create_request_based_on_model(
-    model_config: &ModelConfig,
+    provider: &OpenRouterProvider,
     system: &str,
     messages: &[Message],
     tools: &[Tool],
 ) -> anyhow::Result<Value, Error> {
-    let mut payload = create_request(
-        model_config,
-        system,
-        messages,
-        tools,
-        &super::utils::ImageFormat::OpenAi,
-    )?;
+    if provider.uses_templated_tools() {
+        // For models that need templated tools, create a simpler request
+        let renderer = provider.template_renderer.as_ref().unwrap();
+        let prompt = renderer.render(TemplateContext {
+            system: Some(system),
+            messages,
+            tools: Some(tools),
+        });
 
-    if model_config
-        .model_name
-        .starts_with(OPENROUTER_MODEL_PREFIX_ANTHROPIC)
-    {
-        payload = update_request_for_anthropic(&payload);
+        let mut payload = json!({
+            "model": provider.model.model_name,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+        });
+
+        // Add stop tokens
+        payload["stop"] = json!(renderer.get_stop_tokens());
+
+        if let Some(temp) = provider.model.temperature {
+            payload["temperature"] = json!(temp);
+        }
+        if let Some(tokens) = provider.model.max_tokens {
+            payload["max_tokens"] = json!(tokens);
+        }
+
+        Ok(payload)
+    } else {
+        // For models with native tool support, use the normal OpenAI format
+        let mut payload = create_request(
+            &provider.model,
+            system,
+            messages,
+            tools,
+            &super::utils::ImageFormat::OpenAi,
+        )?;
+
+        if provider.model.model_name.starts_with(OPENROUTER_MODEL_PREFIX_ANTHROPIC) {
+            payload = update_request_for_anthropic(&payload);
+        }
+
+        Ok(payload)
     }
-
-    Ok(payload)
 }
 
 #[async_trait]
@@ -195,14 +239,39 @@ impl Provider for OpenRouterProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        // Create the base payload
-        let payload = create_request_based_on_model(&self.model, system, messages, tools)?;
+        // Create the request payload
+        let payload = create_request_based_on_model(self, system, messages, tools)?;
+        tracing::debug!(payload=?payload);
 
         // Make request
         let response = self.post(payload.clone()).await?;
-
+        tracing::debug!(response=?response);
         // Parse response
-        let message = response_to_message(response.clone())?;
+        let message = if self.uses_templated_tools() {
+            // For templated tools, we need to parse the response differently
+            let response_text = response["choices"][0]["message"]["content"]
+                .as_str()
+                .ok_or_else(|| ProviderError::ResponseParsing("No content in response".to_string()))?;
+
+            if let Some(renderer) = &self.template_renderer {
+                let tool_calls = renderer.parse_tool_calls(response_text);
+                if !tool_calls.is_empty() {
+                    let mut msg = Message::assistant();
+                    for tool_call in tool_calls {
+                        msg = msg.with_tool_request(nanoid::nanoid!(), Ok(tool_call));
+                    }
+                    msg
+                } else {
+                    Message::assistant().with_text(response_text)
+                }
+            } else {
+                Message::assistant().with_text(response_text)
+            }
+        } else {
+            // For native tool support, use normal parsing
+            response_to_message(response.clone())?
+        };
+
         let usage = get_usage(&response)?;
         let model = get_model(&response);
         emit_debug_trace(self, &payload, &response, &usage);

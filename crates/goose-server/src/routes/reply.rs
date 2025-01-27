@@ -9,7 +9,6 @@ use axum::{
 use bytes::Bytes;
 use futures::{stream::StreamExt, Stream};
 use goose::message::{Message, MessageContent};
-
 use mcp_core::{content::Content, role::Role};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -19,7 +18,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, error::SendError};
 use tokio::time::timeout;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -85,53 +84,6 @@ impl IntoResponse for SseResponse {
     }
 }
 
-// Convert incoming messages to our internal Message type
-fn convert_messages(incoming: Vec<IncomingMessage>) -> Vec<Message> {
-    let mut messages = Vec::new();
-
-    for msg in incoming {
-        match msg.role.as_str() {
-            "user" => {
-                messages.push(Message::user().with_text(msg.content));
-            }
-            "assistant" => {
-                // First handle any tool invocations - each represents a complete request/response cycle
-                for tool in msg.tool_invocations {
-                    if tool.state == "result" {
-                        // Add the original tool request from assistant
-                        let tool_call = mcp_core::tool::ToolCall {
-                            name: tool.tool_name,
-                            arguments: tool.args,
-                        };
-                        messages.push(
-                            Message::assistant()
-                                .with_tool_request(tool.tool_call_id.clone(), Ok(tool_call)),
-                        );
-
-                        // Add the tool response from user
-                        if let Some(result) = &tool.result {
-                            messages.push(
-                                Message::user()
-                                    .with_tool_response(tool.tool_call_id, Ok(result.clone())),
-                            );
-                        }
-                    }
-                }
-
-                // Then add the assistant's text response after tool interactions
-                if !msg.content.is_empty() {
-                    messages.push(Message::assistant().with_text(msg.content));
-                }
-            }
-            _ => {
-                tracing::warn!("Unknown role: {}", msg.role);
-            }
-        }
-    }
-
-    messages
-}
-
 // Protocol-specific message formatting
 struct ProtocolFormatter;
 
@@ -179,10 +131,57 @@ impl ProtocolFormatter {
     }
 }
 
+// Convert incoming messages to our internal Message type
+fn convert_messages(incoming: Vec<IncomingMessage>) -> Vec<Message> {
+    let mut messages = Vec::new();
+
+    for msg in incoming {
+        match msg.role.as_str() {
+            "user" => {
+                messages.push(Message::user().with_text(msg.content));
+            }
+            "assistant" => {
+                // First handle any tool invocations - each represents a complete request/response cycle
+                for tool in msg.tool_invocations {
+                    if tool.state == "result" {
+                        // Add the original tool request from assistant
+                        let tool_call = mcp_core::tool::ToolCall {
+                            name: tool.tool_name,
+                            arguments: tool.args,
+                        };
+                        messages.push(
+                            Message::assistant()
+                                .with_tool_request(tool.tool_call_id.clone(), Ok(tool_call)),
+                        );
+
+                        // Add the tool response from user
+                        if let Some(result) = &tool.result {
+                            messages.push(
+                                Message::user()
+                                    .with_tool_response(tool.tool_call_id, Ok(result.clone())),
+                            );
+                        }
+                    }
+                }
+
+                // Then add the assistant's text response after tool interactions
+                if !msg.content.is_empty() {
+                    messages.push(Message::assistant().with_text(msg.content));
+                }
+            }
+            _ => {
+                tracing::warn!("Unknown role: {}", msg.role);
+            }
+        }
+    }
+
+    messages
+}
+
 async fn stream_message(
     message: Message,
     tx: &mpsc::Sender<String>,
-) -> Result<(), mpsc::error::SendError<String>> {
+) -> Result<(), SendError<String>> {
     match message.role {
         Role::User => {
             // Handle tool responses
@@ -248,15 +247,17 @@ async fn stream_message(
                         }
                     }
                     MessageContent::Image(_) => {
-                        // TODO
-                        continue;
+                        // TODO: Handle image content in the future
                     }
                     MessageContent::ToolResponse(_) => {
                         // Tool responses should only come from the user
-                        continue;
                     }
                 }
             }
+        }
+        Role::Tool => {
+            // Tool role messages are handled through tool responses
+            // They are converted to appropriate protocol messages when received from the user
         }
     }
     Ok(())
