@@ -1,7 +1,8 @@
 import { getApiUrl, getSecretKey } from '../config';
-import { loadAndAddStoredExtensions } from '../extensions';
+import {FullExtensionConfig, loadAndAddStoredExtensions} from '../extensions';
 import { GOOSE_PROVIDER } from '../env_vars';
 import { Model } from '../components/settings/models/ModelContext';
+import {useStoredExtensions} from "../components/settings/extensions/StoredExtensionsContext";
 
 export function getStoredProvider(config: any): string | null {
   console.log('config goose provider', config.GOOSE_PROVIDER);
@@ -73,16 +74,26 @@ const addAgent = async (provider: string, model: string) => {
   return response;
 };
 
-export const initializeSystem = async (provider: string, model: string) => {
-  try {
-    console.log('initializing agent with provider', provider, 'model', model);
-    await addAgent(provider.toLowerCase(), model);
+export const useInitializeSystem = () => {
+  const { storeExtensionConfig } = useStoredExtensions();
+  console.log("in use initialize system")
 
-    loadAndAddStoredExtensions().catch((error) => {
-      console.error('Failed to load and add stored extension configs:', error);
-    });
-  } catch (error) {
-    console.error('Failed to initialize agent:', error);
-    throw error;
-  }
+  const initializeSystem = async (provider: string, model: string) => {
+    try {
+      console.log('Initializing agent with provider:', provider, 'model:', model);
+      await addAgent(provider.toLowerCase(), model);
+
+      console.log("getting stored extensions in initialize system")
+      const storedExtensions = await loadAndAddStoredExtensions();
+      console.log("stored", storedExtensions)
+      storedExtensions.forEach((extension) => {
+        storeExtensionConfig(extension); // Add each extension to the context state
+      });
+    } catch (error) {
+      console.error('Failed to initialize agent:', error);
+      throw error;
+    }
+  };
+
+  return initializeSystem;
 };

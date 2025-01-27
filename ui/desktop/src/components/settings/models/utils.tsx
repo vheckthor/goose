@@ -3,12 +3,13 @@ import { Model } from './ModelContext';
 import { useMemo } from 'react';
 import { goose_models } from './hardcoded_stuff';
 import { ToastFailureGeneral, ToastSuccessModelSwitch } from './toasts';
-import { initializeSystem } from '../../../utils/providerUtils';
+import { useInitializeSystem } from '../../../utils/providerUtils';
 import { useRecentModels } from './RecentModels';
 
 export function useHandleModelSelection() {
   const { switchModel, currentModel } = useModel(); // Access switchModel via useModel
   const { addRecentModel } = useRecentModels(); // Access addRecentModel from useRecentModels
+  const initializeSystem = useInitializeSystem()
 
   return async (model: Model, componentName?: string) => {
     try {

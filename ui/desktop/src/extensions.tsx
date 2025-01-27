@@ -1,6 +1,8 @@
 import { getApiUrl, getSecretKey } from './config';
 import { NavigateFunction } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import {useStoredExtensions} from './components/settings/extensions/StoredExtensionsContext'
+import {useEffect} from "react";
 
 // ExtensionConfig type matching the Rust version
 export type ExtensionConfig =
@@ -95,6 +97,7 @@ export async function addExtension(
   extension: FullExtensionConfig,
   silent: boolean = false
 ): Promise<Response> {
+  console.log("[addExtension] -- adding", extension)
   try {
     // Create the config based on the extension type
     const config = {
@@ -176,24 +179,23 @@ export async function removeExtension(name: string, silent: boolean = false): Pr
   }
 }
 
-// Store extension config in user_settings
+// only handles storing an extension in localStorage
 function storeExtensionConfig(config: FullExtensionConfig) {
   try {
     const userSettingsStr = localStorage.getItem('user_settings');
     const userSettings = userSettingsStr
-      ? JSON.parse(userSettingsStr)
-      : { models: [], extensions: [] };
+        ? JSON.parse(userSettingsStr)
+        : { models: [], extensions: [] };
 
-    // Check if config already exists (based on cmd for stdio, uri for sse, name for builtin)
     const extensionExists = userSettings.extensions.some(
-      (extension: { id: string }) => extension.id === config.id
+        (extension: { id: string }) => extension.id === config.id
     );
 
     if (!extensionExists) {
       userSettings.extensions.push(config);
       localStorage.setItem('user_settings', JSON.stringify(userSettings));
       console.log('Extension config stored successfully in user_settings');
-      // Notify settings update through electron IPC
+      // Notify settings update through Electron IPC
       window.electron.send('settings-updated');
     } else {
       console.log('Extension config already exists in user_settings');
@@ -203,32 +205,54 @@ function storeExtensionConfig(config: FullExtensionConfig) {
   }
 }
 
-export async function loadAndAddStoredExtensions() {
+export async function loadAndAddStoredExtensions(): Promise<FullExtensionConfig[]> {
   try {
     const userSettingsStr = localStorage.getItem('user_settings');
+    const userSettings = userSettingsStr
+        ? JSON.parse(userSettingsStr)
+        : { extensions: [] };
 
-    if (userSettingsStr) {
-      const userSettings = JSON.parse(userSettingsStr);
-      const enabledExtensions = userSettings.extensions.filter((ext: any) => ext.enabled);
-      console.log('Adding extensions from localStorage: ', enabledExtensions);
-      for (const ext of enabledExtensions) {
-        await addExtension(ext, true);
-      }
-    } else {
-      console.log('Saving default builtin extensions to localStorage');
-      // TODO - Revisit
-      // @ts-expect-error "we actually do always have all the properties required for builtins, but tsc cannot tell for some reason"
-      BUILT_IN_EXTENSIONS.forEach(async (extension: FullExtensionConfig) => {
-        storeExtensionConfig(extension);
-        if (extension.enabled) {
-          await addExtension(extension, true);
-        }
-      });
+    const { extensions = [] } = userSettings;
+
+    // Activate extensions marked as enabled
+    const enabledExtensions = extensions.filter((ext: FullExtensionConfig) => ext.enabled);
+    console.log('[loadAndAddStoredExtensions]: Adding enabled extensions from localStorage: ', enabledExtensions);
+
+    for (const ext of enabledExtensions) {
+      console.log("um...")
+      await addExtension(ext, true);
     }
+
+    // handle builtins -- add them to list of all extensions for saving downstream in localstorage
+    const allExtensions = await ensureBuiltInsAreStoredAndAdded(extensions)
+
+    return allExtensions; // Return the full list of extensions
   } catch (error) {
     console.error('Error loading and activating extensions from localStorage: ', error);
+    return [];
   }
 }
+
+async function ensureBuiltInsAreStoredAndAdded(extensions) {
+  let allExtensions: FullExtensionConfig[] = [...extensions];
+  console.log("going through builtins")
+
+  // Ensure built-in extensions are stored if missing
+  for (const builtIn of BUILT_IN_EXTENSIONS) {
+    console.log(builtIn)
+    const exists = extensions.some((ext: FullExtensionConfig) => ext.id === builtIn.id);
+    if (!exists) {
+      allExtensions.push(builtIn); // Add to the return list
+      if (builtIn.enabled) {
+        await addExtension(builtIn, true); // Add if enabled
+      }
+    }
+  }
+
+  console.log("full extensions list:", allExtensions)
+  return allExtensions
+}
+
 
 // Update the path to the binary based on the command
 export async function replaceWithShims(cmd: string) {
@@ -258,10 +282,15 @@ function handleError(message: string, shouldThrow = false): void {
   }
 }
 
-export async function addExtensionFromDeepLink(url: string, navigate: NavigateFunction) {
+export async function addExtensionFromDeepLink(
+    url: string,
+    navigate: NavigateFunction,
+    storeExtensionConfig: (config: FullExtensionConfig) => void,
+    addExtension: (config: FullExtensionConfig) => Promise<void>
+) {
   if (!url.startsWith('goose://extension')) {
     handleError(
-      'Failed to install extension: Invalid URL: URL must use the goose://extension scheme'
+        'Failed to install extension: Invalid URL: URL must use the goose://extension scheme'
     );
     return;
   }
@@ -270,8 +299,8 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
 
   if (parsedUrl.protocol !== 'goose:') {
     handleError(
-      'Failed to install extension: Invalid protocol: URL must use the goose:// scheme',
-      true
+        'Failed to install extension: Invalid protocol: URL must use the goose:// scheme',
+        true
     );
   }
 
@@ -282,8 +311,8 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
     const value = parsedUrl.searchParams.get(field);
     if (!value || value.trim() === '') {
       handleError(
-        `Failed to install extension: The link is missing required field '${field}'`,
-        true
+          `Failed to install extension: The link is missing required field '${field}'`,
+          true
       );
     }
   }
@@ -297,8 +326,8 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
   const allowedCommands = ['npx', 'uvx', 'goosed'];
   if (!allowedCommands.includes(cmd)) {
     handleError(
-      `Failed to install extension: Invalid command: ${cmd}. Only ${allowedCommands.join(', ')} are allowed.`,
-      true
+        `Failed to install extension: Invalid command: ${cmd}. Only ${allowedCommands.join(', ')} are allowed.`,
+        true
     );
   }
 
@@ -306,8 +335,8 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
   const args = parsedUrl.searchParams.getAll('arg');
   if (cmd === 'npx' && args.includes('-c')) {
     handleError(
-      'Failed to install extension: npx with -c argument can lead to code injection',
-      true
+        'Failed to install extension: npx with -c argument can lead to code injection',
+        true
     );
   }
 
@@ -318,12 +347,12 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
 
   // split env based on delimiter to a map
   const envs = envList.reduce(
-    (acc, env) => {
-      const [key, value] = env.split('=');
-      acc[key] = value;
-      return acc;
-    },
-    {} as Record<string, string>
+      (acc, env) => {
+        const [key, value] = env.split('=');
+        acc[key] = value;
+        return acc;
+      },
+      {} as Record<string, string>
   );
 
   // Create a ExtensionConfig from the URL parameters
@@ -338,7 +367,7 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
     env_keys: Object.keys(envs).length > 0 ? Object.keys(envs) : [],
   };
 
-  // Store the extension config regardless of env vars status
+  // Use context's storeExtensionConfig
   storeExtensionConfig(config);
 
   // Check if extension requires env vars and go to settings if so
@@ -348,6 +377,24 @@ export async function addExtensionFromDeepLink(url: string, navigate: NavigateFu
     return;
   }
 
-  // If no env vars are required, proceed with extending Goosed
+  // If no env vars are required, proceed with extending Goosed using context
   await addExtension(config);
 }
+
+const DeepLinkHandler = ({ url, navigate }: { url: string; navigate: NavigateFunction }) => {
+  const { storeExtensionConfig, addExtension } = useStoredExtensions();
+
+  const handleDeepLink = async () => {
+    try {
+      await addExtensionFromDeepLink(url, navigate, storeExtensionConfig, addExtension);
+    } catch (error) {
+      console.error('Failed to handle deep link:', error);
+    }
+  };
+
+  useEffect(() => {
+    handleDeepLink();
+  }, [url, navigate]); // Re-run if the URL or navigate changes
+
+  return null; // No UI for this component
+};

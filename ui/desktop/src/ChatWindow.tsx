@@ -12,17 +12,16 @@ import { ScrollArea } from './components/ui/scroll-area';
 import UserMessage from './components/UserMessage';
 import WingToWing, { Working } from './components/WingToWing';
 import { askAi } from './utils/askAI';
-import { getStoredModel, Provider } from './utils/providerUtils';
 import { ChatLayout } from './components/chat_window/ChatLayout';
 import { ChatRoutes } from './components/chat_window/ChatRoutes';
 import { WelcomeScreen } from './components/welcome_screen/WelcomeScreen';
-import { getStoredProvider, initializeSystem } from './utils/providerUtils';
+import {getStoredModel, getStoredProvider, useInitializeSystem} from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
 import { useRecentModels } from './components/settings/models/RecentModels';
 import { createSelectedModel } from './components/settings/models/utils';
 import { getDefaultModel } from './components/settings/models/hardcoded_stuff';
 import Splash from './components/Splash';
-import { loadAndAddStoredExtensions } from './extensions';
+
 
 declare global {
   interface Window {
@@ -317,6 +316,8 @@ export default function ChatWindow() {
   const { switchModel, currentModel } = useModel(); // Access switchModel via useModel
   const { addRecentModel } = useRecentModels(); // Access addRecentModel from useRecentModels
 
+  const initializeSystem = useInitializeSystem();
+
   // Add keyboard shortcut handler
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -355,7 +356,6 @@ export default function ChatWindow() {
   const [mode, setMode] = useState<'expanded' | 'compact'>(initialQuery ? 'compact' : 'expanded');
   const [working, setWorking] = useState<Working>(Working.Idle);
   const [progressMessage, setProgressMessage] = useState<string>('');
-  const [selectedProvider, setSelectedProvider] = useState<string | Provider | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(true);
 
   // Add this useEffect to track changes and update welcome state
@@ -401,30 +401,24 @@ export default function ChatWindow() {
     return response;
   };
 
-  // Initialize system on load if we have a stored provider
   useEffect(() => {
     const setupStoredProvider = async () => {
       const config = window.electron.getConfig();
       const storedProvider = getStoredProvider(config);
       const storedModel = getStoredModel();
+
+      console.log("DEBUG -- BOOTING UP")
+
       if (storedProvider) {
         try {
           await initializeSystem(storedProvider, storedModel);
 
           if (!storedModel) {
-            // get the default model
             const modelName = getDefaultModel(storedProvider.toLowerCase());
-
-            // create model object
             const model = createSelectedModel(storedProvider.toLowerCase(), modelName);
-
-            // Call the context's switchModel to track the set model state in the front end
             switchModel(model);
-
-            // Keep track of the recently used models
             addRecentModel(model);
-
-            console.log('set up provider with default model', storedProvider, modelName);
+            console.log('Set up provider with default model:', storedProvider, modelName);
           }
         } catch (error) {
           console.error('Failed to initialize with stored provider:', error);

@@ -11,7 +11,7 @@ import { useModel } from '../settings/models/ModelContext';
 import { useRecentModels } from '../settings/models/RecentModels';
 import { createSelectedModel } from '../settings/models/utils';
 import { getDefaultModel } from '../settings/models/hardcoded_stuff';
-import { initializeSystem } from '../../utils/providerUtils';
+import { useInitializeSystem } from '../../utils/providerUtils';
 import { getApiUrl, getSecretKey } from '../../config';
 import { toast } from 'react-toastify';
 import { getActiveProviders } from '../settings/api_keys/utils';
@@ -28,7 +28,8 @@ export function ProviderGrid({ onSubmit }: ProviderGridProps) {
   const [showSetupModal, setShowSetupModal] = React.useState(false);
   const { switchModel } = useModel();
   const { addRecentModel } = useRecentModels();
-  const navigate = useNavigate();
+  const initializeSystem = useInitializeSystem()
+
 
   const providers = React.useMemo(() => {
     return supported_providers.map((providerName) => {

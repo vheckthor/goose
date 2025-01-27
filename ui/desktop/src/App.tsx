@@ -10,6 +10,7 @@ import { ToastContainer } from 'react-toastify';
 import { ModelProvider } from './components/settings/models/ModelContext';
 import { ActiveKeysProvider } from './components/settings/api_keys/ActiveKeysContext';
 import { extractExtensionName } from './components/settings/extensions/utils';
+import {StoredExtensionsProvider} from "./components/settings/extensions/StoredExtensionsContext";
 
 export default function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
@@ -102,18 +103,20 @@ export default function App() {
           isSubmitting={isInstalling}
         />
       )}
-      <ModelProvider>
-        <ActiveKeysProvider>
-          {isLauncher ? <LauncherWindow /> : <ChatWindow />}
-          <ToastContainer
-            aria-label="Toast notifications"
-            position="top-right"
-            autoClose={3000}
-            closeOnClick
-            pauseOnHover
-          />
-        </ActiveKeysProvider>
-      </ModelProvider>
+      <StoredExtensionsProvider>
+        <ModelProvider>
+          <ActiveKeysProvider>
+            {isLauncher ? <LauncherWindow /> : <ChatWindow />}
+            <ToastContainer
+                aria-label="Toast notifications"
+                position="top-right"
+                autoClose={3000}
+                closeOnClick
+                pauseOnHover
+            />
+          </ActiveKeysProvider>
+        </ModelProvider>
+      </StoredExtensionsProvider>
     </>
   );
 }
