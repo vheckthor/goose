@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { oneLight } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Check, Copy } from './icons';
 import { visit } from 'unist-util-visit';
+import remarkGfm from 'remark-gfm';
 
 function rehypeinlineCodeProperty() {
   return function (tree) {
@@ -79,6 +79,7 @@ export default function MarkdownContent({ content, className = '' }: MarkdownCon
     <div className="w-full overflow-x-hidden">
       <ReactMarkdown
         rehypePlugins={[rehypeinlineCodeProperty]}
+        remarkPlugins={[remarkGfm]}
         className={`prose prose-xs dark:prose-invert w-full max-w-full break-words
           prose-pre:p-0 prose-pre:m-0
           prose-code:break-all prose-code:whitespace-pre-wrap

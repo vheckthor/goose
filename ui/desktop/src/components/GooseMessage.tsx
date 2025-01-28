@@ -4,6 +4,7 @@ import LinkPreview from './LinkPreview';
 import GooseResponseForm from './GooseResponseForm';
 import { extractUrls } from '../utils/urlUtils';
 import MarkdownContent from './MarkdownContent';
+import remarkGfm from 'remark-gfm';
 
 interface GooseMessageProps {
   message: any;
