@@ -56,7 +56,8 @@
 <li><a href="https://www.linkedin.com/company/block-opensource" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
 <li><a href="https://x.com/blockopensource" target="_blank" rel="noopener noreferrer">X</a></li>
 <li><a href="https://bsky.app/profile/block-opensource.bsky.social" target="_blank" rel="noopener noreferrer">BlueSky</a></li>
-</ul>]]></content:encoded>
+</ul>
+]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Resolving CI Issues with Goose: A Practical Walkthrough]]></title>
@@ -131,8 +132,8 @@
             <link>https://block.github.io/goose/blog/2024/12/10/connecting-ai-agents-to-your-systems-with-mcp</link>
             <guid>https://block.github.io/goose/blog/2024/12/10/connecting-ai-agents-to-your-systems-with-mcp</guid>
             <pubDate>Tue, 10 Dec 2024 00:00:00 GMT</pubDate>
-            <description><![CDATA[calendar]]></description>
-            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="calendar" src="https://block.github.io/goose/assets/images/goose-mcp-34a5252d18d18dff26157d673f7af779.png" width="1200" height="630" class="img_ev3q"></p>
+            <description><![CDATA[mcp]]></description>
+            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="mcp" src="https://block.github.io/goose/assets/images/goose-mcp-34a5252d18d18dff26157d673f7af779.png" width="1200" height="630" class="img_ev3q"></p>
 <p>Open standards are a critical ingredient for interoperable systems. They have enabled most of the technologies that we all rely on. The ability to connect to the internet no matter where we are relies on open standards such as Wi-Fi, TCP/IP and DNS. When you receive an email in your Gmail account from an Outlook sender, it's the use of open standards like SMTP, IMAP, and POP3 that makes this seamless. One of the most transformative technologies of our lifetime - the internet - enables anyone to have their web page accessible to the entire world thanks to the HTTP and HTML standards.</p>
 <p>We're in the early days of a new era in tech, one where companies are innovating and building practical AI solutions for the masses. To ensure the longevity of this technology, open standards will be essential in guiding the development of AI tools so that the diverse systems built by various companies can work together seamlessly.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="the-mcp-open-standard">The MCP Open Standard<a href="https://block.github.io/goose/blog/2024/12/10/connecting-ai-agents-to-your-systems-with-mcp#the-mcp-open-standard" class="hash-link" aria-label="Direct link to The MCP Open Standard" title="Direct link to The MCP Open Standard">​</a></h3>
