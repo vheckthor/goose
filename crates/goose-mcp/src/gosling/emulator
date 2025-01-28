@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# Enable strict mode to exit on errors and unset variables
+set -euo pipefail
+
+# Set log file
+LOG_FILE="/tmp/gosling-emulator.log"
+
+# Clear the log file at the start
+> "$LOG_FILE"
+
+# Function for logging
+log() {
+    local MESSAGE="$1"
+    echo "$(date +'%Y-%m-%d %H:%M:%S') - $MESSAGE" | tee -a "$LOG_FILE"
+}
+
+# Trap errors and log them before exiting
+trap 'log "An error occurred. Exiting with status $?."' ERR
+
+log "Starting Android emulator setup script."
+
+# Set up directories
+ANDROID_ROOT="$HOME/.config/gosling/android"
+ANDROID_SDK="$ANDROID_ROOT/sdk"
+ANDROID_HOME="$ANDROID_SDK"
+CMDLINE_TOOLS="$ANDROID_SDK/cmdline-tools/latest"
+
+# Create necessary directories
+log "Creating required directories"
+mkdir -p "$ANDROID_ROOT"
+mkdir -p "$ANDROID_SDK"
+
+# Set environment variables
+export ANDROID_HOME="$ANDROID_SDK"
+export PATH="$CMDLINE_TOOLS/bin:$ANDROID_SDK/platform-tools:$ANDROID_SDK/emulator:$PATH"
+
+# Download Android command-line tools if not present
+if [ ! -d "$CMDLINE_TOOLS" ]; then
+    log "Downloading Android command-line tools"
+    CMDLINE_TOOLS_ZIP="commandlinetools-mac-9477386_latest.zip"
+    curl -L -o "$ANDROID_ROOT/$CMDLINE_TOOLS_ZIP" "https://dl.google.com/android/repository/$CMDLINE_TOOLS_ZIP"
+    
+    mkdir -p "$ANDROID_SDK/cmdline-tools"
+    unzip -q "$ANDROID_ROOT/$CMDLINE_TOOLS_ZIP" -d "$ANDROID_SDK/cmdline-tools/temp"
+    mv "$ANDROID_SDK/cmdline-tools/temp/cmdline-tools" "$ANDROID_SDK/cmdline-tools/latest"
+    rm -rf "$ANDROID_SDK/cmdline-tools/temp"
+    rm "$ANDROID_ROOT/$CMDLINE_TOOLS_ZIP"
+    
+    log "Command-line tools installed"
+fi
+
+# Create a minimal license file to bypass initial license check
+mkdir -p "$ANDROID_SDK/licenses"
+echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "$ANDROID_SDK/licenses/android-sdk-license"
+
+# Install required packages if not present
+if [ ! -d "$ANDROID_SDK/platform-tools" ] || [ ! -d "$ANDROID_SDK/emulator" ]; then
+    log "Installing Android SDK packages"
+    # Install packages one at a time to avoid timeout issues
+    yes | sdkmanager "platform-tools" || log "Failed to install platform-tools"
+    yes | sdkmanager "emulator" || log "Failed to install emulator"
+    yes | sdkmanager "system-images;android-33;google_apis;x86_64" || log "Failed to install system image"
+fi
+
+# Create a default AVD if none exists
+if [ -x "$(command -v avdmanager)" ]; then
+    avd_count=$(avdmanager list avd 2>/dev/null | grep -c "Name:" || true)
+    if [ "$avd_count" -eq 0 ]; then
+        log "Creating default Android Virtual Device"
+        echo "no" | avdmanager create avd -n "gosling_default" -k "system-images;android-33;google_apis;x86_64" --force || log "Failed to create AVD"
+    fi
+else
+    log "avdmanager not found in PATH"
+fi
+
+# Execute emulator command with arguments
+if [ $# -eq 0 ]; then
+    log "No arguments provided. Use -list-avds to see available devices or provide an AVD name to start it."
+    if [ -x "$(command -v emulator)" ]; then
+        emulator -list-avds
+    else
+        log "Android emulator not found in PATH"
+    fi
+else
+    log "Executing emulator command with arguments: $*"
+    if [ -x "$(command -v emulator)" ]; then
+        emulator "$@"
+    else
+        log "Android emulator not found in PATH"
+    fi
+fi
+
+log "Android emulator setup script completed successfully."
