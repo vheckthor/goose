@@ -218,8 +218,8 @@ impl Agent for TruncateAgent {
                                 output,
                             );
                         }
-                        tracing::debug!("Response: {:?}", response);
-                        tracing::debug!("Tool responses: {:?}", message_tool_response);
+                        tracing::info!("Response: {:?}", serde_json::to_string_pretty(&response));
+                        tracing::info!("Tool responses: {:?}", serde_json::to_string_pretty(&message_tool_response));
 
                         yield message_tool_response.clone();
                         

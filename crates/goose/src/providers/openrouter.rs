@@ -163,40 +163,45 @@ fn create_request_based_on_model(
             tools: Some(tools),
         });
 
-        // Create initial messages list with system prompt as first user message
+        // Start with system prompt as a user message
         let mut mapped_messages: Vec<Message> = vec![Message::user().with_text(system_prompt)];
         
-        // Add remaining messages, converting Tool role to User role
-        mapped_messages.extend(messages.iter().map(|msg| {
-            if msg.role == Role::Tool {
-                // Create new message with same content but User role
-                let mut new_msg = Message::user();
-                new_msg.content = msg.content.clone();
-                new_msg.created = msg.created;
-                new_msg
-            } else {
-                msg.clone()
-            }
-        }));
-
-        // Check if last message is a user message with text/image content
-        if let Some(last_msg) = mapped_messages.last() {
-            tracing::debug!("Last message: {:?}", last_msg);
-            if last_msg.role == Role::User && 
-            matches!(last_msg.content.last(), Some(MessageContent::Text(_) | MessageContent::Image(_) | MessageContent::ToolResponse(_))) 
-            {
-                let mut last_msg = mapped_messages.pop().unwrap();
-                let existing_text = last_msg.as_concat_text();
-                if !existing_text.is_empty() {
-                    let tool_instructions = "\nTo use a tool, respond with a JSON object with only the fields 'name' (tool name) and 'parameters' (tool parameters based on input schemas)";
-                    last_msg = Message::user().with_text(format!("{}\n{}", existing_text, tool_instructions));
-                    mapped_messages.push(last_msg);
+        // Convert messages, concatenating first user message (skipping system) with system prompt
+        let mut messages_iter = messages.iter().peekable();
+        let mut user_messages_seen = 0;
+        let mut second_user_msg_index = None;
+        
+        // First pass: find and concatenate second user message
+        while let Some((i, msg)) = messages_iter.next().map(|msg| (messages_iter.len(), msg)) {
+            if msg.role == Role::User {
+                user_messages_seen += 1;
+                if user_messages_seen == 2 {  // This is the second user message
+                    // Concatenate this user message with system prompt
+                    if let Some(first_msg) = mapped_messages.first_mut() {
+                        let existing_text = first_msg.as_concat_text();
+                        let user_text = msg.as_concat_text();
+                        first_msg.content = vec![MessageContent::text(format!("{}\n\n{}", existing_text, user_text))];
+                    }
+                    second_user_msg_index = Some(i);
+                    break;  // Stop after second user message
                 }
             }
-            tracing::debug!("last message after: {:?}", mapped_messages.last());
         }
-
-
+        
+        // Add remaining messages, converting Tool role to User role and skipping the concatenated message
+        for (i, msg) in messages.iter().enumerate() {
+            if Some(i) != second_user_msg_index {  // Skip the message we concatenated
+                if msg.role == Role::Tool {
+                    // Create new message with same content but User role
+                    let mut new_msg = Message::user();
+                    new_msg.content = msg.content.clone();
+                    new_msg.created = msg.created;
+                    mapped_messages.push(new_msg);
+                } else {
+                    mapped_messages.push(msg.clone());
+                }
+            }
+        }
 
 
         // Create normal OpenAI format request with mapped messages
@@ -280,11 +285,11 @@ impl Provider for OpenRouterProvider {
         let mut payload = create_request_based_on_model(self, system, messages, tools)?;
         // payload["providers"] = json!({"order": ["Novita, Fireworks"]});
 
-        tracing::debug!(payload_after_processing=?payload);
+        tracing::info!(payload_after_processing=serde_json::to_string_pretty(&payload).unwrap_or_default());
 
         // Make request
         let response = self.post(payload.clone()).await?;
-        tracing::debug!(response=?response);
+        tracing::info!(response=serde_json::to_string_pretty(&response).unwrap_or_default());
 
         // Parse response
         let message = if self.uses_templated_tools() {
@@ -294,8 +299,8 @@ impl Provider for OpenRouterProvider {
                 .ok_or_else(|| ProviderError::ResponseParsing("No content in response".to_string()))?;
 
             if let Some(renderer) = &self.template_renderer {
-                let tool_calls = renderer.parse_tool_calls(response_text);
-                tracing::debug!("GOT TOOL CALLS: {:?}", tool_calls);
+                let tool_calls = renderer.parse_tool_calls(response_text, tools).await?;
+                tracing::info!("GOT TOOL CALLS: {:?}", tool_calls);
                 if !tool_calls.is_empty() {
                     let mut msg = Message::assistant();
                     for tool_call in tool_calls {

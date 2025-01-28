@@ -1,10 +1,12 @@
-use std::collections::HashMap;
-use serde_json::{Value, json};
-use regex::Regex;
+use serde_json::json;
 
-use mcp_core::role::Role;
-use mcp_core::{Tool, ToolCall};
-use crate::message::MessageContent;
+use mcp_core::Tool;
+use mcp_core::ToolCall;
+use mcp_core::content::TextContent;
+use crate::message::{Message, MessageContent};
+use crate::providers::openai::OpenAiProvider;
+use crate::model::ModelConfig;
+use crate::providers::base::Provider;
 
 #[derive(Clone, serde::Serialize)]
 pub struct TemplatedToolConfig {
@@ -24,24 +26,23 @@ pub struct TemplateContext<'a> {
     pub tools: Option<&'a [Tool]>,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(serde::Serialize)]
 pub struct TemplateRenderer {
     config: TemplatedToolConfig,
     #[serde(skip)]
-    tool_call_regex: Regex,
+    parser_provider: OpenAiProvider,
 }
 
 impl TemplateRenderer {
     pub fn new(config: TemplatedToolConfig) -> Self {
-        // This regex looks for JSON objects that have a "name" and "parameters" field
-        // It's permissive about whitespace and allows for any valid JSON in the parameters
-        let tool_call_regex = Regex::new(
-            r#"\{[\s\n]*"name"[\s\n]*:[\s\n]*"[^"]+",[\s\n]*"parameters"[\s\n]*:[\s\n]*\{[^}]*\}[\s\n]*\}"#
-        ).expect("Failed to compile tool call regex");
-
+        // Create OpenAI provider with o1-mini model
+        let model_config = ModelConfig::new("gpt-4o-mini".to_string());
+        let parser_provider = OpenAiProvider::from_env(model_config)
+            .expect("Failed to initialize OpenAI provider for tool parsing");
+        
         Self {
             config,
-            tool_call_regex,
+            parser_provider,
         }
     }
 
@@ -81,30 +82,29 @@ impl TemplateRenderer {
         output
     }
 
-    pub fn parse_tool_calls(&self, response: &str) -> Vec<ToolCall> {
-        use std::collections::HashSet;
-        let mut seen_calls = HashSet::new();
+    pub async fn parse_tool_calls(&self, response: &str, tools: &[Tool]) -> Result<Vec<ToolCall>, anyhow::Error> {
+        // Create a message with the response
+        let mut message = Message::user();
+        message.content = vec![MessageContent::Text(TextContent {
+            text: response.to_string(),
+            annotations: None,
+        })];
+        
+        // Use the OpenAI provider to parse the response, passing the tools directly
+        // This way the model will use its native function calling capabilities
+        let (completion, _) = self.parser_provider.complete("You are a helpful assistant.", &[message], tools).await?;
+        
+        // Extract any tool calls from the response
         let mut tool_calls = Vec::new();
         
-        // Find all matches of the tool call pattern in the text
-        for cap in self.tool_call_regex.find_iter(response) {
-            let tool_call_str = cap.as_str();
-            if let Ok(parsed) = serde_json::from_str::<Value>(tool_call_str) {
-                if let (Some(name), Some(parameters)) = (
-                    parsed.get("name").and_then(|n| n.as_str()),
-                    parsed.get("parameters"),
-                ) {
-                    // Create a string that uniquely identifies this tool call
-                    let tool_call_key = format!("{}:{}", name, parameters.to_string());
-                    
-                    // Only add if we haven't seen this exact tool call before
-                    if seen_calls.insert(tool_call_key) {
-                        tool_calls.push(ToolCall::new(name, parameters.clone()));
-                    }
+        for content in completion.content.iter() {
+            if let MessageContent::ToolRequest(tool_request) = content {
+                if let Ok(tool_call) = &tool_request.tool_call {
+                    tool_calls.push(tool_call.clone());
                 }
             }
         }
         
-        tool_calls
+        Ok(tool_calls)
     }
 }

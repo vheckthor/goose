@@ -24,7 +24,7 @@ pub const OPEN_AI_KNOWN_MODELS: &[&str] = &[
 
 pub const OPEN_AI_DOC_URL: &str = "https://platform.openai.com/docs/models";
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Clone)]
 pub struct OpenAiProvider {
     #[serde(skip)]
     client: Client,
