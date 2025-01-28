@@ -72,18 +72,16 @@ impl TemplateRenderer {
             if !tools.is_empty() {
                 output.push_str("Available tools:\n");
                 for tool in tools {
-                    // Create the desired schema format
-                    let desired_schema = json!({
-                        "name": {
-                            "type": "string"
-                        },
-                        "parameters": tool.input_schema,
-                        "required": ["name", "parameters"]
-                    });
-                    output.push_str(&format!("- Tool name: {}\nTool description: {}\nTool input schema: {}\n", tool.name, tool.description, desired_schema));
+                    // let desired_schema = json!({
+                    //     "name": {
+                    //         "type": "string"
+                    //     },
+                    //     "parameters": tool.input_schema,
+                    //     "required": ["name", "parameters"]
+                    // });
+                    output.push_str(&format!("- Tool name: {}\nTool description: {}\nTool input schema: {}\n\n", tool.name, tool.description, tool.input_schema));
                 }
-                output.push_str("\nTo use a tool, respond with a JSON object with 'name' and 'parameters' fields.\n\n");
-                output.push_str("Only use tools when needed. For general questions, respond directly without using tools.\n\n");
+                output.push_str("Indicate what tools would help solve the task if needed. For general questions, respond directly without using tools.\n\n");
             }
         }
 

@@ -10,7 +10,7 @@ use super::templates::{TemplateRenderer, TemplateContext, TemplatedToolConfig};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat};
 use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
-use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
+use crate::providers::formats::deepseek::{create_request, get_usage, response_to_message};
 use mcp_core::{role::Role, tool::Tool};
 
 pub const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-3.5-sonnet";
@@ -164,36 +164,28 @@ fn create_request_based_on_model(
         });
 
         // Start with system prompt as a user message
-        let mut mapped_messages: Vec<Message> = vec![Message::user().with_text(system_prompt)];
+         // Start with system prompt as a user message
+         let mut mapped_messages: Vec<Message> = vec![Message::user().with_text(system_prompt)];
         
-        // Convert messages, concatenating first user message (skipping system) with system prompt
-        let mut messages_iter = messages.iter().peekable();
-        let mut user_messages_seen = 0;
-        let mut second_user_msg_index = None;
-        
-        // First pass: find and concatenate second user message
-        while let Some((i, msg)) = messages_iter.next().map(|msg| (messages_iter.len(), msg)) {
-            if msg.role == Role::User {
-                user_messages_seen += 1;
-                if user_messages_seen == 2 {  // This is the second user message
-                    // Concatenate this user message with system prompt
-                    if let Some(first_msg) = mapped_messages.first_mut() {
-                        let existing_text = first_msg.as_concat_text();
-                        let user_text = msg.as_concat_text();
-                        first_msg.content = vec![MessageContent::text(format!("{}\n\n{}", existing_text, user_text))];
-                    }
-                    second_user_msg_index = Some(i);
-                    break;  // Stop after second user message
-                }
-            }
-        }
-        
-        for (i, msg) in messages.iter().enumerate() {
-            if Some(i) != second_user_msg_index {  // Skip the message we concatenated
-                mapped_messages.push(msg.clone());
-            }
-        }
+         // Add all messages initially
+         mapped_messages.extend(messages.iter().cloned());
+         
+         // If we have at least 2 messages, concatenate first two and remove second
+         if mapped_messages.len() >= 2 {
+             let first_text = mapped_messages[0].as_concat_text();
+             let second_text = mapped_messages[1].as_concat_text();
+             mapped_messages[0].content = vec![MessageContent::text(format!("{}\n\n{}", first_text, second_text))];
+             mapped_messages.remove(1);
+         }
 
+         // Add tool specification text to last user message
+        if let Some(last_user_idx) = mapped_messages.iter().rposition(|msg| msg.role == Role::User) {
+            let last_text = mapped_messages[last_user_idx].as_concat_text();
+            if !last_text.is_empty() {
+                mapped_messages[last_user_idx].content = vec![MessageContent::text(
+                    format!("{}\n\nSpecify which tools (with name and parameters fields) you want to use if they would be helpful.", last_text)
+                )];            }
+        }
 
         // Create normal OpenAI format request with mapped messages
         let mut payload = create_request(
@@ -273,7 +265,7 @@ impl Provider for OpenRouterProvider {
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
         // Create the request payload
-        let payload = create_request_based_on_model(self, system, messages, tools)?;
+        let mut payload = create_request_based_on_model(self, system, messages, tools)?;
         // payload["providers"] = json!({"order": ["Novita, Fireworks"]});
 
         tracing::info!(payload_after_processing=serde_json::to_string_pretty(&payload).unwrap_or_default());
@@ -291,7 +283,6 @@ impl Provider for OpenRouterProvider {
 
             if let Some(renderer) = &self.template_renderer {
                 let tool_calls = renderer.parse_tool_calls(response_text, tools).await?;
-                tracing::info!("GOT TOOL CALLS: {:?}", tool_calls);
                 if !tool_calls.is_empty() {
                     let mut msg = Message::assistant();
                     for tool_call in tool_calls {
