@@ -10,19 +10,24 @@ use crate::providers::base::Provider;
 
 #[derive(Clone, serde::Serialize)]
 pub struct TemplatedToolConfig {
+    /// Stop tokens used to terminate responses.
     pub stop_tokens: Vec<String>,
 }
 
 impl TemplatedToolConfig {
+    /// Creates a new `TemplatedToolConfig` in Deepseek style with default stop tokens.
     pub fn deepseek_style() -> Self {
         Self {
-            stop_tokens: vec![],  // No special stop tokens needed anymore
+            stop_tokens: vec![":".to_string(), "stop".to_string()], // Added default stop tokens
         }
     }
 }
 
+/// Context for rendering templates.
 pub struct TemplateContext<'a> {
+    /// Optional system message.
     pub system: Option<&'a str>,
+    /// Optional list of tools.
     pub tools: Option<&'a [Tool]>,
 }
 
@@ -34,6 +39,7 @@ pub struct TemplateRenderer {
 }
 
 impl TemplateRenderer {
+    /// Creates a new `TemplateRenderer` with the given configuration.
     pub fn new(config: TemplatedToolConfig) -> Self {
         // Create OpenAI provider with o1-mini model
         let model_config = ModelConfig::new("gpt-4o-mini".to_string());
@@ -46,10 +52,12 @@ impl TemplateRenderer {
         }
     }
 
+    /// Retrieves the stop tokens from the configuration.
     pub fn get_stop_tokens(&self) -> &[String] {
         &self.config.stop_tokens
     }
 
+    /// Renders the template based on the provided context.
     pub fn render(&self, context: TemplateContext) -> String {
         let mut output = String::new();
 
@@ -82,6 +90,7 @@ impl TemplateRenderer {
         output
     }
 
+    /// Parses the response to extract tool calls.
     pub async fn parse_tool_calls(&self, response: &str, tools: &[Tool]) -> Result<Vec<ToolCall>, anyhow::Error> {
         // Create a message with the response
         let mut message = Message::user();
@@ -92,7 +101,11 @@ impl TemplateRenderer {
         
         // Use the OpenAI provider to parse the response, passing the tools directly
         // This way the model will use its native function calling capabilities
-        let (completion, _) = self.parser_provider.complete("You are a helpful assistant.", &[message], tools).await?;
+        let (completion, _) = self.parser_provider.complete(
+            "You are a helpful assistant that helps identify tools for another assistant to use to solve a task. If no tools are necessary, do not respond with any tool selections.",
+            &[message],
+            tools
+        ).await?;
         
         // Extract any tool calls from the response
         let mut tool_calls = Vec::new();

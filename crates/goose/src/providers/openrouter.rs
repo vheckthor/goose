@@ -188,18 +188,9 @@ fn create_request_based_on_model(
             }
         }
         
-        // Add remaining messages, converting Tool role to User role and skipping the concatenated message
         for (i, msg) in messages.iter().enumerate() {
             if Some(i) != second_user_msg_index {  // Skip the message we concatenated
-                if msg.role == Role::Tool {
-                    // Create new message with same content but User role
-                    let mut new_msg = Message::user();
-                    new_msg.content = msg.content.clone();
-                    new_msg.created = msg.created;
-                    mapped_messages.push(new_msg);
-                } else {
-                    mapped_messages.push(msg.clone());
-                }
+                mapped_messages.push(msg.clone());
             }
         }
 
@@ -282,7 +273,7 @@ impl Provider for OpenRouterProvider {
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
         // Create the request payload
-        let mut payload = create_request_based_on_model(self, system, messages, tools)?;
+        let payload = create_request_based_on_model(self, system, messages, tools)?;
         // payload["providers"] = json!({"order": ["Novita, Fireworks"]});
 
         tracing::info!(payload_after_processing=serde_json::to_string_pretty(&payload).unwrap_or_default());

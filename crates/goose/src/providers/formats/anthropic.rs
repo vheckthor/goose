@@ -17,7 +17,6 @@ pub fn format_messages(messages: &[Message]) -> Vec<Value> {
         let role = match message.role {
             Role::User => "user",
             Role::Assistant => "assistant",
-            Role::Tool => continue, // Tool messages are handled through tool_result blocks
         };
 
         let mut content = Vec::new();

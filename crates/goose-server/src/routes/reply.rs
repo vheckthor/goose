@@ -9,6 +9,7 @@ use axum::{
 use bytes::Bytes;
 use futures::{stream::StreamExt, Stream};
 use goose::message::{Message, MessageContent};
+
 use mcp_core::{content::Content, role::Role};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -18,7 +19,7 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
-use tokio::sync::mpsc::{self, error::SendError};
+use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -84,53 +85,6 @@ impl IntoResponse for SseResponse {
     }
 }
 
-// Protocol-specific message formatting
-struct ProtocolFormatter;
-
-impl ProtocolFormatter {
-    fn format_text(text: &str) -> String {
-        let encoded_text = serde_json::to_string(text).unwrap_or_else(|_| String::new());
-        format!("0:{}\n", encoded_text)
-    }
-
-    fn format_tool_call(id: &str, name: &str, args: &Value) -> String {
-        // Tool calls start with "9:"
-        let tool_call = json!({
-            "toolCallId": id,
-            "toolName": name,
-            "args": args
-        });
-        format!("9:{}\n", tool_call)
-    }
-
-    fn format_tool_response(id: &str, result: &Vec<Content>) -> String {
-        // Tool responses start with "a:"
-        let response = json!({
-            "toolCallId": id,
-            "result": result,
-        });
-        format!("a:{}\n", response)
-    }
-
-    fn format_error(error: &str) -> String {
-        // Error messages start with "3:" in the new protocol.
-        let encoded_error = serde_json::to_string(error).unwrap_or_else(|_| String::new());
-        format!("3:{}\n", encoded_error)
-    }
-
-    fn format_finish(reason: &str) -> String {
-        // Finish messages start with "d:"
-        let finish = json!({
-            "finishReason": reason,
-            "usage": {
-                "promptTokens": 0,
-                "completionTokens": 0
-            }
-        });
-        format!("d:{}\n", finish)
-    }
-}
-
 // Convert incoming messages to our internal Message type
 fn convert_messages(incoming: Vec<IncomingMessage>) -> Vec<Message> {
     let mut messages = Vec::new();
@@ -178,10 +132,57 @@ fn convert_messages(incoming: Vec<IncomingMessage>) -> Vec<Message> {
     messages
 }
 
+// Protocol-specific message formatting
+struct ProtocolFormatter;
+
+impl ProtocolFormatter {
+    fn format_text(text: &str) -> String {
+        let encoded_text = serde_json::to_string(text).unwrap_or_else(|_| String::new());
+        format!("0:{}\n", encoded_text)
+    }
+
+    fn format_tool_call(id: &str, name: &str, args: &Value) -> String {
+        // Tool calls start with "9:"
+        let tool_call = json!({
+            "toolCallId": id,
+            "toolName": name,
+            "args": args
+        });
+        format!("9:{}\n", tool_call)
+    }
+
+    fn format_tool_response(id: &str, result: &Vec<Content>) -> String {
+        // Tool responses start with "a:"
+        let response = json!({
+            "toolCallId": id,
+            "result": result,
+        });
+        format!("a:{}\n", response)
+    }
+
+    fn format_error(error: &str) -> String {
+        // Error messages start with "3:" in the new protocol.
+        let encoded_error = serde_json::to_string(error).unwrap_or_else(|_| String::new());
+        format!("3:{}\n", encoded_error)
+    }
+
+    fn format_finish(reason: &str) -> String {
+        // Finish messages start with "d:"
+        let finish = json!({
+            "finishReason": reason,
+            "usage": {
+                "promptTokens": 0,
+                "completionTokens": 0
+            }
+        });
+        format!("d:{}\n", finish)
+    }
+}
+
 async fn stream_message(
     message: Message,
     tx: &mpsc::Sender<String>,
-) -> Result<(), SendError<String>> {
+) -> Result<(), mpsc::error::SendError<String>> {
     match message.role {
         Role::User => {
             // Handle tool responses
@@ -247,17 +248,15 @@ async fn stream_message(
                         }
                     }
                     MessageContent::Image(_) => {
-                        // TODO: Handle image content in the future
+                        // TODO
+                        continue;
                     }
                     MessageContent::ToolResponse(_) => {
                         // Tool responses should only come from the user
+                        continue;
                     }
                 }
             }
-        }
-        Role::Tool => {
-            // Tool role messages are handled through tool responses
-            // They are converted to appropriate protocol messages when received from the user
         }
     }
     Ok(())

@@ -502,6 +502,11 @@ impl Capabilities {
                 .map_err(|e| ToolError::ExecutionError(e.to_string()))
         };
 
+        debug!(
+            "input" = serde_json::to_string(&tool_call).unwrap(),
+            "output" = serde_json::to_string(&result).unwrap(),
+        );
+
         result
     }
 }

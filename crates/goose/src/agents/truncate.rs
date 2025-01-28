@@ -218,8 +218,9 @@ impl Agent for TruncateAgent {
                                 output,
                             );
                         }
+
                         yield message_tool_response.clone();
-                        
+
                         messages.push(response);
                         messages.push(message_tool_response);
                     },
