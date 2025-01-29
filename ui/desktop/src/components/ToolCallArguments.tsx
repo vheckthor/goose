@@ -22,6 +22,7 @@ export function ToolCallArguments({ args }: ToolCallArgumentsProps) {
           <div className="p-1">
             <div className="flex">
               <span className="text-textStandard mr-2">{key}:</span>
+              <span className="text-textStandard mr-2">HI :)</span>
               <span className="text-textStandard">{value}</span>
             </div>
           </div>
