@@ -83,8 +83,6 @@ impl TruncateAgent {
             })
             .collect();
 
-        tracing::warn!("{:?}", token_counts);
-
         truncate_messages(
             messages,
             &mut token_counts,
