@@ -86,7 +86,7 @@ pub fn truncate_messages(
     token_counts: &mut Vec<usize>,
     context_limit: usize,
     strategy: &dyn TruncationStrategy,
-) -> Result<()> {
+) -> Result<(), anyhow::Error> {
     if messages.len() != token_counts.len() {
         return Err(anyhow!(
             "The vector for messages and token_counts must have same length"
