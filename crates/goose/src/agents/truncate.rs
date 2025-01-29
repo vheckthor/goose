@@ -59,7 +59,7 @@ impl TruncateAgent {
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
         let context_limit = (context_limit as f32 * estimate_factor) as usize;
 
-        // Taken into account the system prompt, and our tools input and subtract that from the
+        // Take into account the system prompt, and our tools input and subtract that from the
         // remaining context limit
         let system_prompt_token_count = self.token_counter.count_tokens(system_prompt);
         let tools_token_count = self.token_counter.count_tokens_for_tools(tools.as_slice());
@@ -74,7 +74,8 @@ impl TruncateAgent {
 
         let context_limit = remaining_tokens;
 
-        // Calculate current token count of each message
+        // Calculate current token count of each message, use count_chat_tokens to ensure we
+        // capture the full content of the message
         let mut token_counts: Vec<usize> = messages
             .iter()
             .map(|msg| {
