@@ -14,9 +14,37 @@ concurrency:
 
 jobs:
   # ------------------------------------
+  # 1) Update the version
+  # ------------------------------------
+  update-version:
+    name: Update Cargo.toml & package.json Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from GitHub release tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Update workspace Cargo.toml version
+        run: sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' Cargo.toml
+
+      - name: Update package.json version
+        run: |
+          npm version $VERSION --no-git-tag-version --allow-same-version
+        working-directory: ui/desktop
+
+      - name: Commit updated files
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git commit -am "Update versions to $VERSION"
+          git push
+  # ------------------------------------
   # 1) Build CLI for multiple OS/Arch
   # ------------------------------------
   build-cli:
+    needs: [ update-version ]
     uses: ./.github/workflows/build-cli.yml
 
   # ------------------------------------
