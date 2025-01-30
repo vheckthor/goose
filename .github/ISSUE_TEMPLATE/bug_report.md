@@ -30,5 +30,8 @@ If applicable, add screenshots to help explain your problem.
  - **Extensions enabled:** [e.g. Computer Controller, Figma]
  - **Provider & Model:** [e.g. Google - gemini-1.5-pro]
 
+**Session Recording**
+If you encounter this issue again, please consider sharing your session recording (only if you're comfortable doing so). When you exit Goose, it will output the location of your session file (e.g. "Closing session. Recorded to ~/.config/goose/sessions/<session-id>.jsonl"). You can either share the session where you encountered the issue or create a new session demonstrating the problem. Please review the contents before sharing.
+
 **Additional context**
 Add any other context about the problem here.
