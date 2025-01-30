@@ -1,5 +1,6 @@
 import { Provider, ProviderResponse } from './types';
 import { getApiUrl, getSecretKey } from '../../../config';
+import { special_provider_cases } from '../providers/utils';
 
 export function isSecretKey(keyName: string): boolean {
   // Ollama and Databricks use host name right now and it should not be stored as secret.
@@ -10,6 +11,15 @@ export async function getActiveProviders(): Promise<string[]> {
   try {
     // Fetch the secrets settings
     const configSettings = await getConfigSettings();
+
+    // Check for special provider cases (e.g. ollama needs to be installed in Applications folder)
+    const specialCasesResults = await Promise.all(
+      Object.entries(special_provider_cases).map(async ([providerName, checkFunction]) => {
+        const isActive = await checkFunction(); // Dynamically re-check status
+        console.log(`Special case result for ${providerName}:`, isActive);
+        return isActive ? providerName : null;
+      })
+    );
 
     // Extract active providers based on `is_set` in `secret_status` or providers with no keys
     const activeProviders = Object.values(configSettings) // Convert object to array
@@ -22,7 +32,12 @@ export async function getActiveProviders(): Promise<string[]> {
       })
       .map((provider) => provider.name || 'Unknown Provider'); // Extract provider name
 
-    return activeProviders;
+    // Combine active providers from secrets settings and special cases
+    const allActiveProviders = [
+      ...activeProviders,
+      ...specialCasesResults.filter((provider) => provider !== null), // Filter out null results
+    ];
+    return allActiveProviders;
   } catch (error) {
     console.error('Failed to get active providers:', error);
     return [];
