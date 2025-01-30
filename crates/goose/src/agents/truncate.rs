@@ -2,6 +2,7 @@
 /// It makes no attempt to handle context limits, and cannot read resources
 use async_trait::async_trait;
 use futures::stream::BoxStream;
+use mcp_core::content;
 use tokio::sync::Mutex;
 use tracing::{debug, error, instrument, warn};
 
@@ -55,6 +56,7 @@ impl TruncateAgent {
             .get_model_config()
             .context_limit();
 
+        let context_limit = 100;
         // Our conservative estimate of the **target** context limit
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
         let context_limit = (context_limit as f32 * estimate_factor) as usize;
@@ -64,6 +66,10 @@ impl TruncateAgent {
         let system_prompt_token_count = self.token_counter.count_tokens(system_prompt);
         let tools_token_count = self.token_counter.count_tokens_for_tools(tools.as_slice());
 
+        println!("system_prompt: {}", system_prompt);
+        println!("system_prompt_token_count: {}", system_prompt_token_count);
+        println!("tools_token_count: {}", tools_token_count);
+        println!("context_limit: {}", context_limit);
         // Check if system prompt + tools exceed our context limit
         let remaining_tokens = context_limit
             .checked_sub(system_prompt_token_count)
@@ -72,6 +78,7 @@ impl TruncateAgent {
                 anyhow::anyhow!("System prompt and tools exceed estimated context limit")
             })?;
 
+        println!("remaining_tokens: {}", remaining_tokens);
         let context_limit = remaining_tokens;
 
         // Calculate current token count of each message, use count_chat_tokens to ensure we
@@ -84,6 +91,7 @@ impl TruncateAgent {
             })
             .collect();
 
+        println!("token_counts: {:?}", token_counts);
         truncate_messages(
             messages,
             &mut token_counts,
@@ -191,6 +199,7 @@ impl Agent for TruncateAgent {
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
+                // println!("REPLY messages: {:?}", messages);
                 // Attempt to get completion from provider
                 match capabilities.provider().complete(
                     &system_prompt,
@@ -281,7 +290,6 @@ impl Agent for TruncateAgent {
                         break;
                     }
                 }
-
                 // Yield control back to the scheduler to prevent blocking
                 tokio::task::yield_now().await;
             }
