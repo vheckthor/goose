@@ -5,6 +5,7 @@ on:
       - 'documentation/**'
     tags:
       - "v1.*"
+      - 'test.*' # TODO: remove after testing
 name: Release
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -23,37 +24,15 @@ jobs:
       - name: Extract version
         id: set-version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          VERSION=${GITHUB_REF#refs/tags/test.} # TODO: remove after testing
+          # VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-  # ------------------------------------
-  # 2) Update version in files
-  # ------------------------------------
-  update-version:
-    name: Update Cargo.toml & package.json Version
-    needs: [prepare-version]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Update workspace Cargo.toml version
-        run: sed -i 's/^version = ".*"/version = "'${{ needs.prepare-version.outputs.version }}'"/' Cargo.toml
-      - name: Update package.json version
-        run: |
-          npm version ${{ needs.prepare-version.outputs.version }} --no-git-tag-version --allow-same-version
-        working-directory: ui/desktop
-      - name: Commit updated files
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git commit -am "Update versions to ${{ needs.prepare-version.outputs.version }}"
-          git push
 
   # ------------------------------------
   # 3) Build CLI for multiple OS/Arch
   # ------------------------------------
   build-cli:
-    needs: [prepare-version, update-version]
+    needs: [prepare-version]
     uses: ./.github/workflows/build-cli.yml
     with:
       version: ${{ needs.prepare-version.outputs.version }}
@@ -76,7 +55,7 @@ jobs:
   # 5) Bundle Desktop App (macOS only)
   # ------------------------------------------------------------
   bundle-desktop:
-    needs: [prepare-version, update-version]
+    needs: [prepare-version]
     uses: ./.github/workflows/bundle-desktop.yml
     with:
       version: ${{ needs.prepare-version.outputs.version }}
@@ -114,17 +93,22 @@ jobs:
           allowUpdates: true
           omitBody: true
           omitPrereleaseDuringUpdate: true
-      # Create/update the stable release
-      - name: Release stable
-        uses: ncipollo/release-action@v1
-        with:
-          tag: stable
-          name: Stable
-          token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: |
-            goose-*.tar.bz2
-            Goose*.zip
-            download_cli.sh
-          allowUpdates: true
-          omitBody: true
-          omitPrereleaseDuringUpdate: true
+          prerelease: true # TODO: remove after testing
+          draft: true # TODO: remove after testing
+
+      # TODO: uncomment after testing. otherwise, this replaces the assets in the stable release
+      # # Create/update the stable release
+      # - name: Release stable
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     tag: stable
+      #     name: Stable
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     artifacts: |
+      #       goose-*.tar.bz2
+      #       Goose*.zip
+      #       download_cli.sh
+      #     allowUpdates: true
+      #     omitBody: true
+      #     omitPrereleaseDuringUpdate: true
+      
