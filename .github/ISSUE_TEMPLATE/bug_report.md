@@ -31,7 +31,13 @@ If applicable, add screenshots to help explain your problem.
  - **Provider & Model:** [e.g. Google - gemini-1.5-pro]
 
 **Session Recording**
-If you encounter this issue again, please consider sharing your session recording (only if you're comfortable doing so). When you exit Goose, it will output the location of your session file (e.g. "Closing session. Recorded to ~/.config/goose/sessions/<session-id>.jsonl"). You can either share the session where you encountered the issue or create a new session demonstrating the problem. Please review the contents before sharing.
+If you encounter this issue again, please consider sharing the relevant log file (only if you're comfortable doing so). There are 3 types of logs:
+
+- CLI logs: `~/.config/goose/logs/cli/`
+- UI logs: `~/.config/goose/logs/server/`
+- Conversation logs: `~/.config/goose/sessions/<session-id>.jsonl`
+
+Please share only the log file that's relevant to your issue. When you exit Goose, it will output the location of your session file. You can either share the session where you encountered the issue or create a new session demonstrating the problem. Please review the contents before sharing.
 
 **Additional context**
 Add any other context about the problem here.
