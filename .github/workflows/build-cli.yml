@@ -41,9 +41,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Update version
+      - name: Update version in Cargo.toml
         run: |
-          sed -i.bak 's/^version = ".*"/version = "'${{ inputs.version}}'"/' Cargo.toml
+          sed -i.bak 's/^version = ".*"/version = "'${{ inputs.version }}'"/' Cargo.toml
           rm -f Cargo.toml.bak
 
       - name: Setup Rust

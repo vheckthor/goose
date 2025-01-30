@@ -76,11 +76,11 @@ jobs:
       # Update versions before build
       - name: Update versions
         run: |
-          # Update Cargo.toml version
-          sed -i.bak 's/^version = ".*"/version = "'${{ inputs.version}}'"/' Cargo.toml
+          # Update version in Cargo.toml
+          sed -i.bak 's/^version = ".*"/version = "'${{ inputs.version }}'"/' Cargo.toml
           rm -f Cargo.toml.bak
           
-          # Update package.json version
+          # Update version in package.json 
           cd ui/desktop
           npm version ${{ inputs.version }} --no-git-tag-version --allow-same-version
 
