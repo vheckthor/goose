@@ -37,7 +37,8 @@ If you encounter this issue again, please consider sharing the relevant log file
 - UI logs: `~/.config/goose/logs/server/`
 - Conversation logs: `~/.config/goose/sessions/<session-id>.jsonl`
 
-Please share only the log file that's relevant to your issue. When you exit Goose, it will output the location of your session file. You can either share the session where you encountered the issue or create a new session demonstrating the problem. Please review the contents before sharing.
+Please share only the log file that's relevant to your issue. When you exit Goose, it will output the location of your session file. You can either share the session where you encountered the issue or create a new session demonstrating the problem. 
+Important: Please do not share information that you consider private. Please review the contents before sharing.
 
 **Additional context**
 Add any other context about the problem here.
