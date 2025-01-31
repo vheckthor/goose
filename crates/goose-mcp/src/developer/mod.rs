@@ -158,19 +158,53 @@ impl DeveloperRouter {
         // Get base instructions and working directory
         let cwd = std::env::current_dir().expect("should have a current working dir");
         let base_instructions = formatdoc! {r#"
-            The developer extension gives you the capabilities to edit code files and run shell commands,
-            and can be used to solve a wide range of problems.
+        The DeveloperServer extension enables you to edit code files, execute shell commands, and capture screen/window content. These tools allow for various development and debugging workflows.
+        Available Tools:
+        1. Shell Execution (`shell`)
+        Executes commands in the shell and returns the combined output and error messages.
+        Use cases:
+        - Running scripts: `python script.py`
+        - Installing dependencies: `pip install -r requirements.txt`
+        - Checking system information: `uname -a`, `df -h`
+        - Searching for files or text: **Use `rg` (ripgrep) instead of `find` or `ls -r`**
+          - Find a file: `rg --files | rg example.py`
+          - Search within files: `rg 'class Example'`
+        Best Practices:
+        - **Avoid commands with large output** (pipe them to a file if necessary).
+        - **Run background processes** if they take a long time (e.g., `uvicorn main:app &`).
+        - **git commands can be run on the shell, however if the git extension is installed, you should use the git tool instead.
+        - **If the shell command is a rm, mv, or cp, you should verify with the user before running the command.
+        2. Text Editor (`text_editor`)
+        Performs file-based operations such as viewing, writing, replacing text, and undoing edits.
+        Commands:
+        - view: Read the content of a file.
+        - write: Create or overwrite a file. Caution: Overwrites the entire file!
+        - str_replace: Replace a specific string in a file.
+        - undo_edit: Revert the last edit.
+        Example Usage:
+        text_editor(command="view", file_path="/absolute/path/to/file.py")
+        text_editor(command="write", file_path="/absolute/path/to/file.py", file_text="print('hello world')")
+        text_editor(command="str_replace", file_path="/absolute/path/to/file.py", old_str="hello world", new_str="goodbye world")
+        text_editor(command="undo_edit", file_path="/absolute/path/to/file.py")
+        Protocol for Text Editor:
+        For edit and replace commands, please verify what you are editing with the user before running the command.
+        - User: "Please edit the file /absolute/path/to/file.py"
+        - Assistant: "Ok sounds good, I'll be editing the file /absolute/path/to/file.py and creating modifications xyz to the file. Let me know whether you'd like to proceed."
+        - User: "Yes, please proceed."
+        - Assistant: "I've created the modifications xyz to the file /absolute/path/to/file.py"
+        3. List Windows (`list_windows`)
+        Lists all visible windows with their titles.
+        Use this to find window titles for screen capture.
+        4. Screen Capture (`screen_capture`)
+        Takes a screenshot of a display or specific window.
+        Options:
+        - Capture display: `screen_capture(display=0)`  # Main display
+        - Capture window: `screen_capture(window_title="Window Title")`
 
-            You can use the shell tool to run any command that would work on the relevant operating system.
-            Use the shell tool as needed to locate files or interact with the project.
-
-            Your windows/screen tools can be used for visual debugging. You should not use these tools unless
-            prompted to, but you can mention they are available if they are relevant.
-
-            operating system: {os}
-            current directory: {cwd}
-
-            "#,
+        Info: at the start of the session, the user's directory is:
+        operating system: {os}
+        current directory: {cwd}
+        "#,
             os=std::env::consts::OS,
             cwd=cwd.to_string_lossy(),
         };
