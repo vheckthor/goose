@@ -158,7 +158,7 @@ impl DeveloperRouter {
         // Get base instructions and working directory
         let cwd = std::env::current_dir().expect("should have a current working dir");
         let base_instructions = formatdoc! {r#"
-        The DeveloperServer extension enables you to edit code files, execute shell commands, and capture screen/window content. These tools allow for various development and debugging workflows.
+        The Developer extension enables you to edit code files, execute shell commands, and capture screen/window content. These tools allow for various development and debugging workflows.
         Available Tools:
         1. Shell Execution (`shell`)
         Executes commands in the shell and returns the combined output and error messages.
