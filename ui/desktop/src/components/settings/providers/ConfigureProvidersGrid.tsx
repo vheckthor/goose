@@ -98,8 +98,8 @@ export function ConfigureProvidersGrid() {
             'Content-Type': 'application/json',
             'X-Secret-Key': getSecretKey(),
           },
-          body: JSON.stringify({ 
-            key: keyName, 
+          body: JSON.stringify({
+            key: keyName,
             isSecret,
           }),
         });
