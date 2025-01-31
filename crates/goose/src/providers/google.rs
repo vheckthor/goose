@@ -1,4 +1,5 @@
 use super::errors::ProviderError;
+use super::oauth::{self, DEFAULT_REDIRECT_URL};
 use crate::message::Message;
 use crate::model::ModelConfig;
 use crate::providers::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage};
@@ -8,11 +9,15 @@ use anyhow::Result;
 use async_trait::async_trait;
 use mcp_core::tool::Tool;
 use reqwest::{Client, StatusCode};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
 use url::Url;
 
 pub const GOOGLE_API_HOST: &str = "https://generativelanguage.googleapis.com";
+pub const GOOGLE_AUTH_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/auth";
+pub const GOOGLE_TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
+const DEFAULT_SCOPES: &[&str] = &["https://www.googleapis.com/auth/generative-language.retriever"];
 pub const GOOGLE_DEFAULT_MODEL: &str = "gemini-2.0-flash-exp";
 pub const GOOGLE_KNOWN_MODELS: &[&str] = &[
     "models/gemini-1.5-pro-latest",
@@ -25,12 +30,38 @@ pub const GOOGLE_KNOWN_MODELS: &[&str] = &[
 
 pub const GOOGLE_DOC_URL: &str = "https://ai.google/get-started/our-models/";
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum GoogleAuth {
+    ApiKey(String),
+    OAuth {
+        client_id: String,
+        client_secret: String,
+        redirect_url: String,
+        scopes: Vec<String>,
+    },
+}
+
+impl GoogleAuth {
+    pub fn api_key(key: String) -> Self {
+        Self::ApiKey(key)
+    }
+
+    pub fn oauth(client_id: String, client_secret: String) -> Self {
+        Self::OAuth {
+            client_id,
+            client_secret,
+            redirect_url: DEFAULT_REDIRECT_URL.to_string(),
+            scopes: DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct GoogleProvider {
     #[serde(skip)]
     client: Client,
     host: String,
-    api_key: String,
+    auth: GoogleAuth,
     model: ModelConfig,
 }
 
@@ -44,7 +75,6 @@ impl Default for GoogleProvider {
 impl GoogleProvider {
     pub fn from_env(model: ModelConfig) -> Result<Self> {
         let config = crate::config::Config::global();
-        let api_key: String = config.get_secret("GOOGLE_API_KEY")?;
         let host: String = config
             .get("GOOGLE_HOST")
             .unwrap_or_else(|_| GOOGLE_API_HOST.to_string());
@@ -53,12 +83,78 @@ impl GoogleProvider {
             .timeout(Duration::from_secs(600))
             .build()?;
 
+        // First try API key authentication
+        if let Ok(api_key) = config.get_secret("GOOGLE_API_KEY") {
+            return Ok(Self {
+                client,
+                host,
+                auth: GoogleAuth::api_key(api_key),
+                model,
+            });
+        }
+
+        // Get client ID which is required for OAuth
+        let client_id = config
+            .get("GOOGLE_CLIENT_ID")
+            .map_err(|_| anyhow::anyhow!("GOOGLE_CLIENT_ID not set"))?;
+
+        // Try to get client secret - if not present, we'll use public client OAuth
+        let client_secret = config
+            .get_secret("GOOGLE_CLIENT_SECRET")
+            .unwrap_or_default();
+
+        let redirect_url = config
+            .get("GOOGLE_REDIRECT_URL")
+            .unwrap_or_else(|_| DEFAULT_REDIRECT_URL.to_string());
+
+        let scopes = DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect();
+
         Ok(Self {
             client,
             host,
-            api_key,
+            auth: GoogleAuth::OAuth {
+                client_id,
+                client_secret,
+                redirect_url,
+                scopes,
+            },
             model,
         })
+    }
+
+    async fn ensure_auth_header(&self) -> Result<String, ProviderError> {
+        match &self.auth {
+            GoogleAuth::ApiKey(key) => Ok(format!("Bearer {}", key)),
+            GoogleAuth::OAuth {
+                client_id,
+                client_secret,
+                scopes,
+                ..  // Ignore redirect_url as we're using the default
+            } => {
+                let token = if client_secret.is_empty() {
+                    // Use public client OAuth if no client secret
+                    oauth::get_oauth_token_public_client_async(
+                        GOOGLE_AUTH_ENDPOINT,
+                        GOOGLE_TOKEN_ENDPOINT,
+                        client_id,
+                        scopes,
+                    ).await
+                } else {
+                    // Use private client OAuth if client secret is present
+                    oauth::get_oauth_token_with_endpoints_async(
+                        GOOGLE_AUTH_ENDPOINT,
+                        GOOGLE_TOKEN_ENDPOINT,
+                        client_id,
+                        client_secret,
+                        scopes,
+                    ).await
+                };
+
+                token
+                    .map_err(|e| ProviderError::Authentication(format!("Failed to get OAuth token: {}", e)))
+                    .map(|token| format!("Bearer {}", token))
+            }
+        }
     }
 
     async fn post(&self, payload: Value) -> Result<Value, ProviderError> {
@@ -67,20 +163,33 @@ impl GoogleProvider {
 
         let url = base_url
             .join(&format!(
-                "v1beta/models/{}:generateContent?key={}",
-                self.model.model_name, self.api_key
+                "v1beta/models/{}:generateContent",
+                self.model.model_name,
             ))
             .map_err(|e| {
                 ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
             })?;
 
-        let response = self
+        let auth = self.ensure_auth_header().await?;
+
+        // Add auth either as query param for API key or header for OAuth
+        let mut request = self
             .client
-            .post(url)
-            .header("CONTENT_TYPE", "application/json")
-            .json(&payload)
-            .send()
-            .await?;
+            .post(url.to_string())
+            .header("Content-Type", "application/json");
+
+        match &self.auth {
+            GoogleAuth::ApiKey(_) => {
+                // Remove "Bearer " prefix for API key and pass as query param
+                let api_key = auth.trim_start_matches("Bearer ").to_string();
+                request = request.query(&[("key", api_key)]);
+            }
+            GoogleAuth::OAuth { .. } => {
+                request = request.header("Authorization", auth);
+            }
+        }
+
+        let response = request.json(&payload).send().await?;
 
         let status = response.status();
         let payload: Option<Value> = response.json().await.ok();
@@ -134,8 +243,16 @@ impl Provider for GoogleProvider {
             GOOGLE_KNOWN_MODELS.iter().map(|&s| s.to_string()).collect(),
             GOOGLE_DOC_URL,
             vec![
-                ConfigKey::new("GOOGLE_API_KEY", true, true, None),
+                ConfigKey::new("GOOGLE_API_KEY", false, true, None),
                 ConfigKey::new("GOOGLE_HOST", false, false, Some(GOOGLE_API_HOST)),
+                ConfigKey::new("GOOGLE_CLIENT_ID", false, false, None),
+                ConfigKey::new("GOOGLE_CLIENT_SECRET", false, true, None),
+                ConfigKey::new(
+                    "GOOGLE_REDIRECT_URL",
+                    false,
+                    false,
+                    Some(DEFAULT_REDIRECT_URL),
+                ),
             ],
         )
     }
