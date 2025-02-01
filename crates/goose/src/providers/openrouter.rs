@@ -7,11 +7,35 @@ use std::time::Duration;
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat};
-use crate::message::Message;
+use crate::message::{Message, MessageContent, ToolRequest};
 use crate::model::ModelConfig;
 use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
+use mcp_core::{content::TextContent, tool::ToolCall};
 use mcp_core::tool::Tool;
 use url::Url;
+
+// Helper function to create a message with text content
+fn create_text_message(text: String) -> Message {
+    let mut msg = Message::assistant();
+    msg.content = vec![MessageContent::Text(TextContent { 
+        text,
+        annotations: None,
+    })];
+    msg
+}
+
+// Helper function to create a message with tool request
+fn create_tool_message(command: String) -> Message {
+    let mut msg = Message::assistant();
+    msg.content = vec![MessageContent::ToolRequest(ToolRequest {
+        id: "1".to_string(), // Fixed ID since we only have one tool call
+        tool_call: Ok(ToolCall {
+            name: "developer__shell".to_string(),
+            arguments: serde_json::json!({ "command": command }),
+        }),
+    })];
+    msg
+}
 
 pub const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-3.5-sonnet";
 pub const OPENROUTER_MODEL_PREFIX_ANTHROPIC: &str = "anthropic";
@@ -140,6 +164,36 @@ fn create_request_based_on_model(
     messages: &[Message],
     tools: &[Tool],
 ) -> anyhow::Result<Value, Error> {
+    // For deepseek models, we want to include tools in the system prompt instead
+    if model_config.model_name.contains("deepseek-r1") {
+        let tool_instructions = if !tools.is_empty() {
+            let tool_descriptions: Vec<String> = tools.iter()
+                .map(|tool| format!("- {}: {}", tool.name, tool.description))
+                .collect();
+            
+            println!("\nTools being provided:\n{}", tool_descriptions.join("\n"));
+            
+            format!(
+                "\n\nAvailable tools:\n{}\n\n# Reminder: Instructions for Tool Use\n\nTool uses are formatted using XML-style tags. The tool name is enclosed in opening and closing tags. Here's the structure:\n\n<tool_name>\n<parameter1_name>value1</parameter1_name>\n<parameter2_name>value2</parameter2_name>\n...\n</tool_name>\n\nFor example, to use the shell tool:\n\n<developer__shell>\n<command>ls -l</command>\n</developer__shell>\n\nAlways adhere to this format for all tool uses to ensure proper parsing and execution.\n",
+                tool_descriptions.join("\n")
+            )
+        } else {
+            String::new()
+        };
+        
+        let enhanced_system = format!("{}{}", system, tool_instructions);
+        println!("\nEnhanced system prompt:\n{}", enhanced_system);
+        
+        let mut payload = create_request(
+            model_config,
+            &enhanced_system,
+            messages,
+            &[], // Pass empty tools array since we're handling them in the system prompt
+            &super::utils::ImageFormat::OpenAi,
+        )?;
+        return Ok(payload);
+    }
+
     let mut payload = create_request(
         model_config,
         system,
@@ -203,8 +257,45 @@ impl Provider for OpenRouterProvider {
         // Make request
         let response = self.post(payload.clone()).await?;
 
-        // Parse response
-        let message = response_to_message(response.clone())?;
+        // Parse response - special handling for deepseek models
+        let message = if self.model.model_name.contains("deepseek-r1") {
+            // For deepseek models, look for XML-style tool calls
+            let content = response["choices"][0]["message"]["content"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+
+            println!("Response payload:\n{}", serde_json::to_string_pretty(&response).unwrap());
+            println!("\nExtracted content:\n{}", content);
+
+            // Check for either <shell> or <developer__shell> tags
+            if content.contains("<shell>") || content.contains("<developer__shell>") {
+                // Extract command from either tag format
+                let command = if content.contains("<developer__shell>") {
+                    content
+                        .split("<command>")
+                        .nth(1)
+                        .and_then(|s| s.split("</command>").next())
+                } else {
+                    content
+                        .split("<command>")
+                        .nth(1)
+                        .and_then(|s| s.split("</command>").next())
+                };
+
+                if let Some(cmd) = command {
+                    println!("\nExtracted command: {}", cmd);
+                    create_tool_message(cmd.trim().to_string())
+                } else {
+                    create_text_message(content)
+                }
+            } else {
+                create_text_message(content)
+            }
+        } else {
+            response_to_message(response.clone())?
+        };
+
         let usage = match get_usage(&response) {
             Ok(usage) => usage,
             Err(ProviderError::UsageError(e)) => {
