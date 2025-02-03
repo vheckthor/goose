@@ -8,7 +8,7 @@ import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { useActiveKeys } from '../api_keys/ActiveKeysContext';
 import { getActiveProviders } from '../api_keys/utils';
 
-import { checkOllama, checkOllamaHostIsSet } from './utils';
+import { checkOllama, OllamaConfigDetails } from './utils';
 
 // Common interfaces and helper functions
 interface Provider {
@@ -52,6 +52,46 @@ export function getProviderDescription(provider) {
   return descriptions[provider] || `Access ${provider} models`;
 }
 
+export function useOllamaConfig() {
+  const [ollamaConfig, setOllamaConfig] = useState<OllamaConfigDetails>({
+    is_set: false,
+    location: null,
+  });
+
+  useEffect(() => {
+    const fetchOllamaLocation = async () => {
+      const config = await checkOllama();
+      setOllamaConfig(config);
+    };
+    fetchOllamaLocation();
+  }, []);
+
+  return ollamaConfig;
+}
+
+function useConfiguredTooltipMessage(name: string) {
+  const ollamaConfig = useOllamaConfig();
+  const [tooltipMessage, setTooltipMessage] = useState('');
+
+  useEffect(() => {
+    async function getTooltipMessage() {
+      if (name === 'Ollama') {
+        const message =
+          ollamaConfig.location === 'app'
+            ? 'Ollama is running locally'
+            : 'Ollama is configured via OLLAMA_HOST';
+        setTooltipMessage(message);
+      } else {
+        setTooltipMessage(`You have ${getArticle(name)} ${name} API Key set in your environment`);
+      }
+    }
+
+    getTooltipMessage();
+  }, [name, ollamaConfig]);
+
+  return tooltipMessage;
+}
+
 async function getGreenCheckTooltipMessage(name: string) {
   if (name == 'Ollama') {
     // ollama
@@ -88,15 +128,26 @@ function BaseProviderCard({
   const tooltipText = numRequiredKeys === 1 ? `Add ${name} API Key` : `Add ${name} API Keys`;
   const { activeKeys, setActiveKeys } = useActiveKeys();
   const [configuredTooltipMessage, setConfiguredTooltipMessage] = useState('');
+  const [ollamaConfig, setOllamaConfig] = useState<OllamaConfigDetails>({
+    is_set: false,
+    location: null,
+  });
 
   useEffect(() => {
     const fetchConfiguredProviderTooltipMessage = async () => {
       const message = await getGreenCheckTooltipMessage(name);
       setConfiguredTooltipMessage(message);
     };
-
     fetchConfiguredProviderTooltipMessage();
   }, [name]);
+
+  useEffect(() => {
+    const fetchOllamaLocation = async () => {
+      const ollamaConfig = await checkOllama();
+      setOllamaConfig(ollamaConfig);
+    };
+    fetchOllamaLocation();
+  });
 
   return (
     <div className="relative h-full p-[2px] overflow-hidden rounded-[9px] group/card bg-borderSubtle hover:bg-transparent hover:duration-300">
@@ -106,6 +157,7 @@ function BaseProviderCard({
           isSelected ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'
         }`}
       ></div>
+      {/*Card*/}
       <div
         onClick={() => isSelectable && isConfigured && onSelect?.()}
         className={`relative bg-bgApp rounded-lg
@@ -137,7 +189,7 @@ function BaseProviderCard({
               </TooltipProvider>
             )}
 
-            {/* Not Configured state: Red exclamation mark for Ollama */}
+            {/* Not Configured state: Gray exclamation mark for Ollama */}
             {!isConfigured && name === 'Ollama' && (
               <TooltipProvider>
                 <Tooltip>
@@ -174,6 +226,7 @@ function BaseProviderCard({
 
         <div className="space-x-2 text-center flex items-center justify-between">
           <div className="space-x-2">
+            {/*Refresh button for unconfigured Ollama*/}
             {!isConfigured && name === 'Ollama' && (
               <TooltipProvider>
                 <Tooltip>
@@ -209,8 +262,60 @@ function BaseProviderCard({
               </TooltipProvider>
             )}
 
+            {/*Plus button for app-based Ollama*/}
+            {isConfigured && name === 'Ollama' && ollamaConfig.location == 'app' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onConfigure?.();
+                      }}
+                      className="rounded-full h-7 w-7 p-0 bg-bgApp hover:bg-bgApp shadow-none text-textSubtle border border-borderSubtle hover:border-borderStandard hover:text-textStandard transition-colors"
+                    >
+                      <Plus className="!size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <Portal>
+                    <TooltipContent side="top" align="center" className="z-[9999]">
+                      <p>Use with specific host url.</p>
+                    </TooltipContent>
+                  </Portal>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            {/*Gear button for host-based Ollama*/}
+            {isConfigured && name === 'Ollama' && ollamaConfig.location == 'host' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onConfigure?.();
+                      }}
+                      className="rounded-full h-7 w-7 p-0 bg-bgApp hover:bg-bgApp shadow-none text-textSubtle border border-borderSubtle hover:border-borderStandard hover:text-textStandard transition-colors"
+                    >
+                      <Settings className="!size-4" /> {/* Gear icon */}
+                    </Button>
+                  </TooltipTrigger>
+                  <Portal>
+                    <TooltipContent side="top" align="center" className="z-[9999]">
+                      <p>Edit Ollama host url.</p>
+                    </TooltipContent>
+                  </Portal>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {/* Default "Add Keys" Button for other providers */}
-            {!isConfigured && onAddKeys && hasRequiredKeys && (
+            {!isConfigured && onAddKeys && hasRequiredKeys && name != 'Ollama' && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -236,7 +341,7 @@ function BaseProviderCard({
             )}
 
             {/* Gear icon for configured providers */}
-            {isConfigured && showSettings && hasRequiredKeys && (
+            {isConfigured && showSettings && hasRequiredKeys && name !== 'Ollama' && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

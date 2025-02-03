@@ -32,7 +32,7 @@ export async function checkOllamaHostIsSet(): Promise<boolean> {
   }
 }
 
-interface OllamaConfigDetails {
+export interface OllamaConfigDetails {
   is_set: boolean;
   location?: string;
 }
