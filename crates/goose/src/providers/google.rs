@@ -239,16 +239,10 @@ impl Provider for GoogleProvider {
             GOOGLE_KNOWN_MODELS.iter().map(|&s| s.to_string()).collect(),
             GOOGLE_DOC_URL,
             vec![
-                ConfigKey::new("GOOGLE_API_KEY", false, true, None),
+                ConfigKey::new("GOOGLE_API_KEY", true, true, None),
                 ConfigKey::new("GOOGLE_HOST", false, false, Some(GOOGLE_API_HOST)),
                 ConfigKey::new("GOOGLE_CLIENT_ID", false, false, None),
                 ConfigKey::new("GOOGLE_CLIENT_SECRET", false, true, None),
-                ConfigKey::new(
-                    "GOOGLE_REDIRECT_URL",
-                    false,
-                    false,
-                    Some(DEFAULT_REDIRECT_URL),
-                ),
             ],
         )
     }
