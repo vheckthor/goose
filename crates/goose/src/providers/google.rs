@@ -175,9 +175,7 @@ impl GoogleProvider {
             .header("Content-Type", "application/json");
 
         match &self.auth {
-            GoogleAuth::ApiKey(_) => {
-                // Remove "Bearer " prefix for API key and pass as query param
-                let api_key = auth.trim_start_matches("Bearer ").to_string();
+            GoogleAuth::ApiKey(api_key) => {
                 request = request.query(&[("key", api_key)]);
             }
             GoogleAuth::OAuth { .. } => {
