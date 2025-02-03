@@ -93,33 +93,29 @@ impl GoogleProvider {
             });
         }
 
-        // Get client ID which is required for OAuth
-        let client_id = config
-            .get("GOOGLE_CLIENT_ID")
-            .map_err(|_| anyhow::anyhow!("GOOGLE_CLIENT_ID not set"))?;
+        // Try OAuth authentication
+        let client_id = config.get("GOOGLE_CLIENT_ID");
+        let client_secret = config.get_secret("GOOGLE_CLIENT_SECRET");
 
-        // Try to get client secret - if not present, we'll use public client OAuth
-        let client_secret = config
-            .get_secret("GOOGLE_CLIENT_SECRET")
-            .unwrap_or_default();
-
-        let redirect_url = config
-            .get("GOOGLE_REDIRECT_URL")
-            .unwrap_or_else(|_| DEFAULT_REDIRECT_URL.to_string());
-
-        let scopes = DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect();
-
-        Ok(Self {
-            client,
-            host,
-            auth: GoogleAuth::OAuth {
-                client_id,
-                client_secret,
-                redirect_url,
-                scopes,
-            },
-            model,
-        })
+        match (client_id, client_secret) {
+            (Ok(id), Ok(secret)) => {
+                let scopes = DEFAULT_SCOPES.iter().map(|s| s.to_string()).collect();
+                Ok(Self {
+                    client,
+                    host,
+                    auth: GoogleAuth::OAuth {
+                        client_id: id,
+                        client_secret: secret,
+                        redirect_url: DEFAULT_REDIRECT_URL.to_string(),
+                        scopes,
+                    },
+                    model,
+                })
+            }
+            _ => Err(anyhow::anyhow!(
+                "Authentication configuration missing. Please set either GOOGLE_API_KEY or both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+            )),
+        }
     }
 
     async fn ensure_auth_header(&self) -> Result<String, ProviderError> {
