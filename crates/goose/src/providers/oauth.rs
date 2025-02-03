@@ -8,6 +8,7 @@ use serde_json::Value;
 use sha2::Digest;
 use std::{collections::HashMap, fs, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::{oneshot, Mutex as TokioMutex};
+use tracing::info;
 use url::Url;
 
 lazy_static! {
@@ -50,31 +51,48 @@ fn get_cache_path(client_id: &str, scopes: &[String]) -> PathBuf {
 
 fn load_cached_token(client_id: &str, scopes: &[String]) -> Option<String> {
     let cache_path = get_cache_path(client_id, scopes);
-    if let Ok(contents) = fs::read_to_string(cache_path) {
+    if let Ok(contents) = fs::read_to_string(&cache_path) {
         if let Ok(cache) = serde_json::from_str::<TokenCache>(&contents) {
             if let Some(expires_at) = cache.expires_at {
                 if expires_at > Utc::now() {
+                    info!(
+                        "Using cached OAuth token from {} valid until {}",
+                        cache_path.display(),
+                        expires_at
+                    );
                     return Some(cache.access_token);
                 }
             }
         }
     }
+    info!(
+        "No valid cached OAuth token found at {}",
+        cache_path.display()
+    );
     None
 }
 
 fn save_token_cache(client_id: &str, scopes: &[String], token: &str, expires_in: Option<u64>) {
     let expires_at = expires_in.map(|secs| Utc::now() + Duration::seconds(secs as i64));
+    let cache_path = get_cache_path(client_id, scopes);
+
+    info!(
+        "Saving new OAuth token to {}{}",
+        cache_path.display(),
+        expires_at.map_or(String::new(), |exp| format!(" valid until {}", exp))
+    );
 
     let token_cache = TokenCache {
         access_token: token.to_string(),
         expires_at,
     };
 
-    let cache_path = get_cache_path(client_id, scopes);
     if let Ok(contents) = serde_json::to_string(&token_cache) {
-        fs::write(cache_path, contents)
+        fs::write(&cache_path, contents)
             .map_err(|e| anyhow::anyhow!("Failed to write token cache: {}", e))
-            .unwrap_or_else(|e| tracing::warn!("{}", e));
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to write to {}: {}", cache_path.display(), e)
+            });
     }
 }
 
