@@ -211,11 +211,8 @@ export default function HomepageFeatures(): ReactNode {
           {/* YouTube Video Section */}
           <div style={{ width: "100%", textAlign: "center", padding: "2rem 0" }}>
             <h2 style={{ fontSize: "3rem", marginBottom: "1rem", fontWeight: "bold" }}>
-              Watch Goose in Action
+              Meet Codename Goose
             </h2>
-            <p style={{ fontSize: "1.5rem", color: "#444", marginBottom: "2rem" }}>
-              See how Goose streamlines your workflow in real-time.
-            </p>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
               <div
                 style={{
