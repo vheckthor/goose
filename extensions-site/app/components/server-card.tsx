@@ -3,7 +3,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import type { MCPServer } from "../types/server";
-import { Link, NavLink } from "react-router";
+import * as routerDom from "react-router-dom";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { getGooseInstallLink } from "../utils/install-links";
@@ -17,7 +17,7 @@ export function ServerCard({ server }: { server: MCPServer }) {
       <Card className="h-full flex flex-col border-none">
         <CardHeader className="flex items-center">
           <div className="flex items-center gap-2">
-            <NavLink
+            <routerDom.Link
               to={`/detail/${server.id}`}
               className="text-textStandard hover:text-textProminent flex items-center gap-2"
               viewTransition
@@ -45,7 +45,7 @@ export function ServerCard({ server }: { server: MCPServer }) {
               <div className="font-medium dark:text-gray-100 home-page-server-name">
                 {server.name}
               </div>
-            </NavLink>
+            </routerDom.Link>
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col h-full justify-between">

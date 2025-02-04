@@ -1,0 +1,13 @@
+#!/bin/bash
+
+mkdir -p ~/Development/goose/documentation/static/v1/extensions
+
+pushd extensions-site
+export VITE_BASENAME="/goose/v1/extensions/"
+npm run build
+cp -R build/client/* ../documentation/static/v1/extensions
+popd
+
+pushd documentation
+npm run build
+npm run start
