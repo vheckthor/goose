@@ -49,7 +49,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                     }
                     Err(e) => {
                         output.push(json!({
-                            "role": "tool",
+                            "role": "user",
                             "content": format!("Error: {}", e),
                             "tool_call_id": request.id
                         }));
@@ -104,7 +104,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
 
                             // First add the tool response with all content
                             output.push(json!({
-                                "role": "tool",
+                                "role": "user",
                                 "content": tool_response_content,
                                 "tool_call_id": response.id
                             }));
@@ -114,7 +114,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                         Err(e) => {
                             // A tool result error is shown as output so the model can interpret the error message
                             output.push(json!({
-                                "role": "tool",
+                                "role": "user",
                                 "content": format!("The tool call returned the following error:\n{}", e),
                                 "tool_call_id": response.id
                             }));
