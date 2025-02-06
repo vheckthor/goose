@@ -211,10 +211,7 @@ pub fn get_usage(data: &Value) -> Result<Usage> {
             .and_then(|v| v.as_u64())
             .map(|v| v as i32);
 
-        let total_tokens = match output_tokens {
-            Some(o) => Some(total_input_tokens as i32 + o),
-            None => None,
-        };
+        let total_tokens = output_tokens.map(|o| total_input_tokens as i32 + o);
 
         Ok(Usage::new(input_tokens, output_tokens, total_tokens))
     } else {
