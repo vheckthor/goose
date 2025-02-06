@@ -217,7 +217,6 @@ For example:
         &[],
         &super::utils::ImageFormat::OpenAi,
     )?;
-    println!("payload: {}", serde_json::to_string_pretty(&payload)?);
 
     if model_config
         .model_name
@@ -229,7 +228,7 @@ For example:
     Ok(payload)
 }
 
-async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) -> Message {
+async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider, tools: &[Tool]) -> Message {
     let mut processed = Message {
         role: Role::Assistant,
         created: Utc::now().timestamp(),
@@ -262,7 +261,7 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
 
         // If no valid JSON was found, try using the tool parser
         if !found_valid_json {
-            if let Ok(tool_calls) = tool_parser.parse_tool_calls(&text).await {
+            if let Ok(tool_calls) = tool_parser.parse_tool_calls(&text, tools).await {
                 for tool_call in tool_calls {
                     let tool_call = ToolCall {
                         name: tool_call["tool"].as_str().unwrap().to_string(),
@@ -282,6 +281,8 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
             
         }
     }
+
+    println!("processed is {:?}", processed);
 
     processed
 }
@@ -331,11 +332,9 @@ impl Provider for OpenRouterProvider {
         // Make request
         let response = self.post(payload.clone()).await?;
 
-        // println!("response: {:?}", serde_json::to_string_pretty(&response));
-
         // Parse response
         let message = response_to_message(response.clone())?;
-        let message = process_tool_calls(message, &self.tool_parser).await;
+        let message = process_tool_calls(message, &self.tool_parser, tools).await;
         let usage = match get_usage(&response) {
             Ok(usage) => usage,
             Err(ProviderError::UsageError(e)) => {
@@ -346,7 +345,6 @@ impl Provider for OpenRouterProvider {
         };
         let model = get_model(&response);
         emit_debug_trace(self, &payload, &response, &usage);
-        // println!("FINAL RETURNED MESSAGE {:?}", message);
         Ok((message, ProviderUsage::new(model, usage)))
     }
 }

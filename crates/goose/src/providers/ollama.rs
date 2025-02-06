@@ -113,7 +113,7 @@ fn create_request_with_tools(
     )
 }
 
-async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) -> Message {
+async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider, tools: &[Tool]) -> Message {
     let mut processed = Message {
         role: Role::Assistant,
         created: Utc::now().timestamp(),
@@ -142,7 +142,7 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
 
         // If no valid JSON was found, try using the tool parser
         if !found_valid_json {
-            if let Ok(tool_calls) = tool_parser.parse_tool_calls(&text).await {
+            if let Ok(tool_calls) = tool_parser.parse_tool_calls(&text, tools).await {
                 for tool_call in tool_calls {
                     processed.content.push(MessageContent::Text(TextContent {
                         text: serde_json::to_string(&tool_call).unwrap(),
@@ -200,7 +200,7 @@ impl Provider for OllamaProvider {
 
         // Parse response
         let message = response_to_message(response.clone())?;
-        let message = process_tool_calls(message, &self.tool_parser).await;
+        let message = process_tool_calls(message, &self.tool_parser, tools).await;
         let usage = match get_usage(&response) {
             Ok(usage) => usage,
             Err(ProviderError::UsageError(e)) => {
