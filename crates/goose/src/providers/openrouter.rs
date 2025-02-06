@@ -13,7 +13,8 @@ use super::tool_parser::ToolParserProvider;
 use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
 use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
-use mcp_core::{role::Role, tool::Tool, content::TextContent};
+use mcp_core::{role::Role, tool::Tool, tool::ToolCall, content::TextContent};
+use uuid::Uuid;
 use url::Url;
 
 pub const OPENROUTER_DEFAULT_MODEL: &str = "anthropic/claude-3.5-sonnet";
@@ -208,10 +209,14 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
                 if let (Some(tool), Some(args)) = (json.get("tool"), json.get("args")) {
                     if let (Some(_tool_name), Some(_args_obj)) = (tool.as_str(), args.as_object()) {
                         found_valid_json = true;
-                        processed.content.push(MessageContent::Text(TextContent {
-                            text: serde_json::to_string(&json).unwrap(),
-                            annotations: None,
-                        }));
+                        let tool_call = ToolCall {
+                            name: tool.as_str().unwrap().to_string(),
+                            arguments: args.clone(),
+                        };
+                        processed.content.push(MessageContent::tool_request(
+                            Uuid::new_v4().to_string(),
+                            Ok(tool_call)
+                        ));
                     }
                 }
             }
@@ -221,10 +226,14 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
         if !found_valid_json {
             if let Ok(tool_calls) = tool_parser.parse_tool_calls(&text).await {
                 for tool_call in tool_calls {
-                    processed.content.push(MessageContent::Text(TextContent {
-                        text: serde_json::to_string(&tool_call).unwrap(),
-                        annotations: None,
-                    }));
+                    let tool_call = ToolCall {
+                        name: tool_call["tool"].as_str().unwrap().to_string(),
+                        arguments: tool_call["args"].clone(),
+                    };
+                    processed.content.push(MessageContent::tool_request(
+                        Uuid::new_v4().to_string(),
+                        Ok(tool_call)
+                    ));
                 }
             } else {
                 // If tool parser fails, pass through the original text
