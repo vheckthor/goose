@@ -148,12 +148,10 @@ pub async fn parse_tool_calls_from_text(content: &str) -> Result<Vec<Value>> {
             }
         }
         // println!("JSON parsed but not in tool call format");
-    } else {
-        println!("Direct JSON parse failed");
-    }
+    } 
 
     // Try using ollama as fallback
-    println!("Attempting Ollama parse...");
+    // println!("Attempting Ollama parse...");
     if let Ok(json_str) = parse_with_ollama(content).await {
         if let Ok(json) = serde_json::from_str::<Value>(&json_str) {
             // Check if it's a valid tool call format
@@ -173,15 +171,11 @@ pub async fn parse_tool_calls_from_text(content: &str) -> Result<Vec<Value>> {
                     return Ok(array.to_vec());
                 }
             }
-            println!("Ollama output parsed as JSON but not in tool call format");
-        } else {
-            println!("Failed to parse Ollama output as JSON");
-        }
-    } else {
-        println!("Ollama parse failed");
-    }
+            // println!("Ollama output parsed as JSON but not in tool call format");
+        } 
+    } 
 
-    println!("=== End Tool Parser Debug ===\n");
+    // println!("=== End Tool Parser Debug ===\n");
     Ok(vec![])
 }
 

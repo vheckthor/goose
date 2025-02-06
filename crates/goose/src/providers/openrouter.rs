@@ -171,15 +171,53 @@ For example:
   }
 }"#);
     }
+    // Convert tool messages to regular messages
+    let converted_messages: Vec<Message> = messages.iter().map(|msg| {
+        let mut new_msg = Message {
+            role: msg.role.clone(),
+            created: msg.created,
+            content: vec![],
+        };
+
+        for content in &msg.content {
+            match content {
+                MessageContent::ToolRequest(req) => {
+                    if let Ok(tool_call) = &req.tool_call {
+                        // Convert tool request to assistant message with JSON
+                        new_msg.role = Role::Assistant;
+                        let json = json!({
+                            "tool": tool_call.name,
+                            "args": tool_call.arguments
+                        });
+                        new_msg.content.push(MessageContent::Text(TextContent {
+                            text: serde_json::to_string(&json).unwrap(),
+                            annotations: None,
+                        }));
+                    }
+                },
+                MessageContent::ToolResponse(res) => {
+                    if let Ok(contents) = &res.tool_result {
+                        // Convert tool response to user message
+                        new_msg.role = Role::User;
+                        for content in contents {
+                            new_msg.content.push(content.clone().into());
+                        }
+                    }
+                },
+                _ => new_msg.content.push(content.clone()),
+            }
+        }
+        new_msg
+    }).collect();
+
     let mut payload = create_request(
         model_config,
         &modified_system,
-        messages,
+        &converted_messages,
         &[],
-        // tools,
         &super::utils::ImageFormat::OpenAi,
     )?;
-    // println!("payload: {}", serde_json::to_string_pretty(&payload)?);
+    println!("payload: {}", serde_json::to_string_pretty(&payload)?);
 
     if model_config
         .model_name
@@ -235,13 +273,13 @@ async fn process_tool_calls(message: Message, tool_parser: &ToolParserProvider) 
                         Ok(tool_call)
                     ));
                 }
-            } else {
-                // If tool parser fails, pass through the original text
-                processed.content.push(MessageContent::Text(TextContent {
-                    text: text,
-                    annotations: None,
-                }));
-            }
+            } 
+            // If tool parser fails, pass through the original text
+            processed.content.push(MessageContent::Text(TextContent {
+                text: text,
+                annotations: None,
+            }));
+            
         }
     }
 
@@ -293,6 +331,8 @@ impl Provider for OpenRouterProvider {
         // Make request
         let response = self.post(payload.clone()).await?;
 
+        // println!("response: {:?}", serde_json::to_string_pretty(&response));
+
         // Parse response
         let message = response_to_message(response.clone())?;
         let message = process_tool_calls(message, &self.tool_parser).await;
@@ -306,6 +346,7 @@ impl Provider for OpenRouterProvider {
         };
         let model = get_model(&response);
         emit_debug_trace(self, &payload, &response, &usage);
+        // println!("FINAL RETURNED MESSAGE {:?}", message);
         Ok((message, ProviderUsage::new(model, usage)))
     }
 }
