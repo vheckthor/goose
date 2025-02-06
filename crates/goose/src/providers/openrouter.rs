@@ -159,9 +159,11 @@ fn create_request_based_on_model(
         model_config,
         &modified_system,
         messages,
-        tools,
+        &[],
+        // tools,
         &super::utils::ImageFormat::OpenAi,
     )?;
+    println!("payload: {}", serde_json::to_string_pretty(&payload)?);
 
     if model_config
         .model_name
