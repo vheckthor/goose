@@ -1,94 +1,45 @@
-use crate::message::{Message, MessageContent};
-use crate::model::ModelConfig;
 use anyhow::Result;
 use serde_json::Value;
-use chrono::Utc;
-use mcp_core::{role::Role, content::TextContent};
-use reqwest::Client;
-use std::time::Duration;
-use url::Url;
+/// Helper function to parse tool calls from text content
+pub fn parse_tool_calls_from_text(content: &str) -> Result<Vec<Value>> {
+    println!("\n=== Tool Parser Debug ===");
+    println!("Input content:\n{}", content);
 
-use super::errors::ProviderError;
-use super::utils::handle_response_openai_compat;
-use super::formats::openai::{create_request, response_to_message};
-
-/// A lightweight provider specifically for parsing tool calls
-#[derive(serde::Serialize)]
-pub struct ToolParserProvider {
-    #[serde(skip)]
-    client: Client,
-    host: String,
-    model: ModelConfig,
-}
-
-impl Default for ToolParserProvider {
-    fn default() -> Self {
-        let model = ModelConfig::new("mistral".to_string());
-        Self::new(model).expect("Failed to initialize tool parser provider")
-    }
-}
-
-impl ToolParserProvider {
-    pub fn new(model: ModelConfig) -> Result<Self> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(600))
-            .build()?;
-
-        Ok(Self {
-            client,
-            host: "http://localhost:11434".to_string(),
-            model,
-        })
-    }
-
-    async fn post(&self, payload: Value) -> Result<Value, ProviderError> {
-        let base_url = Url::parse(&self.host)
-            .map_err(|e| ProviderError::RequestFailed(format!("Invalid base URL: {e}")))?;
-        let url = base_url.join("v1/chat/completions").map_err(|e| {
-            ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
-        })?;
-
-        let response = self.client.post(url).json(&payload).send().await?;
-        handle_response_openai_compat(response).await
-    }
-
-    pub async fn parse_tool_calls(&self, content: &str) -> Result<Vec<Value>> {
-        println!("parsing tool call!");
-        let system = "You are a tool call parser. Your job is to analyze the given text and extract any intended tool calls, formatting them as JSON objects with 'tool' and 'args' fields. Each tool call should be in the format: { \"tool\": \"tool_name\", \"args\": { \"arg1\": \"value1\", ... } }";
-        
-        let message = Message {
-            role: Role::User,
-            created: Utc::now().timestamp(),
-            content: vec![MessageContent::Text(TextContent {
-                text: content.to_string(),
-                annotations: None,
-            })],
-        };
-
-        let payload = create_request(
-            &self.model,
-            system,
-            &[message],
-            &[],
-            &super::utils::ImageFormat::OpenAi,
-        )?;
-
-        let response = self.post(payload).await?;
-        println!("parser response: {:?}", response);
-        let message = response_to_message(response)?;
-        
-        if !message.content.is_empty() {
-            if let Some(text) = message.content[0].as_text() {
-                if let Ok(json) = serde_json::from_str::<Value>(text) {
-                    if let Some(array) = json.as_array() {
-                        return Ok(array.to_vec());
-                    }
-                    // If it's not an array but valid JSON, wrap it in an array
-                    return Ok(vec![json]);
-                }
+    // First try to parse the content directly as JSON
+    println!("Attempting direct JSON parse...");
+    if let Ok(json) = serde_json::from_str::<Value>(content) {
+        // Check if it's a valid tool call format
+        if let (Some(tool), Some(args)) = (json.get("tool"), json.get("args")) {
+            if tool.is_string() && args.is_object() {
+                println!("Successfully parsed direct JSON tool call");
+                return Ok(vec![json]);
             }
         }
-        
-        Ok(vec![])
+        // Check if it's an array of tool calls
+        if let Some(array) = json.as_array() {
+            if array.iter().all(|item| {
+                item.get("tool").map_or(false, |t| t.is_string()) &&
+                item.get("args").map_or(false, |a| a.is_object())
+            }) {
+                println!("Successfully parsed JSON array of tool calls");
+                return Ok(array.to_vec());
+            }
+        }
+        println!("JSON parsed but not in tool call format");
+    } else {
+        println!("Direct JSON parse failed");
+    }
+
+    println!("=== End Tool Parser Debug ===\n");
+    Ok(vec![])
+}
+
+/// A lightweight provider specifically for parsing tool calls
+#[derive(serde::Serialize, Default)]
+pub struct ToolParserProvider;
+
+impl ToolParserProvider {
+    pub async fn parse_tool_calls(&self, content: &str) -> Result<Vec<Value>> {
+        parse_tool_calls_from_text(content)
     }
 }
