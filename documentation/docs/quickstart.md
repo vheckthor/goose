@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 title: Quickstart
 ---
 import Tabs from '@theme/Tabs';
@@ -28,11 +28,8 @@ You can use Goose via CLI or Desktop application.
     ```sh
     curl -fsSL https://github.com/block/goose/releases/download/stable/download_cli.sh | bash
     ```
-    :::tip Automation
-    You can disable automatic interactive configuration by adding `| CONFIGURE=false bash` to the script above.
-    :::
   </TabItem>
-  <TabItem value="ui" label="Goose Desktop">
+  <TabItem value="ui" label="Goose Desktop (macOS only)">
     To install the latest version of Goose, click the **button** below:
     <div className="pill-button">
       <Link
@@ -40,7 +37,7 @@ You can use Goose via CLI or Desktop application.
         to="https://github.com/block/goose/releases/download/stable/Goose.zip"
       >
         <IconDownload />
-        download goose desktop
+        download goose desktop for macOS
       </Link>
     </div>
     <div style={{ marginTop: '1rem' }}>
@@ -85,6 +82,10 @@ Goose works with [supported LLM providers][providers]. When you install Goose, y
 
 <RateLimits />
 
+:::tip Model Selection
+Goose relies heavily on tool calling capabilities and currently works best with Anthropic's Claude 3.5 Sonnet and OpenAI's GPT-4o (2024-11-20) model.
+:::
+
 ## Start Session
 Sessions are single, continuous conversations between you and Goose. Let's start one.
 
@@ -100,8 +101,6 @@ Sessions are single, continuous conversations between you and Goose. Let's start
         After choosing an LLM provider, you’ll see the session interface ready for use.
 
         Type your questions, tasks, or instructions directly into the input field, and Goose will immediately get to work.
-
-        ![Install Extension](./assets/guides/ui-session-interface.png)
     </TabItem>
 </Tabs>
 
