@@ -153,7 +153,22 @@ fn create_request_based_on_model(
         let tools_text = serde_json::to_string_pretty(&tools)
             .unwrap_or_else(|_| "[Error serializing tools]".to_string());
         modified_system.push_str(&tools_text);
-        modified_system.push_str("\nWhen you want to use a tool, respond with a JSON object in this format: { \"tool\": \"tool_name\", \"args\": { \"arg1\": \"value1\", ... } }");
+        modified_system.push_str(r#"\nWhen you want to use a tool, respond with a JSON object in this format:
+{
+  "tool": "tool_name",
+  "args": {
+    "arg1": "value1",
+    ...
+  }
+}
+
+For example:
+{
+  "tool": "developer__shell",
+  "args": {
+    "command": "ls -l"
+  }
+}"#);
     }
     let mut payload = create_request(
         model_config,
@@ -163,7 +178,7 @@ fn create_request_based_on_model(
         // tools,
         &super::utils::ImageFormat::OpenAi,
     )?;
-    println!("payload: {}", serde_json::to_string_pretty(&payload)?);
+    // println!("payload: {}", serde_json::to_string_pretty(&payload)?);
 
     if model_config
         .model_name

@@ -53,6 +53,7 @@ impl ToolParserProvider {
     }
 
     pub async fn parse_tool_calls(&self, content: &str) -> Result<Vec<Value>> {
+        println!("parsing tool call!");
         let system = "You are a tool call parser. Your job is to analyze the given text and extract any intended tool calls, formatting them as JSON objects with 'tool' and 'args' fields. Each tool call should be in the format: { \"tool\": \"tool_name\", \"args\": { \"arg1\": \"value1\", ... } }";
         
         let message = Message {
@@ -73,6 +74,7 @@ impl ToolParserProvider {
         )?;
 
         let response = self.post(payload).await?;
+        println!("parser response: {:?}", response);
         let message = response_to_message(response)?;
         
         if !message.content.is_empty() {
