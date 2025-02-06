@@ -42,7 +42,7 @@ name: Reusable workflow to bundle desktop app
 
 jobs:
   bundle-desktop:
-    runs-on: macos-latest-xl
+    runs-on: macos-latest
     name: Bundle Desktop App on macOS
     steps:
       # Validate Signing Secrets if signing is enabled
