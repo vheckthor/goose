@@ -155,6 +155,18 @@ impl DeveloperRouter {
             }),
         );
 
+        let ask_user_next_step_tool = Tool::new(
+            "ask_user_next_step",
+            indoc! {r#"
+                Request user input for what to do next without performing any other actions.
+            "#},
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {}
+            }),
+        );
+
         // Get base instructions and working directory
         let cwd = std::env::current_dir().expect("should have a current working dir");
         let base_instructions = formatdoc! {r#"
@@ -193,6 +205,7 @@ impl DeveloperRouter {
                 text_editor_tool,
                 list_windows_tool,
                 screen_capture_tool,
+                ask_user_next_step_tool,
             ],
             file_history: Arc::new(Mutex::new(HashMap::new())),
             instructions,
@@ -665,6 +678,7 @@ impl Router for DeveloperRouter {
                 "text_editor" => this.text_editor(arguments).await,
                 "list_windows" => this.list_windows(arguments).await,
                 "screen_capture" => this.screen_capture(arguments).await,
+                "ask_user_next_step" => Ok(vec![Content::text("Waiting for user input").with_audience(vec![Role::Assistant])]),
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })
