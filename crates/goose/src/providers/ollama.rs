@@ -7,7 +7,8 @@ use crate::providers::formats::openai::{create_request, get_usage, response_to_m
 use anyhow::Result;
 use async_trait::async_trait;
 use indoc::formatdoc;
-use mcp_core::tool::Tool;
+use mcp_core::tool::{Tool, ToolCall};
+use uuid;
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -67,21 +68,18 @@ impl OllamaProvider {
                     "type": "array",
                     "items": {
                         "type": "object",
-                        
+                            
                             "name": {
                                 "type": "string",
                             },
                             "arguments": {
-                                "type": "array",
-                                "items": {
                                 "type": "object",
                                 "additionalProperties": true
-                                }
                             }
                     }
                     }
                 },
-                "required": ["tool_calls"]
+                "required": ["user_message", "tool_calls"]
              });
              payload["format"] = tool_call_schema;
         }
@@ -119,6 +117,92 @@ impl OllamaProvider {
         let response = self.client.post(url).json(&payload).send().await?;
 
         handle_response_openai_compat(response).await
+    }
+
+    fn parse_tool_call_response(&self, response: &Value) -> Result<Message, ProviderError> {
+        let mut message = Message::assistant();
+
+        // Try to parse tool calls from the response
+        if let Some(tool_calls) = response.get("tool_calls").and_then(|tc| tc.as_array()) {
+            let mut tool_call_messages = Vec::new();
+            
+            for tool_call in tool_calls {
+                if let (Some(name), Some(arguments)) = (
+                    tool_call.get("name").and_then(|n| n.as_str()),
+                    tool_call.get("arguments")
+                ) {
+                    // Create a tool call with the command argument
+                    let command_value = if let Some(command) = arguments.get("command") {
+                        command.clone()
+                    } else {
+                        arguments.clone()
+                    };
+                    
+                    tool_call_messages.push(json!({
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": command_value.to_string()
+                        }
+                    }));
+                }
+            }
+            
+            if !tool_call_messages.is_empty() {
+                for tool_call in tool_call_messages {
+                    message = message.with_tool_request(
+                        uuid::Uuid::new_v4().to_string(),
+                        Ok(ToolCall::new(
+                            tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
+                            serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
+                        )),
+                    );
+                }
+                return Ok(message);
+            }
+        }
+        
+        // If no tool calls found in response, try to parse from message content
+        if let Some(message_obj) = response.get("message") {
+            if let Some(content) = message_obj.get("content").and_then(|c| c.as_str()) {
+                if let Ok(content_json) = serde_json::from_str::<Value>(content) {
+                    if let Some(tool_calls) = content_json.get("tool_calls").and_then(|tc| tc.as_array()) {
+                        let mut tool_call_messages = Vec::new();
+                        
+                        for tool_call in tool_calls {
+                            if let (Some(name), Some(arguments)) = (
+                                tool_call.get("name").and_then(|n| n.as_str()),
+                                tool_call.get("arguments")
+                            ) {
+                                tool_call_messages.push(json!({
+                                    "type": "function",
+                                    "function": {
+                                        "name": name,
+                                        "arguments": arguments.to_string()
+                                    }
+                                }));
+                            }
+                        }
+                        
+                        if !tool_call_messages.is_empty() {
+                            for tool_call in tool_call_messages {
+                                message = message.with_tool_request(
+                                    uuid::Uuid::new_v4().to_string(),
+                                    Ok(ToolCall::new(
+                                        tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
+                                        serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
+                                    )),
+                                );
+                            }
+                            return Ok(message);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to regular message parsing if no valid tool calls found
+        Ok(response_to_message(response.clone())?)
     }
 }
 
@@ -262,7 +346,8 @@ impl Provider for OllamaProvider {
         println!("======RESPONSE====\n{:?}", response);
 
         // Parse response
-        let message = response_to_message(response.clone())?;
+        let message = self.parse_tool_call_response(&response)?;
+        println!("MESSAGE IS {:?}\n", message);
         let usage = match get_usage(&response) {
             Ok(usage) => usage,
             Err(ProviderError::UsageError(e)) => {
