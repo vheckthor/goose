@@ -14,6 +14,7 @@ pub struct UpsertConfigQuery {
     /// The value to set for the configuration
     pub value: Value,
     /// Whether this configuration value should be treated as a secret
+    #[allow(dead_code)]  // Used in OpenAPI schema for documentation
     pub is_secret: Option<bool>,
 }
 
