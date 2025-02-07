@@ -60,27 +60,28 @@ impl OllamaProvider {
             let tool_call_schema = json!({
                 "type": "object",
                 "properties": {
-                    "reply_to_user":
-                    {
+                    "reply_to_user": {
                         "type": "string"
                     },
                     "tool_calls": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                            
-                            "name": {
-                                "type": "string",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {  // Added missing properties wrapper
+                                "name": {
+                                    "type": "string"
+                                },
+                                "arguments": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
                             },
-                            "arguments": {
-                                "type": "object",
-                                "additionalProperties": true
-                            }
-                    }
+                            "required": ["name", "arguments"]  // Added required fields
+                        }
                     }
                 },
                 "required": ["reply_to_user", "tool_calls"]
-             });
+            });
              payload["format"] = tool_call_schema;
         }
         payload["stream"] = json!(false);
@@ -112,7 +113,7 @@ impl OllamaProvider {
         if let Value::Object(ref mut map) = payload {
             map.remove("tools");
         }
-        println!("=====PAYLOAD====:\n{:?}", serde_json::to_string_pretty(&payload));
+        // println!("=====PAYLOAD====:\n{:?}", serde_json::to_string_pretty(&payload));
 
         let response = self.client.post(url).json(&payload).send().await?;
 
@@ -121,43 +122,28 @@ impl OllamaProvider {
 
     fn parse_tool_call_response(&self, response: &Value) -> Result<Message, ProviderError> {
         let mut message = Message::assistant();
-
-        // Try to parse reply_to_user and tool_calls from the message content
+        
         if let Some(message_obj) = response.get("message") {
             if let Some(content) = message_obj.get("content").and_then(|c| c.as_str()) {
                 // Try to parse the content as JSON
-                if let Ok(content_json) = serde_json::from_str::<Value>(content) {
-                    // Parse reply_to_user from the content JSON
-                    if let Some(reply) = content_json.get("reply_to_user").and_then(|r| r.as_str()) {
+                if let Ok(json) = serde_json::from_str::<Value>(content) {
+                    // Extract reply_to_user if present
+                    if let Some(reply) = json.get("reply_to_user").and_then(|r| r.as_str()) {
                         message = message.with_text(reply.to_string());
                     }
-
-                    // Try to parse tool_calls from the content JSON
-                    if let Some(tool_calls) = content_json.get("tool_calls").and_then(|tc| tc.as_array()) {
-                        let mut tool_call_messages = Vec::new();
-                        
+    
+                    // Extract tool calls if present
+                    if let Some(tool_calls) = json.get("tool_calls").and_then(|tc| tc.as_array()) {
                         for tool_call in tool_calls {
                             if let (Some(name), Some(arguments)) = (
                                 tool_call.get("name").and_then(|n| n.as_str()),
                                 tool_call.get("arguments")
                             ) {
-                                tool_call_messages.push(json!({
-                                    "type": "function",
-                                    "function": {
-                                        "name": name,
-                                        "arguments": arguments.to_string()
-                                    }
-                                }));
-                            }
-                        }
-                        
-                        if !tool_call_messages.is_empty() {
-                            for tool_call in tool_call_messages {
                                 message = message.with_tool_request(
                                     uuid::Uuid::new_v4().to_string(),
                                     Ok(ToolCall::new(
-                                        tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
-                                        serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
+                                        name.to_string(),
+                                        arguments.clone()
                                     )),
                                 );
                             }
@@ -167,90 +153,15 @@ impl OllamaProvider {
                     return Ok(message);
                 }
             }
-        }
-
-        // Try to parse tool calls from the response directly as fallback
-        if let Some(tool_calls) = response.get("tool_calls").and_then(|tc| tc.as_array()) {
-            let mut tool_call_messages = Vec::new();
             
-            for tool_call in tool_calls {
-                if let (Some(name), Some(arguments)) = (
-                    tool_call.get("name").and_then(|n| n.as_str()),
-                    tool_call.get("arguments")
-                ) {
-                    // Create a tool call with the command argument
-                    let command_value = if let Some(command) = arguments.get("command") {
-                        command.clone()
-                    } else {
-                        arguments.clone()
-                    };
-                    
-                    tool_call_messages.push(json!({
-                        "type": "function",
-                        "function": {
-                            "name": name,
-                            "arguments": command_value.to_string()
-                        }
-                    }));
-                }
-            }
-            
-            if !tool_call_messages.is_empty() {
-                for tool_call in tool_call_messages {
-                    message = message.with_tool_request(
-                        uuid::Uuid::new_v4().to_string(),
-                        Ok(ToolCall::new(
-                            tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
-                            serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
-                        )),
-                    );
-                }
-                return Ok(message);
-            }
+            // Fallback to regular message parsing if JSON parsing fails
+            return Ok(response_to_message(response.clone())?);
         }
         
-        // If no tool calls found in response, try to parse from message content
-        if let Some(message_obj) = response.get("message") {
-            if let Some(content) = message_obj.get("content").and_then(|c| c.as_str()) {
-                if let Ok(content_json) = serde_json::from_str::<Value>(content) {
-                    if let Some(tool_calls) = content_json.get("tool_calls").and_then(|tc| tc.as_array()) {
-                        let mut tool_call_messages = Vec::new();
-                        
-                        for tool_call in tool_calls {
-                            if let (Some(name), Some(arguments)) = (
-                                tool_call.get("name").and_then(|n| n.as_str()),
-                                tool_call.get("arguments")
-                            ) {
-                                tool_call_messages.push(json!({
-                                    "type": "function",
-                                    "function": {
-                                        "name": name,
-                                        "arguments": arguments.to_string()
-                                    }
-                                }));
-                            }
-                        }
-                        
-                        if !tool_call_messages.is_empty() {
-                            for tool_call in tool_call_messages {
-                                message = message.with_tool_request(
-                                    uuid::Uuid::new_v4().to_string(),
-                                    Ok(ToolCall::new(
-                                        tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
-                                        serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
-                                    )),
-                                );
-                            }
-                            return Ok(message);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Fallback to regular message parsing if no valid tool calls found
+        // If we can't find a message object, try to parse as regular message
         Ok(response_to_message(response.clone())?)
     }
+
 }
 
 #[async_trait]
