@@ -1,5 +1,14 @@
 [workspace]
-members = ["crates/*"]
+members = [
+    "crates/goose",
+    "crates/goose-cli",
+    "crates/goose-mcp",
+    "crates/goose-server",
+    "crates/mcp-client",
+    "crates/mcp-core",
+    "crates/mcp-macros",
+    "crates/mcp-server"
+]
 resolver = "2"
 
 [workspace.package]

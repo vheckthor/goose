@@ -2,11 +2,13 @@ use include_dir::{include_dir, Dir};
 use serde::Serialize;
 use std::path::PathBuf;
 use tera::{Context, Error as TeraError, Tera};
+use tracing::debug;
 
 // The prompts directory needs to be embedded in the binary (so it works when distributed)
 static PROMPTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/prompts");
 
 pub fn load_prompt<T: Serialize>(template: &str, context_data: &T) -> Result<String, TeraError> {
+    debug!("template: {}", template);
     let mut tera = Tera::default();
     tera.add_raw_template("inline_template", template)?;
     let context = Context::from_serialize(context_data)?;
@@ -21,8 +23,7 @@ pub fn load_prompt_file<T: Serialize>(
     let template_path = template_file.into();
 
     // Get the file content from the embedded directory
-    let template_content = if let Some(file) = PROMPTS_DIR.get_file(template_path.to_str().unwrap())
-    {
+    let template_content = if let Some(file) = PROMPTS_DIR.get_file(template_path.to_str().unwrap()) {
         String::from_utf8_lossy(file.contents()).into_owned()
     } else {
         return Err(TeraError::chain(
@@ -34,6 +35,7 @@ pub fn load_prompt_file<T: Serialize>(
         ));
     };
 
+    debug!("template_content: {}", template_content);
     load_prompt(&template_content, context_data)
 }
 
