@@ -1,37 +1,57 @@
-use axum::{Json, http::StatusCode};
-use axum_extra::extract::Query;
+use axum::{routing::{get, post, delete}, Json, http::StatusCode, Router, extract::{Query, State}};
 use serde::{Deserialize, Serialize};
 use serde_yaml::{Value, to_string as to_yaml_string};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 use crate::state::AppState;
 use std::fs;
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
-struct UpsertConfigQuery {
-    key: String,
-    value: Value,
-    is_secret: Option<bool>,
+#[derive(Deserialize, ToSchema)]
+pub struct UpsertConfigQuery {
+    /// The configuration key to upsert
+    pub key: String,
+    /// The value to set for the configuration
+    pub value: Value,
+    /// Whether this configuration value should be treated as a secret
+    pub is_secret: Option<bool>,
 }
 
-#[derive(Deserialize)]
-struct ConfigKeyQuery {
-    key: String,
+#[derive(Deserialize, ToSchema)]
+pub struct ConfigKeyQuery {
+    /// The configuration key to operate on
+    pub key: String,
 }
 
-#[derive(Deserialize)]
-struct ExtensionQuery {
-    name: String,
-    config: Value,
+#[derive(Deserialize, ToSchema)]
+pub struct ExtensionQuery {
+    /// The name of the extension
+    pub name: String,
+    /// The configuration for the extension
+    pub config: Value,
 }
 
-// File path to the config, could be an environment variable or similar in reality
+#[derive(Serialize, ToSchema)]
+pub struct ConfigResponse {
+    /// The configuration values
+    pub config: HashMap<String, Value>,
+}
+
 const CONFIG_FILE_PATH: &str = "~/.config/goose/config.yaml";
 
-// Handler code for upserting a config value
-async fn upsert_config(
+/// Upsert a configuration value
+#[utoipa::path(
+    post,
+    path = "/config/upsert",
+    request_body = UpsertConfigQuery,
+    responses(
+        (status = 200, description = "Configuration value upserted successfully", body = String),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn upsert_config(
     Query(query): Query<UpsertConfigQuery>,
-    state: Arc<Mutex<HashMap<String, Value>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
 ) -> Result<Json<Value>, StatusCode> {
     let mut config = state.lock().await;
     let key = query.key;
@@ -40,10 +60,20 @@ async fn upsert_config(
     Ok(Json(Value::String(format!("Upserted key {}", key))))
 }
 
-// Handler code for removing a config value
-async fn remove_config(
+/// Remove a configuration value
+#[utoipa::path(
+    delete,
+    path = "/config/remove",
+    request_body = ConfigKeyQuery,
+    responses(
+        (status = 200, description = "Configuration value removed successfully", body = String),
+        (status = 404, description = "Configuration key not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn remove_config(
     Query(query): Query<ConfigKeyQuery>,
-    state: Arc<Mutex<HashMap<String, Value>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
 ) -> Result<Json<String>, StatusCode> {
     let mut config = state.lock().await;
     let key = query.key;
@@ -55,10 +85,19 @@ async fn remove_config(
     }
 }
 
-// Handler code for reading a config value
-async fn read_config(
+/// Read a configuration value
+#[utoipa::path(
+    get,
+    path = "/config/read",
+    request_body = ConfigKeyQuery,
+    responses(
+        (status = 200, description = "Configuration value retrieved successfully", body = Value),
+        (status = 404, description = "Configuration key not found")
+    )
+)]
+pub async fn read_config(
     Query(query): Query<ConfigKeyQuery>,
-    state: Arc<Mutex<HashMap<String, Value>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
 ) -> Result<Json<Value>, StatusCode> {
     let config = state.lock().await;
     if let Some(value) = config.get(&query.key) {
@@ -68,15 +107,24 @@ async fn read_config(
     }
 }
 
-// Handler code for adding an extension
-async fn add_extension(
-    Json(extension): Json<ExtensionQuery>,
-    state: Arc<Mutex<HashMap<String, Value>>>
+/// Add an extension configuration
+#[utoipa::path(
+    post,
+    path = "/config/extension",
+    request_body = ExtensionQuery,
+    responses(
+        (status = 200, description = "Extension added successfully", body = String),
+        (status = 400, description = "Invalid request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn add_extension(
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>,
+    Json(extension): Json<ExtensionQuery>
 ) -> Result<Json<String>, StatusCode> {
     let mut config = state.lock().await;
     if let Some(extensions) = config.get_mut("extensions") {
         if let Value::Mapping(map) = extensions {
-            // Assume extension is added
             map.insert(Value::String(extension.name.clone()), extension.config);
             persist_config(&config).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             return Ok(Json(format!("Added extension {}", extension.name)));
@@ -85,10 +133,20 @@ async fn add_extension(
     Err(StatusCode::BAD_REQUEST)
 }
 
-// Handler code for removing an extension
-async fn remove_extension(
+/// Remove an extension configuration
+#[utoipa::path(
+    delete,
+    path = "/config/extension",
+    request_body = ConfigKeyQuery,
+    responses(
+        (status = 200, description = "Extension removed successfully", body = String),
+        (status = 404, description = "Extension not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn remove_extension(
     Query(query): Query<ConfigKeyQuery>,
-    state: Arc<Mutex<HashMap<String, Value>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
 ) -> Result<Json<String>, StatusCode> {
     let mut config = state.lock().await;
     if let Some(extensions) = config.get_mut("extensions") {
@@ -102,17 +160,37 @@ async fn remove_extension(
     Err(StatusCode::NOT_FOUND)
 }
 
-// Handler code for reading all config values
-async fn read_all_config(
-    state: Arc<Mutex<HashMap<String, Value>>>
+/// Read all configuration values
+#[utoipa::path(
+    get,
+    path = "/config",
+    responses(
+        (status = 200, description = "All configuration values retrieved successfully", body = ConfigResponse)
+    )
+)]
+pub async fn read_all_config(
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
 ) -> Json<HashMap<String, Value>> {
     let config = state.lock().await;
     Json(config.clone())
 }
 
-// Persists the current state of the config to a YAML file
-fn persist_config(config: &HashMap<String, Value>) -> Result<(), std::io::Error> {
-    let yaml_string = to_yaml_string(config)?;
-    fs::write(CONFIG_FILE_PATH, yaml_string)?;
-    Ok(())
+fn persist_config(config: &HashMap<String, Value>) -> Result<(), StatusCode> {
+    to_yaml_string(config)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .and_then(|yaml_string| {
+            fs::write(CONFIG_FILE_PATH, yaml_string)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        })
+}
+
+pub fn routes(state: AppState) -> Router {
+    Router::new()
+        .route("/config", get(read_all_config))
+        .route("/config/upsert", post(upsert_config))
+        .route("/config/remove", delete(remove_config))
+        .route("/config/read", get(read_config))
+        .route("/config/extension", post(add_extension))
+        .route("/config/extension", delete(remove_extension))
+        .with_state(state.config)
 }
