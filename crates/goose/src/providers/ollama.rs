@@ -1,6 +1,6 @@
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
-use super::utils::{get_model, handle_response_openai_compat, ImageFormat};
+use super::utils::{get_model, handle_response_openai_compat};
 use crate::message::Message;
 use crate::model::ModelConfig;
 use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
@@ -164,8 +164,13 @@ impl Provider for OllamaProvider {
                 let new_instructions = formatdoc! {r#"
         The Developer extension enables you to edit code files, execute shell commands, and capture screen/window content. These tools allow for various development and debugging workflows.
         Available Tools:
-        1. Shell Execution (`shell`)
-        Executes commands in the shell and returns the combined output and error messages.
+        1. Shell Execution
+        Tool Name: developer__shell
+        Schema:
+        {{
+          "command": "string"  // The shell command to execute
+        }}
+        Description: Executes commands in the shell and returns the combined output and error messages.
         Use cases:
         - Running scripts: `python script.py`
         - Installing dependencies: `pip install -r requirements.txt`
@@ -178,8 +183,18 @@ impl Provider for OllamaProvider {
         - **Run background processes** if they take a long time (e.g., `uvicorn main:app &`).
         - **git commands can be run on the shell, however if the git extension is installed, you should use the git tool instead.
         - **If the shell command is a rm, mv, or cp, you should verify with the user before running the command.
-        2. Text Editor (`text_editor`)
-        Performs file-based operations such as viewing, writing, replacing text, and undoing edits.
+
+        2. Text Editor
+        Tool Name: developer__text_editor
+        Schema:
+        {{
+          "command": "string",     // One of: "view", "write", "str_replace", "undo_edit"
+          "file_path": "string",   // Absolute path to the file
+          "file_text": "string",   // Required for "write" command
+          "old_str": "string",     // Required for "str_replace" command
+          "new_str": "string"      // Required for "str_replace" command
+        }}
+        Description: Performs file-based operations such as viewing, writing, replacing text, and undoing edits.
         Commands:
         - view: Read the content of a file.
         - write: Create or overwrite a file. Caution: Overwrites the entire file!
@@ -196,11 +211,22 @@ impl Provider for OllamaProvider {
         - Assistant: "Ok sounds good, I'll be editing the file /absolute/path/to/file.py and creating modifications xyz to the file. Let me know whether you'd like to proceed."
         - User: "Yes, please proceed."
         - Assistant: "I've created the modifications xyz to the file /absolute/path/to/file.py"
-        3. List Windows (`list_windows`)
-        Lists all visible windows with their titles.
+
+        3. List Windows
+        Tool Name: developer__list_windows
+        Schema:
+        {{}}  // No arguments required
+        Description: Lists all visible windows with their titles.
         Use this to find window titles for screen capture.
-        4. Screen Capture (`screen_capture`)
-        Takes a screenshot of a display or specific window.
+
+        4. Screen Capture
+        Tool Name: developer__screen_capture
+        Schema:
+        {{
+          "display": "number",       // Optional: Display number to capture (e.g., 0 for main display)
+          "window_title": "string"   // Optional: Title of window to capture
+        }}
+        Description: Takes a screenshot of a display or specific window.
         Options:
         - Capture display: `screen_capture(display=0)`  # Main display
         - Capture window: `screen_capture(window_title="Window Title")`
