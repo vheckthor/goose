@@ -1,6 +1,6 @@
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
-use super::utils::{get_model, handle_response_openai_compat};
+use super::utils::{get_model, handle_response_openai_compat, ImageFormat};
 use crate::message::Message;
 use crate::model::ModelConfig;
 use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use indoc::formatdoc;
 use mcp_core::tool::Tool;
 use reqwest::Client;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::time::Duration;
 use url::Url;
 
@@ -53,7 +53,41 @@ impl OllamaProvider {
         })
     }
 
-    async fn post(&self, payload: Value) -> Result<Value, ProviderError> {
+    async fn post(&self, mut payload: Value) -> Result<Value, ProviderError> {
+        // Add format parameter for tool calls to ensure structured output
+        if payload.get("tools").is_some() {
+            let tool_call_schema = json!({
+                "type": "object",
+                "properties": {
+                    "user_message":
+                    {
+                        "type": "string"
+                    },
+                    "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        
+                            "name": {
+                                "type": "string",
+                            },
+                            "arguments": {
+                                "type": "array",
+                                "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                                }
+                            }
+                    }
+                    }
+                },
+                "required": ["tool_calls"]
+             });
+             payload["format"] = tool_call_schema;
+        }
+        payload["stream"] = json!(false);
+        
+
         // TODO: remove this later when the UI handles provider config refresh
         // OLLAMA_HOST is sometimes just the 'host' or 'host:port' without a scheme
         let base = if self.host.starts_with("http://") || self.host.starts_with("https://") {
@@ -73,9 +107,14 @@ impl OllamaProvider {
             })?;
         }
 
-        let url = base_url.join("v1/chat/completions").map_err(|e| {
+        let url = base_url.join("api/chat").map_err(|e| {
             ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
         })?;
+
+        if let Value::Object(ref mut map) = payload {
+            map.remove("tools");
+        }
+        println!("=====PAYLOAD====:\n{:?}", serde_json::to_string_pretty(&payload));
 
         let response = self.client.post(url).json(&payload).send().await?;
 
@@ -189,10 +228,12 @@ impl Provider for OllamaProvider {
             &self.model,
             &modified_system,
             messages,
+            // &vec![],
             tools,
             &super::utils::ImageFormat::OpenAi,
         )?;
         let response = self.post(payload.clone()).await?;
+        println!("======RESPONSE====\n{:?}", response);
 
         // Parse response
         let message = response_to_message(response.clone())?;

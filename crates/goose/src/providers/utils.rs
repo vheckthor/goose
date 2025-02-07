@@ -41,7 +41,7 @@ pub async fn handle_response_openai_compat(response: Response) -> Result<Value, 
     let status = response.status();
     // Try to parse the response body as JSON (if applicable)
     let payload: Option<Value> = response.json().await.ok();
-
+    println!("response: {:?}", serde_json::to_string_pretty(&payload));
     match status {
         StatusCode::OK => payload.ok_or_else( || ProviderError::RequestFailed("Response body is not valid JSON".to_string()) ),
         StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
