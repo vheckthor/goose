@@ -7,6 +7,7 @@ interact with multiple at once.
 When using tools, your responses must be formatted as JSON with the following structure:
 {
   "user_message": "string",
+  
   "tool_calls": [
     {
       "name": "string",

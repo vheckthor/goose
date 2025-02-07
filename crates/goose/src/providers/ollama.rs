@@ -1,7 +1,7 @@
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
 use super::utils::{get_model, handle_response_openai_compat};
-use crate::message::Message;
+use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
 use crate::providers::formats::openai::{create_request, get_usage, response_to_message};
 use anyhow::Result;
@@ -60,7 +60,7 @@ impl OllamaProvider {
             let tool_call_schema = json!({
                 "type": "object",
                 "properties": {
-                    "user_message":
+                    "reply_to_user":
                     {
                         "type": "string"
                     },
@@ -79,7 +79,7 @@ impl OllamaProvider {
                     }
                     }
                 },
-                "required": ["user_message", "tool_calls"]
+                "required": ["reply_to_user", "tool_calls"]
              });
              payload["format"] = tool_call_schema;
         }
@@ -122,7 +122,54 @@ impl OllamaProvider {
     fn parse_tool_call_response(&self, response: &Value) -> Result<Message, ProviderError> {
         let mut message = Message::assistant();
 
-        // Try to parse tool calls from the response
+        // Try to parse reply_to_user and tool_calls from the message content
+        if let Some(message_obj) = response.get("message") {
+            if let Some(content) = message_obj.get("content").and_then(|c| c.as_str()) {
+                // Try to parse the content as JSON
+                if let Ok(content_json) = serde_json::from_str::<Value>(content) {
+                    // Parse reply_to_user from the content JSON
+                    if let Some(reply) = content_json.get("reply_to_user").and_then(|r| r.as_str()) {
+                        message = message.with_text(reply.to_string());
+                    }
+
+                    // Try to parse tool_calls from the content JSON
+                    if let Some(tool_calls) = content_json.get("tool_calls").and_then(|tc| tc.as_array()) {
+                        let mut tool_call_messages = Vec::new();
+                        
+                        for tool_call in tool_calls {
+                            if let (Some(name), Some(arguments)) = (
+                                tool_call.get("name").and_then(|n| n.as_str()),
+                                tool_call.get("arguments")
+                            ) {
+                                tool_call_messages.push(json!({
+                                    "type": "function",
+                                    "function": {
+                                        "name": name,
+                                        "arguments": arguments.to_string()
+                                    }
+                                }));
+                            }
+                        }
+                        
+                        if !tool_call_messages.is_empty() {
+                            for tool_call in tool_call_messages {
+                                message = message.with_tool_request(
+                                    uuid::Uuid::new_v4().to_string(),
+                                    Ok(ToolCall::new(
+                                        tool_call["function"]["name"].as_str().unwrap_or_default().to_string(),
+                                        serde_json::from_str(&tool_call["function"]["arguments"].as_str().unwrap_or_default()).unwrap_or_default()
+                                    )),
+                                );
+                            }
+                        }
+                    }
+                    
+                    return Ok(message);
+                }
+            }
+        }
+
+        // Try to parse tool calls from the response directly as fallback
         if let Some(tool_calls) = response.get("tool_calls").and_then(|tc| tc.as_array()) {
             let mut tool_call_messages = Vec::new();
             
@@ -334,11 +381,43 @@ impl Provider for OllamaProvider {
             system.to_string()
         };
 
+        // Transform messages to convert tool calls into regular messages
+        let transformed_messages: Vec<Message> = messages.iter().map(|msg| {
+            if msg.is_tool_call() {
+                // Convert tool call request to assistant message
+                let content = msg.content.iter().find_map(|c| {
+                    if let MessageContent::ToolRequest(req) = c {
+                        Some(serde_json::to_string(&req.tool_call).unwrap_or_default())
+                    } else {
+                        None
+                    }
+                }).unwrap_or_default();
+                Message::assistant().with_text(content)
+            } else if msg.is_tool_response() {
+                // Convert tool call response to user message
+                let content = msg.content.iter().find_map(|c| {
+                    if let MessageContent::ToolResponse(resp) = c {
+                        match &resp.tool_result {
+                            Ok(contents) => Some(contents.iter()
+                                .filter_map(|c| c.as_text())
+                                .collect::<Vec<_>>()
+                                .join("\n")),
+                            Err(e) => Some(e.to_string())
+                        }
+                    } else {
+                        None
+                    }
+                }).unwrap_or_default();
+                Message::user().with_text(content)
+            } else {
+                msg.clone()
+            }
+        }).collect();
+
         let payload = create_request(
             &self.model,
             &modified_system,
-            messages,
-            // &vec![],
+            &transformed_messages,
             tools,
             &super::utils::ImageFormat::OpenAi,
         )?;
