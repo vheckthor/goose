@@ -374,7 +374,7 @@ mod tests {
         })];
 
         validate_tool_schemas(&mut tools);
-        
+
         let params = tools[0]["function"]["parameters"].as_object().unwrap();
         assert!(params.contains_key("properties"));
         assert!(params.contains_key("required"));
@@ -395,7 +395,7 @@ mod tests {
         })];
 
         validate_tool_schemas(&mut tools);
-        
+
         let params = tools[0]["function"]["parameters"].as_object().unwrap();
         assert_eq!(params["type"], "object");
 
