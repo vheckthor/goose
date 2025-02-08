@@ -253,6 +253,36 @@ pub fn get_usage(data: &Value) -> Result<Usage, ProviderError> {
     Ok(Usage::new(input_tokens, output_tokens, total_tokens))
 }
 
+/// Validates and fixes tool schemas to ensure they have proper parameter structure.
+/// If parameters exists, ensures it has properties and required fields, or removes parameters entirely.
+pub fn validate_tool_schemas(tools: &mut [Value]) {
+    for tool in tools.iter_mut() {
+        if let Some(function) = tool.get_mut("function") {
+            if let Some(parameters) = function.get_mut("parameters") {
+                // If parameters exists but doesn't have properties and required, add them
+                if parameters.is_object() {
+                    let params_obj = parameters.as_object_mut().unwrap();
+
+                    // Ensure type field exists
+                    if !params_obj.contains_key("type") {
+                        params_obj.insert("type".to_string(), json!("object"));
+                    }
+
+                    // Ensure properties field exists
+                    if !params_obj.contains_key("properties") {
+                        params_obj.insert("properties".to_string(), json!({}));
+                    }
+
+                    // Ensure required field exists
+                    if !params_obj.contains_key("required") {
+                        params_obj.insert("required".to_string(), json!([]));
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn create_request(
     model_config: &ModelConfig,
     system: &str,
@@ -275,11 +305,14 @@ pub fn create_request(
     });
 
     let messages_spec = format_messages(messages, image_format);
-    let tools_spec = if !tools.is_empty() {
+    let mut tools_spec = if !tools.is_empty() {
         format_tools(tools)?
     } else {
         vec![]
     };
+
+    // Validate tool schemas
+    validate_tool_schemas(&mut tools_spec);
 
     let mut messages_array = vec![system_message];
     messages_array.extend(messages_spec);
@@ -325,6 +358,70 @@ mod tests {
     use super::*;
     use mcp_core::content::Content;
     use serde_json::json;
+
+    #[test]
+    fn test_validate_tool_schemas() {
+        // Test case 1: Empty parameters object
+        let mut tools = vec![json!({
+            "type": "function",
+            "function": {
+                "name": "test_func",
+                "description": "test description",
+                "parameters": {
+                    "type": "object"
+                }
+            }
+        })];
+
+        validate_tool_schemas(&mut tools);
+        
+        let params = tools[0]["function"]["parameters"].as_object().unwrap();
+        assert!(params.contains_key("properties"));
+        assert!(params.contains_key("required"));
+        assert_eq!(params["type"], "object");
+        assert_eq!(params["properties"], json!({}));
+        assert_eq!(params["required"], json!([]));
+
+        // Test case 2: Missing type field
+        let mut tools = vec![json!({
+            "type": "function",
+            "function": {
+                "name": "test_func",
+                "description": "test description",
+                "parameters": {
+                    "properties": {}
+                }
+            }
+        })];
+
+        validate_tool_schemas(&mut tools);
+        
+        let params = tools[0]["function"]["parameters"].as_object().unwrap();
+        assert_eq!(params["type"], "object");
+
+        // Test case 3: Complete valid schema should remain unchanged
+        let original_schema = json!({
+            "type": "function",
+            "function": {
+                "name": "test_func",
+                "description": "test description",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "City and country"
+                        }
+                    },
+                    "required": ["location"]
+                }
+            }
+        });
+
+        let mut tools = vec![original_schema.clone()];
+        validate_tool_schemas(&mut tools);
+        assert_eq!(tools[0], original_schema);
+    }
 
     const OPENAI_TOOL_USE_RESPONSE: &str = r#"{
         "choices": [{
