@@ -6,6 +6,20 @@ use tokio::sync::Mutex;
 use crate::{state::AppState, config_manager::ConfigManager};
 use utoipa::ToSchema;
 use tracing;
+use once_cell::sync::Lazy;
+
+static CONFIG_MANAGER: Lazy<ConfigManager> = Lazy::new(|| {
+    ConfigManager::new(
+        "goose",
+        dirs::home_dir()
+            .expect("goose requires a home dir")
+            .join(".config")
+            .join("goose")
+            .to_str()
+            .unwrap(),
+    ).expect("Failed to initialize ConfigManager")
+});
+
 
 fn config_manager() -> ConfigManager {
     let config_dir = dirs::home_dir()
