@@ -277,6 +277,37 @@ pub fn validate_tool_schemas(tools: &mut [Value]) {
                     if !params_obj.contains_key("required") {
                         params_obj.insert("required".to_string(), json!([]));
                     }
+
+                    // Validate and fix property schemas
+                    if let Some(properties) = params_obj.get_mut("properties").and_then(|p| p.as_object_mut()) {
+                        for (_, prop_schema) in properties.iter_mut() {
+                            if let Some(prop_obj) = prop_schema.as_object_mut() {
+                                // For string types, remove format if it's not an enum
+                                if prop_obj.get("type") == Some(&json!("string")) {
+                                    if let Some(format) = prop_obj.get("format") {
+                                        if format != &json!("enum") {
+                                            prop_obj.remove("format");
+                                        }
+                                    }
+                                }
+
+                                // For object types, ensure properties exists and is non-empty
+                                if prop_obj.get("type") == Some(&json!("object")) {
+                                    if !prop_obj.get("properties")
+                                        .and_then(|p| p.as_object())
+                                        .map_or(false, |p| !p.is_empty())
+                                    {
+                                        prop_obj.insert("properties".to_string(), json!({
+                                            "value": {
+                                                "type": "string",
+                                                "description": "Default property for object type"
+                                            }
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
