@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Config } from '../../api/config';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card } from '../ui/card';
 import { useNavigate } from 'react-router-dom';
 import BackButton from '../ui/BackButton';
+import { useConfig } from '../../hooks/useConfig';
 import type { View } from '@/src/ChatWindow';
 
 interface ConfigItem {
@@ -21,74 +21,51 @@ export function ConfigPage({
   setView?: (view: View) => void;
 }) {
   const [configs, setConfigs] = useState<Record<string, any>>({});
-  const [loading, setLoading] = useState(true);
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const { loading, error, loadConfigs, addConfig, removeConfig } = useConfig();
 
   // Fetch all configs on component mount
   useEffect(() => {
-    loadConfigs();
-  }, []);
-
-  const loadConfigs = async () => {
-    try {
-      setLoading(true);
-      console.log('[loadConfigs] attempting to load all configs');
-      const response = await Config.readAll();
-      console.log('[loadConfigs] result / response:', response);
-      setConfigs(response || {});
-      setError(null);
-    } catch (err) {
-      setError('Failed to load configurations');
-      console.error('Error loading configs:', err);
-      setConfigs({});
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchConfigs = async () => {
+      const result = await loadConfigs();
+      setConfigs(result);
+    };
+    fetchConfigs();
+  }, [loadConfigs]);
 
   const handleAddConfig = async () => {
     if (!newKey || !newValue) {
-      setError('Both key and value are required');
       return;
     }
 
-    try {
-      let parsedValue = newValue;
-      // Try to parse as JSON if it looks like JSON
-      if (newValue.trim().startsWith('{') || newValue.trim().startsWith('[')) {
-        try {
-          parsedValue = JSON.parse(newValue);
-        } catch (e) {
-          // If parsing fails, use the original string value
-          console.log('Value is not valid JSON, using as string');
-        }
+    let parsedValue = newValue;
+    // Try to parse as JSON if it looks like JSON
+    if (newValue.trim().startsWith('{') || newValue.trim().startsWith('[')) {
+      try {
+        parsedValue = JSON.parse(newValue);
+      } catch (e) {
+        // If parsing fails, use the original string value
+        console.log('Value is not valid JSON, using as string');
       }
-      console.log('[handleAddConfig] upserting key:', newKey, 'value', parsedValue);
-      await Config.upsert(newKey, parsedValue);
-      console.log('[handleAddConfig] success upserting key');
+    }
+
+    const success = await addConfig(newKey, parsedValue);
+    if (success) {
       setNewKey('');
       setNewValue('');
-      setError(null);
-      console.log('[handleAddConfig] reloading the configs');
-      await loadConfigs(); // Reload the configs
-      console.log('[handleAddConfig] success reloading');
-    } catch (err) {
-      setError('Failed to add configuration');
-      console.error('Error adding config:', err);
+      const updatedConfigs = await loadConfigs();
+      setConfigs(updatedConfigs);
     }
   };
 
   const handleRemoveConfig = async (key: string) => {
-    try {
-      await Config.remove(key);
-      await loadConfigs(); // Reload the configs
-      setError(null);
-    } catch (err) {
-      setError(`Failed to remove configuration: ${key}`);
-      console.error('Error removing config:', err);
+    const success = await removeConfig(key);
+    if (success) {
+      const updatedConfigs = await loadConfigs();
+      setConfigs(updatedConfigs);
     }
   };
 
@@ -128,14 +105,16 @@ export function ConfigPage({
                     className="mt-1"
                   />
                 </div>
-                <Button onClick={handleAddConfig}>Add Configuration</Button>
+                <Button onClick={handleAddConfig} disabled={loading}>
+                  {loading ? 'Adding...' : 'Add Configuration'}
+                </Button>
               </div>
             </Card>
 
             {/* Error display */}
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
+                {error.message}
               </div>
             )}
 
@@ -166,8 +145,9 @@ export function ConfigPage({
                         onClick={() => handleRemoveConfig(key)}
                         size="sm"
                         className="ml-4 shrink-0"
+                        disabled={loading}
                       >
-                        Remove
+                        {loading ? '...' : 'Remove'}
                       </Button>
                     </div>
                   ))
