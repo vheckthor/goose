@@ -1,11 +1,38 @@
 use axum::{routing::{get, post, delete}, Json, http::StatusCode, Router, extract::{Query, State}};
 use serde::{Deserialize, Serialize};
-use serde_yaml::{Value, to_string as to_yaml_string};
+use serde_yaml::{Value, to_string as to_yaml_string, from_str as from_yaml_str};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 use crate::state::AppState;
 use std::fs;
 use utoipa::ToSchema;
+use tracing;
+
+fn get_config_path() -> Result<std::path::PathBuf, StatusCode> {
+    let home_dir = dirs::home_dir().ok_or_else(|| {
+        tracing::error!("Could not determine home directory");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    Ok(home_dir.join(".config").join("goose").join("config.yaml"))
+}
+
+fn load_config_from_disk() -> Result<HashMap<String, Value>, StatusCode> {
+    let config_path = get_config_path()?;
+    if !config_path.exists() {
+        tracing::debug!("Config file does not exist, returning empty config");
+        return Ok(HashMap::new());
+    }
+
+    let contents = fs::read_to_string(&config_path).map_err(|e| {
+        tracing::error!("Failed to read config file: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    from_yaml_str(&contents).map_err(|e| {
+        tracing::error!("Failed to parse config file: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })
+}
 
 #[derive(Deserialize, ToSchema)]
 pub struct UpsertConfigQuery {
@@ -38,8 +65,6 @@ pub struct ConfigResponse {
     pub config: HashMap<String, Value>,
 }
 
-const CONFIG_FILE_PATH: &str = "~/.config/goose/config.yaml";
-
 /// Upsert a configuration value
 #[utoipa::path(
     post,
@@ -51,19 +76,30 @@ const CONFIG_FILE_PATH: &str = "~/.config/goose/config.yaml";
     )
 )]
 pub async fn upsert_config(
-    Query(query): Query<UpsertConfigQuery>,
-    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>,
+    Json(query): Json<UpsertConfigQuery>
 ) -> Result<Json<Value>, StatusCode> {
+    tracing::debug!("Upserting config: {:?}", query.key);
     let mut config = state.lock().await;
     let key = query.key;
+    let value_str = serde_json::to_string(&query.value).unwrap_or_default();
+    tracing::debug!("Value to insert: {}", value_str);
     config.insert(key.clone(), query.value.clone());
-    persist_config(&config).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    Ok(Json(Value::String(format!("Upserted key {}", key))))
+    match persist_config(&config) {
+        Ok(_) => {
+            tracing::debug!("Successfully persisted config");
+            Ok(Json(Value::String(format!("Upserted key {}", key))))
+        },
+        Err(e) => {
+            tracing::error!("Failed to persist config: {:?}", e);
+            Err(e)
+        }
+    }
 }
 
 /// Remove a configuration value
 #[utoipa::path(
-    delete,
+    post,
     path = "/config/remove",
     request_body = ConfigKeyQuery,
     responses(
@@ -73,8 +109,8 @@ pub async fn upsert_config(
     )
 )]
 pub async fn remove_config(
-    Query(query): Query<ConfigKeyQuery>,
-    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>,
+    Json(query): Json<ConfigKeyQuery>
 ) -> Result<Json<String>, StatusCode> {
     let mut config = state.lock().await;
     let key = query.key;
@@ -97,10 +133,12 @@ pub async fn remove_config(
     )
 )]
 pub async fn read_config(
-    Query(query): Query<ConfigKeyQuery>,
-    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>,
+    Json(query): Json<ConfigKeyQuery>
 ) -> Result<Json<Value>, StatusCode> {
-    let config = state.lock().await;
+    let mut config = state.lock().await;
+    *config = load_config_from_disk()?;
+    
     if let Some(value) = config.get(&query.key) {
         Ok(Json(value.clone()))
     } else {
@@ -146,8 +184,8 @@ pub async fn add_extension(
     )
 )]
 pub async fn remove_extension(
-    Query(query): Query<ConfigKeyQuery>,
-    State(state): State<Arc<Mutex<HashMap<String, Value>>>>
+    State(state): State<Arc<Mutex<HashMap<String, Value>>>>,
+    Json(query): Json<ConfigKeyQuery>
 ) -> Result<Json<String>, StatusCode> {
     let mut config = state.lock().await;
     if let Some(extensions) = config.get_mut("extensions") {
@@ -171,26 +209,49 @@ pub async fn remove_extension(
 )]
 pub async fn read_all_config(
     State(state): State<Arc<Mutex<HashMap<String, Value>>>>
-) -> Json<HashMap<String, Value>> {
-    let config = state.lock().await;
-    Json(config.clone())
+) -> Json<ConfigResponse> {
+    let mut config = state.lock().await;
+    match load_config_from_disk() {
+        Ok(disk_config) => {
+            *config = disk_config;
+            Json(ConfigResponse { config: config.clone() })
+        },
+        Err(e) => {
+            tracing::error!("Failed to load config from disk: {:?}", e);
+            Json(ConfigResponse { config: HashMap::new() })
+        }
+    }
 }
 
 fn persist_config(config: &HashMap<String, Value>) -> Result<(), StatusCode> {
-    to_yaml_string(config)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-        .and_then(|yaml_string| {
-            fs::write(CONFIG_FILE_PATH, yaml_string)
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-        })
+    let home_dir = dirs::home_dir().ok_or_else(|| {
+        tracing::error!("Could not determine home directory");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let config_dir = home_dir.join(".config").join("goose");
+    std::fs::create_dir_all(&config_dir).map_err(|e| {
+        tracing::error!("Failed to create config directory: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let config_path = config_dir.join("config.yaml");
+    
+    let yaml_string = to_yaml_string(config).map_err(|e| {
+        tracing::error!("Failed to serialize config to YAML: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    fs::write(&config_path, yaml_string).map_err(|e| {
+        tracing::error!("Failed to write config file: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })
 }
 
 pub fn routes(state: AppState) -> Router {
     Router::new()
         .route("/config", get(read_all_config))
         .route("/config/upsert", post(upsert_config))
-        .route("/config/remove", delete(remove_config))
-        .route("/config/read", get(read_config))
+        .route("/config/remove", post(remove_config))
+        .route("/config/read", post(read_config))
         .route("/config/extension", post(add_extension))
         .route("/config/extension", delete(remove_extension))
         .with_state(state.config)

@@ -82,7 +82,7 @@ export class SuperRoutesConfigManagementService {
    */
   public static removeConfig(requestBody: ConfigKeyQuery): CancelablePromise<string> {
     return __request(OpenAPI, {
-      method: 'DELETE',
+      method: 'POST',
       url: '/config/remove',
       body: requestBody,
       mediaType: 'application/json',
