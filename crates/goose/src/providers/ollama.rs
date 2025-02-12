@@ -13,6 +13,21 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use std::time::Duration;
 use url::Url;
+use regex::Regex;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref THINK_PATTERN: Regex = Regex::new(r"<think>(.*?)</think>").unwrap();
+    static ref ANSWER_SCHEMA: Value = json!({
+        "type": "object",
+        "properties": {
+            "problem": {"type": "string"},
+            "solution": {"type": "number"},
+            "explanation": {"type": "string"}
+        },
+        "required": ["problem", "solution", "explanation"]
+    });
+}
 
 pub const OLLAMA_HOST: &str = "localhost";
 pub const OLLAMA_DEFAULT_PORT: u16 = 11434;
@@ -37,6 +52,16 @@ impl Default for OllamaProvider {
 }
 
 impl OllamaProvider {
+    fn parse_thinking_response(&self, response: &Value) -> Option<String> {
+        response.get("message")
+            .and_then(|msg| msg.get("content"))
+            .and_then(|content| content.as_str())
+            .and_then(|content| {
+                THINK_PATTERN.captures(content)
+                    .map(|cap| cap[1].trim().to_string())
+            })
+    }
+
     pub fn from_env(model: ModelConfig) -> Result<Self> {
         let config = crate::config::Config::global();
         let host: String = config
@@ -55,7 +80,34 @@ impl OllamaProvider {
     }
 
     async fn post(&self, mut payload: Value) -> Result<Value, ProviderError> {
-        // Add format parameter for tool calls to ensure structured output
+        // Get initial response without format parameter
+        payload["stream"] = json!(false);
+        
+        // Make initial request
+        let initial_response = self.make_request(payload.clone()).await?;
+        
+        // Check for thinking tags
+        if let Some(thinking_content) = self.parse_thinking_response(&initial_response) {
+            // Add thinking content as assistant message
+            if let Value::Array(ref mut messages) = payload["messages"] {
+                messages.push(json!({
+                    "role": "assistant",
+                    "content": thinking_content
+                }));
+                messages.push(json!({
+                    "role": "user",
+                    "content": "return a json in the format"
+                }));
+            }
+            
+            // Add format parameter for structured output
+            payload["format"] = ANSWER_SCHEMA.clone();
+            
+            // Make second request with structured output format
+            return self.make_request(payload).await;
+        }
+        
+        // If no thinking tags, handle tool calls format
         if payload.get("tools").is_some() {
             let tool_call_schema = json!({
                 "type": "object",
@@ -82,11 +134,14 @@ impl OllamaProvider {
                 },
                 "required": ["reply_to_user", "tool_calls"]
             });
-             payload["format"] = tool_call_schema;
+            payload["format"] = tool_call_schema;
+            return self.make_request(payload).await;
         }
-        payload["stream"] = json!(false);
         
-
+        Ok(initial_response)
+    }
+    
+    async fn make_request(&self, payload: Value) -> Result<Value, ProviderError> {
         // TODO: remove this later when the UI handles provider config refresh
         // OLLAMA_HOST is sometimes just the 'host' or 'host:port' without a scheme
         let base = if self.host.starts_with("http://") || self.host.starts_with("https://") {
@@ -110,9 +165,12 @@ impl OllamaProvider {
             ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
         })?;
 
-        if let Value::Object(ref mut map) = payload {
+        let payload = if let Value::Object(mut map) = payload {
             map.remove("tools");
-        }
+            Value::Object(map)
+        } else {
+            payload
+        };
         // println!("=====PAYLOAD====:\n{:?}", serde_json::to_string_pretty(&payload));
 
         let response = self.client.post(url).json(&payload).send().await?;
