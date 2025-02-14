@@ -188,6 +188,7 @@ impl Session {
     }
 
     async fn process_agent_response(&mut self, mut editor: &mut Editor<(), rustyline::history::DefaultHistory>) -> Result<()> {
+        println!("mod.rs process_agent_response: starting");
         let mut stream = self.agent.reply(&self.messages).await?;
 
         use futures::StreamExt;
@@ -204,12 +205,12 @@ impl Session {
 
                                 // Format the confirmation prompt
                                 let prompt = format!(
-                                    "Session process_agent_response: \n Assistant wants to use tool: {}\nWith arguments: {}\nAllow? (y/n): ",
+                                    "mod.rs process_agent_response: \n Assistant wants to use tool: {}\nWith arguments: {}\nAllow? (y/n): ",
                                     confirmation.tool_name,
                                     serde_json::to_string_pretty(&confirmation.arguments).unwrap_or_default()
                                 );
                                 output::render_message(&Message::assistant().with_text(&prompt));
-                                
+
                                 // Get confirmation from user
                                 let confirmed = match input::get_input(&mut editor)? {
                                     input::InputResult::Message(content) => {
@@ -217,10 +218,9 @@ impl Session {
                                     }
                                     _ => false,
                                 };
-                                println!("CONFIRMATION : {}", confirmed);
+                                println!("mod.rs process_agent_response: CONFIRMATION : {}", confirmed);
                             }
-
-                            
+                            println!("mod.rs process_agent_response: this is the message: {:?}", message);
                             storage::persist_messages(&self.session_file, &self.messages)?;
                             output::hide_thinking();
                             output::render_message(&message);

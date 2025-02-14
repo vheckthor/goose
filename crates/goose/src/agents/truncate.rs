@@ -187,10 +187,12 @@ impl Agent for TruncateAgent {
         {
             debug!("user_message" = &content);
         }
+        println!("truncate.rs reply: user messages: {:?}", messages);
 
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
+                println!("LOOP");
                 // Attempt to get completion from provider
                 match capabilities.provider().complete(
                     &system_prompt,
