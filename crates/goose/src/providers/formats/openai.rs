@@ -136,6 +136,12 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                         }
                     }
                 }
+                MessageContent::ToolConfirmationRequest(tool_confirmation_request) => {
+                    converted["content"] = json!(format!("Do you want to run tool '{}' with id '{}' and input '{}'?", 
+                        tool_confirmation_request.tool_name,
+                        tool_confirmation_request.id,
+                        tool_confirmation_request.arguments));
+                }
                 MessageContent::Image(image) => {
                     // Handle direct image content
                     converted["content"] = json!([convert_image(image, image_format)]);

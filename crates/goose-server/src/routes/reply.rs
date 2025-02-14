@@ -247,9 +247,11 @@ async fn stream_message(
                                 .await?;
                         }
                     }
+                    MessageContent::ToolConfirmationRequest(_) => {
+                        // TODO
+                    }
                     MessageContent::Image(_) => {
                         // TODO
-                        continue;
                     }
                     MessageContent::ToolResponse(_) => {
                         // Tool responses should only come from the user

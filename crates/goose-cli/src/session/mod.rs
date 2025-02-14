@@ -15,6 +15,7 @@ use mcp_core::handler::ToolError;
 use rand::{distributions::Alphanumeric, Rng};
 use std::path::PathBuf;
 use tokio;
+use rustyline::Editor;
 
 use crate::log_usage::log_usage;
 
@@ -103,7 +104,7 @@ impl Session {
     }
 
     pub async fn start(&mut self) -> Result<()> {
-        let mut editor = rustyline::Editor::<(), rustyline::history::DefaultHistory>::new()?;
+        let mut editor = Editor::<(), rustyline::history::DefaultHistory>::new()?;
 
         // Load history from messages
         for msg in self
@@ -128,7 +129,7 @@ impl Session {
                     storage::persist_messages(&self.session_file, &self.messages)?;
 
                     output::show_thinking();
-                    self.process_agent_response().await?;
+                    self.process_agent_response(&mut editor).await?;
                     output::hide_thinking();
                 }
                 input::InputResult::Exit => break,
@@ -181,11 +182,12 @@ impl Session {
         self.messages
             .push(Message::user().with_text(&initial_message));
         storage::persist_messages(&self.session_file, &self.messages)?;
-        self.process_agent_response().await?;
+        let mut editor = Editor::<(), rustyline::history::DefaultHistory>::new()?;
+        self.process_agent_response(&mut editor).await?;
         Ok(())
     }
 
-    async fn process_agent_response(&mut self) -> Result<()> {
+    async fn process_agent_response(&mut self, mut editor: &mut Editor<(), rustyline::history::DefaultHistory>) -> Result<()> {
         let mut stream = self.agent.reply(&self.messages).await?;
 
         use futures::StreamExt;
@@ -195,6 +197,30 @@ impl Session {
                     match result {
                         Some(Ok(message)) => {
                             self.messages.push(message.clone());
+
+                            // Handle tool confirmation requests before rendering
+                            if let Some(MessageContent::ToolConfirmationRequest(confirmation)) = message.content.first() {
+                                output::hide_thinking();
+
+                                // Format the confirmation prompt
+                                let prompt = format!(
+                                    "Session process_agent_response: \n Assistant wants to use tool: {}\nWith arguments: {}\nAllow? (y/n): ",
+                                    confirmation.tool_name,
+                                    serde_json::to_string_pretty(&confirmation.arguments).unwrap_or_default()
+                                );
+                                output::render_message(&Message::assistant().with_text(&prompt));
+                                
+                                // Get confirmation from user
+                                let confirmed = match input::get_input(&mut editor)? {
+                                    input::InputResult::Message(content) => {
+                                        content.trim().to_lowercase().starts_with('y')
+                                    }
+                                    _ => false,
+                                };
+                                println!("CONFIRMATION : {}", confirmed);
+                            }
+
+                            
                             storage::persist_messages(&self.session_file, &self.messages)?;
                             output::hide_thinking();
                             output::render_message(&message);
