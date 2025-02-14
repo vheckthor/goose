@@ -128,7 +128,7 @@ fn render_tool_response(resp: &ToolResponse, theme: Theme) {
                 let min_priority = config
                     .get::<f32>("GOOSE_CLI_MIN_PRIORITY")
                     .ok()
-                    .unwrap_or(0.0);
+                    .unwrap_or(0.8);
 
                 if content
                     .priority()
