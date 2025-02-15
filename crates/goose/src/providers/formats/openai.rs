@@ -191,6 +191,15 @@ pub fn response_to_message(response: Value) -> anyhow::Result<Message> {
     println!("openai.rs response_to_message: original: {:?}", original);
     let mut content = Vec::new();
 
+    // Handle case where response has both content and tool calls
+    if original.get("content").is_some() && original.get("tool_calls").is_some() {
+        if let Some(text) = original.get("content") {
+            if let Some(text_str) = text.as_str() {
+                content.push(MessageContent::text(&format!("{} Would you like to proceed with the tool call?", text_str)));
+            }
+        }
+    }
+
     if let Some(text) = original.get("content") {
         if let Some(text_str) = text.as_str() {
             content.push(MessageContent::text(text_str));

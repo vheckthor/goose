@@ -196,8 +196,7 @@ impl Session {
             tokio::select! {
                 result = stream.next() => {
                     match result {
-                        Some(Ok(message)) => {
-                            self.messages.push(message.clone());
+                        Some(Ok(mut message)) => {
 
                             // Handle tool confirmation requests before rendering
                             if let Some(MessageContent::ToolConfirmationRequest(confirmation)) = message.content.first() {
@@ -210,6 +209,7 @@ impl Session {
                                     serde_json::to_string_pretty(&confirmation.arguments).unwrap_or_default()
                                 );
                                 output::render_message(&Message::assistant().with_text(&prompt));
+                                // output::render_message(&prompt); // does it need to be a message?
 
                                 // Get confirmation from user
                                 let confirmed = match input::get_input(&mut editor)? {
@@ -218,8 +218,16 @@ impl Session {
                                     }
                                     _ => false,
                                 };
+                                let confirmation = Message::user().with_tool_confirmation_request(
+                                    confirmation.id.clone(),
+                                    confirmation.tool_name.clone(), 
+                                    confirmation.arguments.clone(),
+                                );
                                 println!("mod.rs process_agent_response: CONFIRMATION : {}", confirmed);
+                                message = confirmation;
                             }
+                            self.messages.push(message.clone());
+
                             println!("mod.rs process_agent_response: this is the message: {:?}", message);
                             storage::persist_messages(&self.session_file, &self.messages)?;
                             output::hide_thinking();

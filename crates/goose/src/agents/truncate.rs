@@ -193,6 +193,7 @@ impl Agent for TruncateAgent {
             let _reply_guard = reply_span.enter();
             loop {
                 println!("LOOP");
+                println!("LOOP MESSAGES: {:?}", messages);
                 // Attempt to get completion from provider
                 match capabilities.provider().complete(
                     &system_prompt,
@@ -224,7 +225,7 @@ impl Agent for TruncateAgent {
                         for request in &tool_requests {
                             println!("truncate.rs reply request: {:?}", request);
                             if let Ok(tool_call) = request.tool_call.clone() {
-                                let confirmation = Message::assistant().with_tool_confirmation_request(
+                                let confirmation = Message::user().with_tool_confirmation_request(
                                     request.id.clone(),
                                     tool_call.name.clone(),
                                     tool_call.arguments.clone(),
@@ -233,6 +234,10 @@ impl Agent for TruncateAgent {
                                 yield confirmation;
                             }
                         }
+                        let confirm_tool_calls = Message::assistant().with_text("Dispatching tool calls...");
+                        yield confirm_tool_calls;
+
+                        // TODO: get confirmation from user via channel about which tools to dispatch
 
                         // Then dispatch each in parallel
                         let futures: Vec<_> = tool_requests
