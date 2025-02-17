@@ -7,8 +7,8 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Digest;
-use std::{collections::HashMap, fs, net::SocketAddr, path::PathBuf, sync::Arc};
 use std::fs::OpenOptions;
+use std::{collections::HashMap, fs, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::oneshot;
 use url::Url;
 
@@ -51,7 +51,7 @@ impl TokenCache {
         let cache_path = get_base_path().join(format!("{}.json", hash));
         let lock_path = get_base_path().join(format!("{}.lock", hash));
 
-        Self { 
+        Self {
             cache_path,
             lock_path,
         }
