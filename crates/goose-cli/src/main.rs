@@ -4,12 +4,12 @@ use clap::{CommandFactory, Parser, Subcommand};
 use console::style;
 use goose::config::Config;
 use goose_cli::commands::agent_version::AgentCommand;
+use goose_cli::commands::bench::run_benchmark;
 use goose_cli::commands::configure::handle_configure;
 use goose_cli::commands::mcp::run_server;
 use goose_cli::logging::setup_logging;
 use goose_cli::session::build_session;
 use std::io::{self, Read};
-use goose_cli::commands::bench::run_benchmark;
 
 #[derive(Parser)]
 #[command(author, version, display_name = "", about, long_about = None)]
@@ -143,7 +143,17 @@ enum Command {
     Agents(AgentCommand),
 
     /// Run benchmark suite
-    Bench {},
+    Bench {
+        #[arg(
+            short = 's',
+            long = "suites",
+            value_name = "BENCH_SUITE_NAME",
+            help = "Run this list of bench-suites.",
+            long_help = "Specify a comma-separated list of evaluation-suite names to be run.",
+            value_delimiter = ','
+        )]
+        suites: Vec<String>,
+    },
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -166,24 +176,24 @@ async fn main() -> Result<()> {
             let _ = run_server(&name).await;
         }
         Some(Command::Session {
-            name,
-            resume,
-            extension,
-            builtin,
-        }) => {
+                 name,
+                 resume,
+                 extension,
+                 builtin,
+             }) => {
             let mut session = build_session(name, resume, extension, builtin).await;
             setup_logging(session.session_file().file_stem().and_then(|s| s.to_str()))?;
             let _ = session.start().await;
             return Ok(());
         }
         Some(Command::Run {
-            instructions,
-            input_text,
-            name,
-            resume,
-            extension,
-            builtin,
-        }) => {
+                 instructions,
+                 input_text,
+                 name,
+                 resume,
+                 extension,
+                 builtin,
+             }) => {
             // Validate that we have some input source
             if instructions.is_none() && input_text.is_none() {
                 eprintln!("Error: Must provide either --instructions or --text");
@@ -211,8 +221,11 @@ async fn main() -> Result<()> {
             cmd.run()?;
             return Ok(());
         }
-        Some(Command::Bench {}) => {
-            run_benchmark().await;
+        Some(Command::Bench {
+            suites,
+             }) => {
+            let suites = if suites.is_empty() { vec!["core".to_string()] } else { suites };
+            run_benchmark(suites).await;
             return Ok(());
         }
         None => {

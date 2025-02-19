@@ -299,4 +299,8 @@ impl Session {
     pub fn session_file(&self) -> PathBuf {
         self.session_file.clone()
     }
+
+    pub fn message_history(&self) -> Vec<Message> {
+        self.messages.clone()
+    }
 }
