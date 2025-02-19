@@ -176,24 +176,24 @@ async fn main() -> Result<()> {
             let _ = run_server(&name).await;
         }
         Some(Command::Session {
-                 name,
-                 resume,
-                 extension,
-                 builtin,
-             }) => {
+            name,
+            resume,
+            extension,
+            builtin,
+        }) => {
             let mut session = build_session(name, resume, extension, builtin).await;
             setup_logging(session.session_file().file_stem().and_then(|s| s.to_str()))?;
             let _ = session.start().await;
             return Ok(());
         }
         Some(Command::Run {
-                 instructions,
-                 input_text,
-                 name,
-                 resume,
-                 extension,
-                 builtin,
-             }) => {
+            instructions,
+            input_text,
+            name,
+            resume,
+            extension,
+            builtin,
+        }) => {
             // Validate that we have some input source
             if instructions.is_none() && input_text.is_none() {
                 eprintln!("Error: Must provide either --instructions or --text");
@@ -221,10 +221,12 @@ async fn main() -> Result<()> {
             cmd.run()?;
             return Ok(());
         }
-        Some(Command::Bench {
-            suites,
-             }) => {
-            let suites = if suites.is_empty() { vec!["core".to_string()] } else { suites };
+        Some(Command::Bench { suites }) => {
+            let suites = if suites.is_empty() {
+                vec!["core".to_string()]
+            } else {
+                suites
+            };
             run_benchmark(suites).await;
             return Ok(());
         }
