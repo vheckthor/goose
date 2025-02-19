@@ -9,6 +9,7 @@ use goose_cli::commands::mcp::run_server;
 use goose_cli::logging::setup_logging;
 use goose_cli::session::build_session;
 use std::io::{self, Read};
+use goose_cli::commands::bench::run_benchmark;
 
 #[derive(Parser)]
 #[command(author, version, display_name = "", about, long_about = None)]
@@ -140,6 +141,9 @@ enum Command {
 
     /// List available agent versions
     Agents(AgentCommand),
+
+    /// Run benchmark suite
+    Bench {},
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -205,6 +209,10 @@ async fn main() -> Result<()> {
         }
         Some(Command::Agents(cmd)) => {
             cmd.run()?;
+            return Ok(());
+        }
+        Some(Command::Bench {}) => {
+            run_benchmark().await;
             return Ok(());
         }
         None => {
