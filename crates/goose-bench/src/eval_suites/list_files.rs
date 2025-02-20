@@ -20,6 +20,7 @@ impl Evaluation for DeveloperListFiles {
         
         // Send the prompt to list files
         let messages = agent.prompt("list the files in the current directory".to_string()).await?;
+        // println!("asdhflkahjsdflkasdfl");
         
         // Check if the assistant makes appropriate tool calls
         let valid_tool_call = messages.iter().any(|msg| {

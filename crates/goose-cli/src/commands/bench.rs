@@ -17,8 +17,9 @@ pub async fn run_benchmark(suites: Vec<String>) {
         .into_iter()
         .filter(|&s| suites.contains(&s.to_string()))
         .collect::<Vec<_>>();
-
+    println!("{suites:?}");
     for suite in suites {
+        println!("{suite}");
         let evaluations = match EvaluationSuiteFactory::create(suite) {
             Some(evaluations) => evaluations,
             None => continue,
