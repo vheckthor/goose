@@ -227,7 +227,7 @@ async fn main() -> Result<()> {
             } else {
                 suites
             };
-            run_benchmark(suites).await;
+            let _ = run_benchmark(suites).await;
             return Ok(());
         }
         None => {
