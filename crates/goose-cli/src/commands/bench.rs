@@ -24,7 +24,10 @@ pub async fn run_benchmark(suites: Vec<String>) {
             Some(evaluations) => evaluations,
             None => continue,
         };
+        // println!("Evaluations; {evaluations:?}");
         for evaluation in evaluations {
+            let name = &evaluation.name();
+            println!("{name}");
             let session = build_session(None, false, Vec::new(), Vec::new()).await;
             let _ = match evaluation.run(Box::new(session)).await {
                 Ok(report) => report,

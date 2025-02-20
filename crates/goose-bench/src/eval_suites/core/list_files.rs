@@ -5,7 +5,9 @@ use mcp_core::role::Role;
 use goose::message::MessageContent;
 use serde_json;
 
-pub struct DeveloperListFiles {}
+#[derive(Debug)]
+pub struct DeveloperListFiles {
+}
 
 impl DeveloperListFiles {
     pub fn new() -> Self {
@@ -51,6 +53,10 @@ impl Evaluation for DeveloperListFiles {
         metrics.push(EvaluationMetric::Boolean(valid_tool_call));
         Ok(metrics)
     }
+
+    fn name(&self) -> &str {
+        "developer_list_files"
+    }
 }
 
-register_evaluation!("developer", DeveloperListFiles);
+register_evaluation!("core", DeveloperListFiles);
