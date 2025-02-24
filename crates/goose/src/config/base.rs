@@ -158,8 +158,8 @@ impl Config {
         self.config_path.to_string_lossy().to_string()
     }
 
-    // Load current values from the config file
-    pub fn load_values(&self) -> Result<HashMap<String, Value>, ConfigError> {
+    // Load current parameters from the config file
+    pub fn load_config_file_values(&self) -> Result<HashMap<String, Value>, ConfigError> {
         if self.config_path.exists() {
             let file_content = std::fs::read_to_string(&self.config_path)?;
             // Parse YAML into JSON Value for consistent internal representation
@@ -191,7 +191,7 @@ impl Config {
     }
 
     // Load current secrets from the keyring
-    fn load_secrets(&self) -> Result<HashMap<String, Value>, ConfigError> {
+    fn load_keyring_values(&self) -> Result<HashMap<String, Value>, ConfigError> {
         let entry = Entry::new(&self.keyring_service, KEYRING_USERNAME)?;
 
         match entry.get_password() {
@@ -230,7 +230,7 @@ impl Config {
         }
 
         // Load current values from file
-        let values = self.load_values()?;
+        let values = self.load_config_file_values()?;
 
         // Then check our stored values
         values
@@ -253,7 +253,7 @@ impl Config {
     /// - There is an error reading or writing the config file
     /// - There is an error serializing the value
     pub fn set(&self, key: &str, value: Value) -> Result<(), ConfigError> {
-        let mut values = self.load_values()?;
+        let mut values = self.load_config_file_values()?;
         values.insert(key.to_string(), value);
 
         self.save_values(values)
@@ -273,7 +273,7 @@ impl Config {
     /// - There is an error reading or writing the config file
     /// - There is an error serializing the value
     pub fn delete(&self, key: &str) -> Result<(), ConfigError> {
-        let mut values = self.load_values()?;
+        let mut values = self.load_config_file_values()?;
         values.remove(key);
 
         self.save_values(values)
@@ -304,7 +304,7 @@ impl Config {
         }
 
         // Then check keyring
-        let values = self.load_secrets()?;
+        let values = self.load_keyring_values()?;
         values
             .get(key)
             .ok_or_else(|| ConfigError::NotFound(key.to_string()))
@@ -326,7 +326,7 @@ impl Config {
     /// - There is an error accessing the keyring
     /// - There is an error serializing the value
     pub fn set_secret(&self, key: &str, value: Value) -> Result<(), ConfigError> {
-        let mut values = self.load_secrets()?;
+        let mut values = self.load_keyring_values()?;
         values.insert(key.to_string(), value);
 
         let json_value = serde_json::to_string(&values)?;
@@ -346,7 +346,7 @@ impl Config {
     /// - There is an error accessing the keyring
     /// - There is an error serializing the remaining values
     pub fn delete_secret(&self, key: &str) -> Result<(), ConfigError> {
-        let mut values = self.load_secrets()?;
+        let mut values = self.load_keyring_values()?;
         values.remove(key);
 
         let json_value = serde_json::to_string(&values)?;

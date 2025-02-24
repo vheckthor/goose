@@ -189,7 +189,7 @@ pub async fn read_all_config(
     let config = Config::global();
 
     // Load values from config file
-    let values = config.load_values().unwrap_or_default();
+    let values = config.load_config_file_values().unwrap_or_default();
 
     Ok(Json(ConfigResponse { config: values }))
 }
