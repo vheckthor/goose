@@ -132,6 +132,10 @@ impl Session {
                     self.process_agent_response().await?;
                     output::hide_thinking();
                 }
+                // TODO: Implement plan message
+                input::InputResult::PlanMessage(_) => {
+                    output::render_error("Planned messages are not yet implemented");
+                }
                 input::InputResult::Exit => break,
                 input::InputResult::AddExtension(cmd) => {
                     match self.add_extension(cmd.clone()).await {

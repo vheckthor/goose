@@ -4,6 +4,7 @@ use rustyline::Editor;
 #[derive(Debug)]
 pub enum InputResult {
     Message(String),
+    PlanMessage(String),
     Exit,
     AddExtension(String),
     AddBuiltin(String),
@@ -61,6 +62,7 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
         "/t" => Some(InputResult::ToggleTheme),
         s if s.starts_with("/extension ") => Some(InputResult::AddExtension(s[11..].to_string())),
         s if s.starts_with("/builtin ") => Some(InputResult::AddBuiltin(s[9..].to_string())),
+        s: if s.starts_with("/plan ") => Some(InputResult::PlanMessage(s[6..].to_string())),
         _ => None,
     }
 }
