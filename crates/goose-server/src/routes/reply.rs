@@ -10,7 +10,10 @@ use bytes::Bytes;
 use futures::{stream::StreamExt, Stream};
 use goose::message::{Message, MessageContent};
 
-use mcp_core::{content::Content, role::Role};
+use mcp_core::{
+    content::{self, Content},
+    role::Role,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{
@@ -133,6 +136,7 @@ fn convert_messages(incoming: Vec<IncomingMessage>) -> Vec<Message> {
 }
 
 // Protocol-specific message formatting
+// Based on https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol#data-stream-protocol
 struct ProtocolFormatter;
 
 impl ProtocolFormatter {
@@ -164,6 +168,25 @@ impl ProtocolFormatter {
         // Error messages start with "3:" in the new protocol.
         let encoded_error = serde_json::to_string(error).unwrap_or_else(|_| String::new());
         format!("3:{}\n", encoded_error)
+    }
+
+    fn format_reasoning(reasoning_text: &str) -> String {
+        let encoded_text = serde_json::to_string(reasoning_text).unwrap_or_else(|_| String::new());
+        format!("g:{}\n", encoded_text)
+    }
+
+    fn format_reasoning_signature(signature: &str) -> String {
+        let response = json!({
+            "signature": signature
+        });
+        format!("j:{}\n", response)
+    }
+
+    fn format_redacted_reasoning(data: &str) -> String {
+        let response = json!({
+            "data": data
+        });
+        format!("i:{}\n", response)
     }
 
     fn format_finish(reason: &str) -> String {
@@ -247,6 +270,18 @@ async fn stream_message(
                                 .await?;
                         }
                     }
+                    MessageContent::Thinking(content) => {
+                        tx.send(ProtocolFormatter::format_reasoning(&content.thinking))
+                            .await?;
+                        tx.send(ProtocolFormatter::format_reasoning_signature(
+                            &content.signature,
+                        ))
+                        .await?;
+                    }
+                    MessageContent::RedactedThinking(content) => {
+                        tx.send(ProtocolFormatter::format_redacted_reasoning(&content.data))
+                            .await?;
+                    }
                     MessageContent::ToolConfirmationRequest(_) => {
                         // skip tool confirmation requests
                     }
@@ -255,12 +290,6 @@ async fn stream_message(
                     }
                     MessageContent::ToolResponse(_) => {
                         // skip tool responses
-                    }
-                    MessageContent::Thinking(_) => {
-                        // skip thinking content in the protocol output
-                    }
-                    MessageContent::RedactedThinking(_) => {
-                        // skip redacted thinking content in the protocol output
                     }
                 }
             }
