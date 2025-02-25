@@ -256,6 +256,12 @@ async fn stream_message(
                     MessageContent::ToolResponse(_) => {
                         // skip tool responses
                     }
+                    MessageContent::Thinking(_) => {
+                        // skip thinking content in the protocol output
+                    }
+                    MessageContent::RedactedThinking(_) => {
+                        // skip redacted thinking content in the protocol output
+                    }
                 }
             }
         }

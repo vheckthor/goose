@@ -66,6 +66,13 @@ impl AnthropicProvider {
             ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
         })?;
 
+        if std::env::var("GOOSE_DEBUG").is_ok() {
+            println!(
+                "\nRequest:\n{}\n",
+                serde_json::to_string_pretty(&payload).unwrap()
+            );
+        }
+
         let response = self
             .client
             .post(url)
@@ -77,6 +84,13 @@ impl AnthropicProvider {
 
         let status = response.status();
         let payload: Option<Value> = response.json().await.ok();
+
+        if std::env::var("GOOSE_DEBUG").is_ok() {
+            println!(
+                "\nResponse:\n{}\n",
+                serde_json::to_string_pretty(&payload).unwrap()
+            );
+        }
 
         // https://docs.anthropic.com/en/api/errors
         match status {
