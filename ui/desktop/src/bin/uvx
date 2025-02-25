@@ -98,6 +98,6 @@ uvx "$@" || log "Failed to execute 'uvx' with arguments: $*"
 
 # Unset SSL_CERT_FILE after uvx execution
 log "Unsetting SSL_CERT_FILE to allow external requests"
-# unset SSL_CERT_FILE
+unset SSL_CERT_FILE
 
 log "uvx setup script completed successfully."
