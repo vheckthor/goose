@@ -571,26 +571,44 @@ mod tests {
 
     #[test]
     fn test_create_request_with_thinking() -> Result<()> {
-        let model_config = ModelConfig::new("claude-3-7-sonnet-20250219".to_string());
-        let system = "You are a helpful assistant.";
-        let messages = vec![Message::user().with_text("Hello")];
-        let tools = vec![];
+        // Save the original env var value if it exists
+        let original_value = std::env::var("ANTHROPIC_THINKING_ENABLED").ok();
 
-        let payload = create_request(&model_config, system, &messages, &tools)?;
+        // Set the env var for this test
+        std::env::set_var("ANTHROPIC_THINKING_ENABLED", "true");
 
-        // Verify basic structure
-        assert_eq!(payload["model"], "claude-3-7-sonnet-20250219");
-        assert_eq!(payload["messages"][0]["role"], "user");
-        assert_eq!(payload["messages"][0]["content"][0]["text"], "Hello");
+        // Execute the test
+        let result = (|| {
+            let model_config = ModelConfig::new("claude-3-7-sonnet-20250219".to_string());
+            let system = "You are a helpful assistant.";
+            let messages = vec![Message::user().with_text("Hello")];
+            let tools = vec![];
 
-        // Verify thinking parameters
-        assert!(payload.get("thinking").is_some());
-        assert_eq!(payload["thinking"]["type"], "enabled");
-        assert!(payload["thinking"]["budget_tokens"].as_i64().unwrap() >= 1024);
+            let payload = create_request(&model_config, system, &messages, &tools)?;
 
-        // Temperature should not be present for 3.7 models with thinking
-        assert!(payload.get("temperature").is_none());
+            // Verify basic structure
+            assert_eq!(payload["model"], "claude-3-7-sonnet-20250219");
+            assert_eq!(payload["messages"][0]["role"], "user");
+            assert_eq!(payload["messages"][0]["content"][0]["text"], "Hello");
 
-        Ok(())
+            // Verify thinking parameters
+            assert!(payload.get("thinking").is_some());
+            assert_eq!(payload["thinking"]["type"], "enabled");
+            assert!(payload["thinking"]["budget_tokens"].as_i64().unwrap() >= 1024);
+
+            // Temperature should not be present for 3.7 models with thinking
+            assert!(payload.get("temperature").is_none());
+
+            Ok(())
+        })();
+
+        // Restore the original env var state
+        match original_value {
+            Some(val) => std::env::set_var("ANTHROPIC_THINKING_ENABLED", val),
+            None => std::env::remove_var("ANTHROPIC_THINKING_ENABLED"),
+        }
+
+        // Return the test result
+        result
     }
 }
