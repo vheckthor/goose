@@ -55,17 +55,23 @@ pub async fn run_benchmark(suites: Vec<String>, include_dirs: Vec<PathBuf>) -> a
         .get("GOOSE_PROVIDER")
         .expect("No provider configured. Run 'goose configure' first");
 
+    let model_name: String = config
+        .get("GOOSE_MODEL")
+        .unwrap_or_else(|_| "default".to_string());
+
     let current_time = Local::now().format("%H:%M:%S").to_string();
     let current_date = Local::now().format("%Y-%m-%d").to_string();
-    if let Ok(mut work_dir) = WorkDir::at(
-        format!("./benchmark-{}", &provider_name),
-        include_dirs.clone(),
-    ) {
-        if let Ok(work_dir) = work_dir.move_to(format!("./{}-{}", &current_date, current_time)) {
-            for suite in suites {
-                run_suite(suite, work_dir).await?;
-            }
+
+    let benchmark_path = format!(
+        "./benchmark-{}/{}/{}-{}",
+        &provider_name, &model_name, &current_date, current_time
+    );
+
+    if let Ok(mut work_dir) = WorkDir::at(benchmark_path, include_dirs.clone()) {
+        for suite in suites {
+            run_suite(&suite, &mut work_dir).await?;
         }
     }
+
     Ok(())
 }
