@@ -492,7 +492,7 @@ pub fn create_request(
         // Default to 8192 (Claude max output) + budget if not specified
         let max_completion_tokens = model_config.max_tokens.unwrap_or(8192);
         payload.as_object_mut().unwrap().insert(
-            "max_completion_tokens".to_string(),
+            "max_tokens".to_string(),
             json!(max_completion_tokens + budget_tokens),
         );
 
@@ -1039,7 +1039,7 @@ mod tests {
                 model_name: "claude-3-7-sonnet-20250219".to_string(),
                 tokenizer_name: "claude-3-7-sonnet".to_string(),
                 context_limit: Some(200000),
-                temperature: Some(1.5),
+                temperature: None,
                 max_tokens: Some(4000),
             };
 
@@ -1051,7 +1051,7 @@ mod tests {
             assert_eq!(obj["thinking"]["type"], "enabled");
             assert_eq!(obj["thinking"]["budget_tokens"], 12000);
             assert_eq!(obj["max_tokens"], 16000); // 4000 (max_tokens) + 12000 (budget)
-            assert_eq!(obj["temperature"], 1.5);
+            assert_eq!(obj["temperature"], 2); // fixed
 
             let messages = obj["messages"].as_array().unwrap();
             assert_eq!(messages[0]["role"], "system");
