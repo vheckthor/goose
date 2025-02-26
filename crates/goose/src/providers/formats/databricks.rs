@@ -200,12 +200,12 @@ pub fn response_to_message(response: Value) -> anyhow::Result<Message> {
     // The first one (index 0) contains thinking responses, the second one (index 1) contains the final message
     if response["choices"]
         .as_array()
-        .map_or(false, |choices| choices.len() > 1)
+        .is_some_and(|choices| choices.len() > 1)
     {
         // This might be an Anthropic thinking response
         if let Some(thinking_msg) = response["choices"][0]["message"].as_object() {
             // For thinking messages, content is null
-            if thinking_msg.get("content").map_or(false, |c| c.is_null()) {
+            if thinking_msg.get("content").is_some_and(|c| c.is_null()) {
                 // The actual message is in the second choice
                 if let Some(final_msg) = response["choices"]
                     .as_array()
