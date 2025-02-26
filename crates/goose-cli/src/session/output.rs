@@ -101,7 +101,7 @@ pub fn render_message(message: &Message) {
                 println!("Image: [data: {}, type: {}]", image.data, image.mime_type);
             }
             MessageContent::Thinking(thinking) => {
-                if let Ok(show_thinking) = std::env::var("GOOSE_CLI_SHOW_THINKING") {
+                if std::env::var("GOOSE_CLI_SHOW_THINKING").is_ok() {
                     println!("\n{}", style("Thinking:").dim().italic());
                     print_markdown(&thinking.thinking, theme);
                 }

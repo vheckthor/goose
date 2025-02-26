@@ -10,10 +10,7 @@ use bytes::Bytes;
 use futures::{stream::StreamExt, Stream};
 use goose::message::{Message, MessageContent};
 
-use mcp_core::{
-    content::{self, Content},
-    role::Role,
-};
+use mcp_core::{content::Content, role::Role};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::{

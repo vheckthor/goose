@@ -274,7 +274,9 @@ pub fn create_request(
         return Err(anyhow!("No valid messages to send to Anthropic API"));
     }
 
-    let max_tokens = model_config.max_tokens.unwrap_or(4096);
+    // https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+    // Claude 3.7 supports max output tokens up to 8192
+    let max_tokens = model_config.max_tokens.unwrap_or(8192);
     let mut payload = json!({
         "model": model_config.model_name,
         "messages": anthropic_messages,
