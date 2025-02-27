@@ -23,7 +23,9 @@ use crate::log_usage::log_usage;
 pub struct Session {
     agent: Box<dyn Agent>,
     messages: Vec<Message>,
+    plan_messages: Vec<Message>,
     session_file: PathBuf,
+    is_plan_mode: bool,
 }
 
 impl Session {
@@ -39,7 +41,9 @@ impl Session {
         Session {
             agent,
             messages,
+            plan_messages: Vec::new(),
             session_file,
+            is_plan_mode: false,
         }
     }
 
@@ -139,16 +143,31 @@ impl Session {
         loop {
             match input::get_input(&mut editor)? {
                 input::InputResult::Message(content) => {
-                    self.messages.push(Message::user().with_text(&content));
-                    storage::persist_messages(&self.session_file, &self.messages)?;
+                    if self.is_plan_mode {
+                        self.plan_messages.push(Message::user().with_text(&content));
+                        self.process_planner_response().await?;
+                    } else {
+                        self.messages.push(Message::user().with_text(&content));
+                        storage::persist_messages(&self.session_file, &self.messages)?;
 
-                    output::show_thinking();
-                    self.process_agent_response(true).await?;
-                    output::hide_thinking();
+                        output::show_thinking();
+                        self.process_agent_response(true).await?;
+                        output::hide_thinking();
+                    }
                 }
-                // TODO: Implement plan message
-                input::InputResult::PlanMessage(_) => {
-                    output::render_error("Planned messages are not yet implemented");
+                input::InputResult::StartPlan(content) => {
+                    self.is_plan_mode = true;
+                    output::render_enter_plan_mode();
+                    let content = content.trim();
+                    if !content.is_empty() {
+                        self.plan_messages.push(Message::user().with_text(content));
+                        self.process_planner_response().await?;
+                    }
+                }
+                input::InputResult::EndPlan => {
+                    self.is_plan_mode = false;
+                    output::render_exit_plan_mode();
+                    self.plan_messages.clear();
                 }
                 input::InputResult::Exit => break,
                 input::InputResult::AddExtension(cmd) => {
@@ -258,6 +277,13 @@ impl Session {
                 }
             }
         }
+        Ok(())
+    }
+
+    async fn process_planner_response(&mut self) -> Result<()> {
+        let response_message = self.agent.plan(&self.plan_messages).await?;
+        self.plan_messages.push(response_message.clone());
+        output::render_message(&response_message);
         Ok(())
     }
 

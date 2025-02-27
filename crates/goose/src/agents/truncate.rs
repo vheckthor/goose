@@ -138,6 +138,12 @@ impl Agent for TruncateAgent {
         }
     }
 
+    /// Create a response message from the planner model
+    async fn plan(&self, plan_messages: &[Message]) -> anyhow::Result<Message> {
+        // Return a static response of "Got the message: {}"
+        Ok(Message::assistant().with_text(format!("Got the message: {plan_messages:?}")))
+    }
+
     #[instrument(skip(self, messages), fields(user_message))]
     async fn reply(
         &self,

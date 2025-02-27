@@ -105,6 +105,26 @@ pub fn render_message(message: &Message) {
     println!();
 }
 
+pub fn render_enter_plan_mode() {
+    println!(
+        "\n{} {}\n",
+        style("Entering plan mode.").green().bold(),
+        style("Enter your instructions, or type /endplan to exit.")
+            .green()
+            .dim()
+    );
+}
+
+pub fn render_exit_plan_mode() {
+    println!(
+        "\n{} {}\n",
+        style("Exiting plan mode.").green().bold(),
+        style("Enter your instructions, or type /plan to enter plan mode.")
+            .green()
+            .dim()
+    );
+}
+
 fn render_tool_request(req: &ToolRequest, theme: Theme) {
     match &req.tool_call {
         Ok(call) => match call.name.as_str() {

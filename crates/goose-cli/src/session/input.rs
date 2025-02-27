@@ -4,7 +4,8 @@ use rustyline::Editor;
 #[derive(Debug)]
 pub enum InputResult {
     Message(String),
-    PlanMessage(String),
+    StartPlan(String),
+    EndPlan,
     Exit,
     AddExtension(String),
     AddBuiltin(String),
@@ -62,7 +63,8 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
         "/t" => Some(InputResult::ToggleTheme),
         s if s.starts_with("/extension ") => Some(InputResult::AddExtension(s[11..].to_string())),
         s if s.starts_with("/builtin ") => Some(InputResult::AddBuiltin(s[9..].to_string())),
-        s: if s.starts_with("/plan ") => Some(InputResult::PlanMessage(s[6..].to_string())),
+        s if s.starts_with("/plan") => Some(InputResult::StartPlan(s[5..].to_string())),
+        s if s.starts_with("/endplan") => Some(InputResult::EndPlan),
         _ => None,
     }
 }
@@ -79,7 +81,11 @@ fn print_help() {
 Navigation:
 Ctrl+C - Interrupt goose (resets the interaction to before the interrupted user request)
 Ctrl+J - Add a newline
-Up/Down arrows - Navigate through command history"
+Up/Down arrows - Navigate through command history
+
+Plan mode:
+/plan <instructions> - Enter plan mode. Optional instructions to start the plan with.
+/endplan - End plan mode."
     );
 }
 
@@ -122,6 +128,19 @@ mod tests {
             panic!("Expected AddExtension");
         }
 
+        // Test plan command
+        if let Some(InputResult::StartPlan(cmd)) = handle_slash_command("/plan make a plan") {
+            assert_eq!(cmd, "make a plan");
+        } else {
+            panic!("Expected StartPlan");
+        }
+
+        // Test endplan command
+        if let Some(InputResult::EndPlan) = handle_slash_command("/endplan") {
+            assert!(true);
+        } else {
+            panic!("Expected EndPlan");
+        }
         // Test builtin command
         if let Some(InputResult::AddBuiltin(names)) = handle_slash_command("/builtin dev,git") {
             assert_eq!(names, "dev,git");
