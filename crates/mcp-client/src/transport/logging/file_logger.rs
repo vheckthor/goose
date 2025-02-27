@@ -13,17 +13,21 @@ pub struct FileLogger {
 
 impl FileLogger {
     pub fn new(path: PathBuf) -> std::io::Result<Self> {
+        println!("Creating new FileLogger for path: {:?}", path);
         // Create parent directories if they don't exist
         if let Some(parent) = path.parent() {
+            println!("Creating parent directories: {:?}", parent);
             std::fs::create_dir_all(parent)?;
         }
 
+        println!("Opening log file...");
         let file = OpenOptions::new()
             .create(true)
             .append(true)
             .write(true)
-            .open(path)?;
+            .open(&path)?;
 
+        println!("FileLogger successfully created");
         Ok(Self {
             file: Arc::new(Mutex::new(file)),
         })
@@ -39,9 +43,11 @@ impl FileLogger {
             message.message
         );
 
+        println!("Writing log line: {}", log_line.trim());
         let mut file = self.file.lock().await;
         file.write_all(log_line.as_bytes())?;
         file.flush()?;
+        println!("Successfully wrote and flushed log line");
 
         Ok(())
     }

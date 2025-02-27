@@ -88,12 +88,15 @@ impl LoggingManager {
     where
         F: Fn(LogMessage) + Send + Sync + 'static,
     {
+        println!("Adding new log handler");
         self.handlers.write().await.push(Box::new(handler));
+        let count = self.handlers.read().await.len();
+        println!("Now have {} log handlers registered", count);
     }
 
     /// Handle a logging notification message
     pub async fn handle_notification(&self, notification: JsonRpcNotification) -> Result<(), Error> {
-        tracing::debug!("LoggingManager handling notification: {:?}", notification);
+        println!("LoggingManager handling notification: {:?}", notification);
         // Parse notification parameters
         let params: LoggingMessageParams = serde_json::from_value(
             notification.params.ok_or_else(|| Error::UnsupportedMessage)?,
@@ -109,15 +112,25 @@ impl LoggingManager {
 
         let log_message = LogMessage {
             level: params.level,
-            logger: params.logger,
-            message,
+            logger: params.logger.clone(),
+            message: message.clone(),
         };
 
-        tracing::debug!("Created log message: {:?}", log_message);
+        println!(
+            "Created log message: level={:?}, logger={:?}, message={}",
+            log_message.level,
+            log_message.logger,
+            log_message.message
+        );
+
+        let handler_count = self.handlers.read().await.len();
+        println!("About to notify {} registered handlers", handler_count);
 
         // Notify all registered handlers
-        for handler in self.handlers.read().await.iter() {
+        for (idx, handler) in self.handlers.read().await.iter().enumerate() {
+            println!("Calling handler {}", idx);
             handler(log_message.clone());
+            println!("Handler {} completed", idx);
         }
 
         Ok(())
@@ -135,7 +148,7 @@ pub async fn handle_notification(
         }
         _ => {
             // Ignore other notification types
-            tracing::debug!("Ignoring unknown notification: {}", notification.method);
+            println!("Ignoring unknown notification: {}", notification.method);
         }
     }
     Ok(())

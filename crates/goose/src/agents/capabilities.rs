@@ -117,13 +117,21 @@ impl Capabilities {
                 eprintln!("added this extension");
                 
                 // Set up logging in the default cache directory
+                println!("Setting up logging for extension {}", config.name());
                 let log_path = format!("{}/.cache/goose/logs/{}.log", 
                     std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
                     config.name());
+                println!("Will attempt to create log file at: {}", log_path);
                 if let Err(e) = handle.enable_file_logging(&log_path).await {
-                    tracing::warn!("Failed to enable file logging for {}: {}", config.name(), e);
+                    println!("Failed to enable file logging for {}: {}", config.name(), e);
                 } else {
-                    tracing::info!("Enabled logging for {} at {}", config.name(), log_path);
+                    println!("Enabled logging for {} at {}", config.name(), log_path);
+                    // Verify the file exists
+                    if std::path::Path::new(&log_path).exists() {
+                        println!("Confirmed log file was created at {}", log_path);
+                    } else {
+                        println!("Log file does not exist at {} after setup", log_path);
+                    }
                 }
                 
                 let service = McpService::with_timeout(handle, Duration::from_secs(300));

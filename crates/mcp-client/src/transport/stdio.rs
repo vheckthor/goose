@@ -99,22 +99,25 @@ impl StdioActor {
                             "Received incoming message"
                         );
 
-                        match &message {
+                    match &message {
                             JsonRpcMessage::Response(response) => {
-                                eprintln!("Got response message with id: {:?}", response.id);
+                                tracing::debug!("Got response message with id: {:?}", response.id);
                                 if let Some(id) = &response.id {
                                     pending_requests.respond(&id.to_string(), Ok(message)).await;
                                 }
                             }
                             JsonRpcMessage::Notification(n) => {
-                                eprintln!("Got notification message with method: {}", n.method);
+                                tracing::debug!("Got notification message with method: {}", n.method);
                                 let notification: JsonRpcNotification = n.clone();
+                                if n.method == "notifications/message" {
+                                    println!("Processing log notification with params: {:?}", n.params);
+                                }
                                 if let Err(e) = handle_notification(notification, &logging_manager).await {
                                     tracing::error!("Error handling notification: {:?}", e);
                                 }
                             }
                             _ => {
-                                eprintln!("Got other message type");
+                                tracing::debug!("Got other message type: {:?}", message);
                             }
                         }
                     } else {
