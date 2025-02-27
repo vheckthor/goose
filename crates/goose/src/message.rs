@@ -12,26 +12,44 @@ use mcp_core::content::{Content, ImageContent, TextContent};
 use mcp_core::handler::ToolResult;
 use mcp_core::role::Role;
 use mcp_core::tool::ToolCall;
+use serde_json::Value;
+
+mod tool_result_serde;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolRequest {
     pub id: String,
+    #[serde(with = "tool_result_serde")]
     pub tool_call: ToolResult<ToolCall>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolResponse {
     pub id: String,
+    #[serde(with = "tool_result_serde")]
     pub tool_result: ToolResult<Vec<Content>>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolConfirmationRequest {
+    pub id: String,
+    pub tool_name: String,
+    pub arguments: Value,
+    pub prompt: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// Content passed inside a message, which can be both simple content and tool content
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum MessageContent {
     Text(TextContent),
     Image(ImageContent),
     ToolRequest(ToolRequest),
     ToolResponse(ToolResponse),
+    ToolConfirmationRequest(ToolConfirmationRequest),
 }
 
 impl MessageContent {
@@ -64,6 +82,19 @@ impl MessageContent {
         })
     }
 
+    pub fn tool_confirmation_request<S: Into<String>>(
+        id: S,
+        tool_name: String,
+        arguments: Value,
+        prompt: Option<String>,
+    ) -> Self {
+        MessageContent::ToolConfirmationRequest(ToolConfirmationRequest {
+            id: id.into(),
+            tool_name,
+            arguments,
+            prompt,
+        })
+    }
     pub fn as_tool_request(&self) -> Option<&ToolRequest> {
         if let MessageContent::ToolRequest(ref tool_request) = self {
             Some(tool_request)
@@ -75,6 +106,14 @@ impl MessageContent {
     pub fn as_tool_response(&self) -> Option<&ToolResponse> {
         if let MessageContent::ToolResponse(ref tool_response) = self {
             Some(tool_response)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_tool_confirmation_request(&self) -> Option<&ToolConfirmationRequest> {
+        if let MessageContent::ToolConfirmationRequest(ref tool_confirmation_request) = self {
+            Some(tool_confirmation_request)
         } else {
             None
         }
@@ -119,6 +158,7 @@ impl From<Content> for MessageContent {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 /// A message to or from an LLM
+#[serde(rename_all = "camelCase")]
 pub struct Message {
     pub role: Role,
     pub created: i64,
@@ -176,6 +216,19 @@ impl Message {
         result: ToolResult<Vec<Content>>,
     ) -> Self {
         self.with_content(MessageContent::tool_response(id, result))
+    }
+
+    /// Add a tool confirmation request to the message
+    pub fn with_tool_confirmation_request<S: Into<String>>(
+        self,
+        id: S,
+        tool_name: String,
+        arguments: Value,
+        prompt: Option<String>,
+    ) -> Self {
+        self.with_content(MessageContent::tool_confirmation_request(
+            id, tool_name, arguments, prompt,
+        ))
     }
 
     /// Get the concatenated text content of the message, separated by newlines
@@ -246,5 +299,125 @@ impl Message {
         self.content
             .iter()
             .all(|c| matches!(c, MessageContent::Text(_)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mcp_core::handler::ToolError;
+    use serde_json::{json, Value};
+
+    #[test]
+    fn test_message_serialization() {
+        let message = Message::assistant()
+            .with_text("Hello, I'll help you with that.")
+            .with_tool_request(
+                "tool123",
+                Ok(ToolCall::new("test_tool", json!({"param": "value"}))),
+            );
+
+        let json_str = serde_json::to_string_pretty(&message).unwrap();
+        println!("Serialized message: {}", json_str);
+
+        // Parse back to Value to check structure
+        let value: Value = serde_json::from_str(&json_str).unwrap();
+
+        // Check top-level fields
+        assert_eq!(value["role"], "assistant");
+        assert!(value["created"].is_i64());
+        assert!(value["content"].is_array());
+
+        // Check content items
+        let content = &value["content"];
+
+        // First item should be text
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "Hello, I'll help you with that.");
+
+        // Second item should be toolRequest
+        assert_eq!(content[1]["type"], "toolRequest");
+        assert_eq!(content[1]["id"], "tool123");
+
+        // Check tool_call serialization
+        assert_eq!(content[1]["toolCall"]["status"], "success");
+        assert_eq!(content[1]["toolCall"]["value"]["name"], "test_tool");
+        assert_eq!(
+            content[1]["toolCall"]["value"]["arguments"]["param"],
+            "value"
+        );
+    }
+
+    #[test]
+    fn test_error_serialization() {
+        let message = Message::assistant().with_tool_request(
+            "tool123",
+            Err(ToolError::ExecutionError(
+                "Something went wrong".to_string(),
+            )),
+        );
+
+        let json_str = serde_json::to_string_pretty(&message).unwrap();
+        println!("Serialized error: {}", json_str);
+
+        // Parse back to Value to check structure
+        let value: Value = serde_json::from_str(&json_str).unwrap();
+
+        // Check tool_call serialization with error
+        let tool_call = &value["content"][0]["toolCall"];
+        assert_eq!(tool_call["status"], "error");
+        assert_eq!(tool_call["error"], "Execution failed: Something went wrong");
+    }
+
+    #[test]
+    fn test_deserialization() {
+        // Create a JSON string with our new format
+        let json_str = r#"{
+            "role": "assistant",
+            "created": 1740171566,
+            "content": [
+                {
+                    "type": "text",
+                    "text": "I'll help you with that."
+                },
+                {
+                    "type": "toolRequest",
+                    "id": "tool123",
+                    "toolCall": {
+                        "status": "success",
+                        "value": {
+                            "name": "test_tool",
+                            "arguments": {"param": "value"}
+                        }
+                    }
+                }
+            ]
+        }"#;
+
+        let message: Message = serde_json::from_str(json_str).unwrap();
+
+        assert_eq!(message.role, Role::Assistant);
+        assert_eq!(message.created, 1740171566);
+        assert_eq!(message.content.len(), 2);
+
+        // Check first content item
+        if let MessageContent::Text(text) = &message.content[0] {
+            assert_eq!(text.text, "I'll help you with that.");
+        } else {
+            panic!("Expected Text content");
+        }
+
+        // Check second content item
+        if let MessageContent::ToolRequest(req) = &message.content[1] {
+            assert_eq!(req.id, "tool123");
+            if let Ok(tool_call) = &req.tool_call {
+                assert_eq!(tool_call.name, "test_tool");
+                assert_eq!(tool_call.arguments, json!({"param": "value"}));
+            } else {
+                panic!("Expected successful tool call");
+            }
+        } else {
+            panic!("Expected ToolRequest content");
+        }
     }
 }
