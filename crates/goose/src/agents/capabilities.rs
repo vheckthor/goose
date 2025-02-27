@@ -114,6 +114,18 @@ impl Capabilities {
             } => {
                 let transport = StdioTransport::new(cmd, args.to_vec(), envs.get_env());
                 let handle = transport.start().await?;
+                eprintln!("added this extension");
+                
+                // Set up logging in the default cache directory
+                let log_path = format!("{}/.cache/goose/logs/{}.log", 
+                    std::env::var("HOME").unwrap_or_else(|_| "~".to_string()),
+                    config.name());
+                if let Err(e) = handle.enable_file_logging(&log_path).await {
+                    tracing::warn!("Failed to enable file logging for {}: {}", config.name(), e);
+                } else {
+                    tracing::info!("Enabled logging for {} at {}", config.name(), log_path);
+                }
+                
                 let service = McpService::with_timeout(handle, Duration::from_secs(300));
                 Box::new(McpClient::new(service))
             }

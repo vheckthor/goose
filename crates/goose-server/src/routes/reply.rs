@@ -91,6 +91,7 @@ async fn handler(
     headers: HeaderMap,
     Json(request): Json<ChatRequest>,
 ) -> Result<SseResponse, StatusCode> {
+    println!("hello there!");
     // Verify secret key
     let secret_key = headers
         .get("X-Secret-Key")
