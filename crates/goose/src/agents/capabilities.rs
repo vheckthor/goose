@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
-use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult};
+use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
 use crate::prompt_template::{load_prompt, load_prompt_file};
 use crate::providers::base::{Provider, ProviderUsage};
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
@@ -296,6 +296,14 @@ impl Capabilities {
             }
         }
         Ok(result)
+    }
+
+    /// Get the extension prompt including client instructions
+    pub async fn get_planning_prompt(&self, tools_info: Vec<ToolInfo>) -> String {
+        let mut context: HashMap<&str, Value> = HashMap::new();
+        context.insert("tools", serde_json::to_value(tools_info).unwrap());
+
+        load_prompt_file("plan.md", &context).expect("Prompt should render")
     }
 
     /// Get the extension prompt including client instructions

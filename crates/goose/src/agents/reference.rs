@@ -5,6 +5,8 @@ use futures::stream::BoxStream;
 use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
+use super::extension::ToolInfo;
+use super::truncate::get_parameter_names;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
@@ -67,8 +69,20 @@ impl Agent for ReferenceAgent {
 
     /// Create a response message from the planner model
     async fn plan(&self, plan_messages: &[Message]) -> anyhow::Result<Message> {
-        // TODO implement
-        todo!()
+        let mut capabilities = self.capabilities.lock().await;
+        let tools = capabilities.get_prefixed_tools().await?;
+        let tools_info = tools
+            .into_iter()
+            .map(|tool| ToolInfo::new(&tool.name, &tool.description, get_parameter_names(&tool)))
+            .collect();
+
+        let plan_prompt = capabilities.get_planning_prompt(tools_info).await;
+        let (response, _usage) = capabilities
+            .provider()
+            .complete(&plan_prompt, plan_messages, &[])
+            .await?;
+
+        Ok(response)
     }
 
     #[instrument(skip(self, messages), fields(user_message))]

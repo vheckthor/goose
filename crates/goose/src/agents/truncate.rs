@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, error, instrument, warn};
 
 use super::detect_read_only_tools;
+use super::extension::ToolInfo;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
@@ -24,6 +25,14 @@ use serde_json::{json, Value};
 
 const MAX_TRUNCATION_ATTEMPTS: usize = 3;
 const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
+
+pub fn get_parameter_names(tool: &Tool) -> Vec<String> {
+    tool.input_schema
+        .get("properties")
+        .and_then(|props| props.as_object())
+        .map(|props| props.keys().cloned().collect())
+        .unwrap_or_default()
+}
 
 /// Truncate implementation of an Agent
 pub struct TruncateAgent {
@@ -140,8 +149,20 @@ impl Agent for TruncateAgent {
 
     /// Create a response message from the planner model
     async fn plan(&self, plan_messages: &[Message]) -> anyhow::Result<Message> {
-        // Return a static response of "Got the message: {}"
-        Ok(Message::assistant().with_text(format!("Got the message: {plan_messages:?}")))
+        let mut capabilities = self.capabilities.lock().await;
+        let tools = capabilities.get_prefixed_tools().await?;
+        let tools_info = tools
+            .into_iter()
+            .map(|tool| ToolInfo::new(&tool.name, &tool.description, get_parameter_names(&tool)))
+            .collect();
+
+        let plan_prompt = capabilities.get_planning_prompt(tools_info).await;
+        let (response, _usage) = capabilities
+            .provider()
+            .complete(&plan_prompt, plan_messages, &[])
+            .await?;
+
+        Ok(response)
     }
 
     #[instrument(skip(self, messages), fields(user_message))]
