@@ -198,7 +198,7 @@ const createChat = async (app, query?: string, dir?: string, version?: string) =
   const registerMCPExtensionsShortcut = () => {
     globalShortcut.register('Shift+Command+Y', () => {
       const defaultUrl =
-          'goose://extension?cmd=npx&arg=-y&arg=%40modelcontextprotocol%2Fserver-github&id=github&name=GitHub&description=Repository%20management%2C%20file%20operations%2C%20and%20GitHub%20API%20integration&env=GITHUB_TOKEN%3DGitHub%20personal%20access%20token';
+        'goose://extension?cmd=npx&arg=-y&arg=%40modelcontextprotocol%2Fserver-github&id=github&name=GitHub&description=Repository%20management%2C%20file%20operations%2C%20and%20GitHub%20API%20integration&env=GITHUB_TOKEN%3DGitHub%20personal%20access%20token';
 
       const result = dialog.showMessageBoxSync({
         type: 'question',
@@ -524,6 +524,56 @@ app.whenReady().then(async () => {
         accelerator: 'CmdOrCtrl+N',
         click() {
           ipcMain.emit('create-chat-window');
+        },
+      })
+    );
+
+    fileMenu.submenu.append(
+      new MenuItem({
+        label: 'Open Session File...',
+        click() {
+          dialog
+            .showOpenDialog({
+              title: 'Select a .jsonl file',
+              defaultPath: path.join(app.getPath('home'), '.local', 'share', 'goose', 'sessions'),
+              filters: [{ name: 'Session Files', extensions: ['jsonl'] }],
+              properties: ['openFile'],
+            })
+            .then(async (result) => {
+              if (!result.canceled && result.filePaths.length > 0) {
+                const filePath = result.filePaths[0];
+                const fs = require('fs');
+                const readline = require('readline');
+
+                const fileStream = fs.createReadStream(filePath);
+                const rl = readline.createInterface({
+                  input: fileStream,
+                  crlfDelay: Infinity,
+                });
+
+                const jsonArray = [];
+
+                for await (const line of rl) {
+                  try {
+                    const jsonObject = JSON.parse(line);
+                    jsonArray.push(jsonObject);
+                  } catch (error) {
+                    console.error('Failed to parse line:', line, error);
+                  }
+                }
+
+                console.log('Parsed JSON Array:', jsonArray);
+
+                // Send JSON data to ChatView
+                const mainWindow = BrowserWindow.getFocusedWindow();
+                if (mainWindow) {
+                  mainWindow.webContents.send('session-loaded', jsonArray);
+                }
+              }
+            })
+            .catch((err) => {
+              console.log(err);
+            });
         },
       })
     );

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ipcRenderer } from 'electron';
 import { getApiUrl } from '../config';
 import BottomMenu from './BottomMenu';
 import FlappyGoose from './FlappyGoose';
@@ -74,6 +75,18 @@ export default function ChatView({ setView }: { setView: (view: View) => void })
       // Implement tool call handling logic here
     },
   });
+
+  useEffect(() => {
+    const logger = (_: any, json: any) => {
+      console.log('received messages from session file', json);
+      setMessages(json);
+    };
+    window.electron.on('session-loaded', logger);
+
+    return () => {
+      window.electron.off('session-loaded', logger);
+    };
+  }, []);
 
   // Update chat messages when they change
   useEffect(() => {
