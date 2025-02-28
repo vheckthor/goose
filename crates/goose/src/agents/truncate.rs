@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
 use tracing::{debug, error, instrument, warn};
+use std::sync::Arc;
 
 use super::detect_read_only_tools;
 use super::Agent;
@@ -432,6 +433,11 @@ impl Agent for TruncateAgent {
         }
 
         Err(anyhow!("Prompt '{}' not found", name))
+    }
+
+    fn provider(&self) -> Option<Arc<Box<dyn Provider>>> {
+        let capabilities = self.capabilities.try_lock().ok()?;
+        Some(capabilities.provider())
     }
 }
 

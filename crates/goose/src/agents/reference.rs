@@ -5,6 +5,7 @@ use futures::stream::BoxStream;
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 use tracing::{debug, instrument};
+use std::sync::Arc;
 
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
@@ -232,6 +233,11 @@ impl Agent for ReferenceAgent {
         }
 
         Err(anyhow!("Prompt '{}' not found", name))
+    }
+
+    fn provider(&self) -> Option<Arc<Box<dyn Provider>>> {
+        let capabilities = self.capabilities.try_lock().ok()?;
+        Some(capabilities.provider())
     }
 }
 

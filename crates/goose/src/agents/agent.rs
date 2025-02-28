@@ -4,10 +4,11 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use serde_json::Value;
+use std::sync::Arc;
 
 use super::extension::{ExtensionConfig, ExtensionResult};
 use crate::message::Message;
-use crate::providers::base::ProviderUsage;
+use crate::providers::base::{Provider, ProviderUsage};
 use mcp_core::prompt::Prompt;
 use mcp_core::protocol::GetPromptResult;
 
@@ -48,4 +49,7 @@ pub trait Agent: Send + Sync {
     /// Get a prompt result with the given name and arguments
     /// Returns the prompt text that would be used as user input
     async fn get_prompt(&self, name: &str, arguments: Value) -> Result<GetPromptResult>;
+
+    /// Get a reference to the provider used by this agent
+    fn provider(&self) -> Option<Arc<Box<dyn Provider>>>;
 }
