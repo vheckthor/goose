@@ -41,6 +41,8 @@ axum = "0.7"
 sha2 = "0.10"
 nanoid = "0.4"
 serde_urlencoded = "0.7"
+ignore = "0.4"
+temp-env = "0.3"
 
 [dev-dependencies]
 serial_test = "3.0.0"

@@ -10,7 +10,6 @@ type ElectronAPI = {
   createChatWindow: (query?: string, dir?: string, version?: string) => void;
   logInfo: (txt: string) => void;
   showNotification: (data: any) => void;
-  createWingToWingWindow: (query: string) => void;
   openInChrome: (url: string) => void;
   fetchMetadata: (url: string) => Promise<any>;
   reloadApp: () => void;
@@ -19,6 +18,8 @@ type ElectronAPI = {
   startPowerSaveBlocker: () => Promise<number>;
   stopPowerSaveBlocker: () => Promise<void>;
   getBinaryPath: (binaryName: string) => Promise<string>;
+  readFile: (directory: string) => Promise<{ file: string; filePath: string; error: string; found: boolean }>;
+  writeFile: (directory: string, content: string) => Promise<boolean>;
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void
@@ -27,6 +28,7 @@ type ElectronAPI = {
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void
   ) => void;
+  emit: (channel: string, ...args: any[]) => void;
 };
 
 type AppConfigAPI = {
@@ -42,7 +44,6 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.send('create-chat-window', query, dir, version),
   logInfo: (txt: string) => ipcRenderer.send('logInfo', txt),
   showNotification: (data: any) => ipcRenderer.send('notify', data),
-  createWingToWingWindow: (query: string) => ipcRenderer.send('create-wing-to-wing-window', query),
   openInChrome: (url: string) => ipcRenderer.send('open-in-chrome', url),
   fetchMetadata: (url: string) => ipcRenderer.invoke('fetch-metadata', url),
   reloadApp: () => ipcRenderer.send('reload-app'),
@@ -51,11 +52,16 @@ const electronAPI: ElectronAPI = {
   startPowerSaveBlocker: () => ipcRenderer.invoke('start-power-save-blocker'),
   stopPowerSaveBlocker: () => ipcRenderer.invoke('stop-power-save-blocker'),
   getBinaryPath: (binaryName: string) => ipcRenderer.invoke('get-binary-path', binaryName),
+  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
+  writeFile: (filePath: string, content: string) => ipcRenderer.invoke('write-file', filePath, content),
   on: (channel: string, callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {
     ipcRenderer.on(channel, callback);
   },
   off: (channel: string, callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {
     ipcRenderer.off(channel, callback);
+  },
+  emit: (channel: string, ...args: any[]) => {
+    ipcRenderer.emit(channel, ...args);
   },
 };
 
