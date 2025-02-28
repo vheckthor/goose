@@ -13,6 +13,7 @@ use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::config::Config;
 use crate::message::{Message, ToolRequest};
+use crate::model::ModelConfig;
 use crate::providers::base::Provider;
 use crate::providers::base::ProviderUsage;
 use crate::providers::errors::ProviderError;
@@ -157,10 +158,23 @@ impl Agent for TruncateAgent {
             .collect();
 
         let plan_prompt = capabilities.get_planning_prompt(tools_info).await;
-        let (response, _usage) = capabilities
-            .provider()
-            .complete(&plan_prompt, plan_messages, &[])
-            .await?;
+
+        // TODO: hacky to create a new provider for the planner each time plan is called
+        let planner_provider = std::env::var("PLANNER_PROVIDER").unwrap_or("openai".to_string());
+        let mut planner_model = std::env::var("PLANNER_MODEL");
+        if planner_model.is_err() && planner_provider == "openai" {
+            planner_model = Ok("o1-high".to_string());
+        } else if planner_model.is_err() && planner_provider == "anthropic" {
+            planner_model = Ok("claude-3-7-sonnet-latest".to_string());
+        } else {
+            return Err(anyhow::anyhow!("PLANNER_MODEL is not set for the provider"));
+        }
+        let planner_model = planner_model.unwrap();
+
+        let model = ModelConfig::new(planner_model);
+        let provider = crate::providers::create(&planner_provider, model)?;
+
+        let (response, _usage) = provider.complete(&plan_prompt, plan_messages, &[]).await?;
 
         Ok(response)
     }
