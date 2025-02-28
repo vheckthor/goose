@@ -51,5 +51,5 @@ pub trait Agent: Send + Sync {
     async fn get_prompt(&self, name: &str, arguments: Value) -> Result<GetPromptResult>;
 
     /// Get a reference to the provider used by this agent
-    fn provider(&self) -> Option<Arc<Box<dyn Provider>>>;
+    async fn provider(&self) -> Arc<Box<dyn Provider>>;
 }

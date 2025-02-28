@@ -41,7 +41,7 @@ pub fn ensure_session_dir() -> Result<PathBuf> {
         author: "Block".to_string(),
         app_name: APP_NAME.to_string(),
     };
-    
+
     let data_dir = choose_app_strategy(app_strategy)
         .expect("goose requires a home dir")
         .data_dir()
@@ -88,7 +88,7 @@ pub fn list_sessions() -> Result<Vec<(String, PathBuf)>> {
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let path = entry.path();
-            
+
             if path.extension().is_some_and(|ext| ext == "jsonl") {
                 let name = path.file_stem()?.to_string_lossy().to_string();
                 Some((name, path))
@@ -155,7 +155,7 @@ pub fn read_metadata(session_file: &Path) -> Result<SessionMetadata> {
     let file = fs::File::open(session_file)?;
     let mut reader = io::BufReader::new(file);
     let mut first_line = String::new();
-    
+
     // Read just the first line
     if reader.read_line(&mut first_line)? > 0 {
         // Try to parse as metadata
@@ -181,26 +181,28 @@ pub fn read_metadata(session_file: &Path) -> Result<SessionMetadata> {
 /// Overwrites the file with metadata as the first line, followed by all messages in JSONL format.
 /// If a provider is supplied, it will automatically generate a description when appropriate.
 pub async fn persist_messages(
-    session_file: &Path, 
-    messages: &[Message], 
+    session_file: &Path,
+    messages: &[Message],
     provider: Option<Arc<Box<dyn Provider>>>
 ) -> Result<()> {
     // Read existing metadata
     let mut metadata = read_metadata(session_file)?;
-    
+
     // Count user messages
     let user_message_count = messages.iter()
         .filter(|m| m.role == mcp_core::role::Role::User)
         .filter(|m| !m.as_concat_text().trim().is_empty())
         .count();
-    
+
+    println!("Provider none?: {:?}", provider.is_none());
+    println!("User message count: {}", user_message_count);
+
     // Check if we need to update the description (after 1st or 3rd user message)
     if let Some(provider) = provider {
         if user_message_count < 4 {
-            println!("Regen descrition with user message count {}", user_message_count);
             // Generate description
             let mut description_prompt = "Based on the conversation so far, provide a concise header for this session in 4 words or less. This will be used for finding the session later in a UI with limited space - reply *ONLY* with the header. Avoid filler words such as help, summary, exchange, request etc that do not help distinguish different conversations.".to_string();
-            
+
             // get context from messages so far
             let context: Vec<String> = messages.iter()
                 .filter_map(|m| Some(m.as_concat_text()))
@@ -213,6 +215,8 @@ pub async fn persist_messages(
                     description_prompt
                 );
             }
+
+            println!("Description prompt: {}", description_prompt);
 
             // Generate the description
             let message = Message::user().with_text(&description_prompt);
@@ -230,7 +234,7 @@ pub async fn persist_messages(
             }
         }
     }
-    
+
     // Write the file with metadata and messages
     save_messages_with_metadata(session_file, &metadata, messages)
 }
@@ -239,8 +243,8 @@ pub async fn persist_messages(
 ///
 /// Overwrites the file with metadata as the first line, followed by all messages in JSONL format.
 pub fn save_messages_with_metadata(
-    session_file: &Path, 
-    metadata: &SessionMetadata, 
+    session_file: &Path,
+    metadata: &SessionMetadata,
     messages: &[Message]
 ) -> Result<()> {
     let file = File::create(session_file).expect("The path specified does not exist");
@@ -271,7 +275,7 @@ pub async fn generate_description(
 ) -> Result<()> {
     // Create a special message asking for a 3-word description
     let mut description_prompt = "Based on the conversation so far, provide a concise description of this session in 4 words or less. This will be used for finding the session later in a UI with limited space - reply *ONLY* with the description".to_string();
-    
+
     // get context from messages so far
     let context: Vec<String> = messages.iter()
         .filter(|m| m.role == mcp_core::role::Role::User)
@@ -299,13 +303,13 @@ pub async fn generate_description(
 
     // Read current metadata
     let mut metadata = read_metadata(session_file)?;
-    
+
     // Update description
     metadata.description = description;
-    
+
     // Update the file with the new metadata and existing messages
     update_metadata(session_file, &metadata)?;
-    
+
     Ok(())
 }
 
@@ -313,7 +317,7 @@ pub async fn generate_description(
 pub fn update_metadata(session_file: &Path, metadata: &SessionMetadata) -> Result<()> {
     // Read all messages from the file
     let messages = read_messages(session_file)?;
-    
+
     // Rewrite the file with the new metadata and existing messages
     save_messages_with_metadata(session_file, metadata, &messages)
 }
@@ -336,7 +340,7 @@ mod tests {
         ];
 
         // Write messages
-        persist_messages(&file_path, &messages)?;
+        persist_messages(&file_path, &messages, None);
 
         // Read them back
         let read_messages = read_messages(&file_path)?;
@@ -375,15 +379,15 @@ mod tests {
     #[test]
     fn test_generate_session_id() {
         let id = generate_session_id();
-        
+
         // Check that it follows the timestamp format (yyyymmdd_hhmmss)
         assert_eq!(id.len(), 15); // 8 chars for date + 1 for underscore + 6 for time
         assert!(id.contains('_'));
-        
+
         // Split by underscore and check parts
         let parts: Vec<&str> = id.split('_').collect();
         assert_eq!(parts.len(), 2);
-        
+
         // Date part should be 8 digits
         assert_eq!(parts[0].len(), 8);
         // Time part should be 6 digits

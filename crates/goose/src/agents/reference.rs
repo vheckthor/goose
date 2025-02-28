@@ -235,9 +235,9 @@ impl Agent for ReferenceAgent {
         Err(anyhow!("Prompt '{}' not found", name))
     }
 
-    fn provider(&self) -> Option<Arc<Box<dyn Provider>>> {
-        let capabilities = self.capabilities.try_lock().ok()?;
-        Some(capabilities.provider())
+    async fn provider(&self) -> Arc<Box<dyn Provider>> {
+        let capabilities = self.capabilities.lock().await;
+        capabilities.provider()
     }
 }
 
