@@ -27,6 +27,7 @@ use tokio_stream::wrappers::ReceiverStream;
 #[derive(Debug, Deserialize)]
 struct ChatRequest {
     messages: Vec<Message>,
+    session_id: Option<String>,
 }
 
 // Custom SSE response type for streaming messages
@@ -109,12 +110,8 @@ async fn handler(
     // Get messages directly from the request
     let messages = request.messages;
 
-    // Generate a new session ID for this conversation if not provided
-    let session_id = headers
-        .get("X-Session-ID")
-        .and_then(|value| value.to_str().ok())
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| session::generate_session_id());
+    // Generate a new session ID if not provided in the request
+    let session_id = request.session_id.unwrap_or_else(|| session::generate_session_id());
 
     // Get a lock on the shared agent
     let agent = state.agent.clone();
@@ -237,6 +234,7 @@ async fn handler(
 #[derive(Debug, Deserialize, Serialize)]
 struct AskRequest {
     prompt: String,
+    session_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -260,12 +258,8 @@ async fn ask_handler(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // Generate a new session ID for this conversation if not provided
-    let session_id = headers
-        .get("X-Session-ID")
-        .and_then(|value| value.to_str().ok())
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| session::generate_session_id());
+    // Generate a new session ID if not provided in the request
+    let session_id = request.session_id.unwrap_or_else(|| session::generate_session_id());
 
     let agent = state.agent.clone();
     let agent = agent.lock().await;
