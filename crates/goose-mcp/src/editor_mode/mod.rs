@@ -238,6 +238,7 @@ impl Router for EditorModeRouter {
         format!(
             r#"The editor mode extension provides tools for making changes to code with git integration.
 This ensures all changes are tracked and can be reviewed before being committed.
+You should interact with user as you go, ensuring you have the ok to go ahead with changes, what they are, and to what files.
 
 Current Status:
 - In git repository: {}
