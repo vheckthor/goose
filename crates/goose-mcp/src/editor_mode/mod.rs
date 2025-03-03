@@ -27,7 +27,7 @@ impl EditorModeRouter {
     pub fn new() -> Self {
         let git_status_tool = Tool::new(
             "status".to_string(),
-            "Get the current git repository status.".to_string(),
+            "REQUIRED FIRST STEP: Check if repository is clean and ready for changes. Must be called before starting any changes.".to_string(),
             json!({
                 "type": "object",
                 "required": [],
@@ -37,7 +37,7 @@ impl EditorModeRouter {
 
         let git_init_branch_tool = Tool::new(
             "init_branch".to_string(),
-            "Initialize a new branch for changes. Will fail if repo is not clean.".to_string(),
+            "Initialize a new branch for changes. Will fail if repo is not clean or status hasn't been checked.".to_string(),
             json!({
                 "type": "object",
                 "required": ["branch_name"],
@@ -49,7 +49,8 @@ impl EditorModeRouter {
 
         let git_show_diff_tool = Tool::new(
             "show_diff".to_string(),
-            "Show the current changes as a diff.".to_string(),
+            "Show changes for review. User MUST review and approve changes before committing."
+                .to_string(),
             json!({
                 "type": "object",
                 "required": [],
@@ -59,12 +60,12 @@ impl EditorModeRouter {
 
         let git_commit_tool = Tool::new(
             "commit".to_string(),
-            "Commit the current changes.".to_string(),
+            "Commit changes after they have been reviewed and approved via show_diff.".to_string(),
             json!({
                 "type": "object",
                 "required": ["message"],
                 "properties": {
-                    "message": {"type": "string", "description": "Commit message"}
+                    "message": {"type": "string", "description": "Descriptive commit message explaining the changes"}
                 }
             }),
         );
@@ -242,19 +243,36 @@ Current Status:
 - In git repository: {}
 - Repository is clean: {}
 
-This extension requires:
-1. Git to be installed and configured
-2. A clean git repository (no uncommitted changes when starting)
+IMPORTANT: This extension MUST be used in a git repository with a clean working directory.
+You MUST call 'status' first to verify the repository state before making any changes.
 
-Workflow:
-1. Use status to check repository state
-2. Create a new branch with init_branch
+Required Workflow:
+1. Call 'status' to verify repository state
+   - Must show you are in a git repository
+   - Must show repository is clean (no uncommitted changes)
+   - If not clean, commit or stash changes before proceeding
+
+2. Create new branch with 'init_branch'
+   - Provide a descriptive branch name
+   - Will fail if repository is not clean
+
 3. Make changes using other tools (e.g., developer extension)
-4. Review changes with show_diff
-5. Commit changes with commit
 
-Use this extension alongside the developer extension for a complete editing workflow.
-Once your changes are ready, use git directly or other tools to push and create PRs.
+4. Call 'show_diff' to review changes
+   - REQUIRED: User must review and approve the changes
+   - If changes are not correct, make additional edits and show_diff again
+   - Do not proceed until user confirms changes are correct
+
+5. Commit approved changes with 'commit'
+   - Provide a descriptive commit message
+   - All changes will be staged automatically
+
+After changes are committed, use git directly or other tools to push and create PRs.
+
+Requirements:
+1. Git must be installed and configured
+2. Must be in a git repository
+3. Repository must be clean when starting
 "#,
             if is_git { "Yes" } else { "No" },
             if is_clean { "Yes" } else { "No" },
