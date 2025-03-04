@@ -269,21 +269,29 @@ impl Agent for TruncateAgent {
                                 if ExperimentManager::is_enabled("GOOSE_SMART_APPROVE")? {
                                     read_only_tools = detect_read_only_tools(&capabilities, tool_requests.clone()).await;
                                 }
+                                
+                                // Track if any tool calls were actually executed
+                                let mut any_tools_executed = false;
+                                
                                 for request in &tool_requests {
                                     if let Ok(tool_call) = request.tool_call.clone() {
                                         // Skip confirmation if the tool_call.name is in the read_only_tools list
                                         if read_only_tools.contains(&tool_call.name) {
                                             let output = capabilities.dispatch_tool_call(tool_call).await;
-                                                    message_tool_response = message_tool_response.with_tool_response(
-                                                        request.id.clone(),
-                                                        output,
-                                                    );
+                                            message_tool_response = message_tool_response.with_tool_response(
+                                                request.id.clone(),
+                                                output.map(|mut content| {
+                                                    content.push(Content::text("\n✓ Tool executed successfully."));
+                                                    content
+                                                }),
+                                            );
+                                            any_tools_executed = true;
                                         } else {
                                             let confirmation = Message::user().with_tool_confirmation_request(
                                                 request.id.clone(),
                                                 tool_call.name.clone(),
                                                 tool_call.arguments.clone(),
-                                                Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
+                                                Some("Goose would like to call the above tool, do you approve?"),
                                             );
                                             yield confirmation;
 
@@ -297,13 +305,17 @@ impl Agent for TruncateAgent {
                                                         let output = capabilities.dispatch_tool_call(tool_call).await;
                                                         message_tool_response = message_tool_response.with_tool_response(
                                                             request.id.clone(),
-                                                            output,
+                                                            output.map(|mut content| {
+                                                                content.push(Content::text("\n✓ Tool executed successfully."));
+                                                                content
+                                                            }),
                                                         );
+                                                        any_tools_executed = true;
                                                     } else {
                                                         // User declined - add declined response
                                                         message_tool_response = message_tool_response.with_tool_response(
                                                             request.id.clone(),
-                                                            Ok(vec![Content::text("User declined to run this tool.")]),
+                                                            Ok(vec![Content::text("⨯ Tool execution was declined by the user.")]),
                                                         );
                                                     }
                                                     break; // Exit the loop once the matching `req_id` is found
@@ -311,6 +323,13 @@ impl Agent for TruncateAgent {
                                             }
                                         }
                                     }
+                                }
+
+                                // Add a final status message if any tools were executed
+                                if any_tools_executed {
+                                    message_tool_response = message_tool_response.with_text(
+                                        "\nAll requested tool operations have been completed. Please proceed with the next step."
+                                    );
                                 }
                             },
                             "chat" => {
