@@ -132,7 +132,6 @@ export function RecentModels() {
 export function RecentModelsRadio() {
   return (
     <div className="space-y-2">
-      <h2 className="text-md font-medium text-textStandard">Recently used</h2>
       <ModelRadioList
         renderItem={({ model, isSelected, onSelect }) => (
           <label key={model.name} className="flex items-center py-2 cursor-pointer">

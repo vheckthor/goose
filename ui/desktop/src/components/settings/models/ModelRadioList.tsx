@@ -36,14 +36,19 @@ export function ModelRadioList({ renderItem, className = '' }: ModelRadioListPro
   };
 
   return (
-    <div className={className}>
-      {recentModels.map((model) =>
-        renderItem({
-          model,
-          isSelected: selectedModel === model.name,
-          onSelect: () => handleRadioChange(model),
-        })
-      )}
+    <div>
+      <div>
+        <h2 className="text-md font-medium text-textStandard">Recently used</h2>
+        <div className={className}>
+          {recentModels.map((model) =>
+            renderItem({
+              model,
+              isSelected: selectedModel === model.name,
+              onSelect: () => handleRadioChange(model),
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }
