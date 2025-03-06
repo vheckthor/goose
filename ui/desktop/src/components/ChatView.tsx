@@ -1,11 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getApiUrl } from '../config';
-import {
-  generateSessionId,
-  updateSessionMetadata,
-  ensureWorkingDir,
-  fetchSessionDetails,
-} from '../sessions';
+import { generateSessionId, updateSessionMetadata } from '../sessions';
 import BottomMenu from './BottomMenu';
 import FlappyGoose from './FlappyGoose';
 import GooseMessage from './GooseMessage';
@@ -51,16 +46,6 @@ export default function ChatView({
 }) {
   // Check if we're resuming a session
   const resumedSession = viewOptions?.resumedSession;
-  const [resumeSessionId] = useState(() => {
-    // Check if there's a session ID stored in localStorage to resume
-    const storedSessionId = localStorage.getItem('resume_session_id');
-    if (storedSessionId) {
-      // Clear it immediately to prevent it from being used again
-      localStorage.removeItem('resume_session_id');
-      return storedSessionId;
-    }
-    return null;
-  });
 
   // Generate or retrieve session ID
   // The session ID should not change for the duration of the chat
