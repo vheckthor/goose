@@ -4,6 +4,7 @@ export interface SessionMetadata {
   description: string;
   message_count: number;
   total_tokens: number | null;
+<<<<<<< HEAD
   working_dir: string; // Required in type, but may be missing in old sessions
 }
 
@@ -15,6 +16,20 @@ export function ensureWorkingDir(metadata: Partial<SessionMetadata>): SessionMet
     total_tokens: metadata.total_tokens || null,
     working_dir: metadata.working_dir || process.env.HOME || '',
   };
+||||||| parent of 75e317336 (goose changes in ui/desktop)
+=======
+  working_dir: string; // Required in type, but may be missing in old sessions
+}
+
+// Helper function to ensure working directory is set
+export function ensureWorkingDir(metadata: Partial<SessionMetadata>): SessionMetadata {
+  return {
+    description: metadata.description || '',
+    message_count: metadata.message_count || 0,
+    total_tokens: metadata.total_tokens || null,
+    working_dir: metadata.working_dir || window.appConfig.get('HOME_DIR') || process.env.HOME || '',
+  };
+>>>>>>> 75e317336 (goose changes in ui/desktop)
 }
 
 export interface Session {
@@ -124,6 +139,39 @@ export async function fetchSessionDetails(sessionId: string): Promise<SessionDet
     };
   } catch (error) {
     console.error(`Error fetching session details for ${sessionId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Updates metadata for a specific session
+ * @param sessionId The ID of the session to update
+ * @param metadata The metadata to update
+ * @returns Promise with updated session metadata
+ */
+export async function updateSessionMetadata(
+  sessionId: string,
+  metadata: Partial<SessionMetadata>
+): Promise<SessionMetadata> {
+  try {
+    const response = await fetch(getApiUrl(`/sessions/${sessionId}/metadata`), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Secret-Key': getSecretKey(),
+      },
+      body: JSON.stringify(metadata),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to update session metadata: ${response.status} ${response.statusText}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error updating session metadata for ${sessionId}:`, error);
     throw error;
   }
 }
