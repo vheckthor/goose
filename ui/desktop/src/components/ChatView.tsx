@@ -46,7 +46,6 @@ export default function ChatView({
 }) {
   // Check if we're resuming a session
   const resumedSession = viewOptions?.resumedSession;
-  console.log('resumedSession', resumedSession);
 
   // Generate or retrieve session ID
   // The session ID should not change for the duration of the chat
