@@ -179,6 +179,8 @@ export default function App() {
         // Always clear the loading state
         setIsLoadingSession(false);
       }
+
+      setIsLoadingSession(false);
     };
 
     checkForResumeSession();
