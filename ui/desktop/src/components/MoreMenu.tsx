@@ -28,7 +28,7 @@ const MenuButton: React.FC<MenuButtonProps> = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-full text-left px-4 py-3 min-h-[64px] text-sm hover:bg-bgSubtle transition-colors border-b border-borderSubtle ${
+    className={`w-full text-left px-4 py-3 min-h-[64px] text-sm hover:bg-bgSubtle transition-[background] border-b border-borderSubtle ${
       danger ? 'text-red-400' : ''
     } ${className}`}
   >
@@ -54,7 +54,12 @@ const DarkModeToggle: React.FC<DarkModeToggleProps> = ({ isDarkMode, onToggle })
     className="flex items-center min-h-[64px] justify-between px-4 py-3 hover:bg-bgSubtle border-b border-borderSubtle"
     onClick={onToggle}
   >
-    <span className="text-sm">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+    <div className="flex flex-col items-start">
+      <span className="text-sm">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+      <span className="text-xs font-regular text-textSubtle mt-0.5">
+        {isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+      </span>
+    </div>
     <div className="h-4 w-4 overflow-hidden relative rounded-full">
       <div className="absolute bg-bg flex h-4 w-4 flex-row items-center justify-center transition-transform rotate-180 dark:rotate-0 translate-x-[100%] dark:translate-x-[0%]">
         <Sun className="h-4 w-4 transition-all duration-[400ms]" />
@@ -164,7 +169,7 @@ export default function MoreMenu({
       <PopoverPortal>
         <>
           <div
-            className={`z-[150] fixed inset-0 bg-black transition-opacity duration-700 ${open ? 'opacity-50' : 'opacity-0 pointer-events-none'}`}
+            className={`z-[150] fixed inset-0 bg-black transition-all animate-in duration-500 fade-in-0 opacity-50`}
           />
           <PopoverContent
             className="z-[200] w-[375px] overflow-hidden rounded-lg bg-bgApp border border-borderSubtle text-textStandard !zoom-in-100 !slide-in-from-right-4 !slide-in-from-top-0"
@@ -172,37 +177,12 @@ export default function MoreMenu({
             sideOffset={5}
           >
             <div className="flex flex-col rounded-md">
-              <DarkModeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
-
-              <MenuButton
-                onClick={() => setIsGoosehintsModalOpen(true)}
-                subtitle="Customize AI behavior for this directory"
-                icon={<Idea className="w-4 h-4" />}
-              >
-                Configure .goosehints
-              </MenuButton>
-
-              <MenuButton
-                onClick={() => {
-                  setOpen(false);
-                  window.electron.createChatWindow(
-                    undefined,
-                    window.appConfig.get('GOOSE_WORKING_DIR')
-                  );
-                }}
-                subtitle="Open a new directory to work with"
-                icon={<FolderOpen className="w-4 h-4" />}
-              >
-                Open Directory
-                <span className="text-textSubtle ml-1">(cmd+O)</span>
-              </MenuButton>
-
               <MenuButton
                 onClick={() => {
                   setOpen(false);
                   window.electron.createChatWindow();
                 }}
-                subtitle="Start a new session with fresh context"
+                subtitle="Start a new session in the current directory"
                 icon={<ChatSmart className="w-4 h-4" />}
               >
                 New Session
@@ -210,12 +190,34 @@ export default function MoreMenu({
               </MenuButton>
 
               <MenuButton
+                onClick={() => {
+                  setOpen(false);
+                  window.electron.directoryChooser();
+                }}
+                subtitle="Start a new session in a different directory"
+                icon={<FolderOpen className="w-4 h-4" />}
+              >
+                Open Directory
+                <span className="text-textSubtle ml-1">(cmd+O)</span>
+              </MenuButton>
+
+              <MenuButton
                 onClick={() => setView('sessions')}
-                subtitle="View previous goose sessions and their contents"
+                subtitle="View previous sessions and their contents"
                 icon={<Time className="w-4 h-4" />}
               >
                 Session history
               </MenuButton>
+
+              <MenuButton
+                onClick={() => setIsGoosehintsModalOpen(true)}
+                subtitle="Customize instructions"
+                icon={<Idea className="w-4 h-4" />}
+              >
+                Configure .goosehints
+              </MenuButton>
+
+              <DarkModeToggle isDarkMode={isDarkMode} onToggle={toggleTheme} />
 
               <MenuButton
                 onClick={() => {
@@ -236,11 +238,11 @@ export default function MoreMenu({
                   window.electron.createChatWindow();
                 }}
                 danger
-                subtitle="Clear selected AI provider and restart"
+                subtitle="Clear selected model and restart"
                 icon={<Refresh className="w-4 h-4 text-textStandard" />}
                 className="border-b-0"
               >
-                Reset Provider
+                Reset provider and model
               </MenuButton>
 
               {process.env.ALPHA && (
