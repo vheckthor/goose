@@ -4,7 +4,6 @@ export interface SessionMetadata {
   description: string;
   message_count: number;
   total_tokens: number | null;
-<<<<<<< HEAD
   working_dir: string; // Required in type, but may be missing in old sessions
 }
 
@@ -16,20 +15,6 @@ export function ensureWorkingDir(metadata: Partial<SessionMetadata>): SessionMet
     total_tokens: metadata.total_tokens || null,
     working_dir: metadata.working_dir || process.env.HOME || '',
   };
-||||||| parent of 75e317336 (goose changes in ui/desktop)
-=======
-  working_dir: string; // Required in type, but may be missing in old sessions
-}
-
-// Helper function to ensure working directory is set
-export function ensureWorkingDir(metadata: Partial<SessionMetadata>): SessionMetadata {
-  return {
-    description: metadata.description || '',
-    message_count: metadata.message_count || 0,
-    total_tokens: metadata.total_tokens || null,
-    working_dir: metadata.working_dir || process.env.HOME || '',
-  };
->>>>>>> 75e317336 (goose changes in ui/desktop)
 }
 
 export interface Session {

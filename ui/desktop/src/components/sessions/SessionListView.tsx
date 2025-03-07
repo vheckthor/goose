@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { ViewConfig } from '../../App';
-import { MessageSquare, Loader, AlertCircle, Calendar, ChevronRight, Folder } from 'lucide-react';
-import { fetchSessions, type Session } from '../../sessions';
+import {
+  MessageSquare,
+  Loader,
+  AlertCircle,
+  Calendar,
+  ChevronRight,
+  Folder,
+  Search,
+} from 'lucide-react';
+import { fetchSessionDetails, fetchSessions, SessionMessage, type Session } from '../../sessions';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import BackButton from '../ui/BackButton';
