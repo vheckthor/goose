@@ -61,10 +61,10 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
 
         {/* Session info row */}
         <div className="ml-8">
-          <h1 className="text-lg font-bold text-textStandard">
+          <h1 className="text-lg font-medium text-textStandard">
             {session.metadata.description || session.session_id}
           </h1>
-          <div className="flex items-center text-sm text-textSubtle mt-2 space-x-4">
+          <div className="flex items-center text-sm text-textSubtle space-x-4">
             <span className="flex items-center">
               <Clock className="w-4 h-4 mr-1" />
               {new Date(session.messages[0]?.created * 1000).toLocaleString()}
@@ -89,7 +89,7 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
           onClick={onResume}
           className="ml-auto text-md cursor-pointer text-textStandard hover:font-bold hover:scale-105 transition-all duration-150"
         >
-          Resume Session
+          Resume session
         </span>
       </Card>
 

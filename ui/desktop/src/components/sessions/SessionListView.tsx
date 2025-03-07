@@ -6,6 +6,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import BackButton from '../ui/BackButton';
 import { ScrollArea } from '../ui/scroll-area';
+import { Input } from '../ui/input';
 
 interface SessionListViewProps {
   setView: (view: ViewConfig['view'], viewOptions?: Record<any, any>) => void;
@@ -16,6 +17,53 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter sessions based on search query and messages
+  const [sessionMessages, setSessionMessages] = useState<Record<string, SessionMessage[]>>({});
+
+  useEffect(() => {
+    // Load messages for visible sessions when they change
+    const loadSessionMessages = async () => {
+      for (const session of sessions) {
+        if (!sessionMessages[session.id]) {
+          try {
+            const details = await fetchSessionDetails(session.id);
+            setSessionMessages((prev) => ({
+              ...prev,
+              [session.id]: details.messages,
+            }));
+          } catch (err) {
+            console.error(`Failed to load messages for session ${session.id}:`, err);
+          }
+        }
+      }
+    };
+    loadSessionMessages();
+  }, [sessions]);
+
+  const filteredSessions = sessions.filter((session) => {
+    // If no search query, show all sessions
+    if (!searchQuery) return true;
+
+    const searchLower = searchQuery.toLowerCase();
+
+    // Basic session metadata search
+    const basicMatch =
+      (session.id || '').toLowerCase().includes(searchLower) ||
+      (session.metadata?.description || '').toLowerCase().includes(searchLower) ||
+      (session.path || '').toLowerCase().includes(searchLower);
+
+    if (basicMatch) return true;
+
+    // Search through user messages if we have them loaded
+    const messages = sessionMessages[session.id] || [];
+    return messages.some(
+      (msg) =>
+        msg.role === 'user' &&
+        msg.content?.some((content) => (content?.text || '').toLowerCase().includes(searchLower))
+    );
+  });
 
   useEffect(() => {
     // Load sessions on component mount
@@ -72,6 +120,18 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
             <h3 className="text-sm text-textSubtle">
               View previous sessions and their contents to pick up where you left off
             </h3>
+
+            {/* Search input */}
+            <div className="relative mt-6">
+              <Search className="absolute left-0 top-1/2 transform -translate-y-1/2 h-4 w-4 text-textSubtle" />
+              <Input
+                type="text"
+                placeholder="Search sessions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full border-t-0 border-l-0 border-r-0 rounded-none pl-6"
+              />
+            </div>
           </div>
 
           {/* Content Area */}
@@ -90,52 +150,59 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
                 </Button>
               </div>
             ) : sessions.length > 0 ? (
-              <div className="grid gap-2">
-                {sessions.map((session) => (
-                  <Card
-                    key={session.id}
-                    onClick={() => onSelectSession(session.id)}
-                    className="p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer transition-all duration-150 rounded-md"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="w-full">
-                        <h3 className="text-base font-medium text-textStandard truncate">
-                          {session.metadata.description || session.id}
-                        </h3>
-                        <div className="flex gap-3">
-                          <div className="flex items-center text-textSubtle text-sm">
+              <div className="grid gap-2" key={searchQuery}>
+                {filteredSessions.length > 0 ? (
+                  filteredSessions.map((session, index) => (
+                    <Card
+                      key={session.id}
+                      onClick={() => onSelectSession(session.id)}
+                      className={`p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer rounded-md transition-all duration-200 ${index === 0 ? 'animate-[fadeIn_0.2s_ease-out]' : 'animate-[appear_0.2s_ease-out]'}`}
+                      style={{
+                        animationDelay: `${index * 50}ms`,
+                        animationFillMode: 'backwards',
+                      }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="w-full">
+                          <h3 className="text-base font-medium text-textStandard truncate">
+                            {session.metadata.description || session.id}
+                          </h3>
+                          <div className="flex items-center mt-1 text-textSubtle text-sm">
                             <Calendar className="w-3 h-3 mr-1 flex-shrink-0" />
                             <span className="truncate">{formatDate(session.modified)}</span>
                           </div>
-                          <div className="flex items-center text-textSubtle text-sm">
-                            <Folder className="w-3 h-3 mr-1 flex-shrink-0" />
-                            <span className="truncate">{session.metadata.working_dir}</span>
-                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-center text-sm text-textSubtle">
-                            <span>{session.path.split('/').pop() || session.path}</span>
-                          </div>
-                          <div className="flex items-center mt-1 space-x-3 text-sm text-textSubtle">
-                            <div className="flex items-center">
-                              <MessageSquare className="w-3 h-3 mr-1" />
-                              <span>{session.metadata.message_count}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col items-end">
+                            <div className="flex items-center text-sm text-textSubtle">
+                              <span>{session.path.split('/').pop() || session.path}</span>
                             </div>
-                            {session.metadata.total_tokens !== null && (
+                            <div className="flex items-center mt-1 space-x-3 text-sm text-textSubtle">
                               <div className="flex items-center">
-                                <span>{session.metadata.total_tokens.toLocaleString()} tokens</span>
+                                <MessageSquare className="w-3 h-3 mr-1" />
+                                <span>{session.metadata.message_count}</span>
                               </div>
-                            )}
+                              {session.metadata.total_tokens !== null && (
+                                <div className="flex items-center">
+                                  <span>
+                                    {session.metadata.total_tokens.toLocaleString()} tokens
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          <ChevronRight className="w-8 h-5 text-textSubtle" />
                         </div>
-                        <ChevronRight className="w-8 h-5 text-textSubtle" />
                       </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-32 text-textSubtle animate-[appear_0.2s_ease-out]">
+                    <MessageSquare className="h-8 w-8 mb-2" />
+                    <p className="text-sm">No sessions match your search</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-textSubtle">
