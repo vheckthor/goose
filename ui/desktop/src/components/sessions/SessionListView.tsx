@@ -68,16 +68,14 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
         <div className="flex flex-col pb-24">
           <div className="px-8 pt-6 pb-4">
             <BackButton onClick={() => setView('chat')} />
+            <h1 className="text-3xl font-medium text-textStandard mt-1">Session history</h1>
+            <h3 className="text-sm text-textSubtle">
+              View previous sessions and their contents to pick up where you left off
+            </h3>
           </div>
 
           {/* Content Area */}
-          <div className="flex flex-col mb-6 px-8">
-            <h1 className="text-3xl font-medium text-textStandard">Previous goose sessions</h1>
-            <h3 className="text-sm text-textSubtle mt-2">
-              View previous goose sessions and their contents to pick up where you left off.
-            </h3>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto py-4 px-6">
             {isLoading ? (
               <div className="flex justify-center items-center h-full">
                 <Loader className="h-8 w-8 animate-spin text-textPrimary" />
@@ -85,10 +83,10 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
             ) : error ? (
               <div className="flex flex-col items-center justify-center h-full text-textSubtle">
                 <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-                <p className="text-lg mb-2">Error Loading Sessions</p>
+                <p className="text-lg mb-2">Error loading sessions</p>
                 <p className="text-sm text-center mb-4">{error}</p>
                 <Button onClick={loadSessions} variant="default">
-                  Try Again
+                  Try again
                 </Button>
               </div>
             ) : sessions.length > 0 ? (
@@ -97,7 +95,7 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
                   <Card
                     key={session.id}
                     onClick={() => onSelectSession(session.id)}
-                    className="p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer transition-all duration-150"
+                    className="p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer transition-all duration-150 rounded-md"
                   >
                     <div className="flex justify-between items-start">
                       <div className="w-full">
