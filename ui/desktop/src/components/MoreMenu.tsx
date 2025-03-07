@@ -188,7 +188,7 @@ export default function MoreMenu({
                 subtitle="Start a new session in the current directory"
                 icon={<ChatSmart className="w-4 h-4" />}
               >
-                New Session
+                New session
                 <span className="text-textSubtle ml-1">(cmd+N)</span>
               </MenuButton>
 
@@ -200,7 +200,7 @@ export default function MoreMenu({
                 subtitle="Start a new session in a different directory"
                 icon={<FolderOpen className="w-4 h-4" />}
               >
-                Open Directory
+                Open directory
                 <span className="text-textSubtle ml-1">(cmd+O)</span>
               </MenuButton>
 
