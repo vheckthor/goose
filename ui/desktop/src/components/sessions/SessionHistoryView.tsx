@@ -94,8 +94,8 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
       <ScrollArea className="h-[calc(100vh-120px)] w-full">
         {/* Content */}
         <div className="p-4">
-          <div className="flex flex-col space-y-4">
-            <div className="space-y-4 mb-6">
+          <div className="flex flex-col">
+            <div className="mb-6">
               {isLoading ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-textStandard"></div>
@@ -138,34 +138,25 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
                     }
 
                     return (
-                      <Card
+                      <div
                         key={index}
-                        className={`p-4 ${
-                          message.role === 'user'
-                            ? 'bg-bgSecondary border border-borderSubtle'
-                            : 'bg-bgSubtle'
-                        }`}
+                        className={`mb-4 flex w-full ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium text-textStandard">
-                            {message.role === 'user' ? 'You' : 'Goose'}
-                          </span>
-                          <span className="text-xs text-textSubtle">
-                            {new Date(message.created * 1000).toLocaleTimeString()}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-col w-full">
+                        <div
+                          className={`flex flex-col max-w-[90%] ${message.role === 'user' ? 'max-w--[90%]' : 'w-[90%]'}`}
+                        >
                           {/* Text content */}
                           {textContent && (
-                            <div className={`${toolRequests.length > 0 ? 'mb-4' : ''}`}>
+                            <div
+                              className={`${toolRequests.length > 0 ? 'rounded-b-none' : ''} ${message.role === 'user' ? 'flex bg-slate text-white rounded-xl rounded-br-none py-2 px-3' : 'goose-message-content bg-bgSubtle rounded-2xl px-4 py-2'}`}
+                            >
                               <MarkdownContent content={textContent} />
                             </div>
                           )}
 
                           {/* Tool requests and responses */}
                           {toolRequests.length > 0 && (
-                            <div className="goose-message-tool bg-bgApp border border-borderSubtle dark:border-gray-700 rounded-b-2xl px-4 pt-4 pb-2 mt-1">
+                            <div className="goose-message-tool bg-bgApp border border-borderSubtle dark:border-gray-700 rounded-b-2xl px-4 pt-4 pb-2">
                               {toolRequests.map((toolRequest) => (
                                 <ToolCallWithResponse
                                   // In the session history page, if no tool response found for given request, it means the tool call
@@ -180,8 +171,17 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
                               ))}
                             </div>
                           )}
+
+                          <span
+                            className={`text-xs text-textSubtle mt-1 ${message.role === 'user' ? 'text-right' : ''}`}
+                          >
+                            {new Date(message.created * 1000).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
                         </div>
-                      </Card>
+                      </div>
                     );
                   })
                   .filter(Boolean) // Filter out null entries
