@@ -53,18 +53,16 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
 }) => {
   return (
     <div className="h-screen w-full">
-      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
+      <div className="relative flex items-center h-[36px] w-full bg-bgAppInverse"></div>
 
       {/* Top Row - back, info, reopen thread (fixed) */}
-      <Card className="px-8 pt-6 pb-4 bg-bgSecondary flex items-center">
-        <BackButton showText={false} onClick={onBack} className="text-textStandard" />
+      <div className="px-6 p-4 bg-bgAppInverse text-textInverse flex items-center">
+        <BackButton showText={false} onClick={onBack} className="!text-textInverse" />
 
         {/* Session info row */}
-        <div className="ml-8">
-          <h1 className="text-lg font-medium text-textStandard">
-            {session.metadata.description || session.session_id}
-          </h1>
-          <div className="flex items-center text-sm text-textSubtle space-x-4">
+        <div className="ml-4">
+          <span className="text-md">{session.metadata.description || session.session_id}</span>
+          {/* <div className="flex items-center text-sm space-x-4">
             <span className="flex items-center">
               <Clock className="w-4 h-4 mr-1" />
               {new Date(session.messages[0]?.created * 1000).toLocaleString()}
@@ -82,16 +80,16 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
                 {session.metadata.total_tokens.toLocaleString()} tokens
               </span>
             )}
-          </div>
+          </div> */}
         </div>
 
         <span
           onClick={onResume}
-          className="ml-auto text-md cursor-pointer text-textStandard hover:font-bold hover:scale-105 transition-all duration-150"
+          className="ml-auto text-sm cursor-pointer bg-bgApp text-textProminent hover:scale-105 px-4 py-2 rounded-full transition-all duration-150"
         >
-          Resume session
+          Reopen session
         </span>
-      </Card>
+      </div>
 
       <ScrollArea className="h-[calc(100vh-120px)] w-full">
         {/* Content */}

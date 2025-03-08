@@ -118,11 +118,11 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
 
   return (
     <div className="h-screen w-full">
-      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
+      <div className="relative flex items-center h-[36px] w-full"></div>
 
       <ScrollArea className="h-full w-full">
         <div className="flex flex-col pb-24">
-          <div className="px-8 pt-6 pb-4">
+          <div className="px-8 pt-6 pb-4 transition-all animate-[appearDown_0.3s_ease-out]">
             <BackButton onClick={() => setView('chat')} />
             <h1 className="text-3xl font-medium text-textStandard mt-1">Session history</h1>
             <h3 className="text-sm text-textSubtle">
@@ -130,7 +130,7 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
             </h3>
 
             {/* Search input */}
-            <div className="relative mt-6">
+            <div className="relative mt-6 transition-all animate-[appear_0.3s_ease-out]">
               <Search className="absolute left-0 top-1/2 transform -translate-y-1/2 h-4 w-4 text-textSubtle" />
               <Input
                 type="text"
@@ -164,7 +164,7 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
                     <Card
                       key={session.id}
                       onClick={() => onSelectSession(session.id)}
-                      className={`p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer rounded-md transition-all duration-200 ${index === 0 ? 'animate-[fadeIn_0.2s_ease-out]' : 'animate-[appear_0.2s_ease-out]'}`}
+                      className={`p-2 bg-bgSecondary hover:bg-bgSubtle cursor-pointer rounded-md transition-all ${index === 0 ? 'animate-[fadeIn_0.3s_ease-out]' : 'animate-[appear_0.3s_ease-out]'}`}
                       style={{
                         animationDelay: `${index * 50}ms`,
                         animationFillMode: 'backwards',
@@ -200,7 +200,7 @@ const SessionListView: React.FC<SessionListViewProps> = ({ setView, onSelectSess
                               )}
                             </div>
                           </div>
-                          <ChevronRight className="w-8 h-5 text-textSubtle" />
+                          {/* <ChevronRight className="w-8 h-5 text-textSubtle" /> */}
                         </div>
                       </div>
                     </Card>

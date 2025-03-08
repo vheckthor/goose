@@ -30,6 +30,10 @@ export default {
           '0%': { opacity: 0, transform: 'translateY(8px)' },
           '100%': { opacity: 1, transform: 'translateY(0)' },
         },
+        appearDown: {
+          '0%': { opacity: 0, transform: 'translateY(-8px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' },
+        },
         flyin: {
           '0%': { opacity: 0, transform: 'translate(-300%, 300%)' },
           '100%': { opacity: 1, transform: 'translate(0, 0)' },
@@ -50,6 +54,7 @@ export default {
       },
       colors: {
         bgApp: 'var(--background-app)',
+        bgAppInverse: 'var(--background-app-inverse)',
         bgSubtle: 'var(--background-subtle)',
         bgStandard: 'var(--background-standard)',
         bgProminent: 'var(--background-prominent)',
@@ -61,6 +66,7 @@ export default {
         textStandard: 'var(--text-standard)',
         textSubtle: 'var(--text-subtle)',
         textPlaceholder: 'var(--text-placeholder)',
+        textInverse: 'var(--text-inverse)',
 
         iconProminent: 'var(--icon-prominent)',
         iconStandard: 'var(--icon-standard)',
