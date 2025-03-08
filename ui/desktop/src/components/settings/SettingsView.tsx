@@ -17,6 +17,7 @@ import { ExtensionItem } from './extensions/ExtensionItem';
 import type { View } from '../../App';
 import ModeSelection from './basic/ModeSelection';
 import { getApiUrl, getSecretKey } from '../../config';
+import Topbar from '../ui/Topbar';
 
 const EXTENSIONS_DESCRIPTION =
   'The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.';
@@ -235,7 +236,7 @@ export default function SettingsView({
 
   return (
     <div className="h-screen w-full">
-      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
+      <Topbar />
 
       <ScrollArea className="h-full w-full">
         <div className="flex flex-col pb-24">

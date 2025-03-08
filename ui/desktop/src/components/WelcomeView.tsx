@@ -3,6 +3,7 @@ import { ProviderGrid } from './ProviderGrid';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
 import WelcomeGooseLogo from './WelcomeGooseLogo';
+import Topbar from './ui/Topbar';
 
 // Extending React CSSProperties to include custom webkit property
 declare module 'react' {
@@ -18,19 +19,15 @@ interface WelcomeScreenProps {
 export default function WelcomeScreen({ onSubmit }: WelcomeScreenProps) {
   return (
     <div className="h-screen w-full select-none bg-white dark:bg-black">
-      {/* Draggable title bar region */}
-      <div
-        className="relative flex items-center h-[36px] w-full bg-bgSubtle"
-        style={{ WebkitAppRegion: 'drag' }}
-      ></div>
+      <Topbar />
 
       {/* Content area - explicitly set as non-draggable */}
       <div
-        className="h-[calc(100vh-36px)] w-full overflow-hidden"
+        className="h-[calc(100vh-44px)] w-full overflow-hidden"
         style={{ WebkitAppRegion: 'no-drag' }}
       >
         <ScrollArea className="h-full w-full">
-          <div className="flex min-h-full flex-col justify-center px-8 py-8 md:px-16 max-w-4xl mx-auto">
+          <div className="flex min-h-full flex-col justify-center px-6 py-8 md:px-16 max-w-4xl mx-auto">
             {/* Header Section */}
             <div className="mb-8 mt-4">
               <div className="flex items-center gap-4 mb-4">

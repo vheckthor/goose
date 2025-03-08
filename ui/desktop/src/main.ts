@@ -129,7 +129,7 @@ const createChat = async (
 
   const mainWindow = new BrowserWindow({
     titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
-    trafficLightPosition: process.platform === 'darwin' ? { x: 16, y: 10 } : undefined,
+    trafficLightPosition: process.platform === 'darwin' ? { x: 20, y: 14 } : undefined,
     vibrancy: process.platform === 'darwin' ? 'window' : undefined,
     frame: process.platform === 'darwin' ? false : true,
     width: 750,
