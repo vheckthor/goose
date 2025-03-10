@@ -300,15 +300,17 @@ impl Router for DatabricksRouter {
         Box::pin(async move { Ok("".to_string()) })
     }
 
-    fn list_prompts(&self) -> Option<Vec<mcp_core::prompt::Prompt>> {
-        None
+    fn list_prompts(&self) -> Vec<mcp_core::prompt::Prompt> {
+        Vec::new()
     }
 
     fn get_prompt(
         &self,
         _prompt_name: &str,
-    ) -> Option<Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>>> {
-        None
+    ) -> Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>> {
+        Box::pin(async move { 
+            Err(PromptError::NotFound("No prompts available".to_string())) 
+        })
     }
 }
 
