@@ -14,6 +14,7 @@ function show_usage() {
   echo "  -d, --debug              Use debug build instead of release build"
   echo "  -t, --toolshim           Enable toolshim mode by setting GOOSE_TOOLSHIM=1"
   echo "  -m, --toolshim-model     Set the toolshim model (sets GOOSE_TOOLSHIM_MODEL)"
+  echo "  -r, --repeat            Number of times to repeat each benchmark"
   echo "  -h, --help               Show this help message"
   echo ""
   echo "Example:"
@@ -27,6 +28,7 @@ OUTPUT_DIR="./benchmark-results"
 DEBUG_MODE=false
 TOOLSHIM=false
 TOOLSHIM_MODEL=""
+REPEAT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -m|--toolshim-model)
       TOOLSHIM_MODEL="$2"
+      shift 2
+      ;;
+    -r|--repeat)
+      REPEAT="$2"
       shift 2
       ;;
     -h|--help)
@@ -171,7 +177,12 @@ for ((i=0; i<$COUNT; i++)); do
   OUTPUT_FILE="$OUTPUT_DIR/${provider}-${model}.json"
   ANALYSIS_FILE="$OUTPUT_DIR/${provider}-${model}-analysis.txt"
   
-  if $GOOSE_CMD bench --suites "$SUITES" --output "$OUTPUT_FILE" --format json; then
+  BENCH_CMD="$GOOSE_CMD bench --suites \"$SUITES\" --output \"$OUTPUT_FILE\" --format json"
+  if [[ -n "$REPEAT" ]]; then
+    BENCH_CMD="$BENCH_CMD --repeat $REPEAT"
+  fi
+  
+  if eval "$BENCH_CMD"; then
     echo "✅ Benchmark completed successfully" | tee -a "$SUMMARY_FILE"
     
     # Parse the JSON to check for failures
