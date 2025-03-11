@@ -104,7 +104,7 @@ Here's how to configure:
 
 ## Goose Tool Permission Store
 
-By default, once you approve a tool call, Goose will not ask you again to approve the same tool call.
+By default, once you approve a tool call with arguments xyz, Goose will not ask you again to approve the same tool call with the same arguments.
 
 Goose uses a tool permission store to track the permissions of each tool. You can view the tool permissions by viewing the file:
 `~/.config/goose/tool_permissions.json`.
