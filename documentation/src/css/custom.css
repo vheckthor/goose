@@ -113,11 +113,6 @@
   --ifm-footer-link-color: var(--text-standard);
   --ifm-navbar-link-hover-color: var(--text-subtle);
   --ifm-link-color: var(--green-for-lightbg);
-
-  /* video adnomition */
-  --ifm-color-video-alert-contrast-background: #edfbf8;
-  --ifm-color-video-alert-contrast-foreground: #01523e;
-  --ifm-color-video-alert-border: #25c2a0;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -158,16 +153,68 @@
 
   --button-primary-background: var(--constant-white);
   --ifm-link-color: var(--green-for-darkbg);
-
-  /* video adnomition */
-  --ifm-color-video-alert-contrast-background: #336e62;
-  --ifm-color-video-alert-contrast-foreground: rgb(216 251 216);
-  --ifm-color-video-alert-border: #99d5c5
-  ;
 }
 
-/* overrides */
+/* Prompt Library Specific Styles */
+.prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+}
 
+.prompt-card {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+  background: var(--background-subtle);
+}
+
+.prompt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.prompt-card h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-prominent);
+}
+
+.prompt-tag {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  background-color: var(--background-standard);
+  color: var(--text-standard);
+}
+
+.prompt-meta {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-subtle);
+}
+
+.search-container {
+  margin: 2rem auto;
+  max-width: 600px;
+}
+
+.search-box {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  border: 2px solid var(--border-standard);
+  border-radius: 8px;
+  background: var(--background-app);
+  color: var(--text-standard);
+}
+
+/* Original styles below */
 .button {
   display: flex;
   align-items: center;
@@ -223,8 +270,6 @@ html {
   padding-top: 24px;
 }
 
-/* net new */
-
 .hero--logo svg {
   height: 220px;
   width: 220px;
@@ -239,7 +284,6 @@ html {
   margin: 0;
 }
 
-/* Enable word-wrap for code blocks */
 .theme-code-block pre {
   white-space: pre-wrap;
   word-wrap: break-word;
