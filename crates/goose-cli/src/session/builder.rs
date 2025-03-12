@@ -101,10 +101,10 @@ pub async fn build_session(
                         }
                         _ => e.to_string(),
                     };
-                    println!("Failed to start extension: {}, {:?}", config.key(), err);
+                    println!("Failed to start extension: {}, {:?}", config.name(), err);
                     println!(
                         "Please check extension configuration for {}.",
-                        config.key()
+                        config.name()
                     );
                     process::exit(1);
                 });
