@@ -4,8 +4,7 @@ import BackButton from '../ui/BackButton';
 import type { View } from '../../App';
 import { useConfig } from '../ConfigContext';
 import { Button } from '../ui/button';
-import { Plus } from 'lucide-react';
-import { Gear } from '../icons/Gear';
+import { Plus, Sliders } from 'lucide-react';
 import ExtensionsSection from './extensions/ExtensionsSection';
 
 interface ModelOption {
@@ -107,7 +106,7 @@ export default function SettingsView({
                       Add Model
                     </Button>
                     <Button className="flex items-center gap-2 flex-1 justify-center text-textSubtle border-standard bg-grey-60 hover:bg-subtle">
-                      <Gear className="h-4 w-4" />
+                      <Sliders className="h-4 w-4 rotate-90" />
                       Configure Providers
                     </Button>
                   </div>
