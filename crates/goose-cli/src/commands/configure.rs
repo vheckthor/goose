@@ -610,6 +610,12 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     let extensions = ExtensionManager::get_all()?;
 
+    // Create a list of extension names and their enabled status
+    let extension_status: Vec<(String, bool)> = extensions
+        .iter()
+        .map(|entry| (entry.config.name().to_string(), entry.enabled))
+        .collect();
+
     if extensions.is_empty() {
         cliclack::outro(
             "No extensions configured yet. Run configure and add some extensions first.",
@@ -618,7 +624,7 @@ pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     }
 
     // Check if all extensions are enabled
-    if extensions.iter().all(|entry| entry.enabled) {
+    if extension_status.iter().all(|(_, enabled)| *enabled) {
         cliclack::outro(
             "All extensions are currently enabled. You must first disable extensions before removing them.",
         )?;
@@ -629,48 +635,58 @@ pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     let disabled_extensions: Vec<_> = extensions
         .iter()
         .filter(|entry| !entry.enabled)
+        .map(|entry| (entry.config.name().to_string(), entry.enabled))
         .collect();
 
-    if disabled_extensions.is_empty() {
-        cliclack::outro(
-            "No disabled extensions found. You must first disable extensions before removing them.",
-        )?;
-        return Ok(());
-    }
-
-    // Create a vector to store the names and keys
-    let names: Vec<String> = disabled_extensions
-        .iter()
-        .map(|entry| entry.config.name().to_string())
-        .collect();
-
-    let keys: Vec<String> = disabled_extensions
-        .iter()
-        .map(|entry| entry.config.key())
-        .collect();
-
-    // Prepare display items for multiselect
-    let display_items: Vec<(&str, &str, &str)> = names
-        .iter()
-        .map(|name| (name.as_str(), name.as_str(), ""))
-        .collect();
-
-    // Show names to the user for selection - using interact() instead of interact_indices()
-    let selected_names = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
+    let selected = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
         .required(false)
-        .items(&display_items)
+        .items(
+            &disabled_extensions
+                .iter()
+                .filter(|(_, enabled)| !enabled)
+                .map(|(name, _)| (name, name.as_str(), ""))
+                .collect::<Vec<_>>(),
+        )
         .interact()?;
 
-    // Map selected names back to their keys
-    for selected_name in selected_names {
-        // Find the index of this name in our names array
-        if let Some(idx) = names.iter().position(|name| name.as_str() == selected_name) {
-            // Use the same index to get the corresponding key
-            let key = &keys[idx];
-            ExtensionManager::remove(key)?;
-            cliclack::outro(format!("Removed {} extension", style(selected_name).green()))?;
-        }
+    for name in selected {
+        ExtensionManager::remove(&name_to_key(&name))?;
+        cliclack::outro(format!("Removed {} extension", style(name).green()))?;
     }
+
+    // // Create a vector to store the names and keys
+    // let names: Vec<String> = disabled_extensions
+    //     .iter()
+    //     .map(|entry| entry.config.name().to_string())
+    //     .collect();
+    //
+    // let keys: Vec<String> = disabled_extensions
+    //     .iter()
+    //     .map(|entry| entry.config.key())
+    //     .collect();
+    //
+    // // Prepare display items for multiselect
+    // let display_items: Vec<(&str, &str, &str)> = names
+    //     .iter()
+    //     .map(|name| (name.as_str(), name.as_str(), ""))
+    //     .collect();
+    //
+    // // Show names to the user for selection - using interact() instead of interact_indices()
+    // let selected_names = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
+    //     .required(false)
+    //     .items(&display_items)
+    //     .interact()?;
+    //
+    // // Map selected names back to their keys
+    // for selected_name in selected_names {
+    //     // Find the index of this name in our names array
+    //     if let Some(idx) = names.iter().position(|name| name.as_str() == selected_name) {
+    //         // Use the same index to get the corresponding key
+    //         let key = &keys[idx];
+    //         ExtensionManager::remove(key)?;
+    //         cliclack::outro(format!("Removed {} extension", style(selected_name).green()))?;
+    //     }
+    // }
 
     Ok(())
 }
