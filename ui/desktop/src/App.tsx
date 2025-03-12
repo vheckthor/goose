@@ -273,7 +273,7 @@ export default function App() {
             />
           )}
           {view === 'alphaConfigureProviders' && (
-            <ProviderSettings onClose={() => setView('chat')} />
+            <ProviderSettings onClose={() => setView('chat')} isOnboarding={false} />
           )}
           {view === 'chat' && !isLoadingSession && (
             <ChatView

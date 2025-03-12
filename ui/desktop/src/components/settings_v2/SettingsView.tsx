@@ -105,7 +105,12 @@ export default function SettingsView({
                       <Plus className="h-4 w-4" />
                       Add Model
                     </Button>
-                    <Button className="flex items-center gap-2 flex-1 justify-center text-textSubtle border-standard bg-grey-60 hover:bg-subtle">
+                    <Button
+                      className="flex items-center gap-2 flex-1 justify-center text-textSubtle border-standard bg-grey-60 hover:bg-subtle"
+                      onClick={() => {
+                        setView('alphaConfigureProviders');
+                      }}
+                    >
                       <Sliders className="h-4 w-4 rotate-90" />
                       Configure Providers
                     </Button>
