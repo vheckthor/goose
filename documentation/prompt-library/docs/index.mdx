@@ -1,0 +1,85 @@
+---
+id: index
+slug: /
+sidebar_position: 1
+---
+
+import { useState } from 'react';
+
+# Goose Prompt Library
+
+Welcome to the Goose Prompt Library! Find the perfect prompts and GooseHints to supercharge your Goose experience.
+
+<div className="search-container">
+  <input
+    type="text"
+    className="search-box"
+    placeholder="Search prompts and goosehints..."
+    onChange={(e) => {
+      // Search functionality to be implemented
+    }}
+  />
+</div>
+
+## Featured Prompts
+
+<div className="prompt-grid">
+  <div className="prompt-card">
+    <h3>Code Review Assistant</h3>
+    <div>
+      <span className="prompt-tag">Developer</span>
+      <span className="prompt-tag">Code Review</span>
+    </div>
+    <p>Get comprehensive code reviews with actionable feedback</p>
+    <div className="prompt-meta">
+      Extensions: Developer, GitHub
+    </div>
+  </div>
+  
+  <div className="prompt-card">
+    <h3>Document Analyzer</h3>
+    <div>
+      <span className="prompt-tag">Business</span>
+      <span className="prompt-tag">Documentation</span>
+    </div>
+    <p>Extract key insights from business documents</p>
+    <div className="prompt-meta">
+      Extensions: ComputerController
+    </div>
+  </div>
+</div>
+
+## Featured GooseHints
+
+<div className="prompt-grid">
+  <div className="prompt-card">
+    <h3>Project Analysis Hint</h3>
+    <div>
+      <span className="prompt-tag">Developer</span>
+      <span className="prompt-tag">Project Setup</span>
+    </div>
+    <p>Guide Goose in analyzing project structure</p>
+    <div className="prompt-meta">
+      Extensions: Developer
+    </div>
+  </div>
+  
+  <div className="prompt-card">
+    <h3>Workflow Automation Hint</h3>
+    <div>
+      <span className="prompt-tag">Business</span>
+      <span className="prompt-tag">Automation</span>
+    </div>
+    <p>Define preferences for automated workflows</p>
+    <div className="prompt-meta">
+      Extensions: ComputerController
+    </div>
+  </div>
+</div>
+
+## Browse by Category
+
+- [Developer Prompts](/prompts/developer)
+- [Business Prompts](/prompts/business)
+- [Developer GooseHints](/goosehints/developer)
+- [Business GooseHints](/goosehints/business)
