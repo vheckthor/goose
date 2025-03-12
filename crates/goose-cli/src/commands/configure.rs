@@ -353,7 +353,7 @@ pub fn toggle_extensions_dialog() -> Result<(), Box<dyn Error>> {
     // Create a list of extension names and their enabled status
     let extension_status: Vec<(String, bool)> = extensions
         .iter()
-        .map(|entry| (entry.config.name().to_string(), entry.enabled))
+        .map(|entry| (entry.config.key().to_string(), entry.enabled))
         .collect();
 
     // Get currently enabled extensions for the selection
@@ -609,10 +609,10 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     let extensions = ExtensionManager::get_all()?;
 
-    // Create a list of extension names and their enabled status
+    // Create a list of extension keys and their enabled status
     let extension_status: Vec<(String, bool)> = extensions
         .iter()
-        .map(|entry| (entry.config.name().to_string(), entry.enabled))
+        .map(|entry| (entry.config.key().to_string(), entry.enabled))
         .collect();
 
     if extensions.is_empty() {
@@ -630,19 +630,32 @@ pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    // Create a mapping of keys to names for display purposes
+    let key_to_name_map: HashMap<String, String> = extensions
+        .iter()
+        .filter(|entry| !entry.enabled)
+        .map(|entry| {
+            let key = entry.config.key();
+            let name = entry.config.name();
+            (key, name)
+        })
+        .collect();
+
+    // Use keys for selection items
     let selected = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
         .required(false)
         .items(
-            &extension_status
+            &key_to_name_map
                 .iter()
-                .filter(|(_, enabled)| !enabled)
-                .map(|(name, _)| (name, name.as_str(), ""))
+                .map(|(key, name)| (key, name.as_str(), ""))
                 .collect::<Vec<_>>(),
         )
         .interact()?;
 
-    for name in selected {
-        ExtensionManager::remove(name)?;
+    // Use key for removal but name for display
+    for key in selected {
+        let name = &key_to_name_map[key]; // Look up the name using the key
+        ExtensionManager::remove(key)?;
         cliclack::outro(format!("Removed {} extension", style(name).green()))?;
     }
 

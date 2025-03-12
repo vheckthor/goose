@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use mcp_client::client::Error as ClientError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use utoipa::ToSchema;
+
 
 use crate::config;
 
@@ -21,7 +23,7 @@ pub enum ExtensionError {
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default, ToSchema)]
 pub struct Envs {
     /// A map of environment variables to set, e.g. API_KEY -> some_secret, HOST -> host
     #[serde(default)]
@@ -43,7 +45,7 @@ impl Envs {
 }
 
 /// Represents the different types of MCP extensions that can be added to the manager
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 #[serde(tag = "type")]
 pub enum ExtensionConfig {
     /// Server-sent events client with a URI endpoint
@@ -131,12 +133,20 @@ impl ExtensionConfig {
     }
 
     /// Get the extension name regardless of variant
-    pub fn name(&self) -> &str {
+    pub fn key(&self) -> String {
+        match self {
+            Self::Sse { name, .. } => format!("_{}", name),
+            Self::Stdio { name, .. } => format!("_{}", name),
+            Self::Builtin { name, .. } => format!("_{}", name),
+        }.to_string()
+    }
+
+    pub fn name(&self) -> String {
         match self {
             Self::Sse { name, .. } => name,
             Self::Stdio { name, .. } => name,
             Self::Builtin { name, .. } => name,
-        }
+        }.to_string()
     }
 }
 

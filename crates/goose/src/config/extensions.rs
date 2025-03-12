@@ -3,15 +3,20 @@ use crate::agents::ExtensionConfig;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 pub const DEFAULT_EXTENSION: &str = "developer";
 pub const DEFAULT_EXTENSION_TIMEOUT: u64 = 300;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct ExtensionEntry {
     pub enabled: bool,
     #[serde(flatten)]
     pub config: ExtensionConfig,
+}
+
+pub fn name_to_key(name: &str) -> String {
+    format!("_{}", name)
 }
 
 /// Extension configuration management
@@ -60,20 +65,23 @@ impl ExtensionManager {
             .get_param("extensions")
             .unwrap_or_else(|_| HashMap::new());
 
-        extensions.insert(entry.config.name().parse()?, entry);
+        extensions.insert(entry.config.key().parse()?, entry);
         config.set_param("extensions", serde_json::to_value(extensions)?)?;
         Ok(())
     }
 
     /// Remove an extension configuration
-    pub fn remove(name: &str) -> Result<()> {
+    pub fn remove(key: &str) -> Result<()> {
+        println!("removing extension {}", key);
         let config = Config::global();
 
         let mut extensions: HashMap<String, ExtensionEntry> = config
             .get_param("extensions")
             .unwrap_or_else(|_| HashMap::new());
 
-        extensions.remove(name);
+        println!("extensions before: {:?}", extensions);
+        extensions.remove(key);
+        println!("extensions after: {:?}", extensions);
         config.set_param("extensions", serde_json::to_value(extensions)?)?;
         Ok(())
     }
