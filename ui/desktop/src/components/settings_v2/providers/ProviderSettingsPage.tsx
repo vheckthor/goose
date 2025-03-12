@@ -4,7 +4,6 @@ import BackButton from '../../ui/BackButton';
 import ProviderGrid from './ProviderGrid';
 import { useConfig } from '../../ConfigContext';
 import { ProviderDetails } from '../../../api/types.gen';
-import ExtensionsList from "../extensions/ExtensionsList";
 
 export default function ProviderSettings({ onClose }: { onClose: () => void }) {
   const { getProviders } = useConfig();
@@ -49,9 +48,6 @@ export default function ProviderSettings({ onClose }: { onClose: () => void }) {
       <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
 
       <ScrollArea className="h-full w-full">
-        <div>
-          <ExtensionsList/>
-        </div>
         <div className="px-8 pt-6 pb-4">
           <BackButton onClick={onClose} />
           <h1 className="text-3xl font-medium text-textStandard mt-1">Configure</h1>
