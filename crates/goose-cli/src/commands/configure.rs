@@ -654,40 +654,6 @@ pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
         cliclack::outro(format!("Removed {} extension", style(name).green()))?;
     }
 
-    // // Create a vector to store the names and keys
-    // let names: Vec<String> = disabled_extensions
-    //     .iter()
-    //     .map(|entry| entry.config.name().to_string())
-    //     .collect();
-    //
-    // let keys: Vec<String> = disabled_extensions
-    //     .iter()
-    //     .map(|entry| entry.config.key())
-    //     .collect();
-    //
-    // // Prepare display items for multiselect
-    // let display_items: Vec<(&str, &str, &str)> = names
-    //     .iter()
-    //     .map(|name| (name.as_str(), name.as_str(), ""))
-    //     .collect();
-    //
-    // // Show names to the user for selection - using interact() instead of interact_indices()
-    // let selected_names = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
-    //     .required(false)
-    //     .items(&display_items)
-    //     .interact()?;
-    //
-    // // Map selected names back to their keys
-    // for selected_name in selected_names {
-    //     // Find the index of this name in our names array
-    //     if let Some(idx) = names.iter().position(|name| name.as_str() == selected_name) {
-    //         // Use the same index to get the corresponding key
-    //         let key = &keys[idx];
-    //         ExtensionManager::remove(key)?;
-    //         cliclack::outro(format!("Removed {} extension", style(selected_name).green()))?;
-    //     }
-    // }
-
     Ok(())
 }
 
