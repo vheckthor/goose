@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 
 
 use crate::config;
+use crate::config::extensions::name_to_key;
 
 /// Errors from Extension operation
 #[derive(Error, Debug)]
@@ -132,15 +133,12 @@ impl ExtensionConfig {
         }
     }
 
-    /// Get the extension name regardless of variant
     pub fn key(&self) -> String {
-        match self {
-            Self::Sse { name, .. } => format!("_{}", name),
-            Self::Stdio { name, .. } => format!("_{}", name),
-            Self::Builtin { name, .. } => format!("_{}", name),
-        }.to_string()
+        let name = self.name();
+        name_to_key(&name)
     }
 
+    /// Get the extension name regardless of variant
     pub fn name(&self) -> String {
         match self {
             Self::Sse { name, .. } => name,

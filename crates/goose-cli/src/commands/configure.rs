@@ -8,6 +8,7 @@ use mcp_core::Tool;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::error::Error;
+use goose::config::extensions::name_to_key;
 
 pub async fn handle_configure() -> Result<(), Box<dyn Error>> {
     let config = Config::global();
@@ -353,7 +354,7 @@ pub fn toggle_extensions_dialog() -> Result<(), Box<dyn Error>> {
     // Create a list of extension names and their enabled status
     let extension_status: Vec<(String, bool)> = extensions
         .iter()
-        .map(|entry| (entry.config.key().to_string(), entry.enabled))
+        .map(|entry| (entry.config.name().to_string(), entry.enabled))
         .collect();
 
     // Get currently enabled extensions for the selection
@@ -609,12 +610,6 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     let extensions = ExtensionManager::get_all()?;
 
-    // Create a list of extension keys and their enabled status
-    let extension_status: Vec<(String, bool)> = extensions
-        .iter()
-        .map(|entry| (entry.config.key().to_string(), entry.enabled))
-        .collect();
-
     if extensions.is_empty() {
         cliclack::outro(
             "No extensions configured yet. Run configure and add some extensions first.",
@@ -623,40 +618,58 @@ pub fn remove_extension_dialog() -> Result<(), Box<dyn Error>> {
     }
 
     // Check if all extensions are enabled
-    if extension_status.iter().all(|(_, enabled)| *enabled) {
+    if extensions.iter().all(|entry| entry.enabled) {
         cliclack::outro(
             "All extensions are currently enabled. You must first disable extensions before removing them.",
         )?;
         return Ok(());
     }
 
-    // Create a mapping of keys to names for display purposes
-    let key_to_name_map: HashMap<String, String> = extensions
+    // Filter out only disabled extensions
+    let disabled_extensions: Vec<_> = extensions
         .iter()
         .filter(|entry| !entry.enabled)
-        .map(|entry| {
-            let key = entry.config.key();
-            let name = entry.config.name();
-            (key, name)
-        })
         .collect();
 
-    // Use keys for selection items
-    let selected = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
+    if disabled_extensions.is_empty() {
+        cliclack::outro(
+            "No disabled extensions found. You must first disable extensions before removing them.",
+        )?;
+        return Ok(());
+    }
+
+    // Create a vector to store the names and keys
+    let names: Vec<String> = disabled_extensions
+        .iter()
+        .map(|entry| entry.config.name().to_string())
+        .collect();
+
+    let keys: Vec<String> = disabled_extensions
+        .iter()
+        .map(|entry| entry.config.key())
+        .collect();
+
+    // Prepare display items for multiselect
+    let display_items: Vec<(&str, &str, &str)> = names
+        .iter()
+        .map(|name| (name.as_str(), name.as_str(), ""))
+        .collect();
+
+    // Show names to the user for selection - using interact() instead of interact_indices()
+    let selected_names = cliclack::multiselect("Select extensions to remove (note: you can only remove disabled extensions - use \"space\" to toggle and \"enter\" to submit)")
         .required(false)
-        .items(
-            &key_to_name_map
-                .iter()
-                .map(|(key, name)| (key, name.as_str(), ""))
-                .collect::<Vec<_>>(),
-        )
+        .items(&display_items)
         .interact()?;
 
-    // Use key for removal but name for display
-    for key in selected {
-        let name = &key_to_name_map[key]; // Look up the name using the key
-        ExtensionManager::remove(key)?;
-        cliclack::outro(format!("Removed {} extension", style(name).green()))?;
+    // Map selected names back to their keys
+    for selected_name in selected_names {
+        // Find the index of this name in our names array
+        if let Some(idx) = names.iter().position(|name| name.as_str() == selected_name) {
+            // Use the same index to get the corresponding key
+            let key = &keys[idx];
+            ExtensionManager::remove(key)?;
+            cliclack::outro(format!("Removed {} extension", style(selected_name).green()))?;
+        }
     }
 
     Ok(())
