@@ -1,10 +1,10 @@
 use utoipa::OpenApi;
 
+use goose::agents::extension::Envs;
+use goose::agents::ExtensionConfig;
+use goose::config::ExtensionEntry;
 use goose::providers::base::ConfigKey;
 use goose::providers::base::ProviderMetadata;
-use goose::agents::{ExtensionConfig};
-use goose::agents::extension::Envs;
-use goose::config::ExtensionEntry;
 
 #[allow(dead_code)] // Used by utoipa for OpenAPI generation
 #[derive(OpenApi)]

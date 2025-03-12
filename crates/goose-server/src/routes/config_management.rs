@@ -1,10 +1,15 @@
+use crate::routes::utils::check_provider_configured;
+use crate::state::AppState;
 use axum::routing::put;
 use axum::{
     extract::State,
     routing::{delete, get, post},
     Json, Router,
 };
+use goose::agents::ExtensionConfig;
+use goose::config::extensions::name_to_key;
 use goose::config::Config;
+use goose::config::{ExtensionEntry, ExtensionManager};
 use goose::providers::base::ProviderMetadata;
 use goose::providers::providers as get_providers;
 use http::{HeaderMap, StatusCode};
@@ -12,11 +17,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use utoipa::ToSchema;
-use goose::agents::{ExtensionConfig};
-use goose::config::{ExtensionEntry, ExtensionManager};
-use crate::routes::utils::check_provider_configured;
-use crate::state::AppState;
-use goose::config::extensions::name_to_key;
 
 fn verify_secret_key(headers: &HeaderMap, state: &AppState) -> Result<StatusCode, StatusCode> {
     // Verify secret key
@@ -183,7 +183,6 @@ pub async fn get_extensions(
     }
 }
 
-
 #[utoipa::path(
     post,
     path = "/config/extensions",
@@ -256,8 +255,7 @@ pub async fn update_extension(
     let key = name_to_key(&name);
 
     // Check if extension exists
-    let extensions = ExtensionManager::get_all()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let extensions = ExtensionManager::get_all().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     if !extensions.iter().any(|entry| entry.config.key() == key) {
         return Err(StatusCode::NOT_FOUND);
@@ -292,10 +290,10 @@ pub async fn toggle_extension(
     let key = name_to_key(&name);
 
     // Get the extension
-    let extensions = ExtensionManager::get_all()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let extensions = ExtensionManager::get_all().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let extension = extensions.iter()
+    let extension = extensions
+        .iter()
         .find(|e| e.config.key() == key)
         .ok_or(StatusCode::NOT_FOUND)?;
 
@@ -308,13 +306,16 @@ pub async fn toggle_extension(
     // Update using ExtensionManager
     match ExtensionManager::set(updated_entry) {
         Ok(_) => {
-            let status = if !extension.enabled { "enabled" } else { "disabled" };
+            let status = if !extension.enabled {
+                "enabled"
+            } else {
+                "disabled"
+            };
             Ok(Json(format!("Extension {} {}", name, status)))
-        },
+        }
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
-
 
 #[utoipa::path(
     get,

@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use utoipa::ToSchema;
 
-
 use crate::config;
 use crate::config::extensions::name_to_key;
 
@@ -144,7 +143,8 @@ impl ExtensionConfig {
             Self::Sse { name, .. } => name,
             Self::Stdio { name, .. } => name,
             Self::Builtin { name, .. } => name,
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
