@@ -33,7 +33,7 @@ impl ExtensionManager {
             Err(super::ConfigError::NotFound(_)) => {
                 // Initialize with default developer extension
                 let defaults = HashMap::from([(
-                    name_to_key(&DEFAULT_EXTENSION), // Use key format for top-level key in config
+                    name_to_key(DEFAULT_EXTENSION), // Use key format for top-level key in config
                     ExtensionEntry {
                         enabled: true,
                         config: ExtensionConfig::Builtin {
