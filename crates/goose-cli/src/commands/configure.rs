@@ -380,7 +380,7 @@ pub fn toggle_extensions_dialog() -> Result<(), Box<dyn Error>> {
 
     // Update enabled status for each extension
     for name in extension_status.iter().map(|(name, _)| name) {
-        ExtensionManager::set_enabled(name, selected.iter().any(|s| s.as_str() == name))?;
+        ExtensionManager::set_enabled(&name_to_key(&name), selected.iter().any(|s| s.as_str() == name))?;
     }
 
     cliclack::outro("Extension settings updated successfully")?;
