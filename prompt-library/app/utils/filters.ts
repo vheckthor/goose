@@ -35,6 +35,10 @@ export async function fetchFilterCategories(): Promise<FilterCategories> {
           "name": "Legal"
         },
         {
+          "id": "operations",
+          "name": "Operations"
+        },
+        {
           "id": "content",
           "name": "Content"
         },
