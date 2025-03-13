@@ -9,7 +9,7 @@ export async function fetchPrompts(): Promise<Prompt[]> {
       title: "Code Review Assistant",
       description: "Help developers review code changes with detailed analysis and suggestions",
       category: "Development",
-      function: "coding", // Updated to match new function ID
+      function: "coding",
       prompt: `As a code review assistant, analyze the following code changes:
 
 {code_diff}
@@ -30,7 +30,7 @@ Focus on being constructive and specific in your feedback.`,
       rating: 4.8,
       usageCount: 1250,
       verified: true,
-      extensions: ["developer__text_editor", "developer__shell"],
+      extensions: ["developer", "git"], // Updated to use friendly names
       variables: [
         {
           name: "code_diff",
@@ -45,7 +45,7 @@ Focus on being constructive and specific in your feedback.`,
       title: "Data Analysis Helper",
       description: "Guide for analyzing data sets and creating visualizations",
       category: "Data Science",
-      function: "data", // Updated to match new function ID
+      function: "data",
       prompt: `As a data analysis assistant, help analyze the following dataset:
 
 {dataset_description}
@@ -66,7 +66,7 @@ Consider the business context and goals in your analysis.`,
       rating: 4.7,
       usageCount: 850,
       verified: true,
-      extensions: ["computercontroller__xlsx_tool"],
+      extensions: ["computer controller"], // Updated to use friendly names
       variables: [
         {
           name: "dataset_description",
@@ -87,7 +87,7 @@ export async function searchPrompts(query: string): Promise<Prompt[]> {
     prompt.title.toLowerCase().includes(lowercaseQuery) ||
     prompt.description.toLowerCase().includes(lowercaseQuery) ||
     prompt.category.toLowerCase().includes(lowercaseQuery) ||
-    prompt.function.toLowerCase().includes(lowercaseQuery) || // Updated from role to function
+    prompt.function.toLowerCase().includes(lowercaseQuery) ||
     prompt.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
   );
 }

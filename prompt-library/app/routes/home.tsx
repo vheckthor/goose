@@ -9,6 +9,18 @@ import { fetchPrompts, searchPrompts } from "../prompt-data";
 import { fetchFilterCategories } from "../utils/filters";
 import { motion } from "framer-motion";
 
+// Define the fixed list of extensions
+const AVAILABLE_EXTENSIONS = [
+  "developer",
+  "computer controller",
+  "memory",
+  "jetbrains",
+  "git",
+  "figma",
+  "google drive",
+  "google maps"  // Added Google Maps
+];
+
 export default function HomePage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [filterCategories, setFilterCategories] = useState<FilterCategories | null>(null);
@@ -22,9 +34,8 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get unique categories and extensions from prompts
+  // Get unique categories from prompts
   const categories = [...new Set(prompts.map(p => p.category))];
-  const extensions = [...new Set(prompts.flatMap(p => p.extensions))];
 
   // Load filter categories
   useEffect(() => {
@@ -74,8 +85,12 @@ export default function HomePage() {
         return extension.startsWith("computercontroller");
       case "google drive":
         return extension.startsWith("googledrive") || extension.startsWith("google_drive");
+      case "google maps":
+        return extension.startsWith("googlemaps") || extension.startsWith("google_maps");
+      case "developer":
+        return extension.startsWith("developer");
       default:
-        return extension.startsWith(filterExtension.toLowerCase());
+        return extension.toLowerCase().includes(filterExtension.toLowerCase());
     }
   };
 
@@ -138,7 +153,7 @@ export default function HomePage() {
           functions={filterCategories?.functions || []}
           selected={filters}
           onFilterChange={handleFilterChange}
-          extensions={extensions}
+          extensions={AVAILABLE_EXTENSIONS}
         />
 
         <div className="flex-1">

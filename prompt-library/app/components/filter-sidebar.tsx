@@ -67,7 +67,7 @@ export function FilterSidebar({
                 onCheckedChange={() => onFilterChange('extensions', extension)}
                 className="border-borderSubtle"
               />
-              <Label htmlFor={`extension-${extension}`} className="text-sm text-textStandard">
+              <Label htmlFor={`extension-${extension}`} className="text-sm text-textStandard capitalize">
                 {extension}
               </Label>
             </div>
