@@ -20,7 +20,7 @@
   "rating": 0,
   "usageCount": 0,
   "verified": true,
-  "extensions": ["computer_controller"],
+  "extensions": ["computercontroller"],
   "variables": [
     {
       "name": "product_name",

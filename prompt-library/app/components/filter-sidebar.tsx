@@ -24,7 +24,8 @@ export function FilterSidebar({
     "jetbrains",
     "git",
     "figma",
-    "google drive"
+    "google drive",
+    "tavily web search"
   ]
 }: FilterSidebarProps) {
   return (

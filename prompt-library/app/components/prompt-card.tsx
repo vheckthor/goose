@@ -16,7 +16,10 @@ export function PromptCard({ prompt }: PromptCardProps) {
       'memory': 'memory',
       'jetbrains': 'jetbrains',
       'git': 'git',
-      'figma': 'figma'
+      'figma': 'figma',
+      'google_maps': 'google maps', 
+      'google_drive': 'google drive',
+      'tavily_web_search': 'tavily web search'
     };
     
     const parts = extension.split('__');

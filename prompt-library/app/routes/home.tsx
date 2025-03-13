@@ -18,7 +18,8 @@ const AVAILABLE_EXTENSIONS = [
   "git",
   "figma",
   "google drive",
-  "google maps"  // Added Google Maps
+  "google maps", 
+  "tavily web search" 
 ];
 
 export default function HomePage() {
@@ -89,6 +90,8 @@ export default function HomePage() {
         return extension.startsWith("googlemaps") || extension.startsWith("google_maps");
       case "developer":
         return extension.startsWith("developer");
+      case "tavily web search":
+         return extension.startsWith("tavilywebsearch") || extension.startsWith("tavily_web_search");
       default:
         return extension.toLowerCase().includes(filterExtension.toLowerCase());
     }
