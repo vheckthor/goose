@@ -4,23 +4,24 @@ import { Switch } from '../../ui/switch';
 import { Plus, X } from 'lucide-react';
 import { Gear } from '../../icons/Gear';
 import { GPSIcon } from '../../ui/icons';
-import { useConfig } from '../../ConfigContext';
+import { useConfig, FixedExtensionEntry } from '../../ConfigContext';
 import Modal from '../../Modal';
 import { Input } from '../../ui/input';
 import Select from 'react-select';
 import { createDarkSelectStyles, darkSelectTheme } from '../../ui/select-styles';
+import { ExtensionConfig } from '../../../api';
 
-interface ExtensionConfig {
-  args?: string[];
-  cmd?: string;
-  enabled: boolean;
-  envs?: Record<string, string>;
-  name: string;
-  type: 'stdio' | 'sse' | 'builtin';
-}
+// interface ExtensionConfig {
+//   args?: string[];
+//   cmd?: string;
+//   enabled: boolean;
+//   envs?: Record<string, string>;
+//   name: string;
+//   type: 'stdio' | 'sse' | 'builtin';
+// }
 
 interface ExtensionItem {
-  id: string;
+  key: string;
   title: string;
   subtitle: string;
   enabled: boolean;
@@ -50,9 +51,11 @@ const getSubtitle = (config: ExtensionConfig): string => {
 };
 
 export default function ExtensionsSection() {
-  const { config, read, updateExtension, addExtension } = useConfig();
-  const [extensions, setExtensions] = useState<ExtensionItem[]>([]);
-  const [selectedExtension, setSelectedExtension] = useState<ExtensionItem | null>(null);
+  const { toggleExtension, getExtensions, updateExtension, addExtension } = useConfig();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [extensions, setExtensions] = useState<FixedExtensionEntry[]>([]);
+  const [selectedExtension, setSelectedExtension] = useState<FixedExtensionEntry | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState<{
@@ -73,65 +76,60 @@ export default function ExtensionsSection() {
     envVars: [],
   });
 
-  useEffect(() => {
-    const extensions = read('extensions', false)
-    if (extensions) {
-      const extensionItems: ExtensionItem[] = Object.entries(extensions).map(
-        ([name, ext]) => {
-          const extensionConfig = ext as ExtensionConfig;
-          return {
-            id: name,
-            title: getFriendlyTitle(name),
-            subtitle: getSubtitle(extensionConfig),
-            enabled: extensionConfig.enabled,
-            canConfigure: extensionConfig.type === 'stdio' && !!extensionConfig.envs,
-            config: extensionConfig,
-          };
-        }
-      );
-      setExtensions(extensionItems);
+  const fetchExtensions = async () => {
+    setLoading(true);
+    try {
+      const extensionsList: FixedExtensionEntry[] = await getExtensions(true); // Force refresh
+      setExtensions(extensionsList);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load extensions');
+      console.error('Error loading extensions:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [read]);
+  };
+
+  useEffect(() => {
+    fetchExtensions().catch((error) => {
+      console.error('Error in useEffect:', error);
+    });
+  }, [fetchExtensions]);
 
   useEffect(() => {
     if (selectedExtension) {
-      const envVars = selectedExtension.config.envs
-        ? Object.entries(selectedExtension.config.envs).map(([key, value]) => ({
-            key,
-            value: value as string,
-          }))
-        : [];
+      // Type guard: Check if 'envs' property exists for this variant
+      const hasEnvs = selectedExtension.type === 'sse' || selectedExtension.type === 'stdio';
+
+      const envVars =
+        hasEnvs && selectedExtension.envs
+          ? Object.entries(selectedExtension.envs).map(([key, value]) => ({
+              key,
+              value: value as string,
+            }))
+          : [];
 
       setFormData({
-        name: selectedExtension.config.name,
-        type: selectedExtension.config.type as 'stdio' | 'sse',
-        cmd: selectedExtension.config.type === 'stdio' ? selectedExtension.config.cmd : undefined,
-        args: selectedExtension.config.args || [],
-        endpoint:
-          selectedExtension.config.type === 'sse' ? selectedExtension.config.cmd : undefined,
-        enabled: selectedExtension.config.enabled,
+        name: selectedExtension.name,
+        type: selectedExtension.type as 'stdio' | 'sse',
+        cmd: selectedExtension.type === 'stdio' ? selectedExtension.cmd : undefined,
+        args: selectedExtension.type === 'stdio' ? selectedExtension.args : [],
+        endpoint: selectedExtension.type === 'sse' ? selectedExtension.uri : undefined,
+        enabled: selectedExtension.enabled,
         envVars,
       });
     }
   }, [selectedExtension]);
 
-  const handleExtensionToggle = async (id: string) => {
-    const extension = extensions.find((ext) => ext.id === id);
-    if (extension) {
-      const updatedConfig = {
-        ...extension.config,
-        enabled: !extension.config.enabled,
-      };
-
-      try {
-        await updateExtension(id, updatedConfig);
-      } catch (error) {
-        console.error('Failed to update extension:', error);
-      }
+  const handleExtensionToggle = async (name: string) => {
+    try {
+      await toggleExtension(name);
+    } catch (error) {
+      console.error('Failed to toggle extension:', error);
     }
   };
 
-  const handleConfigureClick = (extension: ExtensionItem) => {
+  const handleConfigureClick = (extension: FixedExtensionEntry) => {
     setSelectedExtension(extension);
     setIsModalOpen(true);
   };
@@ -147,23 +145,34 @@ export default function ExtensionsSection() {
       {} as Record<string, string>
     );
 
-    const extensionConfig = {
-      name: formData.name,
-      type: formData.type,
-      enabled: formData.enabled,
-      envs,
-      ...(formData.type === 'stdio'
-        ? {
-            cmd: formData.cmd,
-            args: formData.args,
-          }
-        : {
-            cmd: formData.endpoint,
-          }),
-    };
+    let extensionConfig: ExtensionConfig;
+
+    if (formData.type === 'stdio') {
+      extensionConfig = {
+        type: 'stdio',
+        name: formData.name,
+        cmd: formData.cmd,
+        args: formData.args,
+        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+      };
+    } else if (formData.type === 'sse') {
+      extensionConfig = {
+        type: 'sse',
+        name: formData.name,
+        uri: formData.endpoint, // Assuming endpoint maps to uri for SSE type
+        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+      };
+    } else {
+      // For other types
+      extensionConfig = {
+        type: formData.type as any, // Force type casting if needed
+        name: formData.name,
+        uri: formData.endpoint, // Assuming endpoint is the common field for other types
+      };
+    }
 
     try {
-      await addExtension(formData.name, extensionConfig);
+      await addExtension(formData.name, extensionConfig, formData.enabled);
       handleModalClose();
     } catch (error) {
       console.error('Failed to add extension:', error);
@@ -223,23 +232,34 @@ export default function ExtensionsSection() {
       {} as Record<string, string>
     );
 
-    const updatedConfig = {
-      name: formData.name,
-      type: formData.type,
-      enabled: formData.enabled,
-      envs,
-      ...(formData.type === 'stdio'
-        ? {
-            cmd: formData.cmd,
-            args: formData.args,
-          }
-        : {
-            cmd: formData.endpoint,
-          }),
-    };
+    let extensionConfig: ExtensionConfig;
+
+    if (formData.type === 'stdio') {
+      extensionConfig = {
+        type: 'stdio',
+        name: formData.name,
+        cmd: formData.cmd,
+        args: formData.args,
+        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+      };
+    } else if (formData.type === 'sse') {
+      extensionConfig = {
+        type: 'sse',
+        name: formData.name,
+        uri: formData.endpoint, // Assuming endpoint maps to uri for SSE type
+        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+      };
+    } else {
+      // For other types
+      extensionConfig = {
+        type: formData.type as any, // Force type casting if needed
+        name: formData.name,
+        uri: formData.endpoint, // Assuming endpoint is the common field for other types
+      };
+    }
 
     try {
-      await updateExtension(selectedExtension.id, updatedConfig);
+      await updateExtension(selectedExtension.name, extensionConfig, formData.enabled);
       handleModalClose();
     } catch (error) {
       console.error('Failed to update extension configuration:', error);
