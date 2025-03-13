@@ -146,7 +146,7 @@ fn process_extracted_text(
                 formatted_metadata.push_str("  ]\n");
             }
 
-            formatted_metadata.push_str('\n');
+            formatted_metadata.push('\n');
             formatted_metadata
         };
 
