@@ -123,6 +123,7 @@ impl ComputerControllerRouter {
                 - File Operations: Organize files/folders
                 - Integration: Calendar, reminders, messages
                 - Data: Interact with spreadsheets and documents
+                - Text: extract content from many file formats
 
                 Can be combined with screenshot tool for visual task assistance.
             "#},
@@ -268,11 +269,20 @@ impl ComputerControllerRouter {
         let document_tool = Tool::new(
             "document_tool",
             indoc! {r#"
-                Process documents to extract text from various file formats.
-                Supports separate operations for local files and URLs.
+                Extract plain text from various file formats. Use this when you see a file extension or a url to a document.
+                Formats: 
+                    doc, docx, ppt, pptx, xls, xlsx, rtf, odt, ods, odp
+                        (consider using docx and xlsx tools for those first)
+                    PDF: pdf (extracts embedded content, supports OCR)
+                    csv, tsv
+                        (when not handled by other tools)
+                    html, xml,epub, txt
+
+                    Images: png, jpeg, tiff, bmp, gif, ico, psd, svg (extracts text with OCR)
+                    E-Mail: eml, msg, mbox, pst (extracts content, headers, attachments)                
 
                 Supports operations:
-                - get_text: Extract all text content from local document files (DOC, xls, etc can be tried if not handled by other tools)
+                - get_text: Extract all text content from local document files
                 - get_text_url: Extract all text content from a document at a URL
 
                 Use this for general text extraction from misc document types.
@@ -594,14 +604,13 @@ impl ComputerControllerRouter {
 
             {os_instructions}
 
-            web_search
-              - Search the web using DuckDuckGo's API for general topics or keywords
-            web_fetch
-              - Fetch content from html websites and APIs
-              - Save as text, JSON, or binary files
-              - Content is cached locally for later use
-              - This is not optimised for complex websites, so don't use this as the first tool.
-            cache
+            This extension has many tools to automate, for example:
+            
+            web_search, web_fetch, quick_script, computer_control for automation, 
+            pdf_tool (pdfs text), 
+            document_tool (many doc types and URLs), docx_tool, xlsx_tool, make_presentation
+
+            cache of content:
               - Manage your cached files
               - List, view, delete files
               - Clear all cached data
