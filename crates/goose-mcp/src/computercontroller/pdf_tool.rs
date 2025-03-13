@@ -7,8 +7,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-// Threshold for large text files (2MB - about half of the 4,194,304 bytes limit)
-const LARGE_TEXT_THRESHOLD: usize = 2 * 1024 * 1024; // 2MB in bytes
+// Threshold for large text files (0.22MB - about 1/18 of the 4,194,304 bytes limit)
+const LARGE_TEXT_THRESHOLD: usize = (2 * 1024 * 1024) / 9; // ~0.22MB in bytes
 
 pub async fn pdf_tool(
     path: &str,
