@@ -1,14 +1,13 @@
 import { useParams, Link } from "react-router";
 import {
   Copy,
-  Star,
-  Tag,
   ArrowLeft,
   Info,
   Calendar,
-  User,
-  Wrench
+  Wrench,
+  Check
 } from "lucide-react";
+import { toast } from 'react-toastify';
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader } from "../components/ui/card";
@@ -21,6 +20,7 @@ export default function DetailPage() {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     const loadPrompt = async () => {
@@ -45,6 +45,33 @@ export default function DetailPage() {
 
     loadPrompt();
   }, [id]);
+
+  const handleCopy = async () => {
+    if (prompt) {
+      try {
+        await navigator.clipboard.writeText(prompt.prompt);
+        setIsCopied(true);
+        toast.success('Prompt copied to clipboard', {
+          position: "bottom-right",
+          autoClose: 2000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (err) {
+        toast.error('Failed to copy prompt', {
+          position: "bottom-right",
+          autoClose: 2000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+    }
+  };
 
   if (!prompt) {
     return (
@@ -102,45 +129,27 @@ export default function DetailPage() {
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-textStandard">
-                <Tag className="h-4 w-4" />
-                <h4 className="font-medium">Category & Role</h4>
-              </div>
-              <div className="flex gap-2">
-                <Badge variant="secondary">{prompt.category}</Badge>
-                <Badge variant="outline">{prompt.role}</Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-textStandard">
                 <Info className="h-4 w-4" />
                 <h4 className="font-medium">Prompt Template</h4>
               </div>
-              <code className="block bg-gray-100 dark:bg-gray-900 p-4 rounded text-sm dark:text-gray-300 whitespace-pre-wrap">
-                {prompt.prompt}
-              </code>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="mt-2"
-                onClick={() => navigator.clipboard.writeText(prompt.prompt)}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy to Clipboard
-              </Button>
-            </div>
-
-            {prompt.example && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-textStandard">
-                  <Info className="h-4 w-4" />
-                  <h4 className="font-medium">Example Usage</h4>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded text-sm">
-                  {prompt.example}
-                </div>
+              <div className="relative group">
+                <code className="block bg-gray-100 dark:bg-gray-900 p-4 rounded text-sm dark:text-gray-300 whitespace-pre-wrap">
+                  {prompt.prompt}
+                </code>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="absolute top-2 right-2 opacity-50 hover:opacity-100"
+                  onClick={handleCopy}
+                >
+                  {isCopied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-            )}
+            </div>
 
             {prompt.extensions && prompt.extensions.length > 0 && (
               <div className="space-y-2">
@@ -150,65 +159,11 @@ export default function DetailPage() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {prompt.extensions.map(extension => (
-                    <Badge key={extension} variant="outline">{extension}</Badge>
+                    <Badge key={extension} variant="outline" className="text-gray-500 dark:text-gray-400">{extension}</Badge>
                   ))}
                 </div>
               </div>
             )}
-
-            {prompt.variables && prompt.variables.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-lg font-medium dark:text-gray-300">
-                  Variables
-                </h2>
-                <div className="">
-                  {prompt.variables.map((variable) => (
-                    <div
-                      key={variable.name}
-                      className="border-b border-borderSubtle pb-4 mb-4 last:border-0"
-                    >
-                      <div className="text-sm dark:text-gray-300">
-                        {variable.name}
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                        {variable.description}
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {variable.required && (
-                          <Badge variant="secondary">Required</Badge>
-                        )}
-                        <Badge variant="outline">{variable.type}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-t border-borderSubtle pt-4">
-              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span>{prompt.author}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>Updated: {new Date(prompt.lastUpdated).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 text-yellow-400" />
-                  <span className="text-sm">{prompt.rating.toFixed(1)}</span>
-                </div>
-                {prompt.verified && (
-                  <Badge variant="secondary" className="ml-2">
-                    Verified
-                  </Badge>
-                )}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>
