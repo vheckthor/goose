@@ -1,6 +1,12 @@
 use lopdf::{content::Content as PdfContent, Document, Object};
 use mcp_core::{Content, ToolError};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+// Threshold for large text files (2MB - about half of the 4,194,304 bytes limit)
+const LARGE_TEXT_THRESHOLD: usize = 2 * 1024 * 1024; // 2MB in bytes
 
 pub async fn pdf_tool(
     path: &str,
@@ -107,7 +113,62 @@ pub async fn pdf_tool(
             if text.trim().is_empty() {
                 "No text found in PDF".to_string()
             } else {
-                format!("Extracted text from PDF:\n\n{}", text)
+                // Check if the extracted text is large
+                let text_size = text.len();
+                if text_size > LARGE_TEXT_THRESHOLD {
+                    // Create a directory for large text files if it doesn't exist
+                    let large_text_dir = cache_dir.join("large_pdf_texts");
+                    fs::create_dir_all(&large_text_dir).map_err(|e| {
+                        ToolError::ExecutionError(format!(
+                            "Failed to create directory for large text: {}",
+                            e
+                        ))
+                    })?;
+
+                    // Create a filename based on the original PDF name
+                    let pdf_path = PathBuf::from(path);
+                    let pdf_filename = pdf_path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("unnamed_pdf");
+
+                    let text_file_path = large_text_dir.join(format!("{}.txt", pdf_filename));
+
+                    // Write the text to a file
+                    fs::write(&text_file_path, &text).map_err(|e| {
+                        ToolError::ExecutionError(format!(
+                            "Failed to write large text to file: {}",
+                            e
+                        ))
+                    })?;
+
+                    // Format size in human-readable form
+                    let size_str = if text_size < 1024 * 1024 {
+                        format!("{:.2} KB", text_size as f64 / 1024.0)
+                    } else {
+                        format!("{:.2} MB", text_size as f64 / (1024.0 * 1024.0))
+                    };
+
+                    format!(
+                        "Large text extracted from PDF ({})\n\n\
+                        The extracted text is too large to display directly.\n\
+                        Text has been written to: {}\n\n\
+                        You can search through this file using ripgrep:\n\
+                        rg 'search term' {}\n\n\
+                        Or view portions of it:\n\
+                        head -n 50 {}\n\
+                        tail -n 50 {}\n\
+                        less {}",
+                        size_str,
+                        text_file_path.display(),
+                        text_file_path.display(),
+                        text_file_path.display(),
+                        text_file_path.display(),
+                        text_file_path.display()
+                    )
+                } else {
+                    format!("Extracted text from PDF:\n\n{}", text)
+                }
             }
         }
 
@@ -418,5 +479,62 @@ mod tests {
         .await;
 
         assert!(result.is_err(), "Should fail with invalid operation");
+    }
+
+    #[tokio::test]
+    async fn test_large_pdf_text_extraction() {
+        let large_pdf_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("src/computercontroller/tests/data/visa-rules-public.pdf");
+
+        // Skip test if the large PDF file doesn't exist (may not be committed to git)
+        if !large_pdf_path.exists() {
+            println!(
+                "Skipping large PDF test as file doesn't exist: {}",
+                large_pdf_path.display()
+            );
+            return;
+        }
+
+        let cache_dir = tempfile::tempdir().unwrap().into_path();
+
+        println!(
+            "Testing large text extraction from: {}",
+            large_pdf_path.display()
+        );
+
+        let result = pdf_tool(large_pdf_path.to_str().unwrap(), "extract_text", &cache_dir).await;
+
+        assert!(result.is_ok(), "Large PDF text extraction should succeed");
+        let content = result.unwrap();
+        assert!(!content.is_empty(), "Extracted text should not be empty");
+        let text = content[0].as_text().unwrap();
+
+        // For large PDFs, we should get the message about writing to a file
+        assert!(
+            text.contains("Large text extracted from PDF"),
+            "Should indicate large text was extracted"
+        );
+        assert!(
+            text.contains("Text has been written to:"),
+            "Should indicate where text was written"
+        );
+
+        // Extract the file path from the output and verify it exists
+        let file_path = text
+            .lines()
+            .find(|line| line.contains("Text has been written to:"))
+            .and_then(|line| line.split(": ").nth(1))
+            .expect("Should have a valid file path");
+
+        println!("Verifying text file exists: {}", file_path);
+        assert!(PathBuf::from(file_path).exists(), "Text file should exist");
+
+        // Verify file contains actual content
+        let file_content = fs::read_to_string(file_path).expect("Should be able to read text file");
+        assert!(!file_content.is_empty(), "Text file should not be empty");
+        assert!(
+            file_content.contains("Page 1"),
+            "Should contain page marker"
+        );
     }
 }
