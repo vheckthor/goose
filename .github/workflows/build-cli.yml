@@ -64,6 +64,7 @@ jobs:
           RUST_BACKTRACE: 1
           CROSS_VERBOSE: 1
         run: |
+          export GRADLE_USER_HOME="$HOME/.gradle"
           export TARGET="${{ matrix.architecture }}-${{ matrix.target-suffix }}"
           rustup target add "${TARGET}"
           echo "Building for target: ${TARGET}"
