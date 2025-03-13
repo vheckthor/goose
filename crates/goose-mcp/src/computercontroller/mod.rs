@@ -19,6 +19,7 @@ use mcp_core::{
 use mcp_server::router::CapabilitiesBuilder;
 use mcp_server::Router;
 
+mod document_tool;
 mod docx_tool;
 mod pdf_tool;
 mod presentation_tool;
@@ -67,10 +68,10 @@ impl ComputerControllerRouter {
             }),
         );
 
-        let web_scrape_tool = Tool::new(
-            "web_scrape",
+        let web_fetch_tool = Tool::new(
+            "web_fetch",
             indoc! {r#"
-                Fetch and save content from a web page. The content can be saved as:
+                Fetch and save content from a web page using http(s). The content can be saved as:
                 - text (for HTML pages)
                 - json (for API responses)
                 - binary (for images and other files)
@@ -259,6 +260,34 @@ impl ComputerControllerRouter {
                         "type": "string",
                         "enum": ["extract_text", "extract_images"],
                         "description": "Operation to perform on the PDF"
+                    }
+                }
+            }),
+        );
+
+        let document_tool = Tool::new(
+            "document_tool",
+            indoc! {r#"
+                Process documents to extract text from various file formats.
+                Can be from a file or a URL.
+
+                Supports operations:
+                - get_text: Extract all text content from documents (DOC, xls, etc can be tried if not handled by other tools)
+
+                Use this for general text extraction from misc document types.
+            "#},
+            json!({
+                "type": "object",
+                "required": ["path", "operation"],
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the document file or URL to load content from"
+                    },
+                    "operation": {
+                        "type": "string",
+                        "enum": ["get_text"],
+                        "description": "Operation to perform on the document"
                     }
                 }
             }),
@@ -566,7 +595,7 @@ impl ComputerControllerRouter {
 
             web_search
               - Search the web using DuckDuckGo's API for general topics or keywords
-            web_scrape
+            web_fetch
               - Fetch content from html websites and APIs
               - Save as text, JSON, or binary files
               - Content is cached locally for later use
@@ -586,11 +615,12 @@ impl ComputerControllerRouter {
         Self {
             tools: vec![
                 web_search_tool,
-                web_scrape_tool,
+                web_fetch_tool,
                 quick_script_tool,
                 computer_control_tool,
                 cache_tool,
                 pdf_tool,
+                document_tool,
                 docx_tool,
                 xlsx_tool,
                 make_presentation_tool,
@@ -685,7 +715,7 @@ impl ComputerControllerRouter {
         ))])
     }
 
-    async fn web_scrape(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+    async fn web_fetch(&self, params: Value) -> Result<Vec<Content>, ToolError> {
         let url = params
             .get("url")
             .and_then(|v| v.as_str())
@@ -1082,6 +1112,21 @@ impl ComputerControllerRouter {
         crate::computercontroller::pdf_tool::pdf_tool(path, operation, &self.cache_dir).await
     }
 
+    async fn document_tool(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+        let path = params
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ToolError::InvalidParameters("Missing 'path' parameter".into()))?;
+
+        let operation = params
+            .get("operation")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ToolError::InvalidParameters("Missing 'operation' parameter".into()))?;
+
+        crate::computercontroller::document_tool::document_tool(path, operation, &self.cache_dir)
+            .await
+    }
+
     async fn cache(&self, params: Value) -> Result<Vec<Content>, ToolError> {
         let command = params
             .get("command")
@@ -1189,11 +1234,12 @@ impl Router for ComputerControllerRouter {
         Box::pin(async move {
             match tool_name.as_str() {
                 "web_search" => this.web_search(arguments).await,
-                "web_scrape" => this.web_scrape(arguments).await,
+                "web_fetch" => this.web_fetch(arguments).await,
                 "automation_script" => this.quick_script(arguments).await,
                 "computer_control" => this.computer_control(arguments).await,
                 "cache" => this.cache(arguments).await,
                 "pdf_tool" => this.pdf_tool(arguments).await,
+                "document_tool" => this.document_tool(arguments).await,
                 "docx_tool" => this.docx_tool(arguments).await,
                 "xlsx_tool" => this.xlsx_tool(arguments).await,
                 "make_presentation" => {
