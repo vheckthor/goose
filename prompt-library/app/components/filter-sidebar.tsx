@@ -1,27 +1,23 @@
 import { Package, Puzzle } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-import { cn } from "../lib/utils";
+import type { FilterCategory } from "../types/filters";
 
 interface FilterSidebarProps {
-  filters: {
-    roles: string[];
-    extensions: string[];
-  };
+  functions: FilterCategory[];
   selected: {
-    roles: string[];
+    functions: string[];
     extensions: string[];
   };
   onFilterChange: (type: string, value: string) => void;
+  extensions?: string[];
 }
 
 export function FilterSidebar({ 
-  filters, 
+  functions, 
   selected, 
   onFilterChange,
-}: FilterSidebarProps) {
-  // Define the available extensions
-  const extensions = [
+  extensions = [
     "developer",
     "computer controller",
     "memory",
@@ -29,27 +25,27 @@ export function FilterSidebar({
     "git",
     "figma",
     "google drive"
-  ];
-
+  ]
+}: FilterSidebarProps) {
   return (
     <div className="w-64 pr-6 space-y-6">
-      {/* Role Filter */}
+      {/* Function Filter */}
       <div className="space-y-3">
         <h3 className="flex items-center gap-2 text-sm font-medium text-textProminent">
           <Package className="h-4 w-4" />
-          Roles
+          Function
         </h3>
         <div className="space-y-2">
-          {filters.roles.map((role) => (
-            <div key={role} className="flex items-center space-x-2">
+          {functions.map((func) => (
+            <div key={func.id} className="flex items-center space-x-2">
               <Checkbox 
-                id={`role-${role}`}
-                checked={selected.roles.includes(role)}
-                onCheckedChange={() => onFilterChange('roles', role)}
+                id={`function-${func.id}`}
+                checked={selected.functions.includes(func.id)}
+                onCheckedChange={() => onFilterChange('functions', func.id)}
                 className="border-borderSubtle"
               />
-              <Label htmlFor={`role-${role}`} className="text-sm text-textStandard">
-                {role}
+              <Label htmlFor={`function-${func.id}`} className="text-sm text-textStandard">
+                {func.name}
               </Label>
             </div>
           ))}

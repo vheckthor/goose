@@ -4,28 +4,42 @@ import { FilterPills } from "../components/filter-pills";
 import { FilterSidebar } from "../components/filter-sidebar";
 import { useState, useEffect } from "react";
 import type { Prompt } from "../types/prompt";
+import type { FilterCategories } from "../types/filters";
 import { fetchPrompts, searchPrompts } from "../prompt-data";
+import { fetchFilterCategories } from "../utils/filters";
 import { motion } from "framer-motion";
 
 export default function HomePage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [filterCategories, setFilterCategories] = useState<FilterCategories | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    roles: [] as string[],
+    functions: [] as string[],
     extensions: [] as string[],
     verified: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get unique categories, roles, and extensions from prompts
+  // Get unique categories and extensions from prompts
   const categories = [...new Set(prompts.map(p => p.category))];
-  const allFilters = {
-    roles: [...new Set(prompts.map(p => p.role))],
-    extensions: [...new Set(prompts.flatMap(p => p.extensions))]
-  };
+  const extensions = [...new Set(prompts.flatMap(p => p.extensions))];
 
+  // Load filter categories
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const categories = await fetchFilterCategories();
+        setFilterCategories(categories);
+      } catch (err) {
+        console.error("Error loading filter categories:", err);
+      }
+    };
+    loadFilters();
+  }, []);
+
+  // Load prompts
   useEffect(() => {
     const loadPrompts = async () => {
       try {
@@ -68,7 +82,7 @@ export default function HomePage() {
   // Filter prompts based on all criteria
   const filteredPrompts = prompts.filter(prompt => {
     const matchesCategory = !selectedCategory || prompt.category === selectedCategory;
-    const matchesRoles = filters.roles.length === 0 || filters.roles.includes(prompt.role);
+    const matchesFunctions = filters.functions.length === 0 || filters.functions.includes(prompt.function);
     const matchesExtensions = filters.extensions.length === 0 || 
       prompt.extensions.some(extension => 
         filters.extensions.some(filterExt => extensionMatches(extension.toLowerCase(), filterExt))
@@ -78,7 +92,7 @@ export default function HomePage() {
       prompt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       prompt.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesCategory && matchesRoles && matchesExtensions && matchesVerified && matchesSearch;
+    return matchesCategory && matchesFunctions && matchesExtensions && matchesVerified && matchesSearch;
   });
 
   // Handle filter changes
@@ -105,7 +119,7 @@ export default function HomePage() {
       <div className="relative mb-6">
         <Input
           className="pl-0"
-          placeholder="Search prompts by category, role, or keyword"
+          placeholder="Search prompts by category, function, or keyword"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -121,10 +135,10 @@ export default function HomePage() {
 
       <div className="flex gap-8">
         <FilterSidebar
-          filters={allFilters}
+          functions={filterCategories?.functions || []}
           selected={filters}
           onFilterChange={handleFilterChange}
-          onVerifiedChange={(checked) => setFilters(prev => ({ ...prev, verified: checked }))}
+          extensions={extensions}
         />
 
         <div className="flex-1">

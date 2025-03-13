@@ -1,46 +1,37 @@
 {
   "filterCategories": {
-    "roles": [
+    "functions": [
       {
-        "id": "developer",
-        "name": "Developer",
-        "subcategories": [
-          "frontend",
-          "backend",
-          "fullstack",
-          "devops",
-          "mobile"
-        ]
+        "id": "coding",
+        "name": "Coding"
       },
       {
-        "id": "designer",
-        "name": "Designer",
-        "subcategories": [
-          "ui",
-          "ux",
-          "graphic",
-          "product"
-        ]
+        "id": "design",
+        "name": "Design"
       },
       {
-        "id": "business",
-        "name": "Business",
-        "subcategories": [
-          "product-manager",
-          "business-analyst",
-          "project-manager",
-          "marketing"
-        ]
+        "id": "data",
+        "name": "Data"
+      },
+      {
+        "id": "sales",
+        "name": "Sales"
+      },
+      {
+        "id": "marketing",
+        "name": "Marketing"
+      },
+      {
+        "id": "product",
+        "name": "Product"
       },
       {
         "id": "content",
-        "name": "Content Creator",
-        "subcategories": [
-          "writer",
-          "editor",
-          "social-media",
-          "technical-writer"
-        ]
+        "name": "Content"
+      },
+      {
+        "id": "miscellaneous",
+        "name": "Miscellaneous"
       }
     ],
     "skillLevels": [
@@ -59,32 +50,6 @@
       {
         "id": "expert",
         "name": "Expert"
-      }
-    ],
-    "domains": [
-      {
-        "id": "web",
-        "name": "Web Development"
-      },
-      {
-        "id": "mobile",
-        "name": "Mobile Development"
-      },
-      {
-        "id": "ai",
-        "name": "Artificial Intelligence"
-      },
-      {
-        "id": "data",
-        "name": "Data Science"
-      },
-      {
-        "id": "security",
-        "name": "Security"
-      },
-      {
-        "id": "cloud",
-        "name": "Cloud Computing"
       }
     ],
     "useCases": [
@@ -111,6 +76,14 @@
       {
         "id": "automation",
         "name": "Automation"
+      },
+      {
+        "id": "data-analysis",
+        "name": "Data Analysis"
+      },
+      {
+        "id": "visualization",
+        "name": "Data Visualization"
       }
     ]
   }

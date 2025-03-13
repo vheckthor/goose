@@ -3,7 +3,7 @@ export interface Prompt {
   title: string;
   description: string;
   category: string;
-  role: string;
+  function: string;  // Changed from 'role' to 'function'
   prompt: string;
   example: string;
   tags: string[];
@@ -14,7 +14,7 @@ export interface Prompt {
   usageCount: number;
   verified: boolean;
   extensions: string[];
-  variables?: {
+  variables: {
     name: string;
     description: string;
     required: boolean;

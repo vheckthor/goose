@@ -9,7 +9,7 @@ export async function fetchPrompts(): Promise<Prompt[]> {
       title: "Code Review Assistant",
       description: "Help developers review code changes with detailed analysis and suggestions",
       category: "Development",
-      role: "Code Reviewer",
+      function: "coding", // Updated to match new function ID
       prompt: `As a code review assistant, analyze the following code changes:
 
 {code_diff}
@@ -45,7 +45,7 @@ Focus on being constructive and specific in your feedback.`,
       title: "Data Analysis Helper",
       description: "Guide for analyzing data sets and creating visualizations",
       category: "Data Science",
-      role: "Data Analyst",
+      function: "data", // Updated to match new function ID
       prompt: `As a data analysis assistant, help analyze the following dataset:
 
 {dataset_description}
@@ -87,7 +87,7 @@ export async function searchPrompts(query: string): Promise<Prompt[]> {
     prompt.title.toLowerCase().includes(lowercaseQuery) ||
     prompt.description.toLowerCase().includes(lowercaseQuery) ||
     prompt.category.toLowerCase().includes(lowercaseQuery) ||
-    prompt.role.toLowerCase().includes(lowercaseQuery) ||
+    prompt.function.toLowerCase().includes(lowercaseQuery) || // Updated from role to function
     prompt.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
   );
 }
