@@ -142,15 +142,15 @@ export default function DetailPage() {
               </div>
             )}
 
-            {prompt.tools && prompt.tools.length > 0 && (
+            {prompt.extensions && prompt.extensions.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-textStandard">
                   <Wrench className="h-4 w-4" />
-                  <h4 className="font-medium">Required Tools</h4>
+                  <h4 className="font-medium">Required Extensions</h4>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {prompt.tools.map(tool => (
-                    <Badge key={tool} variant="outline">{tool}</Badge>
+                  {prompt.extensions.map(extension => (
+                    <Badge key={extension} variant="outline">{extension}</Badge>
                   ))}
                 </div>
               </div>

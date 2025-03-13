@@ -7,9 +7,9 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt }: PromptCardProps) {
-  // Function to get extension name from tool string
-  const getExtensionName = (tool: string) => {
-    // Map the tool strings to the display names we want
+  // Function to get extension name from extension string
+  const getExtensionName = (extension: string) => {
+    // Map the extension strings to the display names we want
     const extensionMap: { [key: string]: string } = {
       'developer': 'developer',
       'computercontroller': 'computer controller',
@@ -19,12 +19,12 @@ export function PromptCard({ prompt }: PromptCardProps) {
       'figma': 'figma'
     };
     
-    const parts = tool.split('__');
+    const parts = extension.split('__');
     return extensionMap[parts[0]] || parts[0];
   };
 
   // Get unique extensions
-  const extensions = [...new Set(prompt.tools.map(getExtensionName))];
+  const extensions = [...new Set(prompt.extensions.map(getExtensionName))];
 
   return (
     <div className="relative h-full p-[2px] overflow-hidden rounded-[17px] group/card bg-borderSubtle hover:bg-transparent hover:duration-300">

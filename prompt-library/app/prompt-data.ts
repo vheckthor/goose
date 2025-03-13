@@ -30,7 +30,7 @@ Focus on being constructive and specific in your feedback.`,
       rating: 4.8,
       usageCount: 1250,
       verified: true,
-      tools: ["developer__text_editor", "developer__shell"],
+      extensions: ["developer__text_editor", "developer__shell"],
       variables: [
         {
           name: "code_diff",
@@ -66,7 +66,7 @@ Consider the business context and goals in your analysis.`,
       rating: 4.7,
       usageCount: 850,
       verified: true,
-      tools: ["computercontroller__xlsx_tool"],
+      extensions: ["computercontroller__xlsx_tool"],
       variables: [
         {
           name: "dataset_description",

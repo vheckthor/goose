@@ -13,19 +13,17 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     roles: [] as string[],
-    tools: [] as string[],
-    tags: [] as string[],
+    extensions: [] as string[],
     verified: false
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get unique categories, roles, tools, and tags from prompts
+  // Get unique categories, roles, and extensions from prompts
   const categories = [...new Set(prompts.map(p => p.category))];
   const allFilters = {
     roles: [...new Set(prompts.map(p => p.role))],
-    tools: [...new Set(prompts.flatMap(p => p.tools))],
-    tags: [...new Set(prompts.flatMap(p => p.tags))]
+    extensions: [...new Set(prompts.flatMap(p => p.extensions))]
   };
 
   useEffect(() => {
@@ -54,18 +52,33 @@ export default function HomePage() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
+  // Helper function to check if an extension matches
+  const extensionMatches = (extension: string, filterExtension: string) => {
+    // Handle special cases for extensions with spaces or different naming conventions
+    switch (filterExtension.toLowerCase()) {
+      case "computer controller":
+        return extension.startsWith("computercontroller");
+      case "google drive":
+        return extension.startsWith("googledrive") || extension.startsWith("google_drive");
+      default:
+        return extension.startsWith(filterExtension.toLowerCase());
+    }
+  };
+
   // Filter prompts based on all criteria
   const filteredPrompts = prompts.filter(prompt => {
     const matchesCategory = !selectedCategory || prompt.category === selectedCategory;
     const matchesRoles = filters.roles.length === 0 || filters.roles.includes(prompt.role);
-    const matchesTools = filters.tools.length === 0 || prompt.tools.some(t => filters.tools.includes(t));
-    const matchesTags = filters.tags.length === 0 || prompt.tags.some(t => filters.tags.includes(t));
+    const matchesExtensions = filters.extensions.length === 0 || 
+      prompt.extensions.some(extension => 
+        filters.extensions.some(filterExt => extensionMatches(extension.toLowerCase(), filterExt))
+      );
     const matchesVerified = !filters.verified || prompt.verified;
     const matchesSearch = !searchQuery || 
       prompt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       prompt.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesCategory && matchesRoles && matchesTools && matchesTags && matchesVerified && matchesSearch;
+    return matchesCategory && matchesRoles && matchesExtensions && matchesVerified && matchesSearch;
   });
 
   // Handle filter changes
@@ -118,7 +131,6 @@ export default function HomePage() {
           {error && (
             <div className="p-4 bg-red-50 text-red-600 rounded-md">{error}</div>
           )}
-
 
           {isLoading ? (
             <div className="py-8 text-xl text-textSubtle">Loading prompts...</div>

@@ -13,7 +13,7 @@ export interface Prompt {
   rating: number;
   usageCount: number;
   verified: boolean;
-  tools: string[];
+  extensions: string[];
   variables?: {
     name: string;
     description: string;

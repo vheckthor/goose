@@ -1,4 +1,4 @@
-import { Package, Tag, Puzzle } from "lucide-react";
+import { Package, Puzzle } from "lucide-react";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { cn } from "../lib/utils";
@@ -6,13 +6,11 @@ import { cn } from "../lib/utils";
 interface FilterSidebarProps {
   filters: {
     roles: string[];
-    tools: string[];  // Keep as 'tools' for data compatibility
-    tags: string[];
+    extensions: string[];
   };
   selected: {
     roles: string[];
-    tools: string[];  // Keep as 'tools' for data compatibility
-    tags: string[];
+    extensions: string[];
   };
   onFilterChange: (type: string, value: string) => void;
 }
@@ -29,7 +27,8 @@ export function FilterSidebar({
     "memory",
     "jetbrains",
     "git",
-    "figma"
+    "figma",
+    "google drive"
   ];
 
   return (
@@ -67,36 +66,13 @@ export function FilterSidebar({
           {extensions.map((extension) => (
             <div key={extension} className="flex items-center space-x-2">
               <Checkbox 
-                id={`tool-${extension}`}
-                checked={selected.tools.includes(extension)}
-                onCheckedChange={() => onFilterChange('tools', extension)}
+                id={`extension-${extension}`}
+                checked={selected.extensions.includes(extension)}
+                onCheckedChange={() => onFilterChange('extensions', extension)}
                 className="border-borderSubtle"
               />
-              <Label htmlFor={`tool-${extension}`} className="text-sm text-textStandard">
+              <Label htmlFor={`extension-${extension}`} className="text-sm text-textStandard">
                 {extension}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tags Filter */}
-      <div className="space-y-3">
-        <h3 className="flex items-center gap-2 text-sm font-medium text-textProminent">
-          <Tag className="h-4 w-4" />
-          Tags
-        </h3>
-        <div className="space-y-2">
-          {filters.tags.map((tag) => (
-            <div key={tag} className="flex items-center space-x-2">
-              <Checkbox 
-                id={`tag-${tag}`}
-                checked={selected.tags.includes(tag)}
-                onCheckedChange={() => onFilterChange('tags', tag)}
-                className="border-borderSubtle"
-              />
-              <Label htmlFor={`tag-${tag}`} className="text-sm text-textStandard">
-                {tag}
               </Label>
             </div>
           ))}
