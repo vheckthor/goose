@@ -70,6 +70,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-build-
 
+      # Add disk space cleanup before linting
+      - name: Check disk space before build
+        run: df -h
+
+
       - name: Build and Test
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
