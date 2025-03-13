@@ -97,6 +97,21 @@ jobs:
           echo "Disk space after aggressive cleanup:"
           df -h
 
+      - name: temp build cli  
+        run: |   
+          cargo install cross --git https://github.com/cross-rs/cross               
+          export TARGET="aarch64-unknown-linux-gnu"
+          rustup target add "${TARGET}"
+          echo "Building for target: ${TARGET}"
+          echo "Rust toolchain info:"
+          rustup show
+          echo "Cross version:"
+          cross --version
+
+          # 'cross' is used to cross-compile for different architectures (see Cross.toml)
+          cross build --release --target ${TARGET} -p goose-cli -vv
+        
+
         
       - name: Build and Test
         run: |
