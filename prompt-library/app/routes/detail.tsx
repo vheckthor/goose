@@ -130,7 +130,7 @@ export default function DetailPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-textStandard">
                 <Info className="h-4 w-4" />
-                <h4 className="font-medium">Prompt Template</h4>
+                <h4 className="font-medium">Example Prompt</h4>
               </div>
               <div className="relative group">
                 <code className="block bg-gray-100 dark:bg-gray-900 p-4 rounded text-sm dark:text-gray-300 whitespace-pre-wrap">
