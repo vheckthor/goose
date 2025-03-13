@@ -9,46 +9,7 @@ import Modal from '../../Modal';
 import { Input } from '../../ui/input';
 import Select from 'react-select';
 import { createDarkSelectStyles, darkSelectTheme } from '../../ui/select-styles';
-import { ExtensionConfig } from '../../../api';
-
-// interface ExtensionConfig {
-//   args?: string[];
-//   cmd?: string;
-//   enabled: boolean;
-//   envs?: Record<string, string>;
-//   name: string;
-//   type: 'stdio' | 'sse' | 'builtin';
-// }
-
-interface ExtensionItem {
-  key: string;
-  title: string;
-  subtitle: string;
-  enabled: boolean;
-  canConfigure: boolean;
-  config: ExtensionConfig;
-}
-
-interface EnvVar {
-  key: string;
-  value: string;
-}
-
-// Helper function to get a friendly title from extension name
-const getFriendlyTitle = (name: string): string => {
-  return name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-// Helper function to get a subtitle based on extension type and configuration
-const getSubtitle = (config: ExtensionConfig): string => {
-  if (config.type === 'builtin') {
-    return 'Built-in extension';
-  }
-  return `${config.type.toUpperCase()} extension${config.cmd ? ` (${config.cmd})` : ''}`;
-};
+import { ExtensionConfig } from '../../../api/types.gen';
 
 export default function ExtensionsSection() {
   const { toggleExtension, getExtensions, updateExtension, addExtension } = useConfig();
@@ -60,12 +21,12 @@ export default function ExtensionsSection() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState<{
     name: string;
-    type: 'stdio' | 'sse';
+    type: 'stdio' | 'sse' | 'builtin';
     cmd?: string;
     args?: string[];
     endpoint?: string;
     enabled: boolean;
-    envVars: EnvVar[];
+    envVars: { key: string; value: string }[];
   }>({
     name: '',
     type: 'stdio',
@@ -76,10 +37,26 @@ export default function ExtensionsSection() {
     envVars: [],
   });
 
+  // Helper function to get a friendly title from extension name
+  const getFriendlyTitle = (name: string): string => {
+    return name
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Helper function to get a subtitle based on extension type and configuration
+  const getSubtitle = (entry: FixedExtensionEntry): string => {
+    if (entry.type === 'builtin') {
+      return 'Built-in extension';
+    }
+    return `${entry.type.toUpperCase()} extension${entry.cmd ? ` (${entry.cmd})` : ''}`;
+  };
+
   const fetchExtensions = async () => {
     setLoading(true);
     try {
-      const extensionsList: FixedExtensionEntry[] = await getExtensions(true); // Force refresh
+      const extensionsList = await getExtensions(true); // Force refresh
       setExtensions(extensionsList);
       setError(null);
     } catch (err) {
@@ -91,10 +68,8 @@ export default function ExtensionsSection() {
   };
 
   useEffect(() => {
-    fetchExtensions().catch((error) => {
-      console.error('Error in useEffect:', error);
-    });
-  }, [fetchExtensions]);
+    fetchExtensions();
+  }, []);
 
   useEffect(() => {
     if (selectedExtension) {
@@ -111,7 +86,7 @@ export default function ExtensionsSection() {
 
       setFormData({
         name: selectedExtension.name,
-        type: selectedExtension.type as 'stdio' | 'sse',
+        type: selectedExtension.type,
         cmd: selectedExtension.type === 'stdio' ? selectedExtension.cmd : undefined,
         args: selectedExtension.type === 'stdio' ? selectedExtension.args : [],
         endpoint: selectedExtension.type === 'sse' ? selectedExtension.uri : undefined,
@@ -124,6 +99,7 @@ export default function ExtensionsSection() {
   const handleExtensionToggle = async (name: string) => {
     try {
       await toggleExtension(name);
+      fetchExtensions(); // Refresh the list after toggling
     } catch (error) {
       console.error('Failed to toggle extension:', error);
     }
@@ -153,27 +129,27 @@ export default function ExtensionsSection() {
         name: formData.name,
         cmd: formData.cmd,
         args: formData.args,
-        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+        ...(Object.keys(envs).length > 0 ? { envs } : {}),
       };
     } else if (formData.type === 'sse') {
       extensionConfig = {
         type: 'sse',
         name: formData.name,
         uri: formData.endpoint, // Assuming endpoint maps to uri for SSE type
-        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+        ...(Object.keys(envs).length > 0 ? { envs } : {}),
       };
     } else {
       // For other types
       extensionConfig = {
-        type: formData.type as any, // Force type casting if needed
+        type: formData.type,
         name: formData.name,
-        uri: formData.endpoint, // Assuming endpoint is the common field for other types
       };
     }
 
     try {
       await addExtension(formData.name, extensionConfig, formData.enabled);
       handleModalClose();
+      fetchExtensions(); // Refresh the list after adding
     } catch (error) {
       console.error('Failed to add extension:', error);
     }
@@ -240,27 +216,27 @@ export default function ExtensionsSection() {
         name: formData.name,
         cmd: formData.cmd,
         args: formData.args,
-        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+        ...(Object.keys(envs).length > 0 ? { envs } : {}),
       };
     } else if (formData.type === 'sse') {
       extensionConfig = {
         type: 'sse',
         name: formData.name,
         uri: formData.endpoint, // Assuming endpoint maps to uri for SSE type
-        ...(envs && Object.keys(envs).length > 0 ? { envs } : {}),
+        ...(Object.keys(envs).length > 0 ? { envs } : {}),
       };
     } else {
       // For other types
       extensionConfig = {
-        type: formData.type as any, // Force type casting if needed
+        type: formData.type,
         name: formData.name,
-        uri: formData.endpoint, // Assuming endpoint is the common field for other types
       };
     }
 
     try {
       await updateExtension(selectedExtension.name, extensionConfig, formData.enabled);
       handleModalClose();
+      fetchExtensions(); // Refresh the list after updating
     } catch (error) {
       console.error('Failed to update extension configuration:', error);
     }
@@ -278,14 +254,17 @@ export default function ExtensionsSection() {
         </p>
         <div className="space-y-2">
           {extensions.map((extension, index) => (
-            <React.Fragment key={extension.id}>
+            <React.Fragment key={extension.name}>
               <div className="flex items-center justify-between py-3">
                 <div className="space-y-1">
-                  <h3 className="font-medium text-textStandard">{extension.title}</h3>
-                  <p className="text-sm text-textSubtle">{extension.subtitle}</p>
+                  <h3 className="font-medium text-textStandard">
+                    {getFriendlyTitle(extension.name)}
+                  </h3>
+                  <p className="text-sm text-textSubtle">{getSubtitle(extension)}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                  {extension.canConfigure && (
+                  {/* Only show config button for non-builtin extensions */}
+                  {extension.type !== 'builtin' && (
                     <button
                       className="text-textSubtle hover:text-textStandard"
                       onClick={() => handleConfigureClick(extension)}
@@ -295,7 +274,7 @@ export default function ExtensionsSection() {
                   )}
                   <Switch
                     checked={extension.enabled}
-                    onCheckedChange={() => handleExtensionToggle(extension.id)}
+                    onCheckedChange={() => handleExtensionToggle(extension.name)}
                     className="bg-[#393838] [&_span[data-state]]:bg-white"
                   />
                 </div>
@@ -351,10 +330,10 @@ export default function ExtensionsSection() {
                 <label className="text-sm font-medium mb-2 block">Type</label>
                 <Select
                   value={{ value: formData.type, label: formData.type.toUpperCase() }}
-                  onChange={(option) =>
+                  onChange={(option: { value: string; label: string } | null) =>
                     setFormData({
                       ...formData,
-                      type: (option?.value as 'stdio' | 'sse') || 'stdio',
+                      type: (option?.value as 'stdio' | 'sse' | 'builtin') || 'stdio',
                     })
                   }
                   options={[
@@ -486,7 +465,7 @@ export default function ExtensionsSection() {
                 <label className="text-sm font-medium mb-2 block">Type</label>
                 <Select
                   value={{ value: formData.type, label: formData.type.toUpperCase() }}
-                  onChange={(option) =>
+                  onChange={(option: { value: string; label: string } | null) =>
                     setFormData({
                       ...formData,
                       type: (option?.value as 'stdio' | 'sse') || 'stdio',
