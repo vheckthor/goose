@@ -269,10 +269,11 @@ impl ComputerControllerRouter {
             "document_tool",
             indoc! {r#"
                 Process documents to extract text from various file formats.
-                Can be from a file or a URL.
+                Supports separate operations for local files and URLs.
 
                 Supports operations:
-                - get_text: Extract all text content from documents (DOC, xls, etc can be tried if not handled by other tools)
+                - get_text: Extract all text content from local document files (DOC, xls, etc can be tried if not handled by other tools)
+                - get_text_url: Extract all text content from a document at a URL
 
                 Use this for general text extraction from misc document types.
             "#},
@@ -286,7 +287,7 @@ impl ComputerControllerRouter {
                     },
                     "operation": {
                         "type": "string",
-                        "enum": ["get_text"],
+                        "enum": ["get_text", "get_text_url"],
                         "description": "Operation to perform on the document"
                     }
                 }
