@@ -273,7 +273,7 @@ export default function MoreMenu({
               }}
               className="w-full text-left p-2 text-sm hover:bg-bgSubtle transition-colors"
             >
-              Settings <span className="text-textSubtle">⌘,</span>
+              Settings <span className="text-textSubtle">⌘</span>
             </button>
 
             <button
