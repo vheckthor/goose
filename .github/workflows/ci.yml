@@ -79,13 +79,18 @@ jobs:
           # Clean package manager caches
           sudo apt-get clean
           sudo apt-get autoremove -y
-          npm cache clean --force || true
+
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /opt/hostedtoolcache/
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost          
           
           # Clean up unused swap and memory
           sudo swapoff -a
-          sudo swapon -a
-
-          rm -rf /opt/hostedtoolcache          
+          sudo swapon -a          
           
           echo "Disk space after aggressive cleanup:"
           df -h
