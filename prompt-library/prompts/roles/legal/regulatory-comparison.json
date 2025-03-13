@@ -1,11 +1,10 @@
 {
   "id": "legal-regulatory-comparison",
   "title": "Regulatory Document Change Analysis",
-  "description": "Compare different versions of regulatory documents to identify and analyze changes between drafts, highlighting key modifications in policy, requirements, or language.",
+  "description": "Goose runs a comparative analysis between different versions of AML regulatory documents.",
   "category": "Business",
   "function": "legal",
-  "prompt": "Highlight the differences in these two versions of {document_name}:\n\nPrior version is here: {prior_version_url}\nFinal version is here: {final_version_url}",
-  "example": "Highlight the differences in these two versions of the Explanatory Statement that accompanies the BNPL Regulations in Australia.\n\nPrior version is here: https://treasury.gov.au/sites/default/files/2025-02/c2025-618982-es.pdf\nFinal version is here: https://www.legislation.gov.au/F2025L00303/latest/text/explanatory-statement",
+  "prompt": "Highlight the differences between these two versions of FinCEN's Investment Adviser AML regulations:\n\nProposed version (2015): https://www.federalregister.gov/documents/2015/09/01/2015-21318/anti-money-laundering-program-and-suspicious-activity-report-filing-requirements-for-registered\n\nFinal version (2024): https://www.federalregister.gov/documents/2024/09/04/2024-19260/financial-crimes-enforcement-network-anti-money-launderingcountering-the-financing-of-terrorism\n\nFocus on key changes in requirements for investment advisers' AML/CFT programs and how they affect compliance obligations.",
   "tags": [
     "legal",
     "regulatory",
