@@ -3,6 +3,7 @@ use lopdf::{Document, Object};
 use mcp_core::{Content, ToolError};
 use std::{
     fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -19,10 +20,26 @@ pub async fn pdf_tool(
             // Use extractous library for text extraction
             let extractor = Extractor::new();
 
-            // Extract text from the PDF file
-            let (text, metadata) = extractor.extract_file_to_string(path).map_err(|e| {
-                ToolError::ExecutionError(format!("Failed to extract text from PDF: {}", e))
-            })?;
+            // Check if the path is a URL or a file
+            let (text, metadata) = if path.starts_with("http://") || path.starts_with("https://") {
+                // Handle URL extraction
+                let (mut stream_reader, metadata) = extractor.extract_url(path).map_err(|e| {
+                    ToolError::ExecutionError(format!("Failed to extract text from URL: {}", e))
+                })?;
+
+                // Convert StreamReader to String - assuming it has a read_to_string method
+                let mut text = String::new();
+                stream_reader.read_to_string(&mut text).map_err(|e| {
+                    ToolError::ExecutionError(format!("Failed to read text from URL: {}", e))
+                })?;
+
+                (text, metadata)
+            } else {
+                // Extract text from the file (PDF or other)
+                extractor.extract_file_to_string(path).map_err(|e| {
+                    ToolError::ExecutionError(format!("Failed to extract text from file: {}", e))
+                })?
+            };
 
             // Check if the extracted text is large
             let text_size = text.len();
@@ -90,6 +107,13 @@ pub async fn pdf_tool(
         }
 
         "extract_images" => {
+            // Check if the path is a URL (not supported for image extraction)
+            if path.starts_with("http://") || path.starts_with("https://") {
+                return Err(ToolError::InvalidParameters(
+                    "Image extraction is not supported for URLs. Please provide a local PDF file path.".to_string(),
+                ));
+            }
+
             // Open and parse the PDF file for image extraction
             let doc = Document::load(path).map_err(|e| {
                 ToolError::ExecutionError(format!("Failed to open PDF file: {}", e))
@@ -332,6 +356,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_url_text_extraction() {
+        // Skip this test if we're not online
+        // This is a simple test URL that should be stable
+        let test_url = "https://example.com";
+        let cache_dir = tempfile::tempdir().unwrap().into_path();
+
+        println!("Testing text extraction from URL: {}", test_url);
+
+        let result = pdf_tool(test_url, "extract_text", &cache_dir).await;
+
+        // If the test fails due to network issues, just skip it
+        if let Err(err) = &result {
+            if err.to_string().contains("network") || err.to_string().contains("connection") {
+                println!("Skipping URL extraction test due to network issues");
+                return;
+            }
+        }
+
+        assert!(result.is_ok(), "URL text extraction should succeed");
+        let content = result.unwrap();
+        assert!(!content.is_empty(), "Extracted text should not be empty");
+        let text = content[0].as_text().unwrap();
+        println!("Extracted text from URL:\n{}", text);
+        assert!(
+            text.contains("Example Domain"),
+            "Should contain expected content from example.com"
+        );
+    }
+
+    #[tokio::test]
     async fn test_pdf_image_extraction() {
         let test_pdf_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("src/computercontroller/tests/data/test_image.pdf");
@@ -376,6 +430,29 @@ mod tests {
             println!("Verifying image file exists: {}", file_path);
             assert!(PathBuf::from(file_path).exists(), "Image file should exist");
         }
+    }
+
+    #[tokio::test]
+    async fn test_url_image_extraction_fails() {
+        // Test that image extraction from URLs is properly rejected
+        let test_url = "https://example.com";
+        let cache_dir = tempfile::tempdir().unwrap().into_path();
+
+        println!(
+            "Testing image extraction from URL (should fail): {}",
+            test_url
+        );
+
+        let result = pdf_tool(test_url, "extract_images", &cache_dir).await;
+        assert!(result.is_err(), "URL image extraction should fail");
+
+        let error = result.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Image extraction is not supported for URLs"),
+            "Should return the correct error message for URL image extraction"
+        );
     }
 
     #[tokio::test]

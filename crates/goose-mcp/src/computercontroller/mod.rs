@@ -242,10 +242,10 @@ impl ComputerControllerRouter {
             indoc! {r#"
                 Process PDF files to extract text and images.
                 Supports operations:
-                - extract_text: Extract all text content from the PDF
+                - extract_text: Extract all text content from the PDF (file or url to file)
                 - extract_images: Extract and save embedded images to PNG files
 
-                Use this when there is a .pdf file or files that need to be processed.
+                Use this when there is a .pdf file or files that need to be processed.                
             "#},
             json!({
                 "type": "object",
@@ -253,7 +253,7 @@ impl ComputerControllerRouter {
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Path to the PDF file"
+                        "description": "Path to the PDF file or URL to pdf"
                     },
                     "operation": {
                         "type": "string",
