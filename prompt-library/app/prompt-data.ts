@@ -66,7 +66,7 @@ Consider the business context and goals in your analysis.`,
       rating: 4.7,
       usageCount: 850,
       verified: true,
-      extensions: ["computer controller"], // Updated to use friendly names
+      extensions: ["computercontroller"],
       variables: [
         {
           name: "dataset_description",
