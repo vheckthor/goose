@@ -289,25 +289,19 @@ impl ComputerControllerRouter {
 
         // Conditionally include OCR information in the description
         let image_formats_desc = if has_tesseract {
-            "extract any embedded text via OCR: png, jpeg, tiff, bmp, gif, ico, psd, svg (extracts text with OCR)"
+            "This will also extract any embedded text via OCR for the following: png, jpeg, tiff, bmp, gif, ico, psd, svg and pdf (use this if there are embedded images in PDF)"
         } else {
             "metadata only: png, jpeg, tiff, bmp, gif, ico, psd, svg (metadata only, OCR not available as tesseract not installed)"
-        };
-
-        let pdf_desc = if has_tesseract {
-            "PDF: pdf (extracts embedded content, supports OCR)"
-        } else {
-            "PDF: pdf (extracts embedded content, no OCR as tesseract not installed)"
         };
 
         let document_tool = Tool::new(
             "document_tool",
             formatdoc! {r#"
-                Extract plain text from various file formats. Use this when you see a file extension or a url to a document.
+                Extract plain text from various file formats. Use this when you see a file extension of the following, 
+                OR a url to treat as a document to get text from.
                 Formats: 
                     doc, docx, ppt, pptx, xls, xlsx, rtf, odt, ods, odp
                         (consider using docx and xlsx tools for those first)
-                    {pdf_desc}
                     csv, tsv
                         (when not handled by other tools)
                     html, xml,epub, txt
@@ -321,7 +315,6 @@ impl ComputerControllerRouter {
 
                 Use this for general text extraction from misc document types.
             "#,
-                pdf_desc = pdf_desc,
                 image_formats_desc = image_formats_desc
             },
             json!({
