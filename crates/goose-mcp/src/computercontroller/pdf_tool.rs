@@ -18,12 +18,12 @@ pub async fn pdf_tool(
         "extract_text" => {
             // Use extractous library for text extraction
             let extractor = Extractor::new();
-            
+
             // Extract text from the PDF file
             let (text, metadata) = extractor.extract_file_to_string(path).map_err(|e| {
                 ToolError::ExecutionError(format!("Failed to extract text from PDF: {}", e))
             })?;
-            
+
             // Check if the extracted text is large
             let text_size = text.len();
             if text_size > LARGE_TEXT_THRESHOLD {
@@ -47,10 +47,7 @@ pub async fn pdf_tool(
 
                 // Write the text to a file
                 fs::write(&text_file_path, &text).map_err(|e| {
-                    ToolError::ExecutionError(format!(
-                        "Failed to write large text to file: {}",
-                        e
-                    ))
+                    ToolError::ExecutionError(format!("Failed to write large text to file: {}", e))
                 })?;
 
                 // Format size in human-readable form
@@ -81,22 +78,23 @@ pub async fn pdf_tool(
                 // Include metadata information in the output
                 let metadata_info = format!(
                     "PDF Metadata:\n{}\n\n",
-                    serde_json::to_string_pretty(&metadata).unwrap_or_else(|_| "Unable to format metadata".to_string())
+                    serde_json::to_string_pretty(&metadata)
+                        .unwrap_or_else(|_| "Unable to format metadata".to_string())
                 );
-                
+
                 Ok(vec![Content::text(format!(
                     "{}Extracted text from PDF:\n\n{}",
-                    metadata_info,
-                    text
+                    metadata_info, text
                 ))])
             }
         }
 
         "extract_images" => {
             // Open and parse the PDF file for image extraction
-            let doc = Document::load(path)
-                .map_err(|e| ToolError::ExecutionError(format!("Failed to open PDF file: {}", e)))?;
-                
+            let doc = Document::load(path).map_err(|e| {
+                ToolError::ExecutionError(format!("Failed to open PDF file: {}", e))
+            })?;
+
             let cache_dir = cache_dir.join("pdf_images");
             fs::create_dir_all(&cache_dir).map_err(|e| {
                 ToolError::ExecutionError(format!("Failed to create image cache directory: {}", e))
@@ -292,16 +290,18 @@ pub async fn pdf_tool(
             if images.is_empty() {
                 Ok(vec![Content::text("No images found in PDF".to_string())])
             } else {
-                Ok(vec![Content::text(format!("Found {} images:\n{}", image_count, images.join("\n")))])
+                Ok(vec![Content::text(format!(
+                    "Found {} images:\n{}",
+                    image_count,
+                    images.join("\n")
+                ))])
             }
         }
 
-        _ => {
-            Err(ToolError::InvalidParameters(format!(
-                "Invalid operation: {}. Valid operations are: 'extract_text', 'extract_images'",
-                operation
-            )))
-        }
+        _ => Err(ToolError::InvalidParameters(format!(
+            "Invalid operation: {}. Valid operations are: 'extract_text', 'extract_images'",
+            operation
+        ))),
     }
 }
 
@@ -449,7 +449,8 @@ mod tests {
             assert!(PathBuf::from(file_path).exists(), "Text file should exist");
 
             // Verify file contains actual content
-            let file_content = fs::read_to_string(file_path).expect("Should be able to read text file");
+            let file_content =
+                fs::read_to_string(file_path).expect("Should be able to read text file");
             assert!(!file_content.is_empty(), "Text file should not be empty");
         } else {
             // If the text is not written to a file, it should contain PDF content directly
