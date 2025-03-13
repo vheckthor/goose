@@ -97,6 +97,17 @@ jobs:
           echo "Disk space after aggressive cleanup:"
           df -h
 
+      - name: Set up Gradle user home
+        run: echo "GRADLE_USER_HOME=$HOME/.gradle" >> $GITHUB_ENV
+
+      - name: Verify Gradle setup
+        run: |
+          echo "GRADLE_USER_HOME is set to: $GRADLE_USER_HOME"
+          mkdir -p $GRADLE_USER_HOME
+          chmod -R 777 $GRADLE_USER_HOME
+          ls -la $GRADLE_USER_HOME
+
+
       - name: temp build cli  
         env:
           CROSS_NO_WARNINGS: 0
