@@ -266,19 +266,53 @@ impl ComputerControllerRouter {
             }),
         );
 
+        // Check if Tesseract OCR is installed
+        let has_tesseract = match std::env::consts::OS {
+            "macos" | "linux" => {
+                let output = std::process::Command::new("which")
+                    .arg("tesseract")
+                    .output()
+                    .map(|output| output.status.success())
+                    .unwrap_or(false);
+                output
+            }
+            "windows" => {
+                let output = std::process::Command::new("where")
+                    .arg("tesseract")
+                    .output()
+                    .map(|output| output.status.success())
+                    .unwrap_or(false);
+                output
+            }
+            _ => false,
+        };
+
+        // Conditionally include OCR information in the description
+        let image_formats_desc = if has_tesseract {
+            "extract any embedded text via OCR: png, jpeg, tiff, bmp, gif, ico, psd, svg (extracts text with OCR)"
+        } else {
+            "metadata only: png, jpeg, tiff, bmp, gif, ico, psd, svg (metadata only, OCR not available as tesseract not installed)"
+        };
+
+        let pdf_desc = if has_tesseract {
+            "PDF: pdf (extracts embedded content, supports OCR)"
+        } else {
+            "PDF: pdf (extracts embedded content, no OCR as tesseract not installed)"
+        };
+
         let document_tool = Tool::new(
             "document_tool",
-            indoc! {r#"
+            formatdoc! {r#"
                 Extract plain text from various file formats. Use this when you see a file extension or a url to a document.
                 Formats: 
                     doc, docx, ppt, pptx, xls, xlsx, rtf, odt, ods, odp
                         (consider using docx and xlsx tools for those first)
-                    PDF: pdf (extracts embedded content, supports OCR)
+                    {pdf_desc}
                     csv, tsv
                         (when not handled by other tools)
                     html, xml,epub, txt
 
-                    Images: png, jpeg, tiff, bmp, gif, ico, psd, svg (extracts text with OCR)
+                    {image_formats_desc}
                     E-Mail: eml, msg, mbox, pst (extracts content, headers, attachments)                
 
                 Supports operations:
@@ -286,7 +320,10 @@ impl ComputerControllerRouter {
                 - get_text_url: Extract all text content from a document at a URL
 
                 Use this for general text extraction from misc document types.
-            "#},
+            "#,
+                pdf_desc = pdf_desc,
+                image_formats_desc = image_formats_desc
+            },
             json!({
                 "type": "object",
                 "required": ["path", "operation"],
