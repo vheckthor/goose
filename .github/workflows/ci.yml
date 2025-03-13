@@ -104,6 +104,9 @@ jobs:
           cargo test
         working-directory: crates
 
+      - name: Lint
+        run: cargo clippy -- -D warnings
+
       # Add disk space cleanup before linting
       - name: Check disk space before cleanup
         run: df -h
@@ -137,8 +140,6 @@ jobs:
           echo "Final disk space:"
           df -h
 
-      - name: Lint
-        run: cargo clippy -- -D warnings
 
   desktop-lint:
     name: Lint Electron Desktop App
