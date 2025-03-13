@@ -1,0 +1,117 @@
+{
+  "filterCategories": {
+    "roles": [
+      {
+        "id": "developer",
+        "name": "Developer",
+        "subcategories": [
+          "frontend",
+          "backend",
+          "fullstack",
+          "devops",
+          "mobile"
+        ]
+      },
+      {
+        "id": "designer",
+        "name": "Designer",
+        "subcategories": [
+          "ui",
+          "ux",
+          "graphic",
+          "product"
+        ]
+      },
+      {
+        "id": "business",
+        "name": "Business",
+        "subcategories": [
+          "product-manager",
+          "business-analyst",
+          "project-manager",
+          "marketing"
+        ]
+      },
+      {
+        "id": "content",
+        "name": "Content Creator",
+        "subcategories": [
+          "writer",
+          "editor",
+          "social-media",
+          "technical-writer"
+        ]
+      }
+    ],
+    "skillLevels": [
+      {
+        "id": "beginner",
+        "name": "Beginner"
+      },
+      {
+        "id": "intermediate",
+        "name": "Intermediate"
+      },
+      {
+        "id": "advanced",
+        "name": "Advanced"
+      },
+      {
+        "id": "expert",
+        "name": "Expert"
+      }
+    ],
+    "domains": [
+      {
+        "id": "web",
+        "name": "Web Development"
+      },
+      {
+        "id": "mobile",
+        "name": "Mobile Development"
+      },
+      {
+        "id": "ai",
+        "name": "Artificial Intelligence"
+      },
+      {
+        "id": "data",
+        "name": "Data Science"
+      },
+      {
+        "id": "security",
+        "name": "Security"
+      },
+      {
+        "id": "cloud",
+        "name": "Cloud Computing"
+      }
+    ],
+    "useCases": [
+      {
+        "id": "code-review",
+        "name": "Code Review"
+      },
+      {
+        "id": "debugging",
+        "name": "Debugging"
+      },
+      {
+        "id": "documentation",
+        "name": "Documentation"
+      },
+      {
+        "id": "learning",
+        "name": "Learning"
+      },
+      {
+        "id": "optimization",
+        "name": "Optimization"
+      },
+      {
+        "id": "automation",
+        "name": "Automation"
+      }
+    ]
+  }
+}
