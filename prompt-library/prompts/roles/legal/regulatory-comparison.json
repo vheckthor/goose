@@ -3,7 +3,7 @@
   "title": "Regulatory Document Change Analysis",
   "description": "Compare different versions of regulatory documents to identify and analyze changes between drafts, highlighting key modifications in policy, requirements, or language.",
   "category": "Legal",
-  "function": "content",
+  "function": "legal",
   "prompt": "Highlight the differences in these two versions of {document_name}:\n\nPrior version is here: {prior_version_url}\nFinal version is here: {final_version_url}",
   "example": "Highlight the differences in these two versions of the Explanatory Statement that accompanies the BNPL Regulations in Australia.\n\nPrior version is here: https://treasury.gov.au/sites/default/files/2025-02/c2025-618982-es.pdf\nFinal version is here: https://www.legislation.gov.au/F2025L00303/latest/text/explanatory-statement",
   "tags": [
