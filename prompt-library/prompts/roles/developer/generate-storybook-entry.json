@@ -1,5 +1,5 @@
 {
-  "id": "developer-gitlens-story-forge",
+  "id": "generate-storybook-entry",
   "title": "Generate Storybook Entry from Git Diff",
   "description": "Generate a Storybook documentation entry based on component changes in git diff",
   "category": "Technical",
