@@ -1,0 +1,45 @@
+{
+  "id": "legal-regulatory-comparison",
+  "title": "Regulatory Document Change Analysis",
+  "description": "Goose provides a comparative between versions of regulatory documents.",
+  "category": "Legal",
+  "function": "legal",
+  "prompt": "Highlight the differences in these two versions of {document_name}:\n\nPrior version is here: {prior_version_url}\nFinal version is here: {final_version_url}",
+  "example": "Highlight the differences in these two versions of the Explanatory Statement that accompanies the BNPL Regulations in Australia.\n\nPrior version is here: https://treasury.gov.au/sites/default/files/2025-02/c2025-618982-es.pdf\nFinal version is here: https://www.legislation.gov.au/F2025L00303/latest/text/explanatory-statement",
+  "tags": [
+    "legal",
+    "regulatory",
+    "compliance",
+    "document-comparison",
+    "policy-analysis",
+    "financial-services",
+    "legislation"
+  ],
+  "author": "GooseAI Team",
+  "dateAdded": "2025-03-13",
+  "lastUpdated": "2025-03-13",
+  "rating": 0,
+  "usageCount": 0,
+  "verified": true,
+  "extensions": ["computer_controller"],
+  "variables": [
+    {
+      "name": "document_name",
+      "description": "The name/title of the regulatory document being compared",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "name": "prior_version_url",
+      "description": "URL to the previous version of the document",
+      "required": true,
+      "type": "string"
+    },
+    {
+      "name": "final_version_url",
+      "description": "URL to the final/current version of the document",
+      "required": true,
+      "type": "string"
+    }
+  ]
+}

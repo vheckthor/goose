@@ -30,6 +30,10 @@
         "name": "Content"
       },
       {
+        "id": "legal",
+        "name": "Legal"
+      },
+      {
         "id": "miscellaneous",
         "name": "Miscellaneous"
       }
@@ -84,6 +88,10 @@
       {
         "id": "visualization",
         "name": "Data Visualization"
+      },
+      {
+        "id": "regulatory-analysis",
+        "name": "Regulatory Analysis"
       }
     ]
   }
