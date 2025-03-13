@@ -82,7 +82,7 @@ export default function HomePage() {
     <div className="pb-24">
       <div className="pb-16">
         <h1 className="text-[64px] font-medium text-textProminent">
-          Prompt Directory
+          Prompt Library
         </h1>
         <p className="text-textProminent">
           Your central directory for discovering and using effective prompts with Goose.
