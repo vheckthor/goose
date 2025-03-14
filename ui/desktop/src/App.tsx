@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { addExtensionFromDeepLink } from './extensions';
+import { openSharedSessionFromDeepLink } from './session_links';
 import { getStoredModel } from './utils/providerUtils';
 import { getStoredProvider, initializeSystem } from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
@@ -12,6 +13,7 @@ import { ToastContainer } from 'react-toastify';
 import { extractExtensionName } from './components/settings/extensions/utils';
 import { GoosehintsModal } from './components/GoosehintsModal';
 import { SessionDetails, fetchSessionDetails } from './sessions';
+import { SharedSessionDetails } from './shared_sessions';
 
 import WelcomeView from './components/WelcomeView';
 import ChatView from './components/ChatView';
@@ -20,6 +22,7 @@ import SettingsViewV2 from './components/settings_v2/SettingsView';
 import MoreModelsView from './components/settings/models/MoreModelsView';
 import ConfigureProvidersView from './components/settings/providers/ConfigureProvidersView';
 import SessionsView from './components/sessions/SessionsView';
+import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
 import { useChat } from './hooks/useChat';
 
@@ -35,7 +38,8 @@ export type View =
   | 'configPage'
   | 'alphaConfigureProviders'
   | 'settingsV2'
-  | 'sessions';
+  | 'sessions'
+  | 'sharedSession';
 
 export type ViewConfig = {
   view: View;
@@ -59,6 +63,9 @@ export default function App() {
   });
   const [isGoosehintsModalOpen, setIsGoosehintsModalOpen] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sharedSession, setSharedSession] = useState<SharedSessionDetails | null>(null);
+  const [sharedSessionError, setSharedSessionError] = useState<string | null>(null);
+  const [isLoadingSharedSession, setIsLoadingSharedSession] = useState(false);
 
   const { switchModel } = useModel();
   const { addRecentModel } = useRecentModels();
@@ -91,6 +98,30 @@ export default function App() {
     window.electron.on('add-extension', handleAddExtension);
     return () => {
       window.electron.off('add-extension', handleAddExtension);
+    };
+  }, []);
+
+  // Handle shared session deep links
+  useEffect(() => {
+    const handleOpenSharedSession = async (_: any, link: string) => {
+      window.electron.logInfo(`Opening shared session from deep link ${link}`);
+      setIsLoadingSharedSession(true);
+      setSharedSessionError(null);
+
+      try {
+        await openSharedSessionFromDeepLink(link, setView);
+      } catch (error) {
+        console.error('Failed to open shared session:', error);
+        setSharedSessionError(error instanceof Error ? error.message : 'Unknown error');
+        setView('sessions'); // Fallback to sessions view
+      } finally {
+        setIsLoadingSharedSession(false);
+      }
+    };
+
+    window.electron.on('open-shared-session', handleOpenSharedSession);
+    return () => {
+      window.electron.off('open-shared-session', handleOpenSharedSession);
     };
   }, []);
 
@@ -286,6 +317,30 @@ export default function App() {
             />
           )}
           {view === 'sessions' && <SessionsView setView={setView} />}
+          {view === 'sharedSession' && (
+            <SharedSessionView
+              session={viewOptions.sessionDetails}
+              isLoading={isLoadingSharedSession}
+              error={sharedSessionError}
+              onBack={() => setView('sessions')}
+              onRetry={async () => {
+                if (viewOptions.shareToken && viewOptions.baseUrl) {
+                  setIsLoadingSharedSession(true);
+                  try {
+                    await openSharedSessionFromDeepLink(
+                      `goose://session/${viewOptions.shareToken}`,
+                      setView,
+                      viewOptions.baseUrl
+                    );
+                  } catch (error) {
+                    console.error('Failed to retry loading shared session:', error);
+                  } finally {
+                    setIsLoadingSharedSession(false);
+                  }
+                }
+              }}
+            />
+          )}
         </div>
       </div>
       {isGoosehintsModalOpen && (
