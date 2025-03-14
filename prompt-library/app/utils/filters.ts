@@ -27,10 +27,6 @@ export async function fetchFilterCategories(): Promise<FilterCategories> {
           "name": "Marketing"
         },
         {
-          "id": "product",
-          "name": "Product"
-        },
-        {
           "id": "legal",
           "name": "Legal"
         },
