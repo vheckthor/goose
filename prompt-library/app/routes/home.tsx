@@ -22,11 +22,14 @@ const AVAILABLE_EXTENSIONS = [
   "tavily web search" 
 ];
 
+const ITEMS_PER_PAGE = 6; // Show 6 cards per page (3x2 grid)
+
 export default function HomePage() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [filterCategories, setFilterCategories] = useState<FilterCategories | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({
     functions: [] as string[],
     extensions: [] as string[],
@@ -64,6 +67,7 @@ export default function HomePage() {
           : await fetchPrompts();
 
         setPrompts(results);
+        setCurrentPage(1); // Reset to first page when search/filters change
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
@@ -113,6 +117,12 @@ export default function HomePage() {
     return matchesCategory && matchesFunctions && matchesExtensions && matchesVerified && matchesSearch;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPrompts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentPrompts = filteredPrompts.slice(startIndex, endIndex);
+
   // Handle filter changes
   const handleFilterChange = (type: keyof typeof filters, value: string) => {
     setFilters(prev => ({
@@ -121,6 +131,34 @@ export default function HomePage() {
         ? prev[type].filter(v => v !== value)
         : [...prev[type], value]
     }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Pagination controls component
+  const PaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-center items-center gap-2 mt-8">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="px-4 py-2 rounded-md border border-border bg-surfaceHighlight hover:bg-surface text-textProminent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Previous
+        </button>
+        <span className="text-textProminent">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="px-4 py-2 rounded-md border border-border bg-surfaceHighlight hover:bg-surface text-textProminent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          Next
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -147,7 +185,10 @@ export default function HomePage() {
         <FilterPills
           categories={categories}
           selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
+          onSelectCategory={(category) => {
+            setSelectedCategory(category);
+            setCurrentPage(1); // Reset to first page when category changes
+          }}
         />
       </div>
 
@@ -173,19 +214,22 @@ export default function HomePage() {
                 : "No prompts available."}
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredPrompts.map((prompt) => (
-                <motion.div
-                  key={prompt.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6 }}
-                >
-                  <PromptCard prompt={prompt} />
-                </motion.div>
-              ))}
-            </div>
+            <>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {currentPrompts.map((prompt) => (
+                  <motion.div
+                    key={prompt.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6 }}
+                  >
+                    <PromptCard prompt={prompt} />
+                  </motion.div>
+                ))}
+              </div>
+              <PaginationControls />
+            </>
           )}
         </div>
       </div>
