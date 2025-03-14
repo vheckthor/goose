@@ -14,6 +14,8 @@ export interface Prompt {
   usageCount: number;
   verified: boolean;
   extensions: string[];
+  external?: boolean;
+  extensionUrl?: string;
   variables: {
     name: string;
     description: string;

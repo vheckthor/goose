@@ -159,7 +159,29 @@ export default function DetailPage() {
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {prompt.extensions.map(extension => (
-                    <Badge key={extension} variant="outline" className="text-gray-500 dark:text-gray-400">{extension}</Badge>
+                    <Badge 
+                      key={extension} 
+                      variant="outline" 
+                      className="text-gray-500 dark:text-gray-400 flex items-center gap-1"
+                    >
+                      {prompt.external ? (
+                        <a 
+                          href={prompt.extensionUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {extension}
+                        </a>
+                      ) : (
+                        extension
+                      )}
+                      {prompt.external && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          (external)
+                        </span>
+                      )}
+                    </Badge>
                   ))}
                 </div>
               </div>
