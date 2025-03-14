@@ -139,7 +139,7 @@ export default function HomePage() {
     if (totalPages <= 1) return null;
 
     return (
-      <div className="flex justify-center items-center gap-2 mt-8">
+      <div className="flex justify-center items-center gap-4 mt-8">
         <button
           onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
