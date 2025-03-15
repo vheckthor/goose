@@ -132,6 +132,7 @@ function BaseProviderCard({
                         onAddKeys();
                       }}
                       className="rounded-full h-7 w-7 p-0 bg-bgApp hover:bg-bgApp shadow-none text-textSubtle border border-borderSubtle hover:border-borderStandard hover:text-textStandard transition-colors"
+                      data-testid={`${name}-provider-card-setup-button`}
                     >
                       <Plus className="!size-4" />
                     </Button>

@@ -11,14 +11,14 @@ let cfg = {
     certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
     certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
     rfc3161TimeStampServer: 'http://timestamp.digicert.com',
-    signWithParams: '/fd sha256 /tr http://timestamp.digicert.com /td sha256'
+    signWithParams: '/fd sha256 /tr http://timestamp.digicert.com /td sha256',
   },
   // Protocol registration
   protocols: [
     {
-      name: "GooseProtocol",
-      schemes: ["goose"]
-    }
+      name: 'GooseProtocol',
+      schemes: ['goose'],
+    },
   ],
   // macOS specific configuration
   osxSign: {
@@ -31,15 +31,15 @@ let cfg = {
   osxNotarize: {
     appleId: process.env['APPLE_ID'],
     appleIdPassword: process.env['APPLE_ID_PASSWORD'],
-    teamId: process.env['APPLE_TEAM_ID']
+    teamId: process.env['APPLE_TEAM_ID'],
   },
   protocols: [
     {
-      name: "GooseProtocol",     // The macOS CFBundleURLName
-      schemes: ["goose"]         // The macOS CFBundleURLSchemes array
-    }
-  ]
-}
+      name: 'GooseProtocol', // The macOS CFBundleURLName
+      schemes: ['goose'], // The macOS CFBundleURLSchemes array
+    },
+  ],
+};
 
 if (process.env['APPLE_ID'] === undefined) {
   delete cfg.osxNotarize;
@@ -54,11 +54,11 @@ module.exports = {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin', 'win32'],
       config: {
-          arch: process.env.ELECTRON_ARCH === 'x64' ? ['x64'] : ['arm64'],
-          options: {
-              icon: 'src/images/icon.ico'
-        }
-      }
+        arch: process.env.ELECTRON_ARCH === 'x64' ? ['x64'] : ['arm64'],
+        options: {
+          icon: 'src/images/icon.ico',
+        },
+      },
     },
     {
       name: '@electron-forge/maker-deb',
@@ -103,7 +103,8 @@ module.exports = {
       [FuseV1Options.RunAsNode]: false,
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      // The below causes Playwright issues: https://github.com/microsoft/playwright/issues/19854#issuecomment-1373438605
+      [FuseV1Options.EnableNodeCliInspectArguments]: process.env.ENVIRONMENT === 'e2e',
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),

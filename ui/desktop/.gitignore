@@ -3,3 +3,9 @@ node_modules
 out
 src/bin/goosed
 /src/bin/goosed.exe
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
