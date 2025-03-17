@@ -33,9 +33,10 @@ export async function fetchSharedSessionDetails(
 
     const data = await response.json();
 
-    if (baseUrl != data.base_url) {
-      throw new Error(`Base URL mismatch: ${baseUrl} != ${data.base_url}`);
-    }
+    // TODO: add this after testing
+    // if (baseUrl != data.base_url) {
+    //   throw new Error(`Base URL mismatch: ${baseUrl} != ${data.base_url}`);
+    // }
 
     return {
       share_token: data.share_token,

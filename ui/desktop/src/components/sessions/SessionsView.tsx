@@ -109,8 +109,8 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
 
       // Fetch the shared session details
       // // TODO: Uncomment after user agent is allowlisted
-      // const sessionDetails = await fetchSharedSessionDetails(finalBaseUrl, shareToken);
-      const sessionDetails = await fetchMockedSharedSessionDetails(finalBaseUrl, shareToken);
+      const sessionDetails = await fetchSharedSessionDetails(finalBaseUrl, shareToken);
+      // const sessionDetails = await fetchMockedSharedSessionDetails(finalBaseUrl, shareToken);
 
       // Navigate to the shared session view
       setView('sharedSession', {
