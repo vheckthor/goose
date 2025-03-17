@@ -23,9 +23,9 @@ export async function fetchSharedSessionDetails(
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Origin: 'http://localhost:5173', // required to bypass Cloudflare security filter
+        // Origin: 'http://localhost:5173', // required to bypass Cloudflare security filter
       },
-      // credentials: 'include',
+      credentials: 'include',
     });
 
     if (!response.ok) {

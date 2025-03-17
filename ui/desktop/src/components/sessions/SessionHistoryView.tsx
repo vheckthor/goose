@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, MessageSquare, Folder, Share2, Copy, Check, Loader } from 'lucide-react';
+import { Clock, MessageSquare, Folder, Share2, Copy, Check, LoaderCircle } from 'lucide-react';
 import { type SessionDetails } from '../../sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
 import { createSharedSession } from '../../shared_sessions';
@@ -122,7 +122,7 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
           >
             {isSharing ? (
               <>
-                <Loader className="w-5 h-5 animate-spin mr-2" />
+                <LoaderCircle className="w-5 h-5 animate-spin mr-2" />
                 <span>Sharing...</span>
               </>
             ) : (
@@ -150,28 +150,38 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
 
       {/* Share Link Modal */}
       <Modal open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
-        <ModalContent className="sm:max-w-md bg-bgPrimary">
+        <ModalContent className="sm:max-w-md dark:bg-black">
           <ModalHeader>
             <ModalTitle className="text-textStandard">Share Session</ModalTitle>
           </ModalHeader>
-          <div className="flex items-center space-x-2 mt-2">
-            <div className="grid flex-1 gap-2">
-              <div className="bg-bgSecondary p-2 rounded-md overflow-x-auto">
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 p-2 rounded-md overflow-x-auto">
                 <code className="text-sm text-textStandard">{shareLink}</code>
               </div>
-              <p className="text-sm text-textSubtle">
-                Share this link with others to give them access to this session.
-                <br />
-                They will need to have Goose installed and session sharing configured.
-              </p>
+              <Button
+                size="sm"
+                className="flex-shrink-0"
+                onClick={handleCopyLink}
+                disabled={isCopied}
+              >
+                {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <span className="sr-only">Copy</span>
+              </Button>
             </div>
-            <Button size="sm" className="px-3" onClick={handleCopyLink} disabled={isCopied}>
-              {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              <span className="sr-only">Copy</span>
-            </Button>
+            <p className="text-sm text-textSubtle">
+              Share this link with others to give them access to this session.
+              <br />
+              They will need to have Goose installed and session sharing configured.
+            </p>
           </div>
           <ModalFooter className="sm:justify-start">
-            <Button type="button" variant="secondary" onClick={() => setIsShareModalOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsShareModalOpen(false)}
+              className="hover:text-textStandard border border-borderSubtle text-textStandard hover:bg-bgSubtle"
+            >
               Close
             </Button>
           </ModalFooter>
