@@ -328,7 +328,7 @@ export default function App() {
                   setIsLoadingSharedSession(true);
                   try {
                     await openSharedSessionFromDeepLink(
-                      `goose://session/${viewOptions.shareToken}`,
+                      `goose://sessions/${viewOptions.shareToken}`,
                       setView,
                       viewOptions.baseUrl
                     );

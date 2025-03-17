@@ -1,10 +1,14 @@
 import { toast } from 'react-toastify';
-import { fetchSharedSessionDetails, SharedSessionDetails } from './shared_sessions';
+import {
+  fetchSharedSessionDetails,
+  fetchMockedSharedSessionDetails,
+  SharedSessionDetails,
+} from './shared_sessions';
 import { type View } from './App';
 
 /**
  * Handles opening a shared session from a deep link
- * @param url The deep link URL (goose://session/:shareToken)
+ * @param url The deep link URL (goose://sessions/:shareToken)
  * @param setView Function to set the current view
  * @param baseUrl Optional base URL for the session sharing API
  * @returns Promise that resolves when the session is opened
@@ -15,12 +19,12 @@ export async function openSharedSessionFromDeepLink(
   baseUrl?: string
 ): Promise<void> {
   try {
-    if (!url.startsWith('goose://session/')) {
-      throw new Error('Invalid URL: URL must use the goose://session/ scheme');
+    if (!url.startsWith('goose://sessions/')) {
+      throw new Error('Invalid URL: URL must use the goose://sessions/ scheme');
     }
 
     // Extract the share token from the URL
-    const shareToken = url.replace('goose://session/', '');
+    const shareToken = url.replace('goose://sessions/', '');
 
     if (!shareToken || shareToken.trim() === '') {
       throw new Error('Invalid URL: Missing share token');
@@ -47,7 +51,9 @@ export async function openSharedSessionFromDeepLink(
     }
 
     // Fetch the shared session details
+    // // TODO: Uncomment after user agent is allowlisted
     const sessionDetails = await fetchSharedSessionDetails(baseUrl, shareToken);
+    // const sessionDetails = await fetchMockedSharedSessionDetails(baseUrl, shareToken);
 
     // Navigate to the shared session view
     setView('sharedSession', {
