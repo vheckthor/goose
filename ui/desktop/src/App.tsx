@@ -110,9 +110,10 @@ export default function App() {
 
       try {
         await openSharedSessionFromDeepLink(link, setView);
+        // No need to handle errors here as openSharedSessionFromDeepLink now handles them internally
       } catch (error) {
-        console.error('Failed to open shared session:', error);
-        setSharedSessionError(error instanceof Error ? error.message : 'Unknown error');
+        // This should not happen, but just in case
+        console.error('Unexpected error opening shared session:', error);
         setView('sessions'); // Fallback to sessions view
       } finally {
         setIsLoadingSharedSession(false);
@@ -321,7 +322,7 @@ export default function App() {
             <SharedSessionView
               session={viewOptions.sessionDetails}
               isLoading={isLoadingSharedSession}
-              error={sharedSessionError}
+              error={viewOptions.error || sharedSessionError}
               onBack={() => setView('sessions')}
               onRetry={async () => {
                 if (viewOptions.shareToken && viewOptions.baseUrl) {

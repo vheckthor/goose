@@ -388,10 +388,7 @@ ipcMain.handle('check-ollama', async () => {
 
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    if (details.url.includes('/sessions/share/')) {
-      details.requestHeaders['Origin'] = 'http://localhost:5173'; // Fake but valid origin
-      // details.requestHeaders['Origin'] = 'https://electron-app.local'; // Fake but valid origin
-    }
+    details.requestHeaders['Origin'] = 'http://localhost:5173';
     callback({ cancel: false, requestHeaders: details.requestHeaders });
   });
 

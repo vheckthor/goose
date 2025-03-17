@@ -4,7 +4,7 @@ import { type SharedSessionDetails } from '../../shared_sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
 
 interface SharedSessionViewProps {
-  session: SharedSessionDetails;
+  session: SharedSessionDetails | null;
   isLoading: boolean;
   error: string | null;
   onBack: () => void;
@@ -26,22 +26,26 @@ const SharedSessionView: React.FC<SharedSessionViewProps> = ({
       <SessionHeaderCard onBack={onBack}>
         {/* Session info row */}
         <div className="ml-8">
-          <h1 className="text-lg font-bold text-textStandard">{session.description}</h1>
-          <div className="flex items-center text-sm text-textSubtle mt-2 space-x-4">
-            <span className="flex items-center">
-              <Clock className="w-4 h-4 mr-1" />
-              {new Date(session.messages[0]?.created * 1000).toLocaleString()}
-            </span>
-            <span className="flex items-center">
-              <Globe className="w-4 h-4 mr-1" />
-              {session.base_url}
-            </span>
-          </div>
+          <h1 className="text-lg font-bold text-textStandard">
+            {session ? session.description : 'Shared Session'}
+          </h1>
+          {session && (
+            <div className="flex items-center text-sm text-textSubtle mt-2 space-x-4">
+              <span className="flex items-center">
+                <Clock className="w-4 h-4 mr-1" />
+                {new Date(session.messages[0]?.created * 1000).toLocaleString()}
+              </span>
+              <span className="flex items-center">
+                <Globe className="w-4 h-4 mr-1" />
+                {session.base_url}
+              </span>
+            </div>
+          )}
         </div>
       </SessionHeaderCard>
 
       <SessionMessages
-        messages={session.messages}
+        messages={session?.messages || []}
         isLoading={isLoading}
         error={error}
         onRetry={onRetry}

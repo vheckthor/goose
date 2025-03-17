@@ -17,7 +17,7 @@ export async function openSharedSessionFromDeepLink(
   url: string,
   setView: (view: View, options?: Record<string, any>) => void,
   baseUrl?: string
-): Promise<void> {
+): Promise<SharedSessionDetails | null> {
   try {
     if (!url.startsWith('goose://sessions/')) {
       throw new Error('Invalid URL: URL must use the goose://sessions/ scheme');
@@ -66,7 +66,15 @@ export async function openSharedSessionFromDeepLink(
   } catch (error) {
     const errorMessage = `Failed to open shared session: ${error instanceof Error ? error.message : 'Unknown error'}`;
     console.error(errorMessage);
-    toast.error(errorMessage, { autoClose: false });
-    throw error;
+
+    // Navigate to the shared session view with the error instead of throwing
+    setView('sharedSession', {
+      sessionDetails: null,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      shareToken: url.replace('goose://sessions/', ''),
+      baseUrl,
+    });
+
+    return null;
   }
 }
