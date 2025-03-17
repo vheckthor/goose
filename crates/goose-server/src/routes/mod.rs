@@ -1,5 +1,6 @@
 // Export route modules
 pub mod agent;
+pub mod api_v1;
 pub mod config_management;
 pub mod configs;
 pub mod extension;
@@ -18,5 +19,6 @@ pub fn configure(state: crate::state::AppState) -> Router {
         .merge(extension::routes(state.clone()))
         .merge(configs::routes(state.clone()))
         .merge(config_management::routes(state.clone()))
-        .merge(session::routes(state))
+        .merge(session::routes(state.clone()))
+        .merge(api_v1::routes(state))  // Add API routes
 }
