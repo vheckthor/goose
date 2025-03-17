@@ -427,22 +427,22 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                     "Code editing and shell access",
                 )
                 .item(
-                    "computercontroller",
+                    "Computer Controller",
                     "Computer Controller",
                     "controls for webscraping, file caching, and automations",
                 )
                 .item(
-                    "google_drive",
+                    "Google Drive",
                     "Google Drive",
                     "Search and read content from google drive - additional config required",
                 )
                 .item(
-                    "memory",
+                    "Memory",
                     "Memory",
                     "Tools to save and retrieve durable memories",
                 )
                 .item(
-                    "tutorial",
+                    "Tutorial",
                     "Tutorial",
                     "Access interactive tutorials and guides",
                 )
@@ -454,7 +454,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 .placeholder(&goose::config::DEFAULT_EXTENSION_TIMEOUT.to_string())
                 .validate(|input: &String| match input.parse::<u64>() {
                     Ok(_) => Ok(()),
-                    Err(_) => Err("Please enter a valide timeout"),
+                    Err(_) => Err("Please enter a valid timeout"),
                 })
                 .interact()?;
 
