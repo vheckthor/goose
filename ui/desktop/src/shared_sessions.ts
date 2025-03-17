@@ -250,6 +250,7 @@ export async function createSharedSession(
       body: JSON.stringify({
         messages,
         description: description || 'Shared Session',
+        base_url: baseUrl,
       }),
     });
 

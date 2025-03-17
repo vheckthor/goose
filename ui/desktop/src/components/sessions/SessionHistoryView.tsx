@@ -1,7 +1,11 @@
-import React from 'react';
-import { Clock, MessageSquare, Folder } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, MessageSquare, Folder, Share2, Copy, Check, Loader } from 'lucide-react';
 import { type SessionDetails } from '../../sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
+import { createSharedSession } from '../../shared_sessions';
+import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '../ui/modal';
+import { Button } from '../ui/button';
+import { toast } from 'react-toastify';
 
 interface SessionHistoryViewProps {
   session: SessionDetails;
@@ -20,6 +24,63 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
   onResume,
   onRetry,
 }) => {
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareLink, setShareLink] = useState<string>('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    setShareError(null);
+
+    try {
+      // Get the session sharing configuration from localStorage
+      const savedSessionConfig = localStorage.getItem('session_sharing_config');
+      if (!savedSessionConfig) {
+        throw new Error('Session sharing is not configured. Please configure it in settings.');
+      }
+
+      const config = JSON.parse(savedSessionConfig);
+      if (!config.enabled || !config.baseUrl) {
+        throw new Error('Session sharing is not enabled or base URL is not configured.');
+      }
+
+      // Create a shared session
+      const shareToken = await createSharedSession(
+        config.baseUrl,
+        session.messages,
+        session.metadata.description || 'Shared Session'
+      );
+
+      // Create the shareable link
+      const shareableLink = `goose://sessions/${shareToken}`;
+      setShareLink(shareableLink);
+      setIsShareModalOpen(true);
+    } catch (error) {
+      console.error('Error sharing session:', error);
+      setShareError(error instanceof Error ? error.message : 'Unknown error occurred');
+      toast.error(
+        `Failed to share session: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard
+      .writeText(shareLink)
+      .then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy link:', err);
+        toast.error('Failed to copy link to clipboard');
+      });
+  };
+
   return (
     <div className="h-screen w-full">
       <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
@@ -52,12 +113,32 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
           </div>
         </div>
 
-        <span
-          onClick={onResume}
-          className="ml-auto text-md cursor-pointer text-textStandard hover:font-bold hover:scale-105 transition-all duration-150"
-        >
-          Resume Session
-        </span>
+        <div className="ml-auto flex items-center space-x-4">
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            className="flex items-center text-textStandard hover:text-primary hover:font-bold hover:scale-105 transition-all duration-150"
+            title="Share this session"
+          >
+            {isSharing ? (
+              <>
+                <Loader className="w-5 h-5 animate-spin mr-2" />
+                <span>Sharing...</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-5 h-5" />
+              </>
+            )}
+          </button>
+
+          <span
+            onClick={onResume}
+            className="text-md cursor-pointer text-textStandard hover:font-bold hover:scale-105 transition-all duration-150"
+          >
+            Resume Session
+          </span>
+        </div>
       </SessionHeaderCard>
 
       <SessionMessages
@@ -66,6 +147,36 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
         error={error}
         onRetry={onRetry}
       />
+
+      {/* Share Link Modal */}
+      <Modal open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+        <ModalContent className="sm:max-w-md bg-bgPrimary">
+          <ModalHeader>
+            <ModalTitle className="text-textStandard">Share Session</ModalTitle>
+          </ModalHeader>
+          <div className="flex items-center space-x-2 mt-2">
+            <div className="grid flex-1 gap-2">
+              <div className="bg-bgSecondary p-2 rounded-md overflow-x-auto">
+                <code className="text-sm text-textStandard">{shareLink}</code>
+              </div>
+              <p className="text-sm text-textSubtle">
+                Share this link with others to give them access to this session.
+                <br />
+                They will need to have Goose installed and session sharing configured.
+              </p>
+            </div>
+            <Button size="sm" className="px-3" onClick={handleCopyLink} disabled={isCopied}>
+              {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="sr-only">Copy</span>
+            </Button>
+          </div>
+          <ModalFooter className="sm:justify-start">
+            <Button type="button" variant="secondary" onClick={() => setIsShareModalOpen(false)}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 };
