@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { addExtensionFromDeepLink } from './extensions';
 import { openSharedSessionFromDeepLink } from './session_links';
 import { getStoredModel } from './utils/providerUtils';
@@ -27,6 +27,11 @@ import ProviderSettings from './components/settings_v2/providers/ProviderSetting
 import { useChat } from './hooks/useChat';
 
 import 'react-toastify/dist/ReactToastify.css';
+import { useConfig } from './components/ConfigContext';
+import {
+  initializeBuiltInExtensions,
+  syncBuiltInExtensions,
+} from './components/settings_v2/extensions/LoadBuiltins';
 
 // Views and their options
 export type View =
@@ -36,7 +41,7 @@ export type View =
   | 'moreModels'
   | 'configureProviders'
   | 'configPage'
-  | 'alphaConfigureProviders'
+  | 'ConfigureProviders'
   | 'settingsV2'
   | 'sessions'
   | 'sharedSession';
@@ -61,6 +66,41 @@ export default function App() {
     view: 'welcome',
     viewOptions: {},
   });
+  const { getExtensions, addExtension } = useConfig();
+  const initAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    // Skip if feature flag is not enabled
+    if (!process.env.ALPHA) {
+      return;
+    }
+
+    const setupExtensions = async () => {
+      try {
+        // Set the ref immediately to prevent duplicate runs
+        initAttemptedRef.current = true;
+
+        // Force refresh extensions from the backend to ensure we have the latest
+        const refreshedExtensions = await getExtensions(true);
+
+        if (refreshedExtensions.length === 0) {
+          // If we still have no extensions, this is truly a first-time setup
+          console.log('First-time setup: Adding all built-in extensions...');
+          await initializeBuiltInExtensions(addExtension);
+        } else {
+          // Extensions exist, check for any missing built-ins
+          console.log('Checking for missing built-in extensions...');
+          console.log(refreshedExtensions);
+          await syncBuiltInExtensions(refreshedExtensions, addExtension);
+        }
+      } catch (error) {
+        console.error('Error setting up extensions:', error);
+      }
+    };
+
+    setupExtensions();
+  }, []); // Empty dependency array since we're using initAttemptedRef
+
   const [isGoosehintsModalOpen, setIsGoosehintsModalOpen] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sharedSession, setSharedSession] = useState<SharedSessionDetails | null>(null);
@@ -266,13 +306,16 @@ export default function App() {
       <div className="relative w-screen h-screen overflow-hidden bg-bgApp flex flex-col">
         <div className="titlebar-drag-region" />
         <div>
-          {view === 'welcome' && (
-            <WelcomeView
-              onSubmit={() => {
-                setView('chat');
-              }}
-            />
-          )}
+          {view === 'welcome' &&
+            (process.env.ALPHA ? (
+              <ProviderSettings onClose={() => setView('chat')} isOnboarding={true} />
+            ) : (
+              <WelcomeView
+                onSubmit={() => {
+                  setView('chat');
+                }}
+              />
+            ))}
           {view === 'settings' &&
             (process.env.ALPHA ? (
               <SettingsViewV2
@@ -306,8 +349,8 @@ export default function App() {
               }}
             />
           )}
-          {view === 'alphaConfigureProviders' && (
-            <ProviderSettings onClose={() => setView('chat')} />
+          {view === 'ConfigureProviders' && (
+            <ProviderSettings onClose={() => setView('chat')} isOnboarding={false} />
           )}
           {view === 'chat' && !isLoadingSession && (
             <ChatView
