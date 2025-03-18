@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Clock, MessageSquare, Folder, Share2, Copy, Check, LoaderCircle } from 'lucide-react';
 import { type SessionDetails } from '../../sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
-import { createSharedSession } from '../../shared_sessions';
+import { createSharedSession } from '../../sharedSessions';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '../ui/modal';
 import { Button } from '../ui/button';
 import { toast } from 'react-toastify';

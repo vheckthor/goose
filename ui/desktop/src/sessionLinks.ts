@@ -1,9 +1,5 @@
 import { toast } from 'react-toastify';
-import {
-  fetchSharedSessionDetails,
-  fetchMockedSharedSessionDetails,
-  SharedSessionDetails,
-} from './shared_sessions';
+import { fetchSharedSessionDetails, SharedSessionDetails } from './shared_sessions';
 import { type View } from './App';
 
 /**
@@ -51,9 +47,7 @@ export async function openSharedSessionFromDeepLink(
     }
 
     // Fetch the shared session details
-    // // TODO: Uncomment after user agent is allowlisted
     const sessionDetails = await fetchSharedSessionDetails(baseUrl, shareToken);
-    // const sessionDetails = await fetchMockedSharedSessionDetails(baseUrl, shareToken);
 
     // Navigate to the shared session view
     setView('sharedSession', {

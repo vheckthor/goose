@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { addExtensionFromDeepLink } from './extensions';
-import { openSharedSessionFromDeepLink } from './session_links';
+import { openSharedSessionFromDeepLink } from './sessionLinks';
 import { getStoredModel } from './utils/providerUtils';
 import { getStoredProvider, initializeSystem } from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
@@ -12,8 +12,8 @@ import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { ToastContainer } from 'react-toastify';
 import { extractExtensionName } from './components/settings/extensions/utils';
 import { GoosehintsModal } from './components/GoosehintsModal';
-import { SessionDetails, fetchSessionDetails } from './sessions';
-import { SharedSessionDetails } from './shared_sessions';
+import { SessionDetails } from './sessions';
+import { SharedSessionDetails } from './sharedSessions';
 
 import WelcomeView from './components/WelcomeView';
 import ChatView from './components/ChatView';

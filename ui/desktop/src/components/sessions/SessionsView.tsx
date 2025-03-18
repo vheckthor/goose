@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ViewConfig } from '../../App';
 import { fetchSessionDetails, type SessionDetails } from '../../sessions';
-import { fetchSharedSessionDetails, fetchMockedSharedSessionDetails } from '../../shared_sessions';
+import { fetchSharedSessionDetails } from '../../sharedSessions';
 import SessionListView from './SessionListView';
 import SessionHistoryView from './SessionHistoryView';
 import { Card } from '../ui/card';
@@ -108,9 +108,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
       }
 
       // Fetch the shared session details
-      // // TODO: Uncomment after user agent is allowlisted
       const sessionDetails = await fetchSharedSessionDetails(finalBaseUrl, shareToken);
-      // const sessionDetails = await fetchMockedSharedSessionDetails(finalBaseUrl, shareToken);
 
       // Navigate to the shared session view
       setView('sharedSession', {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock, Globe } from 'lucide-react';
-import { type SharedSessionDetails } from '../../shared_sessions';
+import { type SharedSessionDetails } from '../../sharedSessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
 
 interface SharedSessionViewProps {
