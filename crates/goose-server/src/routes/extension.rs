@@ -53,10 +53,12 @@ enum ExtensionConfigRequest {
 ///
 /// - `error`: Indicates whether an error occurred (`true`) or not (`false`).
 /// - `message`: Provides detailed error information when `error` is `true`.
+/// - `is_missing_keys`: Indicates whether any secrets were missing.
 #[derive(Serialize)]
-struct ExtensionResponse {
+struct AddExtensionResponse {
     error: bool,
     message: Option<String>,
+    is_missing_keys: bool,
 }
 
 /// Handler for adding a new extension configuration.
@@ -64,7 +66,7 @@ async fn add_extension(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(request): Json<ExtensionConfigRequest>,
-) -> Result<Json<ExtensionResponse>, StatusCode> {
+) -> Result<Json<AddExtensionResponse>, StatusCode> {
     // Verify the presence and validity of the secret key.
     let secret_key = headers
         .get("X-Secret-Key")
@@ -102,12 +104,13 @@ async fn add_extension(
             }
 
             if !missing_keys.is_empty() {
-                return Ok(Json(ExtensionResponse {
+                return Ok(Json(AddExtensionResponse {
                     error: true,
                     message: Some(format!(
                         "Missing secrets for keys: {}",
                         missing_keys.join(", ")
                     )),
+                    is_missing_keys: true,
                 }));
             }
 
@@ -138,12 +141,13 @@ async fn add_extension(
             }
 
             if !missing_keys.is_empty() {
-                return Ok(Json(ExtensionResponse {
+                return Ok(Json(AddExtensionResponse {
                     error: true,
                     message: Some(format!(
                         "Missing secrets for keys: {}",
                         missing_keys.join(", ")
                     )),
+                    is_missing_keys: true,
                 }));
             }
 
@@ -167,21 +171,33 @@ async fn add_extension(
 
     // Respond with the result.
     match response {
-        Ok(_) => Ok(Json(ExtensionResponse {
+        Ok(_) => Ok(Json(AddExtensionResponse {
             error: false,
             message: None,
+            is_missing_keys: false,
         })),
         Err(e) => {
             eprintln!("Failed to add extension configuration: {:?}", e);
-            Ok(Json(ExtensionResponse {
+            Ok(Json(AddExtensionResponse {
                 error: true,
                 message: Some(format!(
                     "Failed to add extension configuration, error: {:?}",
                     e
                 )),
+                is_missing_keys: false,
             }))
         }
     }
+}
+
+/// Response structure for removing an extension.
+///
+/// - `error`: Indicates whether an error occurred (`true`) or not (`false`).
+/// - `message`: Provides detailed error information when `error` is `true`.
+#[derive(Serialize)]
+struct RemoveExtensionResponse {
+    error: bool,
+    message: Option<String>,
 }
 
 /// Handler for removing an extension by name
@@ -189,7 +205,7 @@ async fn remove_extension(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(name): Json<String>,
-) -> Result<Json<ExtensionResponse>, StatusCode> {
+) -> Result<Json<RemoveExtensionResponse>, StatusCode> {
     // Verify the presence and validity of the secret key
     let secret_key = headers
         .get("X-Secret-Key")
@@ -205,7 +221,7 @@ async fn remove_extension(
     let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
     agent.remove_extension(&name).await;
 
-    Ok(Json(ExtensionResponse {
+    Ok(Json(RemoveExtensionResponse {
         error: false,
         message: None,
     }))

@@ -1,9 +1,10 @@
-import { useConfig, FixedExtensionEntry } from '../components/ConfigContext';
+import { useConfig } from '../components/ConfigContext';
 import { getApiUrl, getSecretKey } from '../config';
 import { ExtensionConfig } from '../api';
 import { toast } from 'react-toastify';
 import React, { useState } from 'react';
 import { initializeAgent as startAgent, replaceWithShims } from './utils';
+import { addExtensionFromDeepLink } from './addExtensionFromDeepLink';
 
 // extensionUpdate = an extension was newly added or updated so we should attempt to add it
 
@@ -137,31 +138,30 @@ export const useAgent = () => {
           if (toastId) toast.dismiss(toastId);
           toast.success(`Successfully enabled ${extension.name} extension`);
         }
-        return response;
-      }
-
-      console.log('Error trying to send a request to the extensions endpoint');
-      const errorMessage = `Error adding ${extension.name} extension${data.message ? `. ${data.message}` : ''}`;
-      const ErrorMsg = ({ closeToast }: { closeToast?: () => void }) => (
-        <div className="flex flex-col gap-1">
-          <div>Error adding {extension.name} extension</div>
-          <div>
-            <button
-              className="text-sm rounded px-2 py-1 bg-gray-400 hover:bg-gray-300 text-white cursor-pointer"
-              onClick={() => {
-                navigator.clipboard.writeText(data.message || 'Unknown error');
-                closeToast?.();
-              }}
-            >
-              Copy error message
-            </button>
+      } else {
+        console.log('Error trying to send a request to the extensions endpoint');
+        const errorMessage = `Error adding ${extension.name} extension${data.message ? `. ${data.message}` : ''}`;
+        const ErrorMsg = ({ closeToast }: { closeToast?: () => void }) => (
+          <div className="flex flex-col gap-1">
+            <div>Error adding {extension.name} extension</div>
+            <div>
+              <button
+                className="text-sm rounded px-2 py-1 bg-gray-400 hover:bg-gray-300 text-white cursor-pointer"
+                onClick={() => {
+                  navigator.clipboard.writeText(data.message || 'Unknown error');
+                  closeToast?.();
+                }}
+              >
+                Copy error message
+              </button>
+            </div>
           </div>
-        </div>
-      );
+        );
 
-      console.error(errorMessage);
-      if (toastId) toast.dismiss(toastId);
-      toast(ErrorMsg, { type: 'error', autoClose: false });
+        console.error(errorMessage);
+        if (toastId) toast.dismiss(toastId);
+        toast(ErrorMsg, { type: 'error', autoClose: false });
+      }
 
       return response;
     } catch (error) {
@@ -176,6 +176,8 @@ export const useAgent = () => {
   return {
     updateAgent,
     addExtensionToAgent,
+    addExtensionFromDeepLink: (url, setView) =>
+      addExtensionFromDeepLink(url, setView, addExtensionToAgent),
     initializeAgent,
     isUpdating,
   };

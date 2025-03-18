@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { addExtensionFromDeepLink } from './extensions';
 import { getStoredModel } from './utils/providerUtils';
 import { getStoredProvider, initializeSystem } from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
@@ -29,6 +28,7 @@ import {
   initializeBuiltInExtensions,
   syncBuiltInExtensions,
 } from './components/settings_v2/extensions/LoadBuiltins';
+import { useAgent } from './agent/UpdateAgent';
 
 // Views and their options
 export type View =
@@ -63,6 +63,7 @@ export default function App() {
     viewOptions: {},
   });
   const { getExtensions, addExtension } = useConfig();
+  const { addExtensionFromDeepLink } = useAgent();
   const initAttemptedRef = useRef(false);
 
   useEffect(() => {
