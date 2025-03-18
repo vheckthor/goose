@@ -4,7 +4,7 @@ use aws_sdk_bedrockruntime::operation::converse::ConverseError;
 use aws_sdk_bedrockruntime::{types as bedrock, Client};
 use mcp_core::Tool;
 
-use super::base::{Provider, ProviderMetadata, ProviderUsage};
+use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage};
 use super::errors::ProviderError;
 use crate::message::Message;
 use crate::model::ModelConfig;
@@ -57,7 +57,9 @@ impl Provider for BedrockProvider {
             BEDROCK_DEFAULT_MODEL,
             BEDROCK_KNOWN_MODELS.iter().map(|s| s.to_string()).collect(),
             BEDROCK_DOC_LINK,
-            vec![],
+            vec![
+                ConfigKey::new("AWS_PROFILE", true, false, None),
+            ],
         )
     }
 
