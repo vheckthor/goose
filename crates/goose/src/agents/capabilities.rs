@@ -168,6 +168,7 @@ impl Capabilities {
         }
 
         // Store the client using the provided name
+        println!("Adding extension: {}", sanitized_name);
         self.clients
             .insert(sanitized_name.clone(), Arc::new(Mutex::new(client)));
 
