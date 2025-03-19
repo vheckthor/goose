@@ -8,15 +8,51 @@ use std::collections::HashSet;
 /// The content of the messages uses MCP types to avoid additional conversions
 /// when interacting with MCP servers.
 use chrono::Utc;
-use mcp_core::content::{Content, ImageContent, TextContent};
-use mcp_core::handler::ToolResult;
-use mcp_core::prompt::{PromptMessage, PromptMessageContent, PromptMessageRole};
-use mcp_core::resource::ResourceContents;
-use mcp_core::role::Role;
-use mcp_core::tool::ToolCall;
+use rmcp::model::{Content, ImageContent, TextContent};
+use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
+use rmcp::model::ResourceContents;
+use rmcp::model::Role;
 use serde_json::Value;
+use serde::{Deserialize, Serialize};
 
 mod tool_result_serde;
+
+use thiserror::Error;
+
+#[non_exhaustive]
+#[derive(Error, Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub enum ToolError {
+    #[error("Invalid parameters: {0}")]
+    InvalidParameters(String),
+    #[error("Execution failed: {0}")]
+    ExecutionError(String),
+    #[error("Schema error: {0}")]
+    SchemaError(String),
+    #[error("Tool not found: {0}")]
+    NotFound(String),
+}
+
+pub type ToolResult<T> = std::result::Result<T, ToolError>;
+
+/// A tool call request that an extension can execute
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCall {
+    /// The name of the tool to execute
+    pub name: String,
+    /// The parameters for the execution
+    pub arguments: Value,
+}
+
+impl ToolCall {
+    /// Create a new ToolUse with the given name and parameters
+    pub fn new<S: Into<String>>(name: S, arguments: Value) -> Self {
+        Self {
+            name: name.into(),
+            arguments,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,7 +83,7 @@ impl ToolRequest {
 pub struct ToolResponse {
     pub id: String,
     #[serde(with = "tool_result_serde")]
-    pub tool_result: ToolResult<Vec<Content>>,
+    pub tool_result: ToolResult<Vec<Content>>
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -85,18 +121,11 @@ pub enum MessageContent {
 
 impl MessageContent {
     pub fn text<S: Into<String>>(text: S) -> Self {
-        MessageContent::Text(TextContent {
-            text: text.into(),
-            annotations: None,
-        })
+        MessageContent::Text( Content::text(text) )
     }
 
     pub fn image<S: Into<String>, T: Into<String>>(data: S, mime_type: T) -> Self {
-        MessageContent::Image(ImageContent {
-            data: data.into(),
-            mime_type: mime_type.into(),
-            annotations: None,
-        })
+        MessageContent::Image(Content::image(data, mime_type))
     }
 
     pub fn tool_request<S: Into<String>>(id: S, tool_call: ToolResult<ToolCall>) -> Self {
@@ -206,10 +235,7 @@ impl From<Content> for MessageContent {
         match content {
             Content::Text(text) => MessageContent::Text(text),
             Content::Image(image) => MessageContent::Image(image),
-            Content::Resource(resource) => MessageContent::Text(TextContent {
-                text: resource.get_text(),
-                annotations: None,
-            }),
+            Content::Resource(resource) => MessageContent::Text(Content::text(resource.get_text())),
         }
     }
 }
@@ -302,7 +328,7 @@ impl Message {
     pub fn with_tool_response<S: Into<String>>(
         self,
         id: S,
-        result: ToolResult<Vec<Content>>,
+        result: ToolResult<Vec<Content>>
     ) -> Self {
         self.with_content(MessageContent::tool_response(id, result))
     }
@@ -408,10 +434,8 @@ impl Message {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mcp_core::content::EmbeddedResource;
-    use mcp_core::handler::ToolError;
-    use mcp_core::prompt::PromptMessageContent;
-    use mcp_core::resource::ResourceContents;
+    use rmcp::model::PromptMessageContent;
+    use rmcp::model::ResourceContents;
     use serde_json::{json, Value};
 
     #[test]
@@ -550,11 +574,7 @@ mod tests {
     #[test]
     fn test_from_prompt_message_image() {
         let prompt_content = PromptMessageContent::Image {
-            image: ImageContent {
-                data: "base64data".to_string(),
-                mime_type: "image/jpeg".to_string(),
-                annotations: None,
-            },
+            image: Content::image("base64data", "image/jpeg"),
         };
 
         let prompt_message = PromptMessage {
@@ -581,10 +601,7 @@ mod tests {
         };
 
         let prompt_content = PromptMessageContent::Resource {
-            resource: EmbeddedResource {
-                resource,
-                annotations: None,
-            },
+            resource: Content::embedded_text("file:///test.txt", "Resource content"),
         };
 
         let prompt_message = PromptMessage {
@@ -610,10 +627,7 @@ mod tests {
         };
 
         let prompt_content = PromptMessageContent::Resource {
-            resource: EmbeddedResource {
-                resource,
-                annotations: None,
-            },
+            resource: Content::resource(resource),
         };
 
         let prompt_message = PromptMessage {

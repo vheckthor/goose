@@ -12,8 +12,8 @@ use super::extension::{ExtensionConfig, ExtensionResult};
 use crate::message::Message;
 use crate::providers::base::Provider;
 use crate::session;
-use mcp_core::prompt::Prompt;
-use mcp_core::protocol::GetPromptResult;
+use rmcp::model::Prompt;
+use rmcp::model::GetPromptResult;
 
 /// Session configuration for an agent
 #[derive(Debug, Clone, Serialize, Deserialize)]

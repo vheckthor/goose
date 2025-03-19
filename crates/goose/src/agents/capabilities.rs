@@ -1,8 +1,6 @@
-use anyhow::Result;
+
 use chrono::{DateTime, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, StreamExt};
-use mcp_client::McpService;
-use mcp_core::protocol::GetPromptResult;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -14,9 +12,12 @@ use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, Extension
 use crate::config::Config;
 use crate::prompt_template;
 use crate::providers::base::Provider;
-use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
-use mcp_client::transport::{SseTransport, StdioTransport, Transport};
-use mcp_core::{prompt::Prompt, Content, Tool, ToolCall, ToolError, ToolResult};
+use rmcp::model::GetPromptResult;
+use rmcp::client::McpService;
+use rmcp::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
+use rmcp::transport::{SseTransport, StdioTransport, Transport};
+use rmcp::model::{Prompt, Content, Tool};
+use crate::message::{ToolCall, ToolError, ToolResult};
 use serde_json::Value;
 
 // By default, we set it to Jan 1, 2020 if the resource does not have a timestamp

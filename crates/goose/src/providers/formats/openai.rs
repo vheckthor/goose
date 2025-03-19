@@ -7,8 +7,8 @@ use crate::providers::utils::{
     sanitize_function_name, ImageFormat,
 };
 use anyhow::{anyhow, Error};
-use mcp_core::ToolError;
-use mcp_core::{Content, Role, Tool, ToolCall};
+use rmcp::model::{Content, Role, Tool};
+use crate::message::{ToolError, ToolCall};
 use serde_json::{json, Value};
 
 /// Convert internal Message format to OpenAI's API message specification
@@ -425,7 +425,7 @@ pub fn create_request(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mcp_core::content::Content;
+    use rmcp::model::Content;
     use serde_json::json;
 
     #[test]

@@ -11,7 +11,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::providers::errors::{OpenAIError, ProviderError};
-use mcp_core::content::ImageContent;
+use rmcp::model::{Content, ImageContent};
 
 #[derive(serde::Deserialize)]
 struct OpenAIErrorResponse {
@@ -281,11 +281,10 @@ pub fn load_image_file(path: &str) -> Result<ImageContent, ProviderError> {
     // Convert to base64
     let data = base64::prelude::BASE64_STANDARD.encode(&bytes);
 
-    Ok(ImageContent {
-        mime_type: mime_type.to_string(),
+    Ok(Content::image(
         data,
-        annotations: None,
-    })
+        mime_type.to_string(),
+    ))
 }
 
 pub fn unescape_json_values(value: &Value) -> Value {

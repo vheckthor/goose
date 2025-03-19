@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use mcp_client::client::Error as ClientError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use utoipa::ToSchema;
+use rmcp::error::Error as RmcpError;
 
 use crate::config;
 use crate::config::extensions::name_to_key;
@@ -12,13 +12,11 @@ use crate::config::extensions::name_to_key;
 #[derive(Error, Debug)]
 pub enum ExtensionError {
     #[error("Failed to start the MCP server from configuration `{0}` `{1}`")]
-    Initialization(ExtensionConfig, ClientError),
-    #[error("Failed a client call to an MCP server: {0}")]
-    Client(#[from] ClientError),
+    Initialization(ExtensionConfig, RmcpError),
     #[error("User Message exceeded context-limit. History could not be truncated to accomodate.")]
     ContextLimit,
-    #[error("Transport error: {0}")]
-    Transport(#[from] mcp_client::transport::Error),
+    #[error("RMCP error: {0}")]
+    Rmcp(#[from] RmcpError),
 }
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;
