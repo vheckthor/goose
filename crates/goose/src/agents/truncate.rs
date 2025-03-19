@@ -17,7 +17,7 @@ use crate::token_counter::TokenCounter;
 use crate::{register_agent, session};
 use anyhow::{anyhow, Result};
 use indoc::indoc;
-use rmcp::model::{Prompt, GetPromptResult, Tool};
+use rmcp::model::{GetPromptResult, Prompt, Tool};
 use serde_json::{json, Value};
 
 /// Reference implementation of an Agent
@@ -97,7 +97,7 @@ impl Agent for TruncateAgent {
                     "uri": {"type": "string", "description": "Resource URI"},
                     "extension_name": {"type": "string", "description": "Optional extension name"}
                 }
-            }),
+            }).as_object().unwrap().clone(),
         );
 
         let list_resources_tool = Tool::new(
@@ -115,7 +115,7 @@ impl Agent for TruncateAgent {
                 "properties": {
                     "extension_name": {"type": "string", "description": "Optional extension name"}
                 }
-            }),
+            }).as_object().unwrap().clone(),
         );
 
         if capabilities.supports_resources() {

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
+use rmcp::service::ServiceError;
+use rmcp::transport::sse::SseTransportError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use utoipa::ToSchema;
-use rmcp::transport::sse::SseTransportError;
-use rmcp::service::ServiceError;
 
 use crate::config;
 use crate::config::extensions::name_to_key;

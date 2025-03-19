@@ -1,4 +1,5 @@
 use crate::message::{Message, MessageContent};
+use crate::message::{ToolCall, ToolError};
 use crate::model::ModelConfig;
 use crate::providers::base::Usage;
 use crate::providers::errors::ProviderError;
@@ -7,8 +8,7 @@ use crate::providers::utils::{
     sanitize_function_name, ImageFormat,
 };
 use anyhow::{anyhow, Error};
-use rmcp::model::{Content, RawContent, Role, Tool};
-use crate::message::{ToolError, ToolCall};
+use rmcp::model::{RawContent, Role, Tool};
 use serde_json::{json, Value};
 
 /// Convert internal Message format to OpenAI's API message specification
@@ -89,7 +89,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                                         .audience()
                                         .is_none_or(|audience| audience.contains(&Role::Assistant))
                                 })
-                                .map(|content| content.raw)
+                                .map(|content| content.raw.clone())
                                 .collect();
 
                             // Process all content, replacing images with placeholder text
@@ -109,7 +109,10 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                                         }));
                                     }
                                     RawContent::Resource(resource) => {
-                                        tool_content.push(RawContent::text(resource.resource.text()));
+                                        tool_content.push(RawContent::text(format!(
+                                            "{:?}",
+                                            resource.resource
+                                        )));
                                     }
                                     _ => {
                                         tool_content.push(content);
@@ -119,7 +122,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                             let tool_response_content: Value = json!(tool_content
                                 .iter()
                                 .map(|content| match content {
-                                    Content::Text(text) => text.text.clone(),
+                                    RawContent::Text(text) => text.text.clone(),
                                     _ => String::new(),
                                 })
                                 .collect::<Vec<String>>()
@@ -173,8 +176,12 @@ pub fn format_tools(tools: &[Tool]) -> anyhow::Result<Vec<Value>> {
             return Err(anyhow!("Duplicate tool name: {}", tool.name));
         }
 
-        let mut description = tool.description.clone();
-        description.truncate(1024);
+        let description = tool.description.clone();
+        let description = if description.len() > 1024 {
+            &description[..1024]
+        } else {
+            &description
+        };
 
         // OpenAI's tool description max str len is 1024
         result.push(json!({

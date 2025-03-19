@@ -11,7 +11,7 @@ use std::io::Read;
 use std::path::Path;
 
 use crate::providers::errors::{OpenAIError, ProviderError};
-use rmcp::model::{AnnotateAble, Annotated, Content, ImageContent, RawImageContent};
+use rmcp::model::{AnnotateAble, Annotated, ImageContent, RawImageContent};
 
 #[derive(serde::Deserialize)]
 struct OpenAIErrorResponse {
@@ -281,7 +281,11 @@ pub fn load_image_file(path: &str) -> Result<ImageContent, ProviderError> {
     // Convert to base64
     let data = base64::prelude::BASE64_STANDARD.encode(&bytes);
 
-    let content: Annotated<RawImageContent> = RawImageContent { data: data.into(), mime_type: mime_type.into() }.no_annotation();
+    let content: Annotated<RawImageContent> = RawImageContent {
+        data: data.into(),
+        mime_type: mime_type.into(),
+    }
+    .no_annotation();
 
     Ok(content)
 }

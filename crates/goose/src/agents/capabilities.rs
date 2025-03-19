@@ -1,9 +1,9 @@
 use chrono::{DateTime, TimeZone, Utc};
 use futures::stream::{FuturesUnordered, StreamExt};
-use tokio::process::Command;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
+use tokio::process::Command;
 use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
@@ -12,7 +12,10 @@ use crate::config::Config;
 use crate::message::{ToolCall, ToolError, ToolResult};
 use crate::prompt_template;
 use crate::providers::base::Provider;
-use rmcp::model::{CallToolRequestParam, GetPromptRequestParam, GetPromptResult, PaginatedRequestParam, ReadResourceRequestParam};
+use rmcp::model::{
+    CallToolRequestParam, GetPromptRequestParam, GetPromptResult, PaginatedRequestParam,
+    ReadResourceRequestParam,
+};
 use rmcp::model::{Content, Prompt, Tool};
 use rmcp::{
     serve_client, service::RunningService, transport::child_process::TokioChildProcess,
@@ -102,10 +105,8 @@ impl Capabilities {
     /// Add a new MCP extension based on the provided client type
     // TODO IMPORTANT need to ensure this times out if the extension command is broken!
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
-        let mut client: RunningService<ClientHandlerService> = match &config {
-            ExtensionConfig::Sse {
-                uri, envs, timeout, ..
-            } => {
+        let client: RunningService<ClientHandlerService> = match &config {
+            ExtensionConfig::Sse { uri, .. } => {
                 // envs not used for sse
                 let transport = SseTransport::start(uri, Default::default()).await?;
                 let service = serve_client(ClientHandlerService::simple(), transport)
@@ -116,23 +117,18 @@ impl Capabilities {
                 service
             }
             ExtensionConfig::Stdio {
-                cmd,
-                args,
-                envs,
-                timeout,
-                ..
+                cmd, args, envs, ..
             } => {
-                let transport = TokioChildProcess::new(
-                    Command::new(cmd).args(args).envs(envs.get_env()),
-                ).map_err(|e| ExtensionError::StdIoProcess(e))?;
-                let service = serve_client(
-                    ClientHandlerService::simple(),
-                    transport,
-                )
-                .await?;
+                let transport =
+                    TokioChildProcess::new(Command::new(cmd).args(args).envs(envs.get_env()))
+                        .map_err(|e| ExtensionError::StdIoProcess(e))?;
+                let service = serve_client(ClientHandlerService::simple(), transport).await?;
                 service
             }
-            ExtensionConfig::Builtin { name, timeout } => todo!(),
+            ExtensionConfig::Builtin {
+                name: _,
+                timeout: _,
+            } => todo!(),
             // {
             //     // For builtin extensions, we run the current executable with mcp and extension name
             //     let cmd = std::env::current_exe()
@@ -155,7 +151,6 @@ impl Capabilities {
             //     Box::new(McpClient::new(service))
             // }
         };
-
 
         let init_result = client.peer_info();
         let sanitized_name = normalize(config.key().to_string());
@@ -213,7 +208,9 @@ impl Capabilities {
         let mut tools = Vec::new();
         for (name, client) in &self.clients {
             let client_guard = client.lock().await;
-            let mut client_tools = client_guard.list_tools( PaginatedRequestParam { cursor: None } ).await?;
+            let mut client_tools = client_guard
+                .list_tools(PaginatedRequestParam { cursor: None })
+                .await?;
 
             loop {
                 for tool in client_tools.tools {
@@ -229,7 +226,11 @@ impl Capabilities {
                     break;
                 }
 
-                client_tools = client_guard.list_tools( PaginatedRequestParam { cursor: client_tools.next_cursor } ).await?;
+                client_tools = client_guard
+                    .list_tools(PaginatedRequestParam {
+                        cursor: client_tools.next_cursor,
+                    })
+                    .await?;
             }
         }
         Ok(tools)
@@ -241,7 +242,9 @@ impl Capabilities {
 
         for (name, client) in &self.clients {
             let client_guard = client.lock().await;
-            let resources = client_guard.list_resources( PaginatedRequestParam { cursor: None } ).await?;
+            let resources = client_guard
+                .list_resources(PaginatedRequestParam { cursor: None })
+                .await?;
             let resources = resources.resources;
 
             for resource in resources {
@@ -253,7 +256,12 @@ impl Capabilities {
                     }
                 }
 
-                if let Ok(contents) = client_guard.read_resource(ReadResourceRequestParam { uri: resource.uri.clone() }).await {
+                if let Ok(contents) = client_guard
+                    .read_resource(ReadResourceRequestParam {
+                        uri: resource.uri.clone(),
+                    })
+                    .await
+                {
                     for content in contents.contents {
                         let (uri, content_str) = match content {
                             rmcp::model::ResourceContents::TextResourceContents {
@@ -335,7 +343,10 @@ impl Capabilities {
     }
 
     /// Find and return a reference to the appropriate client for a tool call
-    fn get_client_for_tool(&self, prefixed_name: &str) -> Option<(&str, &Arc<Mutex<RunningService<ClientHandlerService>>>)> {
+    fn get_client_for_tool(
+        &self,
+        prefixed_name: &str,
+    ) -> Option<(&str, &Arc<Mutex<RunningService<ClientHandlerService>>>)> {
         self.clients
             .iter()
             .find(|(key, _)| prefixed_name.starts_with(*key))
@@ -408,15 +419,19 @@ impl Capabilities {
             .ok_or(ToolError::InvalidParameters(error_msg))?;
 
         let client_guard = client.lock().await;
-        let read_result = client_guard.read_resource(ReadResourceRequestParam { uri: uri.to_string() }).await.map_err(|_| {
-            ToolError::ExecutionError(format!("Could not read resource with uri: {}", uri))
-        })?;
+        let read_result = client_guard
+            .read_resource(ReadResourceRequestParam {
+                uri: uri.to_string(),
+            })
+            .await
+            .map_err(|_| {
+                ToolError::ExecutionError(format!("Could not read resource with uri: {}", uri))
+            })?;
 
         let mut result = Vec::new();
         for content in read_result.contents {
             // Only reading the text resource content; skipping the blob content cause it's too long
-            if let rmcp::model::ResourceContents::TextResourceContents { text, .. } = content
-            {
+            if let rmcp::model::ResourceContents::TextResourceContents { text, .. } = content {
                 let content_str = format!("{}\n\n{}", uri, text);
                 result.push(Content::text(content_str));
             }
@@ -519,11 +534,18 @@ impl Capabilities {
                 .get_client_for_tool(&tool_call.name)
                 .ok_or_else(|| ToolError::NotFound(tool_call.name.clone()))?;
 
-            // rsplit returns the iterator in reverse, tool_name is then at 0
-            let tool_name = tool_call.name.clone()
-                .strip_prefix(client_name)
-                .and_then(|s| s.strip_prefix("__"))
-                .ok_or_else(|| ToolError::NotFound(tool_call.name.clone()))?;
+            // Get the tool name by stripping the client name prefix
+            let name_clone = tool_call.name.clone();
+            let tool_name = {
+                let stripped_name = match name_clone.strip_prefix(client_name) {
+                    Some(s) => s,
+                    None => return Err(ToolError::NotFound(tool_call.name.clone())),
+                };
+                match stripped_name.strip_prefix("__") {
+                    Some(s) => s.to_string(),
+                    None => return Err(ToolError::NotFound(tool_call.name.clone())),
+                }
+            };
 
             let client_guard = client.lock().await;
 

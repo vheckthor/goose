@@ -7,10 +7,7 @@ use crate::model::ModelConfig;
 use anyhow::Result;
 
 pub fn providers() -> Vec<ProviderMetadata> {
-    vec![
-        DatabricksProvider::metadata(),
-        OpenAiProvider::metadata(),
-    ]
+    vec![DatabricksProvider::metadata(), OpenAiProvider::metadata()]
 }
 
 pub fn create(name: &str, model: ModelConfig) -> Result<Box<dyn Provider + Send + Sync>> {
