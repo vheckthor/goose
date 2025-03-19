@@ -8,7 +8,7 @@ use std::collections::HashSet;
 /// The content of the messages uses MCP types to avoid additional conversions
 /// when interacting with MCP servers.
 use chrono::Utc;
-use rmcp::model::{Content, ImageContent, TextContent};
+use rmcp::model::{AnnotateAble, Annotated, Content, ImageContent, RawImageContent, RawTextContent, TextContent, RawContent};
 use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
 use rmcp::model::ResourceContents;
 use rmcp::model::Role;
@@ -121,11 +121,13 @@ pub enum MessageContent {
 
 impl MessageContent {
     pub fn text<S: Into<String>>(text: S) -> Self {
-        MessageContent::Text( Content::text(text) )
+        let content: Annotated<RawTextContent> = RawTextContent { text: text.into() }.no_annotation();
+        MessageContent::Text( content )
     }
 
     pub fn image<S: Into<String>, T: Into<String>>(data: S, mime_type: T) -> Self {
-        MessageContent::Image(Content::image(data, mime_type))
+        let content: Annotated<RawImageContent> = RawImageContent { data: data.into(), mime_type: mime_type.into() }.no_annotation();
+        MessageContent::Image( content )
     }
 
     pub fn tool_request<S: Into<String>>(id: S, tool_call: ToolResult<ToolCall>) -> Self {
@@ -195,7 +197,7 @@ impl MessageContent {
             if let Ok(contents) = &tool_response.tool_result {
                 let texts: Vec<String> = contents
                     .iter()
-                    .filter_map(|content| content.as_text().map(String::from))
+                    .filter_map(|content| content.as_text().map(|text| text.text.clone()))
                     .collect();
                 if !texts.is_empty() {
                     return Some(texts.join("\n"));
@@ -232,10 +234,16 @@ impl MessageContent {
 
 impl From<Content> for MessageContent {
     fn from(content: Content) -> Self {
-        match content {
-            Content::Text(text) => MessageContent::Text(text),
-            Content::Image(image) => MessageContent::Image(image),
-            Content::Resource(resource) => MessageContent::Text(Content::text(resource.get_text())),
+        match content.raw {
+            RawContent::Text(text_content) => MessageContent::Text(text_content.optional_annotate(content.annotations)),
+            RawContent::Image(image_content) => MessageContent::Image(image_content.optional_annotate(content.annotations)),
+            RawContent::Resource(resource_content) => {
+                let text = match resource_content.resource.clone() {
+                    ResourceContents::TextResourceContents { text, .. } => text,
+                    ResourceContents::BlobResourceContents { blob, .. } => blob,
+                };
+                MessageContent::text(text)
+            }
         }
     }
 }
@@ -252,11 +260,11 @@ impl From<PromptMessage> for Message {
         let content = match prompt_message.content {
             PromptMessageContent::Text { text } => MessageContent::text(text),
             PromptMessageContent::Image { image } => {
-                MessageContent::image(image.data, image.mime_type)
+                MessageContent::image(image.data.clone(), image.mime_type.clone())
             }
             PromptMessageContent::Resource { resource } => {
                 // For resources, convert to text content with the resource text
-                match resource.resource {
+                match resource.resource.clone() {
                     ResourceContents::TextResourceContents { text, .. } => {
                         MessageContent::text(text)
                     }

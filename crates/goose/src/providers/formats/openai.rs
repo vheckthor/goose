@@ -7,7 +7,7 @@ use crate::providers::utils::{
     sanitize_function_name, ImageFormat,
 };
 use anyhow::{anyhow, Error};
-use rmcp::model::{Content, Role, Tool};
+use rmcp::model::{Content, RawContent, Role, Tool};
 use crate::message::{ToolError, ToolCall};
 use serde_json::{json, Value};
 
@@ -89,7 +89,7 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                                         .audience()
                                         .is_none_or(|audience| audience.contains(&Role::Assistant))
                                 })
-                                .map(|content| content.unannotated())
+                                .map(|content| content.raw)
                                 .collect();
 
                             // Process all content, replacing images with placeholder text
@@ -98,9 +98,9 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
 
                             for content in abridged {
                                 match content {
-                                    Content::Image(image) => {
+                                    RawContent::Image(image) => {
                                         // Add placeholder text in the tool response
-                                        tool_content.push(Content::text("This tool result included an image that is uploaded in the next message."));
+                                        tool_content.push(RawContent::text("This tool result included an image that is uploaded in the next message."));
 
                                         // Create a separate image message
                                         image_messages.push(json!({
@@ -108,8 +108,8 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                                             "content": [convert_image(&image, image_format)]
                                         }));
                                     }
-                                    Content::Resource(resource) => {
-                                        tool_content.push(Content::text(resource.get_text()));
+                                    RawContent::Resource(resource) => {
+                                        tool_content.push(RawContent::text(resource.resource.text()));
                                     }
                                     _ => {
                                         tool_content.push(content);
