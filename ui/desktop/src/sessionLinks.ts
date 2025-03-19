@@ -1,5 +1,5 @@
 import { toast } from 'react-toastify';
-import { fetchSharedSessionDetails, SharedSessionDetails } from './shared_sessions';
+import { fetchSharedSessionDetails, SharedSessionDetails } from './sharedSessions';
 import { type View } from './App';
 
 /**
