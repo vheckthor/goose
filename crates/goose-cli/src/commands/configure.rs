@@ -5,7 +5,7 @@ use goose::config::extensions::name_to_key;
 use goose::config::{Config, ConfigError, ExperimentManager, ExtensionEntry, ExtensionManager};
 use goose::message::Message;
 use goose::providers::{create, providers};
-use mcp_core::Tool;
+use rmcp::model::Tool;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::error::Error;
@@ -322,7 +322,7 @@ pub async fn configure_provider_dialog() -> Result<bool, Box<dyn Error>> {
                 "properties": {
                     "location": {"type": "string"}
                 }
-            }),
+            }).as_object().unwrap().clone(),
         );
         vec![sample_tool]
     } else {
@@ -406,11 +406,11 @@ pub fn toggle_extensions_dialog() -> Result<(), Box<dyn Error>> {
 
 pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
     let extension_type = cliclack::select("What type of extension would you like to add?")
-        .item(
-            "built-in",
-            "Built-in Extension",
-            "Use an extension that comes with Goose",
-        )
+        // .item(
+        //     "built-in",
+        //     "Built-in Extension",
+        //     "Use an extension that comes with Goose",
+        // )
         .item(
             "stdio",
             "Command-line Extension",
@@ -716,7 +716,7 @@ pub fn configure_goose_mode_dialog() -> Result<(), Box<dyn Error>> {
     let mode = cliclack::select("Which Goose mode would you like to configure?")
         .item(
             "auto",
-            "Auto Mode", 
+            "Auto Mode",
             "Full file modification, extension usage, edit, create and delete files freely"
         )
         .item(

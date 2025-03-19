@@ -1,10 +1,8 @@
 use console::style;
-use goose::agents::extension::ExtensionError;
 use goose::agents::AgentFactory;
 use goose::config::{Config, ExtensionManager};
 use goose::session;
 use goose::session::Identifier;
-use mcp_client::transport::Error as McpClientError;
 use std::process;
 
 use super::output;
@@ -96,9 +94,6 @@ pub async fn build_session(
                 .await
                 .unwrap_or_else(|e| {
                     let err = match e {
-                        ExtensionError::Transport(McpClientError::StdioProcessError(inner)) => {
-                            inner
-                        }
                         _ => e.to_string(),
                     };
                     println!("Failed to start extension: {}, {:?}", config.name(), err);
