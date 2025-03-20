@@ -12,7 +12,7 @@
         <id>https://block.github.io/goose/pr-preview/pr-1796/blog/2025/03/20/asana-calendar-mcp</id>
         <link href="https://block.github.io/goose/pr-preview/pr-1796/blog/2025/03/20/asana-calendar-mcp"/>
         <updated>2025-03-20T00:00:00.000Z</updated>
-        <summary type="html"><![CDATA[Use MCP with Goose to automate task management and enhance productivity.]]></summary>
+        <summary type="html"><![CDATA[Use MCPs with Goose to automate task management and enhance productivity.]]></summary>
         <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-1796/assets/images/mcp-planner-761303c5ddcd5c79ed853536e3f87bcf.png" width="1200" height="630" class="img_ev3q"></p>
 <p>Mondays are overwhelming. A pile of unfinished tasks from last week, new priorities rolling in, and meetings scattered across the calendar. It’s a lot 😩. Instead of manually sorting through my todos and figuring out where everything fits, I use a couple of handy MCP servers with Goose and let it figure out my week.</p>
 <p>There's so many amazing MCP servers out there to make my work life better, including <a href="https://github.com/roychri/mcp-server-asana" target="_blank" rel="noopener noreferrer">Asana</a> and <a href="https://www.pulsemcp.com/servers?q=google+calendar" target="_blank" rel="noopener noreferrer">Google Calendar</a>. I added these as Goose extensions, which means Goose can now can pull in my tasks, analyze them, and schedule them, all with one simple prompt:</p>
