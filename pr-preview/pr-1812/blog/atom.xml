@@ -89,12 +89,12 @@
         </author>
     </entry>
     <entry>
-        <title type="html"><![CDATA[How Goose Catches AI Errors with Langfuse]]></title>
+        <title type="html"><![CDATA[Cracking the Code in VS Code]]></title>
         <id>https://block.github.io/goose/pr-preview/pr-1812/blog/2025/03/21/goose-vscode</id>
         <link href="https://block.github.io/goose/pr-preview/pr-1812/blog/2025/03/21/goose-vscode"/>
         <updated>2025-03-21T00:00:00.000Z</updated>
-        <summary type="html"><![CDATA[Get detailed insights into Goose's behavior with Langfuse's observability tools.]]></summary>
-        <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-1812/assets/images/vscodestream-0e1d3387ee70ebd4a102020d397ce80f.png" width="1206" height="633" class="img_ev3q"></p>
+        <summary type="html"><![CDATA[Connect Goose directly to your code editor with this Visual Studio Code MCP.]]></summary>
+        <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-1812/assets/images/vscodestream-74eafa34e7ae10cfb738feddecc98519.png" width="1206" height="633" class="img_ev3q"></p>
 <p>Want to use Goose in VS Code? On the recent <a href="https://www.youtube.com/watch?v=hG7AnTw-GLU&amp;ab_channel=BlockOpenSource" target="_blank" rel="noopener noreferrer">Wild Goose Case livestream</a>, hosts <a href="https://www.linkedin.com/in/ebonylouis/" target="_blank" rel="noopener noreferrer">Ebony Louis</a> and <a href="https://www.linkedin.com/in/acekyd/" target="_blank" rel="noopener noreferrer">Adewale Abati</a> were joined by <a href="https://www.linkedin.com/in/andrewgertig/" target="_blank" rel="noopener noreferrer">Andrew Gertig</a>, Engineering Lead at Cash App, as he demonstrated the new VSCode MCP and how it brings powerful Goose-assisted coding capabilities directly into VS Code.</p>
 <p>The <a href="https://github.com/block/vscode-mcp" target="_blank" rel="noopener noreferrer">VSCode MCP Server</a>, and its companion VSCode Extension, together enable AI agents like Goose to interact with VS Code through the Model Context Protocol.</p>
 <p>As Andrew explained during the stream, an MCP (<a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener noreferrer">Model Context Protocol</a>) server acts as a proxy between a Large Language Model (LLM) and whatever applications or tools you want to access to - in this case, VS Code. Extensions are add-ons based on this protocol that provide a way to extend Goose's functionality for your workflow.</p>
