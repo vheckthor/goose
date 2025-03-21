@@ -39,6 +39,112 @@
         </author>
     </entry>
     <entry>
+        <title type="html"><![CDATA[AI Prompting 101: How to Get the Best Responses from Your AI Agent]]></title>
+        <id>https://block.github.io/goose/blog/2025/03/19/better-ai-prompting</id>
+        <link href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting"/>
+        <updated>2025-03-19T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[How to prompt your AI agent the right way.]]></summary>
+        <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/prompt-078b12695f95c4f0eac3861a8a2611ef.png" width="2240" height="1260" class="img_ev3q"></p>
+<p>Remember that saying, "it’s not what you ask, but <strong>how you ask</strong>"?</p>
+<p>When I first started working with Goose as an AI agent, I was convinced there had to be one ‘best' prompting style. I spent so much time trying to figure out which one was superior, but the more I used Goose, the more I realized that couldn't be further from the truth. There isn’t one <em>right</em>  way to prompt AI, but there are better approaches depending on what your end goal is.</p>
+<p>So, let’s go through <strong>which prompt style works best for your specific needs</strong>, and how you can use them to vibe code a little better with Goose.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="instruction-based-prompting">Instruction-Based Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#instruction-based-prompting" class="hash-link" aria-label="Direct link to Instruction-Based Prompting" title="Direct link to Instruction-Based Prompting">​</a></h2>
+<p>If you’re not a developer or you're just new to Goose, this is a great place to start. The best way to get good responses is to be as clear and direct as possible. Goose works best when given specific instructions, so tell it exactly what you need and include all of the important details. If you’re too vague, you might end up with an overly technical or even a possibly incomplete answer that doesn’t actually help you.</p>
+<p>For example, instead of saying:</p>
+<p>❌ Okay Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, what’s a pull request?</strong></em></p>
+</blockquote>
+<p>This might give you a super technical definition that assumes you already know the basics.</p>
+<p>So, you could say:</p>
+<p>✅ Better Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, explain how GitHub pull requests work like I’m new to coding</strong></em></p>
+</blockquote>
+<p>This tells Goose exactly what you need and at what level.</p>
+<div class="theme-admonition theme-admonition-tip admonition_xJq3 alert alert--success"><div class="admonitionHeading_Gvgb"><span class="admonitionIcon_Rf37"><svg viewBox="0 0 12 16"><path fill-rule="evenodd" d="M6.5 0C3.48 0 1 2.19 1 5c0 .92.55 2.25 1 3 1.34 2.25 1.78 2.78 2 4v1h5v-1c.22-1.22.66-1.75 2-4 .45-.75 1-2.08 1-3 0-2.81-2.48-5-5.5-5zm3.64 7.48c-.25.44-.47.8-.67 1.11-.86 1.41-1.25 2.06-1.45 3.23-.02.05-.02.11-.02.17H5c0-.06 0-.13-.02-.17-.2-1.17-.59-1.83-1.45-3.23-.2-.31-.42-.67-.67-1.11C2.44 6.78 2 5.65 2 5c0-2.2 2.02-4 4.5-4 1.22 0 2.36.42 3.22 1.19C10.55 2.94 11 3.94 11 5c0 .66-.44 1.78-.86 2.48zM4 14h5c-.23 1.14-1.3 2-2.5 2s-2.27-.86-2.5-2z"></path></svg></span>pro tip</div><div class="admonitionContent_BuS1"><p>If you want Goose to remember your preferences, you can say,</p><blockquote>
+<p><em><strong>Goose, remember I’m not a developer. Explain things at a high level unless I ask for technical details</strong></em></p>
+</blockquote><p>If you have the <a href="https://block.github.io/goose/docs/tutorials/memory-mcp">Memory Extension</a> enabled, Goose will save this preference so you won’t have to remind it every time.</p></div></div>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="chain-of-thought-prompting">Chain-of-Thought Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#chain-of-thought-prompting" class="hash-link" aria-label="Direct link to Chain-of-Thought Prompting" title="Direct link to Chain-of-Thought Prompting">​</a></h2>
+<p>Sometimes a topic or task can just be too much to tackle all at once, and that’s where Chain-of-Thought Prompting comes in. Instead of getting this enormous and complicated response back, you can guide Goose to break things down step by step so it’s easier to follow.</p>
+<p>For example, instead of saying:</p>
+<p>❌ Okay Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, what are Model Context Protocol Servers, and how are they used in goose?</strong></em></p>
+</blockquote>
+<p>which might get you a response that's hard to follow, you could say:</p>
+<p>✅ Better Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, walk me through what MCPs are and how they're used in gosoe, step by step</strong></em></p>
+</blockquote>
+<p>This forces Goose to slow down and explain each part clearly, making it easier to understand.</p>
+<p>Now, if you want to take it a step further and make sure Goose understands the exact style of responses you're expecting, that’s when Few-Shot Prompting is the way to go.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="few-shot-prompting">Few-Shot Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#few-shot-prompting" class="hash-link" aria-label="Direct link to Few-Shot Prompting" title="Direct link to Few-Shot Prompting">​</a></h2>
+<p>If you need Goose to match a specific style or format, the best way to get there is by showing it what you want. I use this all the time! Since AI models learn patterns from examples, giving Goose a reference helps it skip the guesswork and just get straight to the point.</p>
+<p>For example, instead of saying:</p>
+<p>❌ Okay Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, summarize this report</strong></em></p>
+</blockquote>
+<p>you could say:</p>
+<p>✅ Better Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, here’s how I usually summarize reports: (example summary). Can you summarize this new report the same way?</strong></em></p>
+</blockquote>
+<p>By providing an example, you’re guiding Goose to the answer that you actually want.</p>
+<p>Now, what if you've given Goose an example and it’s first response isn’t quite right? There's no need to end the session and start over, that’s when Iterative Refinement Prompting is useful.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="iterative-refinement-prompting">Iterative Refinement Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#iterative-refinement-prompting" class="hash-link" aria-label="Direct link to Iterative Refinement Prompting" title="Direct link to Iterative Refinement Prompting">​</a></h2>
+<p>Let’s be real, Goose just like any AI agent isn’t always going to get it 'right' on the first try. Sometimes, it gives you a response that's way too technical, other times, it might completely miss the mark or even worse, hallucinate its way into a weird, made-up answer, that kind of sounds true. But instead of giving up and starting over, you can steer the conversation by giving feedback on what needs to change.</p>
+<p>Since Goose allows you to bring your own LLM, the way it responds depends a lot on which model you’re using. Some LLMs need a little extra guidance, while others might require a few rounds of refinement before they get things right. The good news? You can shape the response without completely starting over.</p>
+<p>For example, if Goose spits out something overly complicated, don’t just accept it, you can push back! Try saying:</p>
+<blockquote>
+<p><em><strong>Goose, this response is too technical. Can you simplify it?</strong></em></p>
+</blockquote>
+<p>Or if something sounds off and you want to do a fact check:</p>
+<blockquote>
+<p><em><strong>Goose, where did you get that information? How do you know it's accurate?</strong></em></p>
+</blockquote>
+<p>Think of working with Goose like pair programming or collaborating with a coworker. Sometimes, you need to clarify what you want or redirect the conversation to get make sure you're both on the same page.</p>
+<p>But what if you don’t have a clear example or specific instructions to guide Goose? That’s when I would use Zero-Shot Prompting.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="zero-shot-prompting">Zero-Shot Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#zero-shot-prompting" class="hash-link" aria-label="Direct link to Zero-Shot Prompting" title="Direct link to Zero-Shot Prompting">​</a></h2>
+<p>Sometimes, you just want Goose to take a wild guess, get a little creative, and run with it. That’s exactly what Zero-Shot Prompting is for, it lets Goose figure things out on its own, without any examples or extra guidance from you.</p>
+<p>For example, you might say:</p>
+<blockquote>
+<p><em><strong>Goose, write me a project update for my team</strong></em></p>
+</blockquote>
+<p>or:</p>
+<blockquote>
+<p><em><strong>Goose, I want to build a cool prompt directory</strong></em></p>
+</blockquote>
+<p>I love using this approach when I have a rough idea but no real clear direction. It’s like brainstorming but with AI, Goose will throw out ideas, suggest next steps, and sometimes even point out things I would’ve never even thought of. More often than not, my original idea ends up 10x better just by letting Goose take the lead.</p>
+<p>Now, if you want Goose to not just come up with amazing ideas but also be funny, helpful, and maybe even a little nicer to you, that’s when you need to put those manners you learned in elementary school to use.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="politeness-based-prompting">Politeness-Based Prompting<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#politeness-based-prompting" class="hash-link" aria-label="Direct link to Politeness-Based Prompting" title="Direct link to Politeness-Based Prompting">​</a></h2>
+<p>Believe it or not, being polite actually makes AI responses better! Even though Goose isn’t self-aware……yet…… 👀, AI models tend to generate more thoughtful, structured, and sometimes even friendlier replies when asked nicely. So yes, saying “please” and “thank you” actually makes a difference.</p>
+<p>For example, instead of saying:</p>
+<p>❌ Okay Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, generate a project update</strong></em></p>
+</blockquote>
+<p>you could say:</p>
+<p>✅ Better Prompt:</p>
+<blockquote>
+<p><em><strong>Goose, could you generate a project update for me, please? Thanks!</strong></em></p>
+</blockquote>
+<p>Goose will respond either way, but <strong>trust me</strong>, polite prompts tend to get you better answers. One of our users once got the sweetest response from Goose at the end of a project, like it was genuinely grateful for the collaboration and even wished them sweet dreams. It was adorable!!</p>
+<p><img decoding="async" loading="lazy" alt="goose response" src="https://block.github.io/goose/assets/images/politenessprompt-8bde8ee9a219af685f98f45be5977226.png" width="2322" height="1470" class="img_ev3q"></p>
+<blockquote>
+<p><em>Here’s the actual response, Goose is really out here making people’s day.</em></p>
+</blockquote>
+<p>And the best part? This works with any prompting style. So, if you want Goose to be helpful, clear, and maybe even a little extra nice to you, be good to Goose and Goose will be good to you.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="the-best-prompts-feel-natural">The Best Prompts Feel Natural<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#the-best-prompts-feel-natural" class="hash-link" aria-label="Direct link to The Best Prompts Feel Natural" title="Direct link to The Best Prompts Feel Natural">​</a></h2>
+<p>At the end of the day, all these prompting styles are just tools, at your disposal. The most important thing is to keep your prompts clear and natural. You don’t have to overthink it, but adding a little structure can make a huge difference in getting the responses you actually want.</p>
+<p>Goose is here to make your life easier, so the next time you open up a session, just keep your goal in mind, experiment with different prompting styles, and see what works best for you.</p>
+]]></content>
+        <author>
+            <name>Ebony Louis</name>
+        </author>
+    </entry>
+    <entry>
         <title type="html"><![CDATA[How Goose Catches AI Errors with Langfuse]]></title>
         <id>https://block.github.io/goose/blog/2025/03/18/goose-langfuse</id>
         <link href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse"/>
