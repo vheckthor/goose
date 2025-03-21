@@ -64,13 +64,13 @@ def check_openai_key_error(error_msg: str) -> bool:
     """
     return "OPENAI_API_KEY" in error_msg or "openai api key" in error_msg.lower()
 
-def run_analysis_script(script_name: str, script_dir: str, base_dir: str, output_dir: str) -> ScriptResult:
+def run_analysis_script(script_name: str, script_dir: str, benchmarks_dir: str, output_dir: str) -> ScriptResult:
     """Run a single analysis script.
     
     Args:
         script_name: Name of the analysis script to run
         script_dir: Directory containing the script
-        base_dir: Base directory containing benchmark results
+        benchmarks_dir: Directory containing benchmark results
         output_dir: Directory to write output files
         
     Returns:
@@ -100,8 +100,8 @@ def run_analysis_script(script_name: str, script_dir: str, base_dir: str, output
     cmd = [
         sys.executable,
         script_path,
-        "--base-dir", base_dir,
-        "--output", output_path
+        "--benchmarks-dir", benchmarks_dir,
+        "--output-dir", output_path
     ]
     
     try:
@@ -158,7 +158,7 @@ def main() -> None:
     
     parser = argparse.ArgumentParser(description="Run all evaluation analysis scripts")
     parser.add_argument(
-        "--base-dir",
+        "--benchmarks-dir",
         default=".",
         help="Base directory containing benchmark results"
     )
@@ -170,10 +170,10 @@ def main() -> None:
     args = parser.parse_args()
     
     # Convert relative paths to absolute
-    base_dir = os.path.abspath(args.base_dir)
+    benchmarks_dir = os.path.abspath(args.benchmarks_dir)
     output_dir = os.path.abspath(args.output_dir)
     
-    print(f"\nRunning all analyses with base directory: {base_dir}")
+    print(f"\nRunning all analyses with benchmarks directory: {benchmarks_dir}")
     print(f"Output directory: {output_dir}\n")
     
     # Track OpenAI API key errors
@@ -187,7 +187,7 @@ def main() -> None:
             print(f"Processing scripts in {dir_name}/")
             for script_name, _ in scripts:
                 futures.append(
-                    executor.submit(run_analysis_script, script_name, script_dir, base_dir, output_dir)
+                    executor.submit(run_analysis_script, script_name, script_dir, benchmarks_dir, output_dir)
                 )
         
         # Collect results

@@ -11,7 +11,7 @@ The analysis includes:
 - Standard metrics (tokens, tool calls, execution time)
 
 Example usage:
-    python analyze_flappy_bird.py --base-dir ./benchmarks --output flappy-bird-analysis.csv
+    python analyze_flappy_bird.py --benchmarks-dir ./benchmarks --output-dir flappy-bird-analysis.csv
 """
 
 import json
@@ -118,16 +118,16 @@ class FlappyBirdAnalyzer(AnalyzeProtocol):
         }
 
 def main() -> None:
-    """Main entry point for the Flappy Bird analysis script."""
+    """Main entry point for the flappy bird analysis script."""
     parser = create_argparser("flappy_bird", "flappy-bird-analysis.csv")
     args = parser.parse_args()
     
     analyzer = FlappyBirdAnalyzer()
     analyze_benchmark_results(
-        base_dir=args.base_dir,
+        benchmarks_dir=args.benchmarks_dir,
         eval_name="flappy_bird",
         eval_processor=analyzer.analyze_eval,
-        output_csv=args.output,
+        output_csv=args.output_dir,
         metric_aggregator=analyzer.aggregate_metrics
     )
 

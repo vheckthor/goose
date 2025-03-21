@@ -12,7 +12,7 @@ The analysis includes:
 - Standard metrics (tokens, tool calls, execution time)
 
 Example usage:
-    python analyze_restaurant_research.py --base-dir ./benchmarks --output restaurant-research-analysis.csv
+    python analyze_restaurant_research.py --benchmarks-dir ./benchmarks --output-dir restaurant-research-analysis.csv
 """
 
 import json
@@ -194,10 +194,10 @@ def main() -> None:
     
     analyzer = RestaurantResearchAnalyzer()
     analyze_benchmark_results(
-        base_dir=args.base_dir,
+        benchmarks_dir=args.benchmarks_dir,
         eval_name="restaurant_research",
         eval_processor=analyzer.analyze_eval,
-        output_csv=args.output,
+        output_csv=args.output_dir,
         metric_aggregator=analyzer.aggregate_metrics
     )
 

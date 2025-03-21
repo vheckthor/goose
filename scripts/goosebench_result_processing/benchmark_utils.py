@@ -15,21 +15,21 @@ from collections import defaultdict
 from typing import Dict, List, Any, Tuple, Optional, Callable
 from openai import OpenAI
 
-def find_benchmark_directories(base_dir: str) -> List[str]:
+def find_benchmark_directories(benchmarks_dir: str) -> List[str]:
     """Find all benchmark directories matching the pattern benchmark-provider-model."""
-    if not os.path.isdir(base_dir):
-        print(f"Error: Base directory {base_dir} does not exist")
+    if not os.path.isdir(benchmarks_dir):
+        print(f"Error: Benchmarks directory {benchmarks_dir} does not exist")
         return []
     
-    # If the base_dir itself is a benchmark directory, return it
-    if os.path.basename(base_dir).startswith('benchmark-'):
-        return [base_dir]
+    # If the benchmarks_dir itself is a benchmark directory, return it
+    if os.path.basename(benchmarks_dir).startswith('benchmark-'):
+        return [benchmarks_dir]
     
     # Otherwise, find all directories matching the pattern benchmark-{provider}-{model}
     benchmark_dirs = []
-    for item in os.listdir(base_dir):
-        if item.startswith('benchmark-') and os.path.isdir(os.path.join(base_dir, item)):
-            benchmark_dirs.append(os.path.join(base_dir, item))
+    for item in os.listdir(benchmarks_dir):
+        if item.startswith('benchmark-') and os.path.isdir(os.path.join(benchmarks_dir, item)):
+            benchmark_dirs.append(os.path.join(benchmarks_dir, item))
     
     return benchmark_dirs
 
@@ -173,14 +173,14 @@ def calculate_run_statistics(runs: List[Dict[str, Any]], success_field: str = "c
     }
 
 def analyze_benchmark_results(
-    base_dir: str, 
+    benchmarks_dir: str, 
     eval_name: str,
     eval_processor: Callable[[str], Dict[str, Any]],
     output_csv: str,
     metric_aggregator: Callable[[List[Dict[str, Any]]], Dict[str, Any]] = None
 ) -> None:
     """Generic function to analyze benchmark results for a specified evaluation type."""
-    benchmark_dirs = find_benchmark_directories(base_dir)
+    benchmark_dirs = find_benchmark_directories(benchmarks_dir)
     results_by_provider_model = defaultdict(list)
     
     print(f"\n=== Analyzing {eval_name} ===")
@@ -271,10 +271,10 @@ def create_argparser(eval_name: str, default_output: str) -> Any:
     import argparse
     
     parser = argparse.ArgumentParser(description=f'Analyze {eval_name} benchmark results')
-    parser.add_argument('--base-dir', default='.', 
-                        help='Base directory containing benchmark-provider-model directories')
-    parser.add_argument('--output', default=default_output,
-                        help='Output CSV file for analysis results')
+    parser.add_argument('--benchmarks-dir', default='.', 
+                        help='Directory containing benchmark-provider-model directories')
+    parser.add_argument('--output-dir', default=default_output,
+                        help='Output directory for analysis results')
     
     return parser
 

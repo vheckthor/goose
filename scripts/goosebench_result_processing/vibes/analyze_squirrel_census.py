@@ -11,7 +11,7 @@ The analysis includes:
 - Standard metrics (tokens, tool calls, execution time)
 
 Example usage:
-    python analyze_squirrel_census.py --base-dir ./benchmarks --output squirrel-census-analysis.csv
+    python analyze_squirrel_census.py --benchmarks-dir ./benchmarks --output-dir squirrel-census-analysis.csv
 """
 
 import json
@@ -125,10 +125,10 @@ def main() -> None:
     
     analyzer = SquirrelCensusAnalyzer()
     analyze_benchmark_results(
-        base_dir=args.base_dir,
+        benchmarks_dir=args.benchmarks_dir,
         eval_name="squirrel_census",
         eval_processor=analyzer.analyze_eval,
-        output_csv=args.output,
+        output_csv=args.output_dir,
         metric_aggregator=analyzer.aggregate_metrics
     )
 

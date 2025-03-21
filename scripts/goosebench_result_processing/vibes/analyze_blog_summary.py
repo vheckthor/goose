@@ -12,7 +12,7 @@ The analysis includes:
 - Standard metrics (tokens, tool calls, execution time)
 
 Example usage:
-    python analyze_blog_summary.py --base-dir ./benchmarks --output blog-summary-analysis.csv
+    python analyze_blog_summary.py --benchmarks-dir ./benchmarks --output-dir blog-summary-analysis.csv
 """
 
 import os
@@ -171,10 +171,10 @@ def main() -> None:
     
     analyzer = BlogSummaryAnalyzer()
     analyze_benchmark_results(
-        base_dir=args.base_dir,
+        benchmarks_dir=args.benchmarks_dir,
         eval_name="blog_summary",
         eval_processor=analyzer.analyze_eval,
-        output_csv=args.output,
+        output_csv=args.output_dir,
         metric_aggregator=analyzer.aggregate_metrics
     )
 

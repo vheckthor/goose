@@ -11,7 +11,7 @@ The analysis includes:
 - Standard metrics (tokens, tool calls, execution time)
 
 Example usage:
-    python analyze_goose_wiki.py --base-dir ./benchmarks --output goose-wiki-analysis.csv
+    python analyze_goose_wiki.py --benchmarks-dir ./benchmarks --output-dir goose-wiki-analysis.csv
 """
 
 import json
@@ -118,16 +118,16 @@ class GooseWikiAnalyzer(AnalyzeProtocol):
         }
 
 def main() -> None:
-    """Main entry point for the Goose Wiki analysis script."""
+    """Main entry point for the goose wiki analysis script."""
     parser = create_argparser("goose_wiki", "goose-wiki-analysis.csv")
     args = parser.parse_args()
     
     analyzer = GooseWikiAnalyzer()
     analyze_benchmark_results(
-        base_dir=args.base_dir,
+        benchmarks_dir=args.benchmarks_dir,
         eval_name="goose_wiki",
         eval_processor=analyzer.analyze_eval,
-        output_csv=args.output,
+        output_csv=args.output_dir,
         metric_aggregator=analyzer.aggregate_metrics
     )
 
