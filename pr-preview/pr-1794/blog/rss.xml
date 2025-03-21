@@ -36,12 +36,12 @@
 ]]></content:encoded>
         </item>
         <item>
-            <title><![CDATA[AI Prompting 101: How to Craft The Perfect Prompt]]></title>
+            <title><![CDATA[AI Prompting 101: How to Get the Best Responses from Your AI Agent]]></title>
             <link>https://block.github.io/goose/pr-preview/pr-1794/blog/2025/03/19/better-ai-prompting</link>
             <guid>https://block.github.io/goose/pr-preview/pr-1794/blog/2025/03/19/better-ai-prompting</guid>
             <pubDate>Wed, 19 Mar 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[How to prompt your AI agent the right way.]]></description>
-            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-1794/assets/images/prompt-f356c88fe973d86eb175eafa6b550483.png" width="2240" height="1260" class="img_ev3q"></p>
+            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-1794/assets/images/prompt-078b12695f95c4f0eac3861a8a2611ef.png" width="2240" height="1260" class="img_ev3q"></p>
 <p>Remember that saying, "it’s not what you ask, but <strong>how you ask</strong>"?</p>
 <p>When I first started working with Goose as an AI agent, I was convinced there had to be one ‘best' prompting style. I spent so much time trying to figure out which one was superior, but the more I used Goose, the more I realized that couldn't be further from the truth. There isn’t one <em>right</em>  way to prompt AI, but there are better approaches depending on what your end goal is.</p>
 <p>So, let’s go through <strong>which prompt style works best for your specific needs</strong>, and how you can use them to vibe code a little better with Goose.</p>
