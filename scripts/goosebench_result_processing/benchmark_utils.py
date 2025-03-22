@@ -46,19 +46,15 @@ def find_eval_results(benchmark_dir: str, eval_name: str) -> List[str]:
         if (d.startswith("20") and ("-" in d or ":" in d)) or re.match(r"\d{4}-\d{2}-\d{2}", d):
             timestamp_dirs.append(os.path.join(benchmark_dir, d))
     
-    # Define specific category dirs to check under each timestamp
-    category_dirs = ["vibes", "squirrel"]
-    
     results = []
     
-    # Check each timestamp directory for the evaluation in all category dirs
+    # Check each timestamp directory for the evaluation
     for ts_dir in timestamp_dirs:
-        for category in category_dirs:
-            # Build the specific path for this timestamp/category/eval_name
-            eval_path = os.path.join(ts_dir, category, eval_name, "eval_result.json")
-            
-            # Check if the file exists (no globbing needed)
-            if os.path.exists(eval_path):
+        # Walk through all subdirectories
+        for root, _, files in os.walk(ts_dir):
+            # Look for eval_result.json in any directory matching the eval_name
+            if os.path.basename(root) == eval_name and "eval_result.json" in files:
+                eval_path = os.path.join(root, "eval_result.json")
                 results.append(eval_path)
     
     return results
