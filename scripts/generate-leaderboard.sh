@@ -27,7 +27,7 @@ run_python_script() {
 
 # Default values
 BENCHMARKS_DIR="$(pwd)"
-OUTPUT_DIR="$BENCHMARKS_DIR/goosebench_evals_processed"
+OUTPUT_DIR="$BENCHMARKS_DIR/goosebench-evals-processed"
 
 # Parse named arguments
 while [[ $# -gt 0 ]]; do

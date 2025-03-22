@@ -165,7 +165,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--output-dir",
-        default="analysis-results",
+        default="goosebench-evals-processed",
         help="Directory to write output files"
     )
     args = parser.parse_args()

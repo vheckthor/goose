@@ -9,7 +9,7 @@ This script:
 4. Outputs results to a CSV file
 
 Example usage:
-    python generate_leaderboard.py --input-dir ./analysis-results --output leaderboard.csv
+    python generate_leaderboard.py --input-dir ./goosebench-evals-processed --output leaderboard.csv
 """
 
 import os
