@@ -184,7 +184,6 @@ impl StdioTransportHandle {
     }
 }
 
-/// A `StdioTransport` uses a child process's stdin/stdout as a communication channel.
 pub struct StdioTransport {
     command: String,
     args: Vec<String>,
