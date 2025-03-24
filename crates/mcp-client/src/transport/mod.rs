@@ -125,6 +125,3 @@ pub use stdio::StdioTransport;
 
 pub mod sse;
 pub use sse::SseTransport;
-
-#[cfg(test)]
-mod tests;

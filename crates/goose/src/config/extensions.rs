@@ -1,5 +1,5 @@
 use super::base::Config;
-use crate::agents::ExtensionConfig;
+use crate::agents::extension::{ExtensionConfig, ExtensionError};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -65,6 +65,14 @@ impl ExtensionManager {
 
     /// Set or update an extension configuration
     pub fn set(entry: ExtensionEntry) -> Result<()> {
+        // Validate the command before saving
+        entry.config.validate_command().map_err(|e| match e {
+            ExtensionError::UnauthorizedCommand(cmd) => {
+                anyhow::anyhow!("Command '{}' is not in the allowed extensions list", cmd)
+            }
+            _ => anyhow::anyhow!("Failed to validate command: {}", e),
+        })?;
+
         let config = Config::global();
 
         let mut extensions: HashMap<String, ExtensionEntry> = config

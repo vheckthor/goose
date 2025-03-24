@@ -204,52 +204,7 @@ impl StdioTransport {
         }
     }
 
-    /// Checks if the command is in the allowed extensions list
-    pub fn is_command_allowed(&self) -> Result<(), Error> {
-        // Check if GOOSE_MCP_ALLOWLIST environment variable is set
-        if let Ok(allowlist_path) = std::env::var("GOOSE_MCP_ALLOWLIST") {
-            // Try to read the allowlist file
-            if let Ok(content) = std::fs::read_to_string(&allowlist_path) {
-                // Parse the YAML file
-                if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                    // Extract the extensions list
-                    if let Some(extensions) = yaml.get("extensions") {
-                        if let Some(extensions_array) = extensions.as_sequence() {
-                            // Create a list of allowed commands
-                            let allowed_commands: Vec<String> = extensions_array
-                                .iter()
-                                .filter_map(|v| v.as_str())
-                                .map(|s| s.trim().to_string())
-                                .collect();
-
-                            // Check if our command is in the allowlist
-                            let command_name = std::path::Path::new(&self.command)
-                                .file_name()
-                                .and_then(|name| name.to_str())
-                                .unwrap_or(&self.command);
-
-                            if !allowed_commands.contains(&command_name.to_string())
-                                && !allowed_commands.contains(&self.command)
-                            {
-                                return Err(Error::StdioProcessError(format!(
-                                    "Command '{}' is not in the allowed extensions list",
-                                    self.command
-                                )));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // If no allowlist file or command is allowed, return Ok
-        Ok(())
-    }
-
     async fn spawn_process(&self) -> Result<(Child, ChildStdin, ChildStdout, ChildStderr), Error> {
-        // Check against allowlist before proceeding
-        self.is_command_allowed()?;
-
         let mut command = Command::new(&self.command);
         command
             .envs(&self.env)

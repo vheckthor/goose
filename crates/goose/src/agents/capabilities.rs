@@ -111,6 +111,9 @@ impl Capabilities {
     /// Add a new MCP extension based on the provided client type
     // TODO IMPORTANT need to ensure this times out if the extension command is broken!
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
+        // Validate the command before creating the transport
+        config.validate_command()?;
+
         let mut client: Box<dyn McpClientTrait> = match &config {
             ExtensionConfig::Sse {
                 uri, envs, timeout, ..

@@ -22,6 +22,8 @@ pub enum ExtensionError {
     Transport(#[from] mcp_client::transport::Error),
     #[error("Environment variable `{0}` is not allowed to be overridden.")]
     InvalidEnvVar(String),
+    #[error("Command `{0}` is not in the allowed extensions list")]
+    UnauthorizedCommand(String),
 }
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;
@@ -48,7 +50,7 @@ impl Envs {
         "LD_AUDIT",         // Loads a monitoring library that can intercept execution
         "LD_DEBUG",         // Enables verbose linker logging (information disclosure risk)
         "LD_BIND_NOW",      // Forces immediate symbol resolution, affecting ASLR
-        "LD_ASSUME_KERNEL", // Tricks linker into thinking it’s running on an older kernel
+        "LD_ASSUME_KERNEL", // Tricks linker into thinking it's running on an older kernel
         // 🍎 macOS dynamic linker variables
         "DYLD_LIBRARY_PATH",     // Same as LD_LIBRARY_PATH but for macOS
         "DYLD_INSERT_LIBRARIES", // macOS equivalent of LD_PRELOAD
@@ -161,6 +163,50 @@ impl Default for ExtensionConfig {
     }
 }
 
+/// Check if a command is in the allowed extensions list
+///
+/// This function checks if the command is allowed according to the GOOSE_MCP_ALLOWLIST
+/// environment variable, which should point to a YAML file with an `extensions` list.
+///
+/// If the environment variable is not set or the file doesn't exist, all commands are allowed.
+pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
+    // Check if GOOSE_MCP_ALLOWLIST environment variable is set
+    if let Ok(allowlist_path) = std::env::var("GOOSE_MCP_ALLOWLIST") {
+        // Try to read the allowlist file
+        if let Ok(content) = std::fs::read_to_string(&allowlist_path) {
+            // Parse the YAML file
+            if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                // Extract the extensions list
+                if let Some(extensions) = yaml.get("extensions") {
+                    if let Some(extensions_array) = extensions.as_sequence() {
+                        // Create a list of allowed commands
+                        let allowed_commands: Vec<String> = extensions_array
+                            .iter()
+                            .filter_map(|v| v.as_str())
+                            .map(|s| s.trim().to_string())
+                            .collect();
+
+                        // Check if our command is in the allowlist
+                        let command_name = std::path::Path::new(cmd)
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .unwrap_or(cmd);
+
+                        if !allowed_commands.contains(&command_name.to_string())
+                            && !allowed_commands.contains(&cmd.to_string())
+                        {
+                            return Err(ExtensionError::UnauthorizedCommand(cmd.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // If no allowlist file or command is allowed, return Ok
+    Ok(())
+}
+
 impl ExtensionConfig {
     pub fn sse<S: Into<String>, T: Into<u64>>(name: S, uri: S, description: S, timeout: T) -> Self {
         Self::Sse {
@@ -227,6 +273,14 @@ impl ExtensionConfig {
         }
         .to_string()
     }
+
+    /// Check if this extension's command is allowed
+    pub fn validate_command(&self) -> Result<(), ExtensionError> {
+        if let Self::Stdio { cmd, .. } = self {
+            is_command_allowed(cmd)?;
+        }
+        Ok(())
+    }
 }
 
 impl std::fmt::Display for ExtensionConfig {
@@ -276,5 +330,113 @@ impl ToolInfo {
             description: description.to_string(),
             parameters,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_is_command_allowed() {
+        // Make sure the environment variable is not set initially
+        env::remove_var("GOOSE_MCP_ALLOWLIST");
+
+        // Create a temporary directory
+        let temp_dir = tempdir().expect("Failed to create temp dir");
+        let file_path = temp_dir.path().join("allowed_extensions.yaml");
+
+        // Create a whitelist file
+        let mut file = File::create(&file_path).expect("Failed to create allowlist file");
+        writeln!(file, "extensions:").expect("Failed to write to allowlist file");
+        writeln!(file, "  - python").expect("Failed to write to allowlist file");
+        writeln!(file, "  - node").expect("Failed to write to allowlist file");
+        file.flush().expect("Failed to flush allowlist file");
+
+        // Set the environment variable
+        env::set_var(
+            "GOOSE_MCP_ALLOWLIST",
+            file_path.to_string_lossy().to_string(),
+        );
+
+        // Test with an allowed command
+        assert!(is_command_allowed("python").is_ok());
+
+        // Test with another allowed command
+        assert!(is_command_allowed("node").is_ok());
+
+        // Test with a command not in the allowlist
+        assert!(is_command_allowed("not-in-allowlist").is_err());
+
+        // Clean up
+        env::remove_var("GOOSE_MCP_ALLOWLIST");
+    }
+
+    #[test]
+    fn test_no_allowlist() {
+        // Make sure the environment variable is not set
+        env::remove_var("GOOSE_MCP_ALLOWLIST");
+
+        // Without an allowlist, all commands should be allowed
+        assert!(is_command_allowed("any-command").is_ok());
+    }
+
+    #[test]
+    fn test_extension_config_validate_command() {
+        // Create a temporary directory
+        let temp_dir = tempdir().expect("Failed to create temp dir");
+        let file_path = temp_dir.path().join("allowed_extensions.yaml");
+
+        // Create a whitelist file
+        let mut file = File::create(&file_path).expect("Failed to create allowlist file");
+        writeln!(file, "extensions:").expect("Failed to write to allowlist file");
+        writeln!(file, "  - python").expect("Failed to write to allowlist file");
+        writeln!(file, "  - node").expect("Failed to write to allowlist file");
+        file.flush().expect("Failed to flush allowlist file");
+
+        // Set the environment variable
+        env::set_var(
+            "GOOSE_MCP_ALLOWLIST",
+            file_path.to_string_lossy().to_string(),
+        );
+
+        // Test with an allowed command
+        let config = ExtensionConfig::Stdio {
+            name: "test".to_string(),
+            cmd: "python".to_string(),
+            args: vec![],
+            envs: Envs::default(),
+            timeout: None,
+            description: None,
+        };
+        assert!(config.validate_command().is_ok());
+
+        // Test with a command not in the allowlist
+        let config = ExtensionConfig::Stdio {
+            name: "test".to_string(),
+            cmd: "not-in-allowlist".to_string(),
+            args: vec![],
+            envs: Envs::default(),
+            timeout: None,
+            description: None,
+        };
+        assert!(config.validate_command().is_err());
+
+        // Test with a non-stdio config (should always pass)
+        let config = ExtensionConfig::Sse {
+            name: "test".to_string(),
+            uri: "http://localhost".to_string(),
+            envs: Envs::default(),
+            description: None,
+            timeout: None,
+        };
+        assert!(config.validate_command().is_ok());
+
+        // Clean up
+        env::remove_var("GOOSE_MCP_ALLOWLIST");
     }
 }
