@@ -185,41 +185,59 @@ impl Default for ExtensionConfig {
 pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
     // Check if GOOSE_MCP_ALLOWLIST_URL is set
     if let Ok(url) = std::env::var("GOOSE_MCP_ALLOWLIST_URL") {
-        // Always try to download the allowlist if URL is set
-        match download_allowlist(&url) {
-            Ok(allowlist_path) => {
-                // Try to read the allowlist file
-                if let Ok(content) = std::fs::read_to_string(&allowlist_path) {
-                    // Parse the YAML file
-                    if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
-                        // Extract the extensions list
-                        if let Some(extensions) = yaml.get("extensions") {
-                            if let Some(extensions_array) = extensions.as_sequence() {
-                                // Create a list of allowed commands
-                                let allowed_commands: Vec<String> = extensions_array
-                                    .iter()
-                                    .filter_map(|v| {
-                                        if let Some(command) = v.get("command").and_then(|c| c.as_str()) {
-                                            Some(command.trim().to_string())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect();
+        // Get the path where the allowlist would be stored
+        let app_strategy = AppStrategyArgs {
+            top_level_domain: "Block".to_string(),
+            author: "Block".to_string(),
+            app_name: "goose".to_string(),
+        };
 
-                                // Require exact match for security
-                                if !allowed_commands.contains(&cmd.to_string()) {
-                                    return Err(ExtensionError::UnauthorizedCommand(cmd.to_string()));
+        let allowlist_path = match choose_app_strategy(app_strategy) {
+            Ok(strategy) => strategy.config_dir().join("mcp_allowlist.yaml"),
+            Err(e) => {
+                warn!("Failed to determine allowlist path: {}", e);
+                return Ok(()); // Allow the command if we can't even determine the path
+            }
+        };
+
+        let path_str = allowlist_path.to_string_lossy().to_string();
+
+        // Always try to download the allowlist if URL is set
+        let download_result = download_allowlist(&url);
+
+        // Whether download succeeded or failed, try to use the file if it exists
+        if let Ok(content) = std::fs::read_to_string(&allowlist_path) {
+            // Parse the YAML file
+            if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                // Extract the extensions list
+                if let Some(extensions) = yaml.get("extensions") {
+                    if let Some(extensions_array) = extensions.as_sequence() {
+                        // Create a list of allowed commands
+                        let allowed_commands: Vec<String> = extensions_array
+                            .iter()
+                            .filter_map(|v| {
+                                if let Some(command) = v.get("command").and_then(|c| c.as_str()) {
+                                    Some(command.trim().to_string())
+                                } else {
+                                    None
                                 }
-                            }
+                            })
+                            .collect();
+
+                        // Require exact match for security
+                        if !allowed_commands.contains(&cmd.to_string()) {
+                            return Err(ExtensionError::UnauthorizedCommand(cmd.to_string()));
                         }
                     }
                 }
             }
-            Err(e) => {
-                warn!("Failed to download allowlist from URL: {}", e);
-                return Err(e);
-            }
+        } else if download_result.is_err() {
+            // Only log a warning if both download failed AND we couldn't read the file
+            warn!(
+                "Failed to download allowlist AND couldn't read existing file at {}: {:?}",
+                path_str,
+                download_result.err()
+            );
         }
     }
 
@@ -247,8 +265,7 @@ pub fn download_allowlist(url: &str) -> Result<String, ExtensionError> {
         .config_dir();
 
     // Create the directory if it doesn't exist
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| ExtensionError::DirectoryError(e.to_string()))?;
+    fs::create_dir_all(&config_dir).map_err(|e| ExtensionError::DirectoryError(e.to_string()))?;
 
     // Define the path for the allowlist file
     let allowlist_path = config_dir.join("mcp_allowlist.yaml");
@@ -256,41 +273,39 @@ pub fn download_allowlist(url: &str) -> Result<String, ExtensionError> {
 
     // Download the allowlist file
     info!("Downloading allowlist from {}", url);
-    
+
     // Create a client with a timeout
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10)) // 10 second timeout
         .build()
         .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
-    
+
     // Make the request
-    let response = client.get(url)
+    let response = client
+        .get(url)
         .send()
         .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
-    
+
     if !response.status().is_success() {
         return Err(ExtensionError::AllowlistDownload(format!(
             "HTTP error: {}",
             response.status()
         )));
     }
-    
+
     let content = response
         .text()
         .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
-    
+
     // Validate the YAML format
     serde_yaml::from_str::<serde_yaml::Value>(&content)
         .map_err(|e| ExtensionError::AllowlistDownload(format!("Invalid YAML: {}", e)))?;
-    
+
     // Write the content to the file
     fs::write(&allowlist_path, content)?;
-    
-    info!(
-        "Allowlist downloaded and saved to {}",
-        path_str
-    );
-    
+
+    info!("Allowlist downloaded and saved to {}", path_str);
+
     Ok(path_str)
 }
 
@@ -423,11 +438,11 @@ impl ToolInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockito;
     use std::env;
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
-    use mockito;
 
     #[test]
     fn test_no_allowlist_url() {
@@ -459,10 +474,13 @@ mod tests {
         for cmd in allowed_commands.iter() {
             // Read the file and check if command is allowed
             let content = std::fs::read_to_string(&file_path).expect("Failed to read file");
-            let yaml = serde_yaml::from_str::<serde_yaml::Value>(&content).expect("Failed to parse YAML");
+            let yaml =
+                serde_yaml::from_str::<serde_yaml::Value>(&content).expect("Failed to parse YAML");
             let extensions = yaml.get("extensions").expect("No extensions found");
-            let extensions_array = extensions.as_sequence().expect("Extensions is not an array");
-            
+            let extensions_array = extensions
+                .as_sequence()
+                .expect("Extensions is not an array");
+
             let allowed_commands: Vec<String> = extensions_array
                 .iter()
                 .filter_map(|v| {
@@ -473,16 +491,19 @@ mod tests {
                     }
                 })
                 .collect();
-            
+
             assert!(allowed_commands.contains(&cmd.to_string()));
         }
-        
+
         // Test with a command not in the allowlist
         let content = std::fs::read_to_string(&file_path).expect("Failed to read file");
-        let yaml = serde_yaml::from_str::<serde_yaml::Value>(&content).expect("Failed to parse YAML");
+        let yaml =
+            serde_yaml::from_str::<serde_yaml::Value>(&content).expect("Failed to parse YAML");
         let extensions = yaml.get("extensions").expect("No extensions found");
-        let extensions_array = extensions.as_sequence().expect("Extensions is not an array");
-        
+        let extensions_array = extensions
+            .as_sequence()
+            .expect("Extensions is not an array");
+
         let allowed_commands: Vec<String> = extensions_array
             .iter()
             .filter_map(|v| {
@@ -493,7 +514,7 @@ mod tests {
                 }
             })
             .collect();
-        
+
         assert!(!allowed_commands.contains(&"not-in-allowlist".to_string()));
     }
 
@@ -502,7 +523,7 @@ mod tests {
     fn test_download_allowlist() {
         // Setup a mock server
         let mut server = mockito::Server::new();
-        
+
         // Mock with any number of calls
         let _mock = server
             .mock("GET", "/allowlist.yaml")
@@ -524,14 +545,14 @@ mod tests {
 
         // Test that a command is allowed after downloading the allowlist
         assert!(is_command_allowed("uvx mcp_slack").is_ok());
-        
+
         // Test that a command not in the allowlist is rejected
         assert!(is_command_allowed("not-in-allowlist").is_err());
 
         // Clean up
         env::remove_var("GOOSE_MCP_ALLOWLIST_URL");
     }
-    
+
     #[test]
     #[ignore] // This test requires network access, so we ignore it by default
     fn test_download_allowlist_failure() {
