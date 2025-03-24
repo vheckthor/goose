@@ -29,8 +29,6 @@ pub enum ExtensionError {
     UnauthorizedCommand(String),
     #[error("Allowlist error: {0}")]
     AllowlistError(String),
-    #[error("Failed to write file: {0}")]
-    IoError(#[from] std::io::Error),
 }
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;
@@ -214,13 +212,17 @@ pub fn is_command_allowed(cmd: &str) -> Result<(), Box<ExtensionError>> {
                         let allowed_commands: Vec<String> = extensions_array
                             .iter()
                             .filter_map(|v| {
-                                v.get("command").and_then(|c| c.as_str()).map(|command| command.trim().to_string())
+                                v.get("command")
+                                    .and_then(|c| c.as_str())
+                                    .map(|command| command.trim().to_string())
                             })
                             .collect();
 
                         // Require exact match for security
                         if !allowed_commands.contains(&cmd.to_string()) {
-                            return Err(Box::new(ExtensionError::UnauthorizedCommand(cmd.to_string())));
+                            return Err(Box::new(ExtensionError::UnauthorizedCommand(
+                                cmd.to_string(),
+                            )));
                         }
                     }
                 }
@@ -255,11 +257,21 @@ pub fn download_allowlist(url: &str) -> Result<String, Box<ExtensionError>> {
 
     // Get the config directory (~/.config/goose/ on macOS/Linux)
     let config_dir = choose_app_strategy(app_strategy)
-        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to get config directory: {}", e))))?
+        .map_err(|e| {
+            Box::new(ExtensionError::AllowlistError(format!(
+                "Failed to get config directory: {}",
+                e
+            )))
+        })?
         .config_dir();
 
     // Create the directory if it doesn't exist
-    fs::create_dir_all(&config_dir).map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to create directory: {}", e))))?;
+    fs::create_dir_all(&config_dir).map_err(|e| {
+        Box::new(ExtensionError::AllowlistError(format!(
+            "Failed to create directory: {}",
+            e
+        )))
+    })?;
 
     // Define the path for the allowlist file
     let allowlist_path = config_dir.join("mcp_allowlist.yaml");
@@ -272,13 +284,20 @@ pub fn download_allowlist(url: &str) -> Result<String, Box<ExtensionError>> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10)) // 10 second timeout
         .build()
-        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to create HTTP client: {}", e))))?;
+        .map_err(|e| {
+            Box::new(ExtensionError::AllowlistError(format!(
+                "Failed to create HTTP client: {}",
+                e
+            )))
+        })?;
 
     // Make the request
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("HTTP request failed: {}", e))))?;
+    let response = client.get(url).send().map_err(|e| {
+        Box::new(ExtensionError::AllowlistError(format!(
+            "HTTP request failed: {}",
+            e
+        )))
+    })?;
 
     if !response.status().is_success() {
         return Err(Box::new(ExtensionError::AllowlistError(format!(
@@ -287,16 +306,23 @@ pub fn download_allowlist(url: &str) -> Result<String, Box<ExtensionError>> {
         ))));
     }
 
-    let content = response
-        .text()
-        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to read response body: {}", e))))?;
+    let content = response.text().map_err(|e| {
+        Box::new(ExtensionError::AllowlistError(format!(
+            "Failed to read response body: {}",
+            e
+        )))
+    })?;
 
     // Validate the YAML format
-    serde_yaml::from_str::<serde_yaml::Value>(&content)
-        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Invalid YAML: {}", e))))?;
+    serde_yaml::from_str::<serde_yaml::Value>(&content).map_err(|e| {
+        Box::new(ExtensionError::AllowlistError(format!(
+            "Invalid YAML: {}",
+            e
+        )))
+    })?;
 
     // Write the content to the file
-    fs::write(&allowlist_path, content).map_err(|e| Box::new(ExtensionError::IoError(e)))?;
+    fs::write(&allowlist_path, content).map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to write file: {}", e))))?;
 
     info!("Allowlist downloaded and saved to {}", path_str);
 
