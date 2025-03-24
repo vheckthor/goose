@@ -27,7 +27,8 @@ reqwest = { version = "0.12.9", features = [
         "zstd",
         "charset",
         "http2",
-        "stream"
+        "stream",
+        "blocking"
     ], default-features = false }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -82,6 +83,7 @@ tempfile = "3.15.0"
 serial_test = "3.2.0"
 mockall = "0.13.1"
 wiremock = "0.6.0"
+mockito = "1.4.0"
 tokio = { version = "1.0", features = ["full"] }
 
 [[example]]
