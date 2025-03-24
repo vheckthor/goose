@@ -322,7 +322,12 @@ pub fn download_allowlist(url: &str) -> Result<String, Box<ExtensionError>> {
     })?;
 
     // Write the content to the file
-    fs::write(&allowlist_path, content).map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to write file: {}", e))))?;
+    fs::write(&allowlist_path, content).map_err(|e| {
+        Box::new(ExtensionError::AllowlistError(format!(
+            "Failed to write file: {}",
+            e
+        )))
+    })?;
 
     info!("Allowlist downloaded and saved to {}", path_str);
 
