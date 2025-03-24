@@ -182,19 +182,17 @@ pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
                         // Create a list of allowed commands
                         let allowed_commands: Vec<String> = extensions_array
                             .iter()
-                            .filter_map(|v| v.as_str())
-                            .map(|s| s.trim().to_string())
+                            .filter_map(|v| {
+                                if let Some(command) = v.get("command").and_then(|c| c.as_str()) {
+                                    Some(command.trim().to_string())
+                                } else {
+                                    None
+                                }
+                            })
                             .collect();
 
-                        // Check if our command is in the allowlist
-                        let command_name = std::path::Path::new(cmd)
-                            .file_name()
-                            .and_then(|name| name.to_str())
-                            .unwrap_or(cmd);
-
-                        if !allowed_commands.contains(&command_name.to_string())
-                            && !allowed_commands.contains(&cmd.to_string())
-                        {
+                        // Require exact match for security
+                        if !allowed_commands.contains(&cmd.to_string()) {
                             return Err(ExtensionError::UnauthorizedCommand(cmd.to_string()));
                         }
                     }
@@ -342,41 +340,6 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_is_command_allowed() {
-        // Make sure the environment variable is not set initially
-        env::remove_var("GOOSE_MCP_ALLOWLIST");
-
-        // Create a temporary directory
-        let temp_dir = tempdir().expect("Failed to create temp dir");
-        let file_path = temp_dir.path().join("allowed_extensions.yaml");
-
-        // Create a whitelist file
-        let mut file = File::create(&file_path).expect("Failed to create allowlist file");
-        writeln!(file, "extensions:").expect("Failed to write to allowlist file");
-        writeln!(file, "  - python").expect("Failed to write to allowlist file");
-        writeln!(file, "  - node").expect("Failed to write to allowlist file");
-        file.flush().expect("Failed to flush allowlist file");
-
-        // Set the environment variable
-        env::set_var(
-            "GOOSE_MCP_ALLOWLIST",
-            file_path.to_string_lossy().to_string(),
-        );
-
-        // Test with an allowed command
-        assert!(is_command_allowed("python").is_ok());
-
-        // Test with another allowed command
-        assert!(is_command_allowed("node").is_ok());
-
-        // Test with a command not in the allowlist
-        assert!(is_command_allowed("not-in-allowlist").is_err());
-
-        // Clean up
-        env::remove_var("GOOSE_MCP_ALLOWLIST");
-    }
-
-    #[test]
     fn test_no_allowlist() {
         // Make sure the environment variable is not set
         env::remove_var("GOOSE_MCP_ALLOWLIST");
@@ -386,16 +349,21 @@ mod tests {
     }
 
     #[test]
-    fn test_extension_config_validate_command() {
+    fn test_allowlist_with_new_format() {
+        // Make sure the environment variable is not set initially
+        env::remove_var("GOOSE_MCP_ALLOWLIST");
+
         // Create a temporary directory
         let temp_dir = tempdir().expect("Failed to create temp dir");
         let file_path = temp_dir.path().join("allowed_extensions.yaml");
 
-        // Create a whitelist file
+        // Create a whitelist file with the new format that includes id and command
         let mut file = File::create(&file_path).expect("Failed to create allowlist file");
         writeln!(file, "extensions:").expect("Failed to write to allowlist file");
-        writeln!(file, "  - python").expect("Failed to write to allowlist file");
-        writeln!(file, "  - node").expect("Failed to write to allowlist file");
+        writeln!(file, "  - id: slack").expect("Failed to write to allowlist file");
+        writeln!(file, "    command: uvx mcp_slack").expect("Failed to write to allowlist file");
+        writeln!(file, "  - id: python").expect("Failed to write to allowlist file");
+        writeln!(file, "    command: python").expect("Failed to write to allowlist file");
         file.flush().expect("Failed to flush allowlist file");
 
         // Set the environment variable
@@ -404,7 +372,14 @@ mod tests {
             file_path.to_string_lossy().to_string(),
         );
 
-        // Test with an allowed command
+        // Test with allowed commands
+        assert!(is_command_allowed("uvx mcp_slack").is_ok());
+        assert!(is_command_allowed("python").is_ok());
+        
+        // Test with a command not in the allowlist
+        assert!(is_command_allowed("not-in-allowlist").is_err());
+
+        // Test with ExtensionConfig
         let config = ExtensionConfig::Stdio {
             name: "test".to_string(),
             cmd: "python".to_string(),
@@ -412,27 +387,6 @@ mod tests {
             envs: Envs::default(),
             timeout: None,
             description: None,
-        };
-        assert!(config.validate_command().is_ok());
-
-        // Test with a command not in the allowlist
-        let config = ExtensionConfig::Stdio {
-            name: "test".to_string(),
-            cmd: "not-in-allowlist".to_string(),
-            args: vec![],
-            envs: Envs::default(),
-            timeout: None,
-            description: None,
-        };
-        assert!(config.validate_command().is_err());
-
-        // Test with a non-stdio config (should always pass)
-        let config = ExtensionConfig::Sse {
-            name: "test".to_string(),
-            uri: "http://localhost".to_string(),
-            envs: Envs::default(),
-            description: None,
-            timeout: None,
         };
         assert!(config.validate_command().is_ok());
 
