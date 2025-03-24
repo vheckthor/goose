@@ -7,6 +7,7 @@ pub mod health;
 pub mod reply;
 pub mod session;
 pub mod utils;
+pub mod websocket;
 use axum::Router;
 
 // Function to configure all routes
@@ -18,5 +19,6 @@ pub fn configure(state: crate::state::AppState) -> Router {
         .merge(extension::routes(state.clone()))
         .merge(configs::routes(state.clone()))
         .merge(config_management::routes(state.clone()))
-        .merge(session::routes(state))
+        .merge(session::routes(state.clone()))
+        .merge(websocket::routes(state.clone()))
 }

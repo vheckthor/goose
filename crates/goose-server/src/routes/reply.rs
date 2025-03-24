@@ -30,10 +30,10 @@ use tokio_stream::wrappers::ReceiverStream;
 
 // Direct message serialization for the chat request
 #[derive(Debug, Deserialize)]
-struct ChatRequest {
-    messages: Vec<Message>,
-    session_id: Option<String>,
-    session_working_dir: String,
+pub struct ChatRequest {
+    pub messages: Vec<Message>,
+    pub session_id: Option<String>,
+    pub session_working_dir: String,
 }
 
 // Custom SSE response type for streaming messages
@@ -72,9 +72,9 @@ impl IntoResponse for SseResponse {
 }
 
 // Message event types for SSE streaming
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
-enum MessageEvent {
+pub enum MessageEvent {
     Message { message: Message },
     Error { error: String },
     Finish { reason: String },
@@ -94,7 +94,7 @@ async fn stream_event(
     tx.send(format!("data: {}\n\n", json)).await
 }
 
-async fn handler(
+pub async fn handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(request): Json<ChatRequest>,
