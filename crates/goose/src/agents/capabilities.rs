@@ -112,7 +112,7 @@ impl Capabilities {
     // TODO IMPORTANT need to ensure this times out if the extension command is broken!
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
         // Validate the command before creating the transport
-        config.validate_command()?;
+        config.validate_command().map_err(|e| *e)?;
 
         let mut client: Box<dyn McpClientTrait> = match &config {
             ExtensionConfig::Sse {

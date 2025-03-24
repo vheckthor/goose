@@ -27,12 +27,10 @@ pub enum ExtensionError {
     InvalidEnvVar(String),
     #[error("Command `{0}` is not in the allowed extensions list")]
     UnauthorizedCommand(String),
-    #[error("Failed to download allowlist: {0}")]
-    AllowlistDownload(String),
-    #[error("Failed to write allowlist file: {0}")]
-    AllowlistWrite(#[from] std::io::Error),
-    #[error("Failed to create allowlist directory: {0}")]
-    DirectoryError(String),
+    #[error("Allowlist error: {0}")]
+    AllowlistError(String),
+    #[error("Failed to write file: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;
@@ -182,7 +180,7 @@ impl Default for ExtensionConfig {
 /// allowlist file.
 ///
 /// If GOOSE_MCP_ALLOWLIST_URL is not set, all commands are allowed.
-pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
+pub fn is_command_allowed(cmd: &str) -> Result<(), Box<ExtensionError>> {
     // Check if GOOSE_MCP_ALLOWLIST_URL is set
     if let Ok(url) = std::env::var("GOOSE_MCP_ALLOWLIST_URL") {
         // Get the path where the allowlist would be stored
@@ -216,17 +214,13 @@ pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
                         let allowed_commands: Vec<String> = extensions_array
                             .iter()
                             .filter_map(|v| {
-                                if let Some(command) = v.get("command").and_then(|c| c.as_str()) {
-                                    Some(command.trim().to_string())
-                                } else {
-                                    None
-                                }
+                                v.get("command").and_then(|c| c.as_str()).map(|command| command.trim().to_string())
                             })
                             .collect();
 
                         // Require exact match for security
                         if !allowed_commands.contains(&cmd.to_string()) {
-                            return Err(ExtensionError::UnauthorizedCommand(cmd.to_string()));
+                            return Err(Box::new(ExtensionError::UnauthorizedCommand(cmd.to_string())));
                         }
                     }
                 }
@@ -251,7 +245,7 @@ pub fn is_command_allowed(cmd: &str) -> Result<(), ExtensionError> {
 /// ~/.config/goose/mcp_allowlist.yaml. It will create the directory if it doesn't exist.
 ///
 /// Returns the path to the downloaded file.
-pub fn download_allowlist(url: &str) -> Result<String, ExtensionError> {
+pub fn download_allowlist(url: &str) -> Result<String, Box<ExtensionError>> {
     // Define app strategy for consistent config paths
     let app_strategy = AppStrategyArgs {
         top_level_domain: "Block".to_string(),
@@ -261,11 +255,11 @@ pub fn download_allowlist(url: &str) -> Result<String, ExtensionError> {
 
     // Get the config directory (~/.config/goose/ on macOS/Linux)
     let config_dir = choose_app_strategy(app_strategy)
-        .map_err(|e| ExtensionError::DirectoryError(e.to_string()))?
+        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to get config directory: {}", e))))?
         .config_dir();
 
     // Create the directory if it doesn't exist
-    fs::create_dir_all(&config_dir).map_err(|e| ExtensionError::DirectoryError(e.to_string()))?;
+    fs::create_dir_all(&config_dir).map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to create directory: {}", e))))?;
 
     // Define the path for the allowlist file
     let allowlist_path = config_dir.join("mcp_allowlist.yaml");
@@ -278,31 +272,31 @@ pub fn download_allowlist(url: &str) -> Result<String, ExtensionError> {
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10)) // 10 second timeout
         .build()
-        .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
+        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to create HTTP client: {}", e))))?;
 
     // Make the request
     let response = client
         .get(url)
         .send()
-        .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
+        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("HTTP request failed: {}", e))))?;
 
     if !response.status().is_success() {
-        return Err(ExtensionError::AllowlistDownload(format!(
+        return Err(Box::new(ExtensionError::AllowlistError(format!(
             "HTTP error: {}",
             response.status()
-        )));
+        ))));
     }
 
     let content = response
         .text()
-        .map_err(|e| ExtensionError::AllowlistDownload(e.to_string()))?;
+        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Failed to read response body: {}", e))))?;
 
     // Validate the YAML format
     serde_yaml::from_str::<serde_yaml::Value>(&content)
-        .map_err(|e| ExtensionError::AllowlistDownload(format!("Invalid YAML: {}", e)))?;
+        .map_err(|e| Box::new(ExtensionError::AllowlistError(format!("Invalid YAML: {}", e))))?;
 
     // Write the content to the file
-    fs::write(&allowlist_path, content)?;
+    fs::write(&allowlist_path, content).map_err(|e| Box::new(ExtensionError::IoError(e)))?;
 
     info!("Allowlist downloaded and saved to {}", path_str);
 
@@ -377,7 +371,7 @@ impl ExtensionConfig {
     }
 
     /// Check if this extension's command is allowed
-    pub fn validate_command(&self) -> Result<(), ExtensionError> {
+    pub fn validate_command(&self) -> Result<(), Box<ExtensionError>> {
         if let Self::Stdio { cmd, .. } = self {
             is_command_allowed(cmd)?;
         }

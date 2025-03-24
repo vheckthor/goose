@@ -66,7 +66,7 @@ impl ExtensionManager {
     /// Set or update an extension configuration
     pub fn set(entry: ExtensionEntry) -> Result<()> {
         // Validate the command before saving
-        entry.config.validate_command().map_err(|e| match e {
+        entry.config.validate_command().map_err(|e| match *e {
             ExtensionError::UnauthorizedCommand(cmd) => {
                 anyhow::anyhow!("Command '{}' is not in the allowed extensions list", cmd)
             }
