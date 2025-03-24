@@ -185,73 +185,10 @@ impl StdioTransportHandle {
 }
 
 /// A `StdioTransport` uses a child process's stdin/stdout as a communication channel.
-///
-/// It uses channels for message passing and handles responses asynchronously through a background task.
-/// For security, it includes an optional command whitelist system to restrict which commands can be executed.
-///
-/// # Security
-///
-/// By default, all commands are allowed to be executed. To restrict which commands can be executed,
-/// you can configure a whitelist using one of the following methods:
-///
-/// - `with_whitelist`: Set a custom whitelist source (static list, environment variable, or file)
-/// - `allow_commands`: Add specific commands to the whitelist
-///
-/// If a whitelist is configured and a command is not in the whitelist, the `spawn_process` method
-/// will return an error.
-///
-/// # Examples
-///
-/// ```
-/// use mcp_client::transport::{StdioTransport, WhitelistSource};
-///
-/// // Create a transport with no whitelist (all commands allowed)
-/// let transport = StdioTransport::new("python", vec!["-c".to_string(), "print('hello')".to_string()], Default::default());
-///
-/// // Create a transport with a whitelist
-/// let transport = StdioTransport::new("custom-tool", vec![], Default::default())
-///     .allow_commands(["custom-tool", "another-tool"]);
-/// ```
 pub struct StdioTransport {
     command: String,
     args: Vec<String>,
     env: HashMap<String, String>,
-    whitelist_source: Option<WhitelistSource>,
-}
-
-/// Source for the command whitelist
-///
-/// This enum defines different ways to specify allowed commands for process execution.
-/// By default (if no whitelist source is specified), all commands are allowed.
-/// 
-/// # Examples
-///
-/// ```
-/// use mcp_client::transport::{StdioTransport, WhitelistSource};
-/// 
-/// // Using a static list of commands
-/// let transport = StdioTransport::new("python", vec!["-c".to_string(), "print('hello')".to_string()], Default::default())
-///     .with_whitelist(WhitelistSource::Static(vec!["python".to_string(), "node".to_string()]));
-///
-/// // Using an environment variable
-/// let transport = StdioTransport::new("python", vec![], Default::default())
-///     .with_whitelist(WhitelistSource::EnvVar("MY_ALLOWED_COMMANDS".to_string()));
-///
-/// // Using a file
-/// let transport = StdioTransport::new("python", vec![], Default::default())
-///     .with_whitelist(WhitelistSource::File("/path/to/allowed_commands.txt".to_string()));
-///
-/// // Adding specific commands
-/// let transport = StdioTransport::new("python", vec![], Default::default())
-///     .allow_commands(["python", "node", "npm"]);
-/// ```
-pub enum WhitelistSource {
-    /// A static list of allowed commands
-    Static(Vec<String>),
-    /// Environment variable name containing comma-separated commands
-    EnvVar(String),
-    /// Path to a file containing allowed commands (one per line)
-    File(String),
 }
 
 impl StdioTransport {
@@ -264,190 +201,55 @@ impl StdioTransport {
             command: command.into(),
             args,
             env,
-            whitelist_source: None,
         }
     }
 
-    /// Set a custom whitelist source
-    pub fn with_whitelist(mut self, source: WhitelistSource) -> Self {
-        self.whitelist_source = Some(source);
-        self
-    }
-    
-    /// Add specific commands to the whitelist
-    /// 
-    /// This creates a static whitelist if none exists, or adds to an existing static whitelist.
-    /// If a different type of whitelist source was previously set, it will be replaced.
-    pub fn allow_commands<I, S>(mut self, commands: I) -> Self 
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        let commands_vec: Vec<String> = commands.into_iter().map(|s| s.into()).collect();
-        
-        match &mut self.whitelist_source {
-            Some(WhitelistSource::Static(existing)) => {
-                // Add to existing static whitelist
-                existing.extend(commands_vec);
-            }
-            _ => {
-                // Create a new static whitelist
-                self.whitelist_source = Some(WhitelistSource::Static(commands_vec));
-            }
-        }
-        
-        self
-    }
-
-    /// Checks if the command is in the allowed whitelist
-    /// 
-    /// This method is used internally before spawning a process, but is also
-    /// exposed for testing purposes.
-    /// 
-    /// If no whitelist is configured (empty whitelist), all commands are allowed.
+    /// Checks if the command is in the allowed extensions list
     pub fn is_command_allowed(&self) -> Result<(), Error> {
-        // Get the dynamic whitelist from environment or configuration
-        let whitelist = self.get_command_whitelist();
-        
-        // If the whitelist is empty, all commands are allowed
-        if whitelist.is_empty() {
-            tracing::debug!("Command '{}' is allowed (no whitelist configured)", self.command);
-            return Ok(());
-        }
-        
-        tracing::debug!("Checking command '{}' against whitelist", self.command);
-        
-        // Extract the command name without path
-        let command_name = std::path::Path::new(&self.command)
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or(&self.command);
-            
-        // Check if the command name (without path) is in the whitelist
-        if whitelist.contains(&command_name.to_string()) {
-            tracing::debug!("Command '{}' is allowed (name match: '{}')", self.command, command_name);
-            return Ok(());
-        }
-        
-        // Check if the command (with full path) is in the whitelist
-        if whitelist.contains(&self.command) {
-            tracing::debug!("Command '{}' is allowed (direct match)", self.command);
-            return Ok(());
-        }
-        
-        // If not found by name, try to resolve the absolute path and check again
-        if let Some(abs_path) = self.resolve_command_path() {
-            tracing::debug!("Resolved command '{}' to path '{}'", self.command, abs_path);
-            if whitelist.contains(&abs_path) {
-                tracing::debug!("Command '{}' is allowed (path match: '{}')", self.command, abs_path);
-                return Ok(());
-            }
-            
-            // Extract the command name from the resolved path and check again
-            let resolved_name = std::path::Path::new(&abs_path)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or(&abs_path);
-                
-            if whitelist.contains(&resolved_name.to_string()) {
-                tracing::debug!("Command '{}' is allowed (resolved name match: '{}')", self.command, resolved_name);
-                return Ok(());
-            }
-        }
-        
-        // Command is not allowed
-        tracing::warn!("Command '{}' is not in the allowed whitelist", self.command);
-        Err(Error::StdioProcessError(format!(
-            "Command '{}' is not in the allowed whitelist",
-            self.command
-        )))
-    }
-    
-    /// Resolve the absolute path of the command
-    /// 
-    /// This method attempts to find the full path of a command by checking
-    /// the PATH environment variable. It is exposed for testing purposes.
-    pub fn resolve_command_path(&self) -> Option<String> {
-        use std::path::Path;
-        
-        // If the command is already an absolute path, return it
-        if Path::new(&self.command).is_absolute() {
-            return Some(self.command.clone());
-        }
-        
-        // Try to find the command in PATH
-        if let Ok(path_var) = std::env::var("PATH") {
-            let paths = std::env::split_paths(&path_var);
-            for dir in paths {
-                let full_path = dir.join(&self.command);
-                if full_path.exists() {
-                    if let Some(path_str) = full_path.to_str() {
-                        return Some(path_str.to_string());
-                    }
-                }
-            }
-        }
-        
-        None
-    }
+        // Check if GOOSE_MCP_ALLOWLIST environment variable is set
+        if let Ok(allowlist_path) = std::env::var("GOOSE_MCP_ALLOWLIST") {
+            // Try to read the allowlist file
+            if let Ok(content) = std::fs::read_to_string(&allowlist_path) {
+                // Parse the YAML file
+                if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
+                    // Extract the extensions list
+                    if let Some(extensions) = yaml.get("extensions") {
+                        if let Some(extensions_array) = extensions.as_sequence() {
+                            // Create a list of allowed commands
+                            let allowed_commands: Vec<String> = extensions_array
+                                .iter()
+                                .filter_map(|v| v.as_str())
+                                .map(|s| s.trim().to_string())
+                                .collect();
 
-    /// Get the dynamic whitelist of allowed commands
-    /// 
-    /// This method returns the list of allowed commands based on the configured whitelist source.
-    /// If no whitelist source is configured, returns an empty vector which signals that all commands
-    /// are allowed.
-    pub fn get_command_whitelist(&self) -> Vec<String> {
-        // Check if a custom whitelist source was provided
-        if let Some(source) = &self.whitelist_source {
-            match source {
-                WhitelistSource::Static(commands) => {
-                    tracing::debug!("Using static whitelist with {} commands", commands.len());
-                    return commands.clone();
-                }
-                WhitelistSource::EnvVar(var_name) => {
-                    if let Ok(allowed_cmds) = std::env::var(var_name) {
-                        let commands: Vec<String> = allowed_cmds
-                            .split(',')
-                            .map(|s| s.trim().to_string())
-                            .collect();
-                        tracing::debug!(
-                            "Using whitelist from environment variable '{}' with {} commands",
-                            var_name, commands.len()
-                        );
-                        return commands;
-                    } else {
-                        tracing::warn!("Environment variable '{}' not found, all commands will be allowed", var_name);
-                    }
-                }
-                WhitelistSource::File(path) => {
-                    if let Ok(content) = std::fs::read_to_string(path) {
-                        let commands: Vec<String> = content
-                            .lines()
-                            .map(|s| s.trim().to_string())
-                            .filter(|s| !s.is_empty() && !s.starts_with('#'))
-                            .collect();
-                        tracing::debug!(
-                            "Using whitelist from file '{}' with {} commands", 
-                            path, commands.len()
-                        );
-                        return commands;
-                    } else {
-                        tracing::warn!("Could not read whitelist file '{}', all commands will be allowed", path);
+                            // Check if our command is in the allowlist
+                            let command_name = std::path::Path::new(&self.command)
+                                .file_name()
+                                .and_then(|name| name.to_str())
+                                .unwrap_or(&self.command);
+
+                            if !allowed_commands.contains(&command_name.to_string())
+                                && !allowed_commands.contains(&self.command)
+                            {
+                                return Err(Error::StdioProcessError(format!(
+                                    "Command '{}' is not in the allowed extensions list",
+                                    self.command
+                                )));
+                            }
+                        }
                     }
                 }
             }
         }
-        
-        // If no whitelist source is configured or if the configured source failed,
-        // return an empty vector (which means all commands are allowed)
-        tracing::debug!("No whitelist configured, all commands are allowed");
-        Vec::new()
+
+        // If no allowlist file or command is allowed, return Ok
+        Ok(())
     }
 
     async fn spawn_process(&self) -> Result<(Child, ChildStdin, ChildStdout, ChildStderr), Error> {
-        // Check against whitelist before proceeding
+        // Check against allowlist before proceeding
         self.is_command_allowed()?;
-        
+
         let mut command = Command::new(&self.command);
         command
             .envs(&self.env)
