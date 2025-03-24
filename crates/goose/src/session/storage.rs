@@ -248,37 +248,7 @@ pub async fn persist_messages(
     // Check if we need to update the description (after 1st or 3rd user message)
     if let Some(provider) = provider {
         if user_message_count < 4 {
-            // Generate description
-            let mut description_prompt = "Based on the conversation so far, provide a concise header for this session in 4 words or less. This will be used for finding the session later in a UI with limited space - reply *ONLY* with the header. Avoid filler words such as help, summary, exchange, request etc that do not help distinguish different conversations.".to_string();
-
-            // get context from messages so far
-            let context: Vec<String> = messages.iter().map(|m| m.as_concat_text()).collect();
-
-            if !context.is_empty() {
-                description_prompt = format!(
-                    "Here are the first few user messages:\n{}\n\n{}",
-                    context.join("\n"),
-                    description_prompt
-                );
-            }
-
-            // Generate the description
-            let message = Message::user().with_text(&description_prompt);
-            match provider
-                .complete(
-                    "Reply with only a description in four words or less.",
-                    &[message],
-                    &[],
-                )
-                .await
-            {
-                Ok((response, _)) => {
-                    metadata.description = response.as_concat_text();
-                }
-                Err(e) => {
-                    tracing::error!("Failed to generate session description: {:?}", e);
-                }
-            }
+            generate_description(session_file, messages, provider.as_ref().as_ref()).await?;
         }
     }
 
