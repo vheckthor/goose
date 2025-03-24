@@ -121,7 +121,10 @@ impl PendingRequests {
 }
 
 pub mod stdio;
-pub use stdio::StdioTransport;
+pub use stdio::{StdioTransport, WhitelistSource};
 
 pub mod sse;
 pub use sse::SseTransport;
+
+#[cfg(test)]
+mod tests;
