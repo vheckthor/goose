@@ -18,7 +18,6 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
   const [selectedSession, setSelectedSession] = useState<SessionDetails | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSharedSessionTest, setShowSharedSessionTest] = useState(false);
   const [shareToken, setShareToken] = useState('6dc69efc-5599-4493-968e-8615a93dd780');
   const [baseUrl, setBaseUrl] = useState(
     'https://goosed-playpen-smohammed--goosed.stage.sqprod.co/api'
@@ -47,7 +46,6 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
   const handleBackToSessions = () => {
     setSelectedSession(null);
     setError(null);
-    setShowSharedSessionTest(false);
   };
 
   const handleResumeSession = () => {
@@ -126,63 +124,6 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
     }
   };
 
-  // If showing shared session test interface
-  if (showSharedSessionTest) {
-    return (
-      <div className="h-screen w-full">
-        <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
-
-        <Card className="px-8 pt-6 pb-4 bg-bgSecondary">
-          <div className="flex items-center">
-            <BackButton onClick={handleBackToSessions} />
-            <h1 className="text-3xl font-medium text-textStandard ml-2">Test Shared Session</h1>
-          </div>
-        </Card>
-
-        <ScrollArea className="h-[calc(100vh-120px)] w-full">
-          <div className="p-8">
-            <Card className="p-6 bg-bgSecondary">
-              <h2 className="text-xl font-semibold mb-4">Enter Shared Session Details</h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Base URL</label>
-                  <Input
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-textSubtle mt-1">
-                    Leave empty to use the configured base URL from settings
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Share Token</label>
-                  <Input
-                    value={shareToken}
-                    onChange={(e) => setShareToken(e.target.value)}
-                    className="w-full"
-                  />
-                </div>
-
-                {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
-
-                <Button
-                  onClick={handleTestSharedSession}
-                  disabled={isLoadingSession}
-                  className="mt-4"
-                >
-                  {isLoadingSession ? 'Loading...' : 'Load Shared Session'}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        </ScrollArea>
-      </div>
-    );
-  }
-
   // If a session is selected, show the session history view
   // Otherwise, show the sessions list view with a button to test shared sessions
   return selectedSession ? (
@@ -197,11 +138,6 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
   ) : (
     <>
       <SessionListView setView={setView} onSelectSession={handleSelectSession} />
-      <div className="fixed bottom-4 right-4 text-textStandard">
-        <Button variant="outline" onClick={() => setShowSharedSessionTest(true)}>
-          Test Shared Session
-        </Button>
-      </div>
     </>
   );
 };
