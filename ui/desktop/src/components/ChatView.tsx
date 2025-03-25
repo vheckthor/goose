@@ -235,8 +235,24 @@ export default function ChatView({
     }
   };
 
+  // Handle errors and prevent blank screens
+  useEffect(() => {
+    if (error) {
+      console.error('Chat error:', error);
+      // Reset loading states
+      setIsLoadingSession(false);
+      window.electron.stopPowerSaveBlocker();
+
+      // If we have messages, preserve them to prevent blank screen
+      if (messages.length > 0) {
+        setMessages([...messages]); // Force a clean re-render with existing messages
+      }
+    }
+  }, [error, messages, setMessages]);
+
   if (error) {
-    console.log('Error:', error);
+    // Log error but don't return early - let the UI continue rendering
+    console.error('Error:', error);
   }
 
   const onStopGoose = () => {

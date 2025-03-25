@@ -218,10 +218,12 @@ export function useMessageStream({
                   case 'Message':
                     // Update messages with the new message
                     currentMessages = [...currentMessages, parsedEvent.message];
-                    mutate(currentMessages, false);
+                    // Ensure state updates are applied
+                    await mutate(currentMessages, false);
                     break;
 
                   case 'Error':
+                    console.error('Stream error event:', parsedEvent.error);
                     throw new Error(parsedEvent.error);
 
                   case 'Finish':
@@ -234,27 +236,43 @@ export function useMessageStream({
                 }
               } catch (e) {
                 console.error('Error parsing SSE event:', e);
+                // Ensure UI state remains consistent
+                mutateLoading(false);
+                if (currentMessages.length > 0) {
+                  await mutate(currentMessages, false);
+                }
                 if (onError && e instanceof Error) {
                   onError(e);
                 }
+                // Set error state but don't throw
+                setError(e instanceof Error ? e : new Error('Failed to parse server response'));
+                running = false;
+                break;
               }
             }
           }
         }
       } catch (e) {
+        console.error('Stream processing error:', e);
+        // Handle stream errors gracefully
         if (e instanceof Error && e.name !== 'AbortError') {
-          console.error('Error reading SSE stream:', e);
+          mutateLoading(false);
+          if (currentMessages.length > 0) {
+            await mutate(currentMessages, false);
+          }
           if (onError) {
             onError(e);
           }
+          setError(e);
         }
       } finally {
         reader.releaseLock();
+        mutateLoading(false);
       }
 
       return currentMessages;
     },
-    [mutate, onFinish, onError]
+    [mutate, onFinish, onError, setError, mutateLoading]
   );
 
   // Send a request to the server
@@ -329,13 +347,22 @@ export function useMessageStream({
           return;
         }
 
+        console.error('Request error:', err);
+
+        // Ensure UI state remains consistent
+        mutateLoading(false);
+        if (requestMessages.length > 0) {
+          await mutate(requestMessages, false); // Preserve existing messages
+        }
+
         if (onError && err instanceof Error) {
           onError(err);
         }
 
-        setError(err as Error);
+        setError(err instanceof Error ? err : new Error('Request failed'));
       } finally {
         mutateLoading(false);
+        abortControllerRef.current = null;
       }
     },
     [api, processMessageStream, mutateLoading, setError, onResponse, onError, maxSteps]
