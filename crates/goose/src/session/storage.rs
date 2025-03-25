@@ -293,12 +293,19 @@ pub async fn generate_description(
     // Create a special message asking for a 3-word description
     let mut description_prompt = "Based on the conversation so far, provide a concise description of this session in 4 words or less. This will be used for finding the session later in a UI with limited space - reply *ONLY* with the description".to_string();
 
-    // get context from messages so far
+    // get context from messages so far, limiting each message to 300 chars
     let context: Vec<String> = messages
         .iter()
         .filter(|m| m.role == mcp_core::role::Role::User)
         .take(3) // Use up to first 3 user messages for context
-        .map(|m| m.as_concat_text())
+        .map(|m| {
+            let text = m.as_concat_text();
+            if text.len() > 300 {
+                format!("{}...", &text[..297]) // truncate to 300 chars with ellipsis
+            } else {
+                text
+            }
+        })
         .collect();
 
     if !context.is_empty() {
