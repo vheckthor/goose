@@ -20,12 +20,10 @@
 <p>So trust me, I know it’s super tempting to want to plug your AI agent into everything and just <em>see</em> what happens.</p>
 <p>But hold on a minute, we can’t afford to skip over security.</p>
 <p>When you connect to an MCP server, you’re giving it access to your workflows, most times even your data. And a lot of these servers are community built, with little to no governance.</p>
-<hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="heres-what-i-do-before-i-trust-an-mcp-server">Here’s What I Do Before I Trust an MCP Server<a href="https://block.github.io/goose/pr-preview/pr-1871/blog/2025/03/26/mcp-security#heres-what-i-do-before-i-trust-an-mcp-server" class="hash-link" aria-label="Direct link to Here’s What I Do Before I Trust an MCP Server" title="Direct link to Here’s What I Do Before I Trust an MCP Server">​</a></h2>
 <p>Any time I’m checking out a new MCP server to plug into Goose, I start with <strong><a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener noreferrer">Glama.ai</a></strong>.</p>
 <p>Glama is an all-in-one AI workspace, and it keeps one of the <strong>best directories of MCP servers</strong> that I've seen. The servers listed are either community built or created by the actual companies behind the tools, like <strong>Azure</strong>, or <strong>JetBrains</strong>.</p>
 <p>Each server gets a <strong>report card</strong>, so at a glance you can quickly assess whether it’s solid or a little sketchy.</p>
-<hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-glama-scores">What Glama Scores<a href="https://block.github.io/goose/pr-preview/pr-1871/blog/2025/03/26/mcp-security#what-glama-scores" class="hash-link" aria-label="Direct link to What Glama Scores" title="Direct link to What Glama Scores">​</a></h2>
 <p>Here’s what Glama grades servers on:</p>
 <ul>
