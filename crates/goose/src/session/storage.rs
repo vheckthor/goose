@@ -235,25 +235,25 @@ pub async fn persist_messages(
     messages: &[Message],
     provider: Option<Arc<Box<dyn Provider>>>,
 ) -> Result<()> {
-    // Read existing metadata
-    let mut metadata = read_metadata(session_file)?;
-
     // Count user messages
     let user_message_count = messages
         .iter()
-        .filter(|m| m.role == mcp_core::role::Role::User)
-        .filter(|m| !m.as_concat_text().trim().is_empty())
+        .filter(|m| m.role == mcp_core::role::Role::User && !m.as_concat_text().trim().is_empty())
         .count();
 
     // Check if we need to update the description (after 1st or 3rd user message)
-    if let Some(provider) = provider {
-        if user_message_count < 4 {
-            generate_description(session_file, messages, provider.as_ref().as_ref()).await?;
+    match provider {
+        Some(provider) if user_message_count < 4 => {
+            //generate_description is responsible for writing the messages
+            generate_description(session_file, messages, provider.as_ref().as_ref()).await
+        }
+        _ => {
+            // Read existing metadata
+            let metadata = read_metadata(session_file)?;
+            // Write the file with metadata and messages
+            save_messages_with_metadata(session_file, &metadata, messages)
         }
     }
-
-    // Write the file with metadata and messages
-    save_messages_with_metadata(session_file, &metadata, messages)
 }
 
 /// Write messages to a session file with the provided metadata
@@ -335,9 +335,7 @@ pub async fn generate_description(
     metadata.description = description;
 
     // Update the file with the new metadata and existing messages
-    update_metadata(session_file, &metadata).await?;
-
-    Ok(())
+    return save_messages_with_metadata(session_file, &metadata, messages);
 }
 
 /// Update only the metadata in a session file, preserving all messages
