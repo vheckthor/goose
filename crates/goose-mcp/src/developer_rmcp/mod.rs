@@ -5,6 +5,16 @@ use anyhow::Result;
 use base64::Engine;
 use etcetera::{choose_app_strategy, AppStrategy};
 use indoc::formatdoc;
+use indoc::indoc;
+use rmcp::model::GetPromptRequestParam;
+use rmcp::model::GetPromptResult;
+use rmcp::model::ListPromptsResult;
+use rmcp::model::PaginatedRequestParam;
+use rmcp::model::PromptMessage;
+use rmcp::model::PromptMessageContent;
+use rmcp::model::PromptMessageRole;
+use rmcp::service::RequestContext;
+use rmcp::RoleServer;
 use std::{
     collections::HashMap,
     io::Cursor,
@@ -15,8 +25,11 @@ use tokio::process::Command;
 
 use include_dir::{include_dir, Dir};
 use rmcp::{
-    model::{Content, ProtocolVersion, ServerCapabilities, ServerInfo},
-    schemars, tool, ServerHandler,
+    model::{
+        Content, Prompt, PromptArgument, PromptTemplate, ProtocolVersion, ServerCapabilities,
+        ServerInfo,
+    },
+    schemars, tool, Error as McpError, ServerHandler,
 };
 
 use self::shell::{
@@ -32,11 +45,55 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 // Embeds the prompts directory to the build
 static PROMPTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/developer/prompts");
 
+/// Loads prompt files from the embedded PROMPTS_DIR and returns a HashMap of prompts.
+/// Ensures that each prompt name is unique.
+pub fn load_prompt_files() -> HashMap<String, Prompt> {
+    let mut prompts = HashMap::new();
+
+    for entry in PROMPTS_DIR.files() {
+        let prompt_str = String::from_utf8_lossy(entry.contents()).into_owned();
+
+        let template: PromptTemplate = match serde_json::from_str(&prompt_str) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!(
+                    "Failed to parse prompt template in {}: {}",
+                    entry.path().display(),
+                    e
+                );
+                continue; // Skip invalid prompt file
+            }
+        };
+
+        let arguments = template
+            .arguments
+            .into_iter()
+            .map(|arg| PromptArgument {
+                name: arg.name,
+                description: arg.description,
+                required: arg.required,
+            })
+            .collect::<Vec<PromptArgument>>();
+
+        let prompt = Prompt::new(&template.id, Some(&template.template), Some(arguments));
+
+        if prompts.contains_key(&prompt.name) {
+            eprintln!("Duplicate prompt name '{}' found. Skipping.", prompt.name);
+            continue; // Skip duplicate prompt name
+        }
+
+        prompts.insert(prompt.name.clone(), prompt);
+    }
+
+    prompts
+}
+
 #[derive(Debug, Clone)]
 pub struct Developer {
     file_history: Arc<Mutex<HashMap<PathBuf, Vec<String>>>>,
     ignore_patterns: Arc<Gitignore>,
     instructions: String,
+    prompts: Arc<HashMap<String, Prompt>>,
 }
 
 impl Default for Developer {
@@ -177,6 +234,7 @@ impl Developer {
             instructions,
             file_history: Arc::new(Mutex::new(HashMap::new())),
             ignore_patterns: Arc::new(ignore_patterns),
+            prompts: Arc::new(load_prompt_files()),
         }
     }
 
@@ -362,8 +420,207 @@ impl Developer {
         Ok(output_str.to_string())
     }
 
+    // Private helper function for the "view" command
+    fn text_editor_view(&self, path: &PathBuf) -> Result<String, String> {
+        if path.is_file() {
+            // Check file size first (400KB limit)
+            const MAX_FILE_SIZE: u64 = 400 * 1024; // 400KB in bytes
+            const MAX_CHAR_COUNT: usize = 400_000; // 409600 chars = 400KB
+
+            let file_size = std::fs::metadata(path)
+                .map_err(|e| format!("Failed to get file metadata: {}", e))?
+                .len();
+
+            if file_size > MAX_FILE_SIZE {
+                return Err(format!(
+                    "File '{}' is too large ({:.2}KB). Maximum size is 400KB to prevent memory issues.",
+                    path.display(),
+                    file_size as f64 / 1024.0
+                ));
+            }
+
+            let content =
+                std::fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+
+            let char_count = content.chars().count();
+            if char_count > MAX_CHAR_COUNT {
+                return Err(format!(
+                    "File '{}' has too many characters ({}). Maximum character count is {}.",
+                    path.display(),
+                    char_count,
+                    MAX_CHAR_COUNT
+                ));
+            }
+
+            let language = lang::get_language_identifier(path);
+            let formatted = formatdoc! {"
+                ### {path}
+                ```{language}
+                {content}
+                ```
+                ",
+                path=path.display(),
+                language=language,
+                content=content,
+            };
+
+            Ok(formatted)
+        } else {
+            Err(format!(
+                "The path '{}' does not exist or is not a file.",
+                path.display()
+            ))
+        }
+    }
+
+    // Private helper function for the "write" command
+    fn text_editor_write(&self, path: &PathBuf, file_text: &str) -> Result<String, String> {
+        // Normalize line endings based on platform
+        let normalized_text = normalize_line_endings(file_text);
+
+        // Write to the file
+        std::fs::write(path, normalized_text)
+            .map_err(|e| format!("Failed to write file: {}", e))?;
+
+        // Try to detect the language from the file extension
+        let language = lang::get_language_identifier(path);
+
+        Ok(formatdoc! {r#"
+            Successfully wrote to {path}
+
+            ### {path}
+            ```{language}
+            {content}
+            ```
+            "#,
+            path=path.display(),
+            language=language,
+            content=file_text,
+        })
+    }
+
+    // Private helper function for the "str_replace" command
+    fn text_editor_replace(
+        &self,
+        path: &PathBuf,
+        old_str: &str,
+        new_str: &str,
+    ) -> Result<String, String> {
+        // Check if file exists and is active
+        if !path.exists() {
+            return Err(format!(
+                "File '{}' does not exist, you can write a new file with the `write` command",
+                path.display()
+            ));
+        }
+
+        // Read content
+        let content =
+            std::fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))?;
+
+        // Ensure 'old_str' appears exactly once
+        if content.matches(old_str).count() > 1 {
+            return Err(
+                "'old_str' must appear exactly once in the file, but it appears multiple times"
+                    .into(),
+            );
+        }
+        if content.matches(old_str).count() == 0 {
+            return Err(
+                "'old_str' must appear exactly once in the file, but it does not appear in the file. Make sure the string exactly matches existing file content, including whitespace!".into(),
+            );
+        }
+
+        // Save history for undo
+        self.save_file_history(path)?;
+
+        // Replace and write back with platform-specific line endings
+        let new_content = content.replace(old_str, new_str);
+        let normalized_content = normalize_line_endings(&new_content);
+        std::fs::write(path, &normalized_content)
+            .map_err(|e| format!("Failed to write file: {}", e))?;
+
+        // Try to detect the language from the file extension
+        let language = lang::get_language_identifier(path);
+
+        // Show a snippet of the changed content with context
+        const SNIPPET_LINES: usize = 4;
+
+        // Count newlines before the replacement to find the line number
+        let replacement_line = content
+            .split(old_str)
+            .next()
+            .expect("should split on already matched content")
+            .matches('\n')
+            .count();
+
+        // Calculate start and end lines for the snippet
+        let start_line = replacement_line.saturating_sub(SNIPPET_LINES);
+        let end_line = replacement_line + SNIPPET_LINES + new_str.matches('\n').count();
+
+        // Get the relevant lines for our snippet
+        let lines: Vec<&str> = new_content.lines().collect();
+        let snippet = lines
+            .iter()
+            .skip(start_line)
+            .take(end_line - start_line + 1)
+            .cloned()
+            .collect::<Vec<&str>>()
+            .join("\n");
+
+        let output = formatdoc! {r#"
+            ```{language}
+            {snippet}
+            ```
+            "#,
+            language=language,
+            snippet=snippet
+        };
+
+        Ok(formatdoc! {r#"
+            The file {} has been edited, and the section now reads:
+            {}
+            Review the changes above for errors. Undo and edit the file again if necessary!
+            "#,
+            path.display(),
+            output
+        })
+    }
+
+    // Private helper function for the "undo_edit" command
+    fn text_editor_undo(&self, path: &PathBuf) -> Result<String, String> {
+        let mut history = self.file_history.lock().unwrap();
+        if let Some(contents) = history.get_mut(path) {
+            if let Some(previous_content) = contents.pop() {
+                // Write previous content back to file
+                std::fs::write(path, previous_content)
+                    .map_err(|e| format!("Failed to write file: {}", e))?;
+                Ok("Undid the last edit".to_string())
+            } else {
+                Err("No edit history available to undo".into())
+            }
+        } else {
+            Err("No edit history available to undo".into())
+        }
+    }
+
     #[tool(
-        description = "Perform text editing operations on files.\n\nThe `command` parameter specifies the operation to perform. Allowed options are:\n- `view`: View the content of a file.\n- `write`: Create or overwrite a file with the given content\n- `str_replace`: Replace a string in a file with a new string.\n- `undo_edit`: Undo the last edit made to a file.\n\nTo use the write command, you must specify `file_text` which will become the new content of the file. Be careful with\nexisting files! This is a full overwrite, so you must include everything - not just sections you are modifying.\n\nTo use the str_replace command, you must specify both `old_str` and `new_str` - the `old_str` needs to exactly match one\nunique section of the original file, including any whitespace. Make sure to include enough context that the match is not\nambiguous. The entire original string will be replaced with `new_str`."
+        description = indoc! {r#"
+            Perform text editing operations on files.
+
+            The `command` parameter specifies the operation to perform. Allowed options are:
+            - `view`: View the content of a file.
+            - `write`: Create or overwrite a file with the given content
+            - `str_replace`: Replace a string in a file with a new string.
+            - `undo_edit`: Undo the last edit made to a file.
+
+            To use the write command, you must specify `file_text` which will become the new content of the file. Be careful with
+            existing files! This is a full overwrite, so you must include everything - not just sections you are modifying.
+
+            To use the str_replace command, you must specify both `old_str` and `new_str` - the `old_str` needs to exactly match one
+            unique section of the original file, including any whitespace. Make sure to include enough context that the match is not
+            ambiguous. The entire original string will be replaced with `new_str`.
+        "#}.to_string(),
     )]
     async fn text_editor(&self, #[tool(aggr)] param: TextEditorParam) -> Result<String, String> {
         let path = self.resolve_path(&param.path)?;
@@ -378,189 +635,23 @@ impl Developer {
         }
 
         match param.command.as_str() {
-            "view" => {
-                if path.is_file() {
-                    // Check file size first (400KB limit)
-                    const MAX_FILE_SIZE: u64 = 400 * 1024; // 400KB in bytes
-                    const MAX_CHAR_COUNT: usize = 400_000; // 409600 chars = 400KB
-
-                    let file_size = std::fs::metadata(&path)
-                        .map_err(|e| format!("Failed to get file metadata: {}", e))?
-                        .len();
-
-                    if file_size > MAX_FILE_SIZE {
-                        return Err(format!(
-                            "File '{}' is too large ({:.2}KB). Maximum size is 400KB to prevent memory issues.",
-                            path.display(),
-                            file_size as f64 / 1024.0
-                        ));
-                    }
-
-                    let content = std::fs::read_to_string(&path)
-                        .map_err(|e| format!("Failed to read file: {}", e))?;
-
-                    let char_count = content.chars().count();
-                    if char_count > MAX_CHAR_COUNT {
-                        return Err(format!(
-                            "File '{}' has too many characters ({}). Maximum character count is {}.",
-                            path.display(),
-                            char_count,
-                            MAX_CHAR_COUNT
-                        ));
-                    }
-
-                    let language = lang::get_language_identifier(&path);
-                    let formatted = formatdoc! {"
-                        ### {path}
-                        ```{language}
-                        {content}
-                        ```
-                        ",
-                        path=path.display(),
-                        language=language,
-                        content=content,
-                    };
-
-                    Ok(formatted)
-                } else {
-                    Err(format!(
-                        "The path '{}' does not exist or is not a file.",
-                        path.display()
-                    ))
-                }
-            }
+            "view" => self.text_editor_view(&path),
             "write" => {
                 let file_text = param.file_text.ok_or_else(|| {
                     "Missing 'file_text' parameter for 'write' command".to_string()
                 })?;
-
-                // Normalize line endings based on platform
-                let normalized_text = normalize_line_endings(&file_text);
-
-                // Write to the file
-                std::fs::write(&path, normalized_text)
-                    .map_err(|e| format!("Failed to write file: {}", e))?;
-
-                // Try to detect the language from the file extension
-                let language = lang::get_language_identifier(&path);
-
-                Ok(formatdoc! {r#"
-                    Successfully wrote to {path}
-
-                    ### {path}
-                    ```{language}
-                    {content}
-                    ```
-                    "#,
-                    path=path.display(),
-                    language=language,
-                    content=file_text,
-                })
+                self.text_editor_write(&path, &file_text)
             }
             "str_replace" => {
                 let old_str = param.old_str.ok_or_else(|| {
                     "Missing 'old_str' parameter for 'str_replace' command".to_string()
                 })?;
-
                 let new_str = param.new_str.ok_or_else(|| {
                     "Missing 'new_str' parameter for 'str_replace' command".to_string()
                 })?;
-
-                // Check if file exists and is active
-                if !path.exists() {
-                    return Err(format!(
-                        "File '{}' does not exist, you can write a new file with the `write` command",
-                        path.display()
-                    ));
-                }
-
-                // Read content
-                let content = std::fs::read_to_string(&path)
-                    .map_err(|e| format!("Failed to read file: {}", e))?;
-
-                // Ensure 'old_str' appears exactly once
-                if content.matches(&old_str).count() > 1 {
-                    return Err(
-                        "'old_str' must appear exactly once in the file, but it appears multiple times"
-                            .into(),
-                    );
-                }
-                if content.matches(&old_str).count() == 0 {
-                    return Err(
-                        "'old_str' must appear exactly once in the file, but it does not appear in the file. Make sure the string exactly matches existing file content, including whitespace!".into(),
-                    );
-                }
-
-                // Save history for undo
-                self.save_file_history(&path)?;
-
-                // Replace and write back with platform-specific line endings
-                let new_content = content.replace(&old_str, &new_str);
-                let normalized_content = normalize_line_endings(&new_content);
-                std::fs::write(&path, &normalized_content)
-                    .map_err(|e| format!("Failed to write file: {}", e))?;
-
-                // Try to detect the language from the file extension
-                let language = lang::get_language_identifier(&path);
-
-                // Show a snippet of the changed content with context
-                const SNIPPET_LINES: usize = 4;
-
-                // Count newlines before the replacement to find the line number
-                let replacement_line = content
-                    .split(&old_str)
-                    .next()
-                    .expect("should split on already matched content")
-                    .matches('\n')
-                    .count();
-
-                // Calculate start and end lines for the snippet
-                let start_line = replacement_line.saturating_sub(SNIPPET_LINES);
-                let end_line = replacement_line + SNIPPET_LINES + new_str.matches('\n').count();
-
-                // Get the relevant lines for our snippet
-                let lines: Vec<&str> = new_content.lines().collect();
-                let snippet = lines
-                    .iter()
-                    .skip(start_line)
-                    .take(end_line - start_line + 1)
-                    .cloned()
-                    .collect::<Vec<&str>>()
-                    .join("\n");
-
-                let output = formatdoc! {r#"
-                    ```{language}
-                    {snippet}
-                    ```
-                    "#,
-                    language=language,
-                    snippet=snippet
-                };
-
-                Ok(formatdoc! {r#"
-                    The file {} has been edited, and the section now reads:
-                    {}
-                    Review the changes above for errors. Undo and edit the file again if necessary!
-                    "#,
-                    path.display(),
-                    output
-                })
+                self.text_editor_replace(&path, &old_str, &new_str)
             }
-            "undo_edit" => {
-                let mut history = self.file_history.lock().unwrap();
-                if let Some(contents) = history.get_mut(&path) {
-                    if let Some(previous_content) = contents.pop() {
-                        // Write previous content back to file
-                        std::fs::write(&path, previous_content)
-                            .map_err(|e| format!("Failed to write file: {}", e))?;
-                        Ok("Undid the last edit".to_string())
-                    } else {
-                        Err("No edit history available to undo".into())
-                    }
-                } else {
-                    Err("No edit history available to undo".into())
-                }
-            }
+            "undo_edit" => self.text_editor_undo(&path),
             _ => Err(format!(
                 "Unknown command '{}'. Valid commands are: view, write, str_replace, undo_edit",
                 param.command
@@ -711,8 +802,55 @@ impl ServerHandler for Developer {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,
             instructions: Some(self.instructions.clone()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder()
+                .enable_tools()
+                .enable_prompts()
+                .build(),
             ..Default::default()
+        }
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: PaginatedRequestParam,
+        _: RequestContext<RoleServer>,
+    ) -> Result<ListPromptsResult, McpError> {
+        Ok(ListPromptsResult {
+            next_cursor: None,
+            prompts: self.prompts.values().cloned().collect::<Vec<Prompt>>(),
+        })
+    }
+
+    async fn get_prompt(
+        &self,
+        GetPromptRequestParam { name, arguments: _ }: GetPromptRequestParam,
+        _: RequestContext<RoleServer>,
+    ) -> Result<GetPromptResult, McpError> {
+        let prompt_name = name.trim().to_owned();
+
+        // Validate prompt name is not empty
+        if prompt_name.is_empty() {
+            return Err(McpError::invalid_params(
+                "Prompt name cannot be empty".to_string(),
+                None,
+            ));
+        }
+
+        let prompts = Arc::clone(&self.prompts);
+        match prompts.get(&prompt_name) {
+            Some(prompt) => Ok(GetPromptResult {
+                description: prompt.description.clone(),
+                messages: vec![PromptMessage {
+                    role: PromptMessageRole::User,
+                    content: PromptMessageContent::text(
+                        prompt.description.clone().unwrap_or_default(),
+                    ),
+                }],
+            }),
+            _ => Err(McpError::invalid_params(
+                format!("Prompt {} not found", prompt_name),
+                None,
+            )),
         }
     }
 }
