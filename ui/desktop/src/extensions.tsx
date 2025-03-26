@@ -5,6 +5,7 @@ import { type SettingsViewOptions } from './components/settings/SettingsView';
 import { toast } from 'react-toastify';
 
 import builtInExtensionsData from './built-in-extensions.json';
+import errorMessages from './error_messages.json';
 import { ToastError, ToastLoading, ToastSuccess } from './components/settings/models/toasts';
 import { Toast } from 'react-toastify/dist/components';
 
@@ -105,7 +106,7 @@ export async function addExtension(
       return response;
     }
 
-    var errorMessage = `Error adding extension`;
+    var errorMessage = errorMessages.STDIO_PROCESS_ERROR;
     // Attempt to extract the message from inside StdioProcessError()
     // NOTE: this may change if the error response from /extensions/add changes
     const regex = /StdioProcessError\("(.*?)"\)/;
