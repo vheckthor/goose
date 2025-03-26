@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
-import { toast } from 'react-toastify';
 import { Settings as SettingsType } from './types';
 import {
   FullExtensionConfig,
@@ -17,6 +16,7 @@ import { ExtensionItem } from './extensions/ExtensionItem';
 import type { View } from '../../App';
 import { ModeSelection } from './basic/ModeSelection';
 import SessionSharingSection from './session/SessionSharingSection';
+import { ToastSuccess } from './models/toasts';
 
 const EXTENSIONS_DESCRIPTION =
   'The Model Context Protocol (MCP) is a system that allows AI models to securely connect with local or remote resources using standard server setups. It works like a client-server setup and expands AI capabilities using three main components: Prompts, Resources, and Tools.';
@@ -165,7 +165,10 @@ export default function SettingsView({
     const response = await removeExtension(extensionBeingConfigured.name, true);
 
     if (response.ok) {
-      toast.success(`Successfully removed ${extensionBeingConfigured.name} extension`);
+      ToastSuccess({
+        title: extensionBeingConfigured.name,
+        msg: `Successfully removed extension`,
+      });
 
       // Remove from localstorage
       setSettings((prev) => ({
