@@ -335,7 +335,7 @@ pub async fn generate_description(
     metadata.description = description;
 
     // Update the file with the new metadata and existing messages
-    return save_messages_with_metadata(session_file, &metadata, messages);
+    save_messages_with_metadata(session_file, &metadata, messages)
 }
 
 /// Update only the metadata in a session file, preserving all messages
