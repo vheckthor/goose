@@ -35,11 +35,15 @@ export async function openSharedSessionFromDeepLink(
           if (config.enabled && config.baseUrl) {
             baseUrl = config.baseUrl;
           } else {
-            throw new Error('Session sharing is not enabled or base URL is not configured');
+            throw new Error(
+              'Session sharing is not enabled or base URL is not configured. Check the settings page.'
+            );
           }
         } catch (error) {
           console.error('Error parsing session sharing config:', error);
-          throw new Error('Session sharing configuration is invalid');
+          throw new Error(
+            'Session sharing is not enabled or base URL is not configured. Check the settings page.'
+          );
         }
       } else {
         throw new Error('Session sharing is not configured');
