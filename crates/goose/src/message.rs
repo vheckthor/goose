@@ -8,12 +8,15 @@ use std::collections::HashSet;
 /// The content of the messages uses MCP types to avoid additional conversions
 /// when interacting with MCP servers.
 use chrono::Utc;
-use rmcp::model::{AnnotateAble, Annotated, Content, ImageContent, RawImageContent, RawTextContent, TextContent, RawContent};
-use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
 use rmcp::model::ResourceContents;
 use rmcp::model::Role;
-use serde_json::Value;
+use rmcp::model::{
+    AnnotateAble, Annotated, Content, ImageContent, RawContent, RawImageContent, RawTextContent,
+    TextContent,
+};
+use rmcp::model::{PromptMessage, PromptMessageContent, PromptMessageRole};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 mod tool_result_serde;
 
@@ -83,7 +86,7 @@ impl ToolRequest {
 pub struct ToolResponse {
     pub id: String,
     #[serde(with = "tool_result_serde")]
-    pub tool_result: ToolResult<Vec<Content>>
+    pub tool_result: ToolResult<Vec<Content>>,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -121,13 +124,18 @@ pub enum MessageContent {
 
 impl MessageContent {
     pub fn text<S: Into<String>>(text: S) -> Self {
-        let content: Annotated<RawTextContent> = RawTextContent { text: text.into() }.no_annotation();
-        MessageContent::Text( content )
+        let content: Annotated<RawTextContent> =
+            RawTextContent { text: text.into() }.no_annotation();
+        MessageContent::Text(content)
     }
 
     pub fn image<S: Into<String>, T: Into<String>>(data: S, mime_type: T) -> Self {
-        let content: Annotated<RawImageContent> = RawImageContent { data: data.into(), mime_type: mime_type.into() }.no_annotation();
-        MessageContent::Image( content )
+        let content: Annotated<RawImageContent> = RawImageContent {
+            data: data.into(),
+            mime_type: mime_type.into(),
+        }
+        .no_annotation();
+        MessageContent::Image(content)
     }
 
     pub fn tool_request<S: Into<String>>(id: S, tool_call: ToolResult<ToolCall>) -> Self {
@@ -235,8 +243,12 @@ impl MessageContent {
 impl From<Content> for MessageContent {
     fn from(content: Content) -> Self {
         match content.raw {
-            RawContent::Text(text_content) => MessageContent::Text(text_content.optional_annotate(content.annotations)),
-            RawContent::Image(image_content) => MessageContent::Image(image_content.optional_annotate(content.annotations)),
+            RawContent::Text(text_content) => {
+                MessageContent::Text(text_content.optional_annotate(content.annotations))
+            }
+            RawContent::Image(image_content) => {
+                MessageContent::Image(image_content.optional_annotate(content.annotations))
+            }
             RawContent::Resource(resource_content) => {
                 let text = match resource_content.resource {
                     ResourceContents::TextResourceContents { text, .. } => text,
@@ -336,7 +348,7 @@ impl Message {
     pub fn with_tool_response<S: Into<String>>(
         self,
         id: S,
-        result: ToolResult<Vec<Content>>
+        result: ToolResult<Vec<Content>>,
     ) -> Self {
         self.with_content(MessageContent::tool_response(id, result))
     }

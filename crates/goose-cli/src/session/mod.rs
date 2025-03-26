@@ -15,9 +15,9 @@ use etcetera::AppStrategy;
 use goose::agents::extension::{Envs, ExtensionConfig};
 use goose::agents::{Agent, SessionConfig};
 use goose::config::Config;
+use goose::message::ToolError;
 use goose::message::{Message, MessageContent};
 use goose::session;
-use goose::message::ToolError;
 use rmcp::model::PromptMessage;
 
 use rand::{distributions::Alphanumeric, Rng};

@@ -51,19 +51,13 @@ fn get_log_directory_with_date(test_date: Option<String>) -> Result<PathBuf> {
 /// - File-based logging with JSON formatting (DEBUG level)
 /// - Console output for development (INFO level)
 /// - Optional Langfuse integration (DEBUG level)
-pub fn setup_logging(
-    name: Option<&str>,
-) -> Result<()> {
+pub fn setup_logging(name: Option<&str>) -> Result<()> {
     setup_logging_internal(name, false)
 }
 
 /// Internal function that allows bypassing the Once check for testing
-fn setup_logging_internal(
-    name: Option<&str>,
-    force: bool,
-) -> Result<()> {
+fn setup_logging_internal(name: Option<&str>, force: bool) -> Result<()> {
     let mut result = Ok(());
-
 
     let mut setup = || {
         result = (|| {

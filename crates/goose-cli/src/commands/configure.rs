@@ -322,7 +322,10 @@ pub async fn configure_provider_dialog() -> Result<bool, Box<dyn Error>> {
                 "properties": {
                     "location": {"type": "string"}
                 }
-            }).as_object().unwrap().clone(),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
         );
         vec![sample_tool]
     } else {
