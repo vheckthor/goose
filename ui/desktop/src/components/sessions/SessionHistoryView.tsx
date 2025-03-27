@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
-import { Clock, MessageSquare, Folder, Share2, Copy, Check, LoaderCircle } from 'lucide-react';
+import {
+  Clock,
+  MessageSquare,
+  Folder,
+  Share2,
+  Copy,
+  Check,
+  LoaderCircle,
+  Download,
+} from 'lucide-react';
 import { type SessionDetails } from '../../sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
 import { createSharedSession } from '../../sharedSessions';
+import { downloadSession } from '../../sessionFiles';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '../ui/modal';
 import { Button } from '../ui/button';
 import { toast } from 'react-toastify';
@@ -114,6 +124,14 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
         </div>
 
         <div className="ml-auto flex items-center space-x-4">
+          <button
+            onClick={() => downloadSession(session)}
+            className="flex items-center text-textStandard hover:text-primary hover:font-bold hover:scale-105 transition-all duration-150"
+            title="Download this session"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+
           <button
             onClick={handleShare}
             disabled={isSharing}
