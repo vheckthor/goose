@@ -775,9 +775,6 @@ ipcMain.handle('start-code-server', async (event, workingDir: string) => {
       console.error(`[Code Server Error] ${data}`);
     });
 
-    // Wait for the server to start
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     return { port, token };
   } catch (error) {
     console.error('Failed to start code server:', error);

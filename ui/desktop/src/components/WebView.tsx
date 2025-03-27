@@ -13,85 +13,94 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(initialUrl || null);
+  const [webviewCreated, setWebviewCreated] = useState(false);
 
+  // Start the code server when the component mounts
   useEffect(() => {
-    // Start the code server when the component becomes visible
-    if (isVisible && !webViewUrl) {
-      const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') || '';
+    const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') || '';
 
-      // Start the code server and get the URL
-      const startServer = async () => {
-        try {
-          setIsLoading(true);
-          await startCodeServer(workingDir);
-          const url = await getWebViewUrl(workingDir);
-          // sleep for a few seconds
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          setWebViewUrl(url);
-        } catch (error) {
-          console.error('Failed to start code server:', error);
-          setLoadError(`Failed to start code server: ${error.message}`);
-          setIsLoading(false);
-        }
-      };
+    // Start the code server and get the URL
+    const startServer = async () => {
+      try {
+        setIsLoading(true);
+        await startCodeServer(workingDir);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        window.electron.logInfo(`Code server started`);
+        const url = await getWebViewUrl(workingDir);
 
+        setWebViewUrl(url);
+      } catch (error) {
+        console.error('Failed to start code server:', error);
+        setLoadError(`Failed to start code server: ${error.message}`);
+        setIsLoading(false);
+      }
+    };
+
+    if (!webViewUrl) {
       startServer();
     }
 
     // Note: We no longer stop the server when the component unmounts
     // The server will continue running until the app exits
     // This is handled by the main process in app.on('will-quit')
-    return () => {
-      // Just clear the URL state when the component unmounts
-      if (!isVisible) {
-        setWebViewUrl(null);
-      }
-    };
-  }, [isVisible, webViewUrl]);
+  }, []);
 
+  // Create or update the webview when URL is available or visibility changes
   useEffect(() => {
-    // Create the webview element when the component mounts
-    if (webviewRef.current) {
+    if (!webviewRef.current || !webViewUrl) return;
+
+    // If webview doesn't exist yet, create it
+    if (!webviewCreated) {
+      console.log('Creating new webview with URL:', webViewUrl);
+
       // Clear any existing content
       webviewRef.current.innerHTML = '';
 
-      // Only create the webview if it should be visible and we have a URL
-      if (isVisible && webViewUrl) {
-        setIsLoading(true);
-        setLoadError(null);
+      // Create a new webview element
+      const webview = document.createElement('webview');
 
-        // Create a new webview element
-        const webview = document.createElement('webview');
+      // Set attributes
+      webview.src = webViewUrl;
+      webview.style.width = '100%';
+      webview.style.height = '100%';
+      webview.style.border = 'none';
 
-        // Set attributes
-        webview.src = webViewUrl;
-        webview.style.width = '100%';
-        webview.style.height = '100%';
-        webview.style.border = 'none';
+      // Add webPreferences to disable security features for localhost
+      webview.setAttribute('webpreferences', 'contextIsolation=no, nodeIntegration=yes');
 
-        // Add webPreferences to disable security features for localhost
-        webview.setAttribute('webpreferences', 'contextIsolation=no, nodeIntegration=yes');
+      // Add event listener for load completion
+      webview.addEventListener('dom-ready', () => {
+        console.log('WebView loaded:', webViewUrl);
+        setIsLoading(false);
+        setWebviewCreated(true);
+      });
 
-        // Add event listener for load completion
-        webview.addEventListener('dom-ready', () => {
-          console.log('WebView loaded:', webViewUrl);
-          setIsLoading(false);
-        });
+      // Add error handler
+      webview.addEventListener('did-fail-load', (event) => {
+        console.error('WebView failed to load:', event);
+        setLoadError(`Failed to load: ${event.errorDescription || 'Unknown error'}`);
+        setIsLoading(false);
+      });
 
-        // Add error handler
-        webview.addEventListener('did-fail-load', (event) => {
-          console.error('WebView failed to load:', event);
-          setLoadError(`Failed to load: ${event.errorDescription || 'Unknown error'}`);
-          setIsLoading(false);
-        });
+      // Append the webview to our container
+      webviewRef.current.appendChild(webview);
+    }
+  }, [webViewUrl, webviewCreated]);
 
-        // Append the webview to our container
-        webviewRef.current.appendChild(webview);
+  // Handle visibility changes
+  useEffect(() => {
+    if (webviewRef.current) {
+      const webview = webviewRef.current.querySelector('webview');
+      if (webview) {
+        console.log(`Setting webview visibility to ${isVisible ? 'visible' : 'hidden'}`);
+        if (isVisible) {
+          // When showing, make sure it's loaded
+          (webview as any).reload();
+          setIsLoading(true);
+        }
       }
     }
-  }, [webViewUrl, isVisible]);
-
-  if (!isVisible) return null;
+  }, [isVisible]);
 
   return (
     <div ref={containerRef} className="h-full w-full bg-bgApp flex flex-col">
@@ -113,6 +122,7 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
             <line x1="8" y1="21" x2="16" y2="21"></line>
             <line x1="12" y1="17" x2="12" y2="21"></line>
           </svg>
+          Code Editor
         </div>
         <div className="flex items-center">
           <button
@@ -184,30 +194,15 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
                 onClick={() => {
                   // Force reload the webview
                   if (webviewRef.current) {
-                    webviewRef.current.innerHTML = '';
-                    setIsLoading(true);
-                    setLoadError(null);
-
-                    // Recreate the webview element
-                    const webview = document.createElement('webview');
-                    webview.style.width = '100%';
-                    webview.style.height = '100%';
-                    webview.style.border = 'none';
-                    webview.setAttribute(
-                      'webpreferences',
-                      'contextIsolation=no, nodeIntegration=yes'
-                    );
-
-                    webview.addEventListener('dom-ready', () => {
-                      setIsLoading(false);
-                    });
-
-                    webview.addEventListener('did-fail-load', (event) => {
-                      setLoadError(`Failed to load: ${event.errorDescription || 'Unknown error'}`);
-                      setIsLoading(false);
-                    });
-
-                    webviewRef.current.appendChild(webview);
+                    const webview = webviewRef.current.querySelector('webview');
+                    if (webview) {
+                      setIsLoading(true);
+                      setLoadError(null);
+                      (webview as any).reload();
+                    } else {
+                      // If webview element doesn't exist, create it
+                      setWebviewCreated(false); // This will trigger recreation
+                    }
                   }
                 }}
                 className="mt-4 px-4 py-2 bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200 rounded hover:bg-red-300 dark:hover:bg-red-700 transition-colors"

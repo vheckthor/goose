@@ -475,11 +475,14 @@ export default function ChatView({
       </div>
 
       {/* WebView positioned side-by-side */}
-      {showWebView && (
-        <div className="h-screen w-2/3 border-l border-borderSubtle animate-slide-in-right">
-          <WebView isVisible={true} onClose={() => setShowWebView(false)} />
-        </div>
-      )}
+      <div
+        className={`h-screen border-l border-borderSubtle transition-all duration-300 ${
+          showWebView ? 'w-2/3 opacity-100' : 'w-0 opacity-0 border-l-0'
+        }`}
+      >
+        {/* Only render WebView component if it's ever been shown */}
+        <WebView isVisible={showWebView} onClose={() => setShowWebView(false)} />
+      </div>
 
       {/* Deep Link Modal */}
       {showShareableBotModal && generatedBotConfig && (
