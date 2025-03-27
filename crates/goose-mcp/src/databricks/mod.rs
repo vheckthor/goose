@@ -519,7 +519,9 @@ impl Router for DatabricksRouter {
         &self,
         _prompt_name: &str,
     ) -> Pin<Box<dyn Future<Output = Result<String, PromptError>> + Send + 'static>> {
-        Box::pin(async move { Err(PromptError::NotFound("No prompts available".to_string())) })
+        Box::pin(async move { 
+            Err(PromptError::NotFound("No prompts available".to_string())) 
+        })
     }
 }
 
