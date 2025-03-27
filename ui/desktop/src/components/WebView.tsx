@@ -12,7 +12,6 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [width, setWidth] = useState(50); // Width as percentage
   const [isResizing, setIsResizing] = useState(false);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(initialUrl || null);
 
@@ -101,9 +100,11 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
         const windowWidth = window.innerWidth;
         const newWidth = ((windowWidth - e.clientX) / windowWidth) * 100;
 
-        // Limit width between 30% and 70%
-        const clampedWidth = Math.min(Math.max(newWidth, 30), 70);
-        setWidth(clampedWidth);
+        // Limit width between 30% and 80%
+        const clampedWidth = Math.min(Math.max(newWidth, 30), 80);
+
+        // Update WebView width
+        containerRef.current.style.width = `${clampedWidth}%`;
       }
     };
 
@@ -128,7 +129,7 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
     <div
       ref={containerRef}
       className="fixed right-0 top-0 h-full bg-bgApp shadow-xl z-50 flex flex-col animate-slide-in-right"
-      style={{ width: `${width}%` }}
+      style={{ width: '66.67%' }}
     >
       {/* Resize handle */}
       <div
