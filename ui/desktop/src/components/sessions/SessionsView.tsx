@@ -143,8 +143,27 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
 
     try {
       const sessionDetails = await importSessionFromFile(file);
-      setSelectedSession(sessionDetails);
-      toast.success('Session imported successfully');
+
+      // Get the working directory from the session metadata
+      const workingDir = sessionDetails.metadata.working_dir;
+
+      if (workingDir) {
+        // Create a new chat window with the working directory and session ID
+        window.electron.createChatWindow(
+          undefined,
+          workingDir,
+          undefined,
+          sessionDetails.session_id
+        );
+
+        toast.success('Session imported and opened successfully');
+      } else {
+        // If no working directory is found, just show the session in the current view
+        setSelectedSession(sessionDetails);
+        toast.warning(
+          'Session imported but no working directory found. Opening in current window.'
+        );
+      }
     } catch (error) {
       console.error('Failed to import session:', error);
       toast.error(
