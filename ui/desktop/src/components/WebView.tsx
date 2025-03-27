@@ -15,39 +15,49 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
   const [webViewUrl, setWebViewUrl] = useState<string | null>(initialUrl || null);
   const [webviewCreated, setWebviewCreated] = useState(false);
 
+  // Server states
+  type ServerState = 'idle' | 'starting' | 'ready' | 'error';
+  const [serverState, setServerState] = useState<ServerState>('idle');
+
   // Start the code server when the component mounts
   useEffect(() => {
+    // Skip if we already have a URL or server is already starting/ready
+    if (webViewUrl || serverState === 'starting' || serverState === 'ready') return;
+
     const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') || '';
 
     // Start the code server and get the URL
     const startServer = async () => {
       try {
+        setServerState('starting');
         setIsLoading(true);
+
         await startCodeServer(workingDir);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         window.electron.logInfo(`Code server started`);
-        const url = await getWebViewUrl(workingDir);
 
+        const url = await getWebViewUrl(workingDir);
         setWebViewUrl(url);
+        setServerState('ready');
       } catch (error) {
         console.error('Failed to start code server:', error);
         setLoadError(`Failed to start code server: ${error.message}`);
         setIsLoading(false);
+        setServerState('error');
       }
     };
 
-    if (!webViewUrl) {
-      startServer();
-    }
+    startServer();
 
-    // Note: We no longer stop the server when the component unmounts
+    // No need to stop the server when the component unmounts
     // The server will continue running until the app exits
     // This is handled by the main process in app.on('will-quit')
-  }, []);
+  }, [webViewUrl, serverState]);
 
-  // Create or update the webview when URL is available or visibility changes
+  // Create or update the webview when URL is available and server is ready
   useEffect(() => {
-    if (!webviewRef.current || !webViewUrl) return;
+    // Only proceed if we have the URL, DOM reference, and server is ready
+    if (!webviewRef.current || !webViewUrl || serverState !== 'ready') return;
 
     // If webview doesn't exist yet, create it
     if (!webviewCreated) {
@@ -85,7 +95,7 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
       // Append the webview to our container
       webviewRef.current.appendChild(webview);
     }
-  }, [webViewUrl, webviewCreated]);
+  }, [webViewUrl, webviewCreated, serverState]);
 
   // Handle visibility changes
   useEffect(() => {
