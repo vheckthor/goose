@@ -4,6 +4,7 @@ import BackButton from '../ui/BackButton';
 import type { View } from '../../App';
 import ExtensionsSection from './extensions/ExtensionsSection';
 import ModelsSection from './models/ModelsSection';
+import SessionSharingSection from '../settings/session/SessionSharingSection';
 
 export type SettingsViewOptions = {
   extensionId?: string;
@@ -36,6 +37,10 @@ export default function SettingsView({
               <ModelsSection setView={setView} />
               {/* Extensions Section */}
               <ExtensionsSection />
+              {/* Session Sharing Section */}
+              <section id="session-sharing">
+                <SessionSharingSection />
+              </section>
             </div>
           </div>
         </div>

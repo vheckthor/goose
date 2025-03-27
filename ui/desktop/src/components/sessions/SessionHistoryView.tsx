@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, MessageSquare, Folder, Share, Copy, Check, LoaderCircle } from 'lucide-react';
+import {
+  Clock,
+  MessageSquare,
+  Folder,
+  Share2,
+  Copy,
+  Check,
+  LoaderCircle,
+  Download,
+} from 'lucide-react';
 import { type SessionDetails } from '../../sessions';
 import { SessionHeaderCard, SessionMessages } from './SessionViewComponents';
 import { createSharedSession } from '../../sharedSessions';
+import { downloadSession } from '../../sessionFiles';
 import { Modal, ModalContent, ModalHeader, ModalTitle, ModalFooter } from '../ui/modal';
 import { Button } from '../ui/button';
 import { toast } from 'react-toastify';
@@ -131,13 +141,22 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
 
         <div className="ml-auto flex items-center space-x-4">
           <button
+            onClick={() => downloadSession(session)}
+            className="flex items-center text-textStandard hover:text-primary hover:font-bold hover:scale-105 transition-all duration-150"
+            title="Download this session"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+
+          <button
             onClick={handleShare}
             disabled={!canShare || isSharing}
-            className={`flex items-center text-textStandard px-3 py-1 border rounded-md ${
+            className={`flex items-center text-textStandard ${
               canShare
-                ? 'border-primary hover:text-primary hover:font-bold hover:scale-105 transition-all duration-150'
-                : 'border-gray-300 cursor-not-allowed opacity-50'
+                ? 'hover:text-primary hover:font-bold hover:scale-105 transition-all duration-150'
+                : 'cursor-not-allowed opacity-50'
             }`}
+            title="Share this session"
           >
             {isSharing ? (
               <>
@@ -146,7 +165,7 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
               </>
             ) : (
               <>
-                <Share className="w-5 h-5" />
+                <Share2 className="w-5 h-5" />
               </>
             )}
           </button>

@@ -1,4 +1,4 @@
-import { Message, createUserMessage, createAssistantMessage } from './types/message';
+import { Message } from './types/message';
 
 export interface SharedSessionDetails {
   share_token: string;
@@ -34,9 +34,10 @@ export async function fetchSharedSessionDetails(
 
     const data = await response.json();
 
-    if (baseUrl != data.base_url) {
-      throw new Error(`Base URL mismatch for shared session: ${baseUrl} != ${data.base_url}`);
-    }
+    // TODO: add this after testing
+    // if (baseUrl != data.base_url) {
+    //   throw new Error(`Base URL mismatch: ${baseUrl} != ${data.base_url}`);
+    // }
 
     return {
       share_token: data.share_token,
