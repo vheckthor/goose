@@ -12,7 +12,6 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isResizing, setIsResizing] = useState(false);
   const [webViewUrl, setWebViewUrl] = useState<string | null>(initialUrl || null);
 
   useEffect(() => {
@@ -92,51 +91,10 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
     }
   }, [webViewUrl, isVisible]);
 
-  // Handle resize functionality
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isResizing && containerRef.current) {
-        // Calculate width as percentage of window width
-        const windowWidth = window.innerWidth;
-        const newWidth = ((windowWidth - e.clientX) / windowWidth) * 100;
-
-        // Limit width between 30% and 80%
-        const clampedWidth = Math.min(Math.max(newWidth, 30), 80);
-
-        // Update WebView width
-        containerRef.current.style.width = `${clampedWidth}%`;
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
   if (!isVisible) return null;
 
   return (
-    <div
-      ref={containerRef}
-      className="fixed right-0 top-0 h-full bg-bgApp shadow-xl z-50 flex flex-col animate-slide-in-right"
-      style={{ width: '66.67%' }}
-    >
-      {/* Resize handle */}
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-textStandard hover:opacity-50"
-        onMouseDown={() => setIsResizing(true)}
-      />
-
+    <div ref={containerRef} className="h-full w-full bg-bgApp flex flex-col">
       <div className="flex justify-between items-center p-2 border-b border-borderSubtle">
         <div className="text-sm font-medium text-textStandard overflow-hidden text-ellipsis whitespace-nowrap max-w-[calc(100%-80px)] flex items-center">
           <svg

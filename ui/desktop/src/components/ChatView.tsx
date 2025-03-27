@@ -393,84 +393,93 @@ export default function ChatView({
   }, [filteredMessages, isUserMessage]);
 
   return (
-    <div className="flex flex-col w-full h-screen items-center justify-center">
-      <div className="relative flex items-center h-[36px] w-full">
-        <MoreMenuLayout
-          setView={setView}
-          setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
-          toggleWebView={() => setShowWebView(!showWebView)}
-        />
-      </div>
-      <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
-        {messages.length === 0 ? (
-          <Splash
-            append={(text) => append(createUserMessage(text))}
-            activities={botConfig?.activities || null}
+    <div className="flex flex-row w-full h-screen">
+      <div
+        className={`flex flex-col items-center justify-center transition-all duration-300 ${showWebView ? 'w-1/3' : 'w-full'}`}
+      >
+        <div className="relative flex items-center h-[36px] w-full">
+          <MoreMenuLayout
+            setView={setView}
+            setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
+            toggleWebView={() => setShowWebView(!showWebView)}
           />
-        ) : (
-          <ScrollArea ref={scrollRef} className="flex-1 px-4" autoScroll>
-            {filteredMessages.map((message, index) => (
-              <div key={message.id || index} className="mt-[16px]">
-                {isUserMessage(message) ? (
-                  <UserMessage message={message} />
-                ) : (
-                  <GooseMessage
-                    messageHistoryIndex={chat?.messageHistoryIndex}
-                    message={message}
-                    messages={messages}
-                    metadata={messageMetadata[message.id || '']}
-                    append={(text) => append(createUserMessage(text))}
-                    appendMessage={(newMessage) => {
-                      const updatedMessages = [...messages, newMessage];
-                      setMessages(updatedMessages);
-                    }}
-                  />
-                )}
-              </div>
-            ))}
-            {error && (
-              <div className="flex flex-col items-center justify-center p-4">
-                <div className="text-red-700 dark:text-red-300 bg-red-400/50 p-3 rounded-lg mb-2">
-                  {error.message || 'Honk! Goose experienced an error while responding'}
-                </div>
-                <div
-                  className="px-3 py-2 mt-2 text-center whitespace-nowrap cursor-pointer text-textStandard border border-borderSubtle hover:bg-bgSubtle rounded-full inline-block transition-all duration-150"
-                  onClick={async () => {
-                    // Find the last user message
-                    const lastUserMessage = messages.reduceRight(
-                      (found, m) => found || (m.role === 'user' ? m : null),
-                      null as Message | null
-                    );
-                    if (lastUserMessage) {
-                      append(lastUserMessage);
-                    }
-                  }}
-                >
-                  Retry Last Message
-                </div>
-              </div>
-            )}
-            <div className="block h-16" />
-          </ScrollArea>
-        )}
-
-        <div className="relative">
-          {isLoading && <LoadingGoose />}
-          <Input
-            handleSubmit={handleSubmit}
-            isLoading={isLoading}
-            onStop={onStopGoose}
-            commandHistory={commandHistory}
-            value={_input}
-            onValueChange={_setInput}
-          />
-          <BottomMenu hasMessages={hasMessages} setView={setView} />
         </div>
-      </Card>
+        <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
+          {messages.length === 0 ? (
+            <Splash
+              append={(text) => append(createUserMessage(text))}
+              activities={botConfig?.activities || null}
+            />
+          ) : (
+            <ScrollArea ref={scrollRef} className="flex-1 px-4" autoScroll>
+              {filteredMessages.map((message, index) => (
+                <div key={message.id || index} className="mt-[16px]">
+                  {isUserMessage(message) ? (
+                    <UserMessage message={message} />
+                  ) : (
+                    <GooseMessage
+                      messageHistoryIndex={chat?.messageHistoryIndex}
+                      message={message}
+                      messages={messages}
+                      metadata={messageMetadata[message.id || '']}
+                      append={(text) => append(createUserMessage(text))}
+                      appendMessage={(newMessage) => {
+                        const updatedMessages = [...messages, newMessage];
+                        setMessages(updatedMessages);
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+              {error && (
+                <div className="flex flex-col items-center justify-center p-4">
+                  <div className="text-red-700 dark:text-red-300 bg-red-400/50 p-3 rounded-lg mb-2">
+                    {error.message || 'Honk! Goose experienced an error while responding'}
+                  </div>
+                  <div
+                    className="px-3 py-2 mt-2 text-center whitespace-nowrap cursor-pointer text-textStandard border border-borderSubtle hover:bg-bgSubtle rounded-full inline-block transition-all duration-150"
+                    onClick={async () => {
+                      // Find the last user message
+                      const lastUserMessage = messages.reduceRight(
+                        (found, m) => found || (m.role === 'user' ? m : null),
+                        null as Message | null
+                      );
+                      if (lastUserMessage) {
+                        append(lastUserMessage);
+                      }
+                    }}
+                  >
+                    Retry Last Message
+                  </div>
+                </div>
+              )}
+              <div className="block h-16" />
+            </ScrollArea>
+          )}
 
-      {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
+          <div className="relative">
+            {isLoading && <LoadingGoose />}
+            <Input
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
+              onStop={onStopGoose}
+              commandHistory={commandHistory}
+              value={_input}
+              onValueChange={_setInput}
+            />
+            <BottomMenu hasMessages={hasMessages} setView={setView} />
+          </div>
+        </Card>
 
-      {showWebView && <WebView isVisible={showWebView} onClose={() => setShowWebView(false)} />}
+        {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
+      </div>
+
+      {/* WebView positioned side-by-side */}
+      {showWebView && (
+        <div className="h-screen w-2/3 border-l border-borderSubtle animate-slide-in-right">
+          <WebView isVisible={true} onClose={() => setShowWebView(false)} />
+        </div>
+      )}
 
       {/* Deep Link Modal */}
       {showShareableBotModal && generatedBotConfig && (
