@@ -1,15 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { ViewConfig } from '../../App';
 import { fetchSessionDetails, type SessionDetails } from '../../sessions';
-import { fetchSharedSessionDetails } from '../../sharedSessions';
 import { importSessionFromFile } from '../../sessionFiles';
 import SessionListView from './SessionListView';
 import SessionHistoryView from './SessionHistoryView';
-import { Card } from '../ui/card';
-import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import BackButton from '../ui/BackButton';
-import { ScrollArea } from '../ui/scroll-area';
 import { toast } from 'react-toastify';
 
 interface SessionsViewProps {

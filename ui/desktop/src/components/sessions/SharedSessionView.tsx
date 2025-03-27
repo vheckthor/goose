@@ -33,7 +33,7 @@ const SharedSessionView: React.FC<SharedSessionViewProps> = ({
             <div className="flex items-center text-sm text-textSubtle mt-2 space-x-4">
               <span className="flex items-center">
                 <Clock className="w-4 h-4 mr-1" />
-                {new Date(session.created_at * 1000).toLocaleString()}
+                {new Date(session.messages[0]?.created * 1000).toLocaleString()}
               </span>
               <span className="flex items-center">
                 <Globe className="w-4 h-4 mr-1" />
