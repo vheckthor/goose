@@ -13,7 +13,7 @@ import {
 import { Buffer } from 'node:buffer';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import 'dotenv/config';
 import { startGoosed } from './goosed';
 import { getBinaryPath } from './utils/binaryPath';
@@ -31,6 +31,7 @@ import * as crypto from 'crypto';
 import * as electron from 'electron';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import * as net from 'net';
 
 const exec = promisify(execCallback);
 
@@ -252,7 +253,12 @@ const createChat = async (
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
     unregisterDevToolsShortcut();
+
+    // Only stop the goosed process for this window
     goosedProcess.kill();
+
+    // Don't stop the code server here - it will be stopped when the app quits
+    // This allows the code server to remain running if other windows are still open
   });
   return mainWindow;
 };
@@ -676,9 +682,156 @@ EOT`;
   });
 });
 
+// Code server process management
+// This process is kept running for the entire application lifecycle
+// and is only stopped when the app quits or when explicitly requested
+let codeServerProcess: ChildProcess | null = null;
+let currentPort: number | null = null;
+let currentToken: string | null = null;
+
+/**
+ * Checks if a port is available
+ */
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    server.once('error', () => {
+      resolve(false); // Port is in use
+    });
+
+    server.once('listening', () => {
+      // Close the server and resolve true (port is available)
+      server.close(() => {
+        resolve(true);
+      });
+    });
+
+    server.listen(port);
+  });
+}
+
+/**
+ * Finds a free port in the range 8500-9999
+ */
+async function findFreePort(): Promise<number> {
+  // Generate a random port in the range 8500-9999
+  const getRandomPort = () => Math.floor(Math.random() * (9999 - 8500 + 1)) + 8500;
+
+  let port = getRandomPort();
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  // Try to find an available port
+  while (attempts < maxAttempts) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    port = getRandomPort();
+    attempts++;
+  }
+
+  throw new Error('Could not find an available port after multiple attempts');
+}
+
+ipcMain.handle('start-code-server', async (event, workingDir: string) => {
+  try {
+    // If a server is already running, return its details
+    if (codeServerProcess && currentPort && currentToken) {
+      return { port: currentPort, token: currentToken };
+    }
+
+    // Find a free port
+    const port = await findFreePort();
+    const token = crypto.randomBytes(16).toString('hex');
+
+    // Start the code-server process
+    codeServerProcess = spawn(
+      'code',
+      ['serve-web', '--port', port.toString(), `--connection-token=${token}`],
+      {
+        detached: false, // Keep the process attached to the parent
+        stdio: 'pipe', // Capture output
+      }
+    );
+
+    currentPort = port;
+    currentToken = token;
+
+    // Handle process exit
+    codeServerProcess.on('exit', (code) => {
+      console.log(`Code server process exited with code ${code}`);
+      codeServerProcess = null;
+      currentPort = null;
+      currentToken = null;
+    });
+
+    // Log stdout and stderr
+    codeServerProcess.stdout?.on('data', (data) => {
+      console.log(`[Code Server] ${data}`);
+    });
+
+    codeServerProcess.stderr?.on('data', (data) => {
+      console.error(`[Code Server Error] ${data}`);
+    });
+
+    // Wait for the server to start
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    return { port, token };
+  } catch (error) {
+    console.error('Failed to start code server:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('stop-code-server', () => {
+  if (codeServerProcess) {
+    codeServerProcess.kill();
+    codeServerProcess = null;
+    currentPort = null;
+    currentToken = null;
+    return true;
+  }
+  return false;
+});
+
+ipcMain.handle('get-webview-url', (event, workingDir: string) => {
+  if (!currentPort || !currentToken) return null;
+
+  // Encode the working directory to make it URL-safe
+  const encodedWorkingDir = encodeURIComponent(workingDir);
+
+  return `http://127.0.0.1:${currentPort}?tkn=${currentToken}&folder=${encodedWorkingDir}`;
+});
+
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    // Stop the code server if it's running
+    if (codeServerProcess) {
+      console.log('Stopping code server on app quit...');
+      codeServerProcess.kill();
+      codeServerProcess = null;
+      currentPort = null;
+      currentToken = null;
+    }
+
     app.quit();
   }
+});
+
+// Also clean up when the app is about to quit
+app.on('will-quit', () => {
+  // Stop the code server if it's running
+  if (codeServerProcess) {
+    console.log('Stopping code server on app quit...');
+    codeServerProcess.kill();
+    codeServerProcess = null;
+    currentPort = null;
+    currentToken = null;
+  }
+
+  // Make sure to unregister all shortcuts
+  globalShortcut.unregisterAll();
 });

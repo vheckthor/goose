@@ -223,7 +223,7 @@ export default function ChatView({
     }
   }, [messages]);
 
-  // Add keyboard shortcut for toggling WebView
+  // Add keyboard shortcut for toggling editor
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Toggle WebView with Cmd/Ctrl+W
@@ -470,13 +470,7 @@ export default function ChatView({
 
       {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
 
-      {showWebView && (
-        <WebView
-          url="http://127.0.0.1:8080?tkn=3afb83bb-ce59-4a08-94ec-5e7e5f8a692b"
-          isVisible={showWebView}
-          onClose={() => setShowWebView(false)}
-        />
-      )}
+      {showWebView && <WebView isVisible={showWebView} onClose={() => setShowWebView(false)} />}
 
       {/* Deep Link Modal */}
       {showShareableBotModal && generatedBotConfig && (

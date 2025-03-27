@@ -1,18 +1,55 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { startCodeServer, stopCodeServer, getWebViewUrl } from '../utils/webViewServer';
 
 interface WebViewProps {
-  url: string;
   isVisible: boolean;
   onClose: () => void;
+  url?: string; // Make url optional as we'll generate it dynamically
 }
 
-const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
+const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }) => {
   const webviewRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [width, setWidth] = useState(50); // Width as percentage
   const [isResizing, setIsResizing] = useState(false);
+  const [webViewUrl, setWebViewUrl] = useState<string | null>(initialUrl || null);
+
+  useEffect(() => {
+    // Start the code server when the component becomes visible
+    if (isVisible && !webViewUrl) {
+      const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') || '';
+
+      // Start the code server and get the URL
+      const startServer = async () => {
+        try {
+          setIsLoading(true);
+          await startCodeServer(workingDir);
+          const url = await getWebViewUrl(workingDir);
+          // sleep for a few seconds
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          setWebViewUrl(url);
+        } catch (error) {
+          console.error('Failed to start code server:', error);
+          setLoadError(`Failed to start code server: ${error.message}`);
+          setIsLoading(false);
+        }
+      };
+
+      startServer();
+    }
+
+    // Note: We no longer stop the server when the component unmounts
+    // The server will continue running until the app exits
+    // This is handled by the main process in app.on('will-quit')
+    return () => {
+      // Just clear the URL state when the component unmounts
+      if (!isVisible) {
+        setWebViewUrl(null);
+      }
+    };
+  }, [isVisible, webViewUrl]);
 
   useEffect(() => {
     // Create the webview element when the component mounts
@@ -20,8 +57,8 @@ const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
       // Clear any existing content
       webviewRef.current.innerHTML = '';
 
-      // Only create the webview if it should be visible
-      if (isVisible) {
+      // Only create the webview if it should be visible and we have a URL
+      if (isVisible && webViewUrl) {
         setIsLoading(true);
         setLoadError(null);
 
@@ -29,7 +66,7 @@ const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
         const webview = document.createElement('webview');
 
         // Set attributes
-        webview.src = url;
+        webview.src = webViewUrl;
         webview.style.width = '100%';
         webview.style.height = '100%';
         webview.style.border = 'none';
@@ -39,7 +76,7 @@ const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
 
         // Add event listener for load completion
         webview.addEventListener('dom-ready', () => {
-          console.log('WebView loaded:', url);
+          console.log('WebView loaded:', webViewUrl);
           setIsLoading(false);
         });
 
@@ -54,7 +91,7 @@ const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
         webviewRef.current.appendChild(webview);
       }
     }
-  }, [url, isVisible]);
+  }, [webViewUrl, isVisible]);
 
   // Handle resize functionality
   useEffect(() => {
@@ -194,7 +231,6 @@ const WebView: React.FC<WebViewProps> = ({ url, isVisible, onClose }) => {
 
                     // Recreate the webview element
                     const webview = document.createElement('webview');
-                    webview.src = url;
                     webview.style.width = '100%';
                     webview.style.height = '100%';
                     webview.style.border = 'none';
