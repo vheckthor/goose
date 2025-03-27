@@ -243,7 +243,7 @@ export default function MoreMenu({
                   subtitle="Show or hide the editor"
                   icon={<div className="w-4 h-4 flex items-center justify-center">🌐</div>}
                 >
-                  Open Editor
+                  Code Editor
                   <span className="text-textSubtle ml-1">⌘W</span>
                 </MenuButton>
               )}
