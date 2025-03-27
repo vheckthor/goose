@@ -171,6 +171,7 @@ const createChat = async (
         }),
       ],
       partition: 'persist:goose', // Add this line to ensure persistence
+      webviewTag: true, // Enable webview tag
     },
   });
 

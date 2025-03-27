@@ -12,6 +12,7 @@ import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import UserMessage from './UserMessage';
 import Splash from './Splash';
 import { DeepLinkModal } from './ui/DeepLinkModal';
+import WebView from './WebView';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
 import { BotConfig } from '../botConfig';
@@ -53,6 +54,7 @@ export default function ChatView({
   const [hasMessages, setHasMessages] = useState(false);
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
   const [showGame, setShowGame] = useState(false);
+  const [showWebView, setShowWebView] = useState(false);
   const [waitingForAgentResponse, setWaitingForAgentResponse] = useState(false);
   const [showShareableBotModal, setshowShareableBotModal] = useState(false);
   const [generatedBotConfig, setGeneratedBotConfig] = useState<any>(null);
@@ -221,6 +223,22 @@ export default function ChatView({
     }
   }, [messages]);
 
+  // Add keyboard shortcut for toggling WebView
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Toggle WebView with Cmd/Ctrl+W
+      if ((event.metaKey || event.ctrlKey) && event.key === 'w') {
+        event.preventDefault();
+        setShowWebView(!showWebView);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showWebView]);
+
   // Handle submit
   const handleSubmit = (e: React.FormEvent) => {
     window.electron.startPowerSaveBlocker();
@@ -377,7 +395,11 @@ export default function ChatView({
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
       <div className="relative flex items-center h-[36px] w-full">
-        <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
+        <MoreMenuLayout
+          setView={setView}
+          setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
+          toggleWebView={() => setShowWebView(!showWebView)}
+        />
       </div>
       <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
         {messages.length === 0 ? (
@@ -447,6 +469,14 @@ export default function ChatView({
       </Card>
 
       {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
+
+      {showWebView && (
+        <WebView
+          url="http://127.0.0.1:8080?tkn=3afb83bb-ce59-4a08-94ec-5e7e5f8a692b"
+          isVisible={showWebView}
+          onClose={() => setShowWebView(false)}
+        />
+      )}
 
       {/* Deep Link Modal */}
       {showShareableBotModal && generatedBotConfig && (
