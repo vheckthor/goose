@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
@@ -23,8 +24,8 @@ pub enum AuthError {
     TokenCreation(String),
 
     /// Error during OAuth token exchange
-    #[error("Token exchange failed: {0}")]
-    TokenExchange(String),
+    #[error("Token exchange failed: {0:#}")]
+    TokenExchange(#[source] anyhow::Error),
 }
 
 /// Represents an authentication token with its type and value.
@@ -473,24 +474,15 @@ impl GcpAuth {
             .form(params)
             .send()
             .await
-            .map_err(|e| AuthError::TokenExchange(e.to_string()))?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(AuthError::TokenExchange(format!(
-                "Status {}: {}",
-                status, error_text
-            )));
-        }
+            .map_err(|e| AuthError::TokenExchange(e.into()))?
+            .error_for_status()
+            .map_err(|e| AuthError::TokenExchange(e.into()))?;
 
         response
             .json::<TokenResponse>()
             .await
-            .map_err(|e| AuthError::TokenExchange(format!("Invalid response: {}", e)))
+            .with_context(|| "Invalid response")
+            .map_err(AuthError::TokenExchange)
     }
 
     /// Gets a token using service account credentials.
