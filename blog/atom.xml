@@ -2,11 +2,98 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
     <id>https://block.github.io/goose/blog</id>
     <title>codename goose Blog</title>
-    <updated>2025-03-26T00:00:00.000Z</updated>
+    <updated>2025-03-28T00:00:00.000Z</updated>
     <generator>https://github.com/jpmonette/feed</generator>
     <link rel="alternate" href="https://block.github.io/goose/blog"/>
     <subtitle>codename goose Blog</subtitle>
     <icon>https://block.github.io/goose/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Vibe Coding with Goose and the Speech MCP]]></title>
+        <id>https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose</id>
+        <link href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose"/>
+        <updated>2025-03-28T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[Explore the new Speech MCP server that enables voice-controlled coding and natural conversation with your AI agent]]></summary>
+        <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/vibe-coding-b2efeed37ea43f4773da5f1ff96f4184.png" width="1280" height="720" class="img_ev3q"></p>
+<p>Imagine creating an app just by describing what you want out loud, like you’re talking to a friend. That’s the magic of vibe coding: turning natural language into working code with the help of an AI agent. And while typing a prompt gets the job done, saying it out loud hits different 🔥 The new <a href="https://block.github.io/goose/docs/tutorials/speech-mcp" target="_blank" rel="noopener noreferrer">Speech MCP server</a> has quite literally entered the chat.</p>
+<p>In a recent <a href="https://www.youtube.com/watch?v=Zey9GHyXlHY&amp;ab_channel=BlockOpenSource" target="_blank" rel="noopener noreferrer">Wild Goose Case livestream</a>, hosts <a href="https://www.linkedin.com/in/ebonylouis/" target="_blank" rel="noopener noreferrer">Ebony Louis</a> and <a href="https://www.linkedin.com/in/acekyd/" target="_blank" rel="noopener noreferrer">Adewale Abati</a> were joined by <a href="https://www.linkedin.com/in/maksym-stepanenko-26404867" target="_blank" rel="noopener noreferrer">Max Novich</a> from Block's AI tools team, who demonstrated an exciting new extension - the <a href="https://github.com/Kvadratni/speech-mcp" target="_blank" rel="noopener noreferrer">Speech MCP server</a>.</p>
+<p>During the livestream, Max demonstrated this by creating an entire web application using only voice commands - no keyboard or mouse required. This resulted in a vibrant, animated webpage with 3D effects, synthwave aesthetics, and interactive elements, all created through natural conversation with Goose.</p>
+<iframe class="aspect-ratio" src="https://www.youtube.com/embed/Zey9GHyXlHY?start=437&amp;end=752" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="the-speech-mcp-server">The Speech MCP Server<a href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose#the-speech-mcp-server" class="hash-link" aria-label="Direct link to The Speech MCP Server" title="Direct link to The Speech MCP Server">​</a></h2>
+<p><a href="https://github.com/Kvadratni/speech-mcp" target="_blank" rel="noopener noreferrer">Speech MCP</a> is an open source MCP server that enables voice interaction with AI agents like Goose. What makes it special is that it runs entirely locally on your machine, making it:</p>
+<ul>
+<li>LLM agnostic</li>
+<li>Privacy-focused</li>
+<li>Cost-effective compared to cloud-based alternatives</li>
+<li>Accessible without internet connectivity</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="key-features">Key Features<a href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose#key-features" class="hash-link" aria-label="Direct link to Key Features" title="Direct link to Key Features">​</a></h3>
+<ol>
+<li>
+<p><strong>Local Speech Processing</strong>: Uses two main models:</p>
+<ul>
+<li>Faster Whisper: An efficient method to convert speech to text</li>
+<li>Coqui TTS: A Japanese-engineered text-to-speech model with 54 natural-sounding voices</li>
+</ul>
+</li>
+<li>
+<p><strong>Voice Selection</strong>: Choose from 54 different voices with varying characteristics and personalities</p>
+</li>
+<li>
+<p><strong>Multi-Speaker Narration</strong>: Generate and play conversations between multiple voices</p>
+</li>
+<li>
+<p><strong>Audio Transcription</strong>: Convert audio/video content to text with timestamps and speaker detection</p>
+</li>
+</ol>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="live-demo-highlights">Live Demo Highlights<a href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose#live-demo-highlights" class="hash-link" aria-label="Direct link to Live Demo Highlights" title="Direct link to Live Demo Highlights">​</a></h2>
+<p>During the demonstration, Max showcased several impressive capabilities:</p>
+<ol>
+<li>
+<p><strong>Voice-Controlled Development</strong>:</p>
+<ul>
+<li>Created animated text effects</li>
+<li>Implemented 3D transformations</li>
+<li>Added synthwave aesthetics with gradients and grids</li>
+<li>Integrated music controls</li>
+</ul>
+</li>
+<li>
+<p><strong>System Integration</strong>:</p>
+<ul>
+<li>Controlled applications like Discord using voice commands</li>
+<li>Navigated file system and development environment</li>
+<li>Generated and managed audio content</li>
+</ul>
+</li>
+<li>
+<p><strong>Natural Interaction</strong>:</p>
+<ul>
+<li>Fluid conversation with Goose</li>
+<li>Real-time feedback and adjustments</li>
+<li>Multi-voice narration for documentation</li>
+</ul>
+</li>
+</ol>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="getting-started">Getting Started<a href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose#getting-started" class="hash-link" aria-label="Direct link to Getting Started" title="Direct link to Getting Started">​</a></h2>
+<p>To try the Speech MCP server yourself:</p>
+<ol>
+<li>
+<p>Install the required audio library (PortAudio):</p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_biex"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#393A34"><span class="token plain"># For macOS</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">brew install portaudio</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#393A34"><span class="token plain"># For Linux</span><br></span><span class="token-line" style="color:#393A34"><span class="token plain">apt-get install portaudio  # or dnf install portaudio</span><br></span></code></pre><div class="buttonGroup__atx"><button type="button" aria-label="Copy code to clipboard" title="Copy" class="clean-btn"><span class="copyButtonIcons_eSgA" aria-hidden="true"><svg viewBox="0 0 24 24" class="copyButtonIcon_y97N"><path fill="currentColor" d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"></path></svg><svg viewBox="0 0 24 24" class="copyButtonSuccessIcon_LjdS"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"></path></svg></span></button></div></div></div>
+</li>
+<li>
+<p>Install the extension directly using the one-click <a href="goose://extension?cmd=uvx&amp;&amp;arg=-p&amp;arg=3.10.14&amp;arg=speech-mcp@latest&amp;id=speech_mcp&amp;name=Speech%20Interface&amp;description=Voice%20interaction%20with%20audio%20visualization%20for%20Goose" target="_blank" rel="noopener noreferrer">deep link install</a> in Goose</p>
+</li>
+</ol>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="join-the-development">Join the Development<a href="https://block.github.io/goose/blog/2025/03/28/vibe-coding-with-goose#join-the-development" class="hash-link" aria-label="Direct link to Join the Development" title="Direct link to Join the Development">​</a></h2>
+<p>The Speech MCP server is <a href="https://github.com/Kvadratni/speech-mcp" target="_blank" rel="noopener noreferrer">open-source</a> and welcomes contributions. You can also connect with Max on <a href="https://discord.gg/block-opensource" target="_blank" rel="noopener noreferrer">Discord</a> for questions and collaboration.</p>
+<p>Voice interactions with AI agents like Goose with the power and tools to act on instructions provides a different kind of vibe that makes the future feel closer than ever. Whether you're interested in vibe coding, accessibility improvements, or just want to feel a bit more like Tony Stark while getting Goose to pull a J.A.R.V.I.S, the Speech MCP server offers a glimpse into the future of human-AI collaboration - and it's available today.</p>
+]]></content>
+        <author>
+            <name>Adewale Abati</name>
+            <uri>https://adewaleabati.com</uri>
+        </author>
+    </entry>
     <entry>
         <title type="html"><![CDATA[How to Determine If An MCP Server Is Safe]]></title>
         <id>https://block.github.io/goose/blog/2025/03/26/mcp-security</id>
