@@ -29,9 +29,6 @@ type ElectronAPI = {
     directory: string
   ) => Promise<{ file: string; filePath: string; error: string; found: boolean }>;
   writeFile: (directory: string, content: string) => Promise<boolean>;
-  startCodeServer: (workingDir: string) => Promise<{ port: number; token: string }>;
-  stopCodeServer: () => Promise<boolean>;
-  getWebViewUrl: (workingDir: string) => Promise<string | null>;
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void
@@ -73,9 +70,6 @@ const electronAPI: ElectronAPI = {
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-file', filePath, content),
-  startCodeServer: (workingDir: string) => ipcRenderer.invoke('start-code-server', workingDir),
-  stopCodeServer: () => ipcRenderer.invoke('stop-code-server'),
-  getWebViewUrl: (workingDir: string) => ipcRenderer.invoke('get-webview-url', workingDir),
   on: (channel: string, callback: (event: Electron.IpcRendererEvent, ...args: any[]) => void) => {
     ipcRenderer.on(channel, callback);
   },
