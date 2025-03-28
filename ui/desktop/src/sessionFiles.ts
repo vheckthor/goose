@@ -31,7 +31,7 @@ export function exportSessionToFile(session: SessionDetails): globalThis.Blob {
  */
 export function downloadSession(session: SessionDetails): void {
   const blob = exportSessionToFile(session);
-  const filename = `goose-session-${session.session_id}.json`;
+  const filename = `goose-session-${session.session_id}.egg`;
 
   // Create a download link and trigger the download
   const url = URL.createObjectURL(blob);

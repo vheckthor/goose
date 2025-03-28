@@ -117,7 +117,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
         type="file"
         ref={fileInputRef}
         onChange={handleImportSession}
-        accept=".json"
+        accept=".egg"
         style={{ display: 'none' }}
       />
 
@@ -127,7 +127,7 @@ const SessionsView: React.FC<SessionsViewProps> = ({ setView }) => {
           onClick={() => fileInputRef.current?.click()}
           className="bg-indigo-500 hover:bg-indigo-600 text-white"
         >
-          Import Session
+          Import from File
         </Button>
       </div>
     </>
