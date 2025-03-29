@@ -22,6 +22,7 @@ pub trait BenchAgent: Send + Sync {
 
     // Get token usage information
     async fn get_token_usage(&self) -> Option<i32>;
+    fn session_file(&self) -> PathBuf;
 }
 
 #[async_trait]
@@ -62,5 +63,8 @@ impl BenchAgent for BenchSession {
 
     async fn get_token_usage(&self) -> Option<i32> {
         self.session.get_total_token_usage().ok().flatten()
+    }
+    fn session_file(&self) -> PathBuf {
+        self.session.session_file()
     }
 }

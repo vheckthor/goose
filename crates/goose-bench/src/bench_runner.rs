@@ -136,9 +136,6 @@ impl BenchRunner {
             self.run_eval_model()?;
         }
 
-        // let mut results = BenchmarkResults::new(provider_name.clone());
-        // let mut results = Vec::new(); // todo hashmap so collected by model
-        // todo mass aggregation
         Ok(())
     }
 
@@ -299,15 +296,20 @@ impl BenchRunner {
                 }
             }
 
+            work_dir.save();
+
+            let eval_results = serde_json::to_string_pretty(&result)?;
+
             let eval_results_file = env::current_dir()?.join("eval_result.json");
-            fs::write(&eval_results_file, serde_json::to_string_pretty(&result)?)?;
+            fs::write(&eval_results_file, &eval_results)?;
 
             if let Some(cmd) = &bench_eval.post_process_cmd {
-                let handle = Command::new(cmd).arg(eval_results_file).spawn()?;
+                let handle = Command::new(cmd).arg(&eval_results_file).spawn()?;
                 self.await_process_exits(&mut [handle]);
             }
 
-            // todo get and write session file
+            let here = std::env::current_dir()?.canonicalize()?;
+            BenchmarkWorkDir::deep_copy(agent.session_file().as_path(), here.as_path(), false)?;
         }
 
         Ok(())

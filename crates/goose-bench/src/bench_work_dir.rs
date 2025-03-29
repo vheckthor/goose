@@ -1,5 +1,6 @@
 use chrono::Local;
 use include_dir::{include_dir, Dir};
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::io::ErrorKind;
@@ -9,11 +10,12 @@ use std::process::Command;
 
 pub static BUILTIN_EVAL_ASSETS: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/assets");
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BenchmarkWorkDir {
     pub base_path: PathBuf,
-    run_dir: PathBuf,
-    cwd: PathBuf,
-    run_name: String,
+    pub run_dir: PathBuf,
+    pub cwd: PathBuf,
+    pub run_id: Option<String>,
 }
 
 impl Default for BenchmarkWorkDir {
@@ -28,12 +30,7 @@ impl BenchmarkWorkDir {
         let base_path = PathBuf::from(format!("./{}", work_dir_name));
         fs::create_dir_all(&base_path).unwrap();
 
-        let run_name = Local::now().format("%Y-%m-%d-%H:%M:%S").to_string();
-
-        let mut base_path = PathBuf::from(&base_path).canonicalize().unwrap();
-        base_path.push(run_name.clone());
-        fs::create_dir_all(&base_path).unwrap();
-        base_path.pop();
+        let base_path = PathBuf::from(&base_path).canonicalize().unwrap();
 
         // abs paths from dir-strings
         let dirs = Self::canonical_dirs(include_dirs);
@@ -52,7 +49,7 @@ impl BenchmarkWorkDir {
             base_path: base_path.clone(),
             run_dir,
             cwd: base_path.clone(),
-            run_name,
+            run_id: None,
         }
     }
 
@@ -91,10 +88,20 @@ impl BenchmarkWorkDir {
         self.cwd = path;
         Ok(self)
     }
+    pub(crate) fn _run_dir(&mut self) -> Option<PathBuf> {
+        if let Some(run_id) = &self.run_id {
+            let mut eval_dir = self.base_path.clone();
+            eval_dir.push(run_id);
+            return Some(eval_dir);
+        }
+        None
+    }
+
     pub fn set_eval(&mut self, eval: &str, run_id: String) {
+        self.run_id = Some(run_id.clone());
+
         let eval = eval.replace(":", std::path::MAIN_SEPARATOR_STR);
         let mut eval_dir = self.base_path.clone();
-        eval_dir.push(self.run_name.clone());
         eval_dir.push(run_id);
         eval_dir.push(eval);
 
@@ -153,7 +160,7 @@ impl BenchmarkWorkDir {
         Ok(PathBuf::from(path))
     }
 
-    fn deep_copy<P, Q>(src: P, dst: Q, recursive: bool) -> io::Result<()>
+    pub(crate) fn deep_copy<P, Q>(src: P, dst: Q, recursive: bool) -> io::Result<()>
     where
         P: AsRef<Path>,
         Q: AsRef<Path>,
@@ -180,6 +187,11 @@ impl BenchmarkWorkDir {
             let error_message = String::from_utf8_lossy(&output.stderr).to_string();
             Err(io::Error::new(ErrorKind::Other, error_message))
         }
+    }
+
+    pub fn save(&self) {
+        let work_dir = serde_json::to_string_pretty(&self).unwrap();
+        fs::write("work_dir.json", work_dir).expect("Unable to write work-dir as file");
     }
 }
 

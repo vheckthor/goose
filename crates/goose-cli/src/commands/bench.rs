@@ -33,8 +33,6 @@ pub async fn agent_generator(requirements: ExtensionRequirements) -> Box<dyn Ben
     )
     .await;
 
-    let _run_id2 = base_session.session_file().file_stem();
-
     let bench_agent = BenchSession::new(Box::new(base_session));
 
     // Initialize logging with error capture
