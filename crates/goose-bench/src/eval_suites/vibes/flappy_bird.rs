@@ -1,7 +1,8 @@
+use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::eval_suites::{
-    collect_baseline_metrics, copy_session_to_cwd, metrics_hashmap_to_vec, BenchAgent, Evaluation,
-    EvaluationMetric, ExtensionRequirements,
+    collect_baseline_metrics, copy_session_to_cwd, metrics_hashmap_to_vec, EvalMetricValue,
+    Evaluation, ExtensionRequirements,
 };
 use crate::register_evaluation;
 use async_trait::async_trait;
@@ -31,9 +32,9 @@ impl FlappyBird {
 impl Evaluation for FlappyBird {
     async fn run(
         &self,
-        mut agent: Box<dyn BenchAgent>,
-        work_dir: &mut BenchmarkWorkDir,
-    ) -> anyhow::Result<Vec<(String, EvaluationMetric)>> {
+        mut agent: &mut Box<dyn BenchAgent>,
+        run_loc: &mut BenchmarkWorkDir,
+    ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("FlappyBird - run");
 
         // Collect baseline metrics (execution time, token usage, tool calls)
@@ -80,17 +81,17 @@ impl Evaluation for FlappyBird {
 
         metrics.push((
             "used_write_tool".to_string(),
-            EvaluationMetric::Boolean(valid_tool_call),
+            EvalMetricValue::Boolean(valid_tool_call),
         ));
 
         // If tool was used correctly, check the actual file content
         if valid_tool_call {
-            if let Ok(file_path) = work_dir.fs_get("flappy_bird.py".to_string()) {
+            if let Ok(file_path) = run_loc.fs_get("flappy_bird.py".to_string()) {
                 if let Ok(content) = fs::read_to_string(file_path) {
                     let valid_implementation = self.check_python_implementation(&content);
                     metrics.push((
                         "valid_implementation".to_string(),
-                        EvaluationMetric::Boolean(valid_implementation),
+                        EvalMetricValue::Boolean(valid_implementation),
                     ));
                 }
             }
