@@ -7,7 +7,7 @@ import { combineCmdAndArgs } from '../utils';
 
 interface ExtensionListProps {
   extensions: FixedExtensionEntry[];
-  onToggle: (name: string) => void;
+  onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void>;
   onConfigure: (extension: FixedExtensionEntry) => void;
 }
 
@@ -25,7 +25,6 @@ export default function ExtensionList({ extensions, onToggle, onConfigure }: Ext
     </div>
   );
 }
-
 // Helper functions
 // Helper function to get a friendly title from extension name
 export function getFriendlyTitle(extension: FixedExtensionEntry): string {
@@ -59,10 +58,10 @@ export function getSubtitle(config: ExtensionConfig): string {
   }
   if (config.type === 'stdio') {
     const full_command = combineCmdAndArgs(config.cmd, config.args);
-    return `STDIO extension${full_command ? `\n${full_command}` : ''}`;
+    return `STDIO extension${config.description ? `: ${config.description}` : ''}${full_command ? `\n${full_command}` : ''}`;
   }
   if (config.type === 'sse') {
-    return `SSE extension${config.uri ? ` (${config.uri})` : ''}`;
+    return `SSE extension${config.description ? `: ${config.description}` : ''}${config.uri ? ` (${config.uri})` : ''}`;
   }
   return `Unknown type of extension`;
 }

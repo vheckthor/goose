@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { addExtensionFromDeepLink } from './extensions';
+import { openSharedSessionFromDeepLink } from './sessionLinks';
 import { getStoredModel } from './utils/providerUtils';
 import { getStoredProvider, initializeSystem } from './utils/providerUtils';
 import { useModel } from './components/settings/models/ModelContext';
@@ -9,9 +10,11 @@ import { getDefaultModel } from './components/settings/models/hardcoded_stuff';
 import ErrorScreen from './components/ErrorScreen';
 import { ConfirmationModal } from './components/ui/ConfirmationModal';
 import { ToastContainer } from 'react-toastify';
+import { toastService } from './toasts';
 import { extractExtensionName } from './components/settings/extensions/utils';
 import { GoosehintsModal } from './components/GoosehintsModal';
-import { SessionDetails, fetchSessionDetails } from './sessions';
+import { SessionDetails } from './sessions';
+import { SharedSessionDetails } from './sharedSessions';
 
 import WelcomeView from './components/WelcomeView';
 import ChatView from './components/ChatView';
@@ -20,16 +23,19 @@ import SettingsViewV2 from './components/settings_v2/SettingsView';
 import MoreModelsView from './components/settings/models/MoreModelsView';
 import ConfigureProvidersView from './components/settings/providers/ConfigureProvidersView';
 import SessionsView from './components/sessions/SessionsView';
+import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
 import { useChat } from './hooks/useChat';
 
 import 'react-toastify/dist/ReactToastify.css';
-import { useConfig } from './components/ConfigContext';
+import { FixedExtensionEntry, useConfig } from './components/ConfigContext';
 import {
   initializeBuiltInExtensions,
   syncBuiltInExtensions,
   addExtensionFromDeepLink as addExtensionFromDeepLinkV2,
+  addToAgentOnStartup,
 } from './components/settings_v2/extensions';
+import { extractExtensionConfig } from './components/settings_v2/extensions/utils';
 
 // Views and their options
 export type View =
@@ -41,7 +47,8 @@ export type View =
   | 'configPage'
   | 'ConfigureProviders'
   | 'settingsV2'
-  | 'sessions';
+  | 'sessions'
+  | 'sharedSession';
 
 export type ViewConfig = {
   view: View;
@@ -73,104 +80,74 @@ export default function App() {
     return `${cmd} ${args.join(' ')}`.trim();
   }
 
-  // this is all settings v2 stuff
   useEffect(() => {
-    // Skip if feature flag is not enabled
     if (!process.env.ALPHA) {
       return;
     }
 
-    console.log('Alpha flow initializing...');
+    // Guard against multiple initialization attempts
+    if (initAttemptedRef.current) {
+      console.log('Initialization already attempted, skipping...');
+      return;
+    }
+    initAttemptedRef.current = true;
 
-    const setupExtensions = async () => {
-      try {
-        console.log('Setting up extensions...');
-
-        // Set the ref immediately to prevent duplicate runs
-        initAttemptedRef.current = true;
-        console.log('Set initAttemptedRef to prevent duplicate runs');
-
-        // Force refresh extensions from the backend to ensure we have the latest
-        console.log('Getting extensions from backend...');
-        const refreshedExtensions = await getExtensions(true);
-        console.log(`Retrieved ${refreshedExtensions.length} extensions`);
-
-        if (refreshedExtensions.length === 0) {
-          // If we still have no extensions, this is truly a first-time setup
-          console.log('First-time setup: Adding all built-in extensions...');
-          await initializeBuiltInExtensions(addExtension);
-          console.log('Built-in extensions initialization complete');
-        } else {
-          // Extensions exist, check for any missing built-ins
-          console.log('Checking for missing built-in extensions...');
-          console.log('Current extensions:', refreshedExtensions);
-          await syncBuiltInExtensions(refreshedExtensions, addExtension);
-          console.log('Built-in extensions sync complete');
-        }
-      } catch (error) {
-        console.error('Error setting up extensions:', error);
-        console.error('Extension setup error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-        // We don't set fatal error here since the app might still work without extensions
-      }
-    };
+    console.log(`Initializing app in alpha mode...`);
 
     const initializeApp = async () => {
       try {
-        console.log('Initializing alpha app...');
-
-        // Check if we have the required configuration
-        console.log('Reading GOOSE_PROVIDER from config...');
-        const provider = (await read('GOOSE_PROVIDER', false)) as string;
-        console.log('Provider from config:', provider);
-
-        console.log('Reading GOOSE_MODEL from config...');
-        const model = (await read('GOOSE_MODEL', false)) as string;
-        console.log('Model from config:', model);
+        const config = window.electron.getConfig();
+        const provider = config.GOOSE_PROVIDER ?? (await read('GOOSE_PROVIDER', false));
+        const model = config.GOOSE_MODEL ?? (await read('GOOSE_MODEL', false));
 
         if (provider && model) {
-          // We have all needed configuration, initialize the system
-          console.log(`Initializing system with provider: ${provider}, model: ${model}`);
-          await initializeSystem(provider, model);
-          console.log('System initialization successful');
+          console.log(`Using provider: ${provider}, model: ${model}`);
           setView('chat');
+
+          try {
+            await initializeSystem(provider, model);
+
+            // Initialize or sync built-in extensions into config.yaml
+            let refreshedExtensions = await getExtensions(true);
+
+            if (refreshedExtensions.length === 0) {
+              await initializeBuiltInExtensions(addExtension);
+              refreshedExtensions = await getExtensions(true);
+            } else {
+              await syncBuiltInExtensions(refreshedExtensions, addExtension);
+            }
+
+            // Add enabled extensions to agent
+            for (const extensionEntry of refreshedExtensions) {
+              if (extensionEntry.enabled) {
+                const extensionConfig = extractExtensionConfig(extensionEntry);
+                await addToAgentOnStartup({ addToConfig: addExtension, extensionConfig });
+              }
+            }
+          } catch (error) {
+            console.error('Error in alpha initialization:', error);
+            setFatalError(`System initialization error: ${error.message || 'Unknown error'}`);
+            setView('welcome');
+          }
         } else {
-          // Missing configuration, show onboarding
-          console.log('Missing configuration, showing onboarding');
-          if (!provider) console.log('Missing provider');
-          if (!model) console.log('Missing model');
+          console.log('Missing required configuration, showing onboarding');
           setView('welcome');
         }
       } catch (error) {
-        console.error('Error initializing app:', error);
-        console.error('App initialization error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
-        });
-        setFatalError(`Alpha initialization error: ${error.message || 'Unknown error'}`);
+        console.error('Error in alpha config check:', error);
+        setFatalError(`Configuration error: ${error.message || 'Unknown error'}`);
         setView('welcome');
       }
+
+      // Reset toast service after initialization
+      toastService.configure({ silent: false });
     };
 
-    // Execute with better promise handling
-    initializeApp()
-      .then(() => console.log('Alpha app initialization complete'))
-      .catch((error) => {
-        console.error('Unhandled error in initializeApp:', error);
-        setFatalError(`Unhandled alpha app error: ${error.message || 'Unknown error'}`);
-      });
-
-    setupExtensions()
-      .then(() => console.log('Extensions setup complete'))
-      .catch((error) => {
-        console.error('Unhandled error in setupExtensions:', error);
-        // Not setting fatal error here since extensions are optional
-      });
-  }, []); // Empty dependency array since we're using initAttemptedRef
+    initializeApp().catch((error) => {
+      console.error('Unhandled error in initialization:', error);
+      setFatalError(`Initialization error: ${error.message || 'Unknown error'}`);
+    });
+  }, []);
 
   const setView = (view: View, viewOptions: Record<any, any> = {}) => {
     console.log(`Setting view to: ${view}`, viewOptions);
@@ -179,6 +156,9 @@ export default function App() {
 
   const [isGoosehintsModalOpen, setIsGoosehintsModalOpen] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
+  const [sharedSession, setSharedSession] = useState<SharedSessionDetails | null>(null);
+  const [sharedSessionError, setSharedSessionError] = useState<string | null>(null);
+  const [isLoadingSharedSession, setIsLoadingSharedSession] = useState(false);
   const { chat, setChat } = useChat({ setView, setIsLoadingSession });
 
   useEffect(() => {
@@ -189,6 +169,31 @@ export default function App() {
       console.error('Error sending reactReady:', error);
       setFatalError(`React ready notification failed: ${error.message}`);
     }
+  }, []);
+
+  // Handle shared session deep links
+  useEffect(() => {
+    const handleOpenSharedSession = async (_: any, link: string) => {
+      window.electron.logInfo(`Opening shared session from deep link ${link}`);
+      setIsLoadingSharedSession(true);
+      setSharedSessionError(null);
+
+      try {
+        await openSharedSessionFromDeepLink(link, setView);
+        // No need to handle errors here as openSharedSessionFromDeepLink now handles them internally
+      } catch (error) {
+        // This should not happen, but just in case
+        console.error('Unexpected error opening shared session:', error);
+        setView('sessions'); // Fallback to sessions view
+      } finally {
+        setIsLoadingSharedSession(false);
+      }
+    };
+
+    window.electron.on('open-shared-session', handleOpenSharedSession);
+    return () => {
+      window.electron.off('open-shared-session', handleOpenSharedSession);
+    };
   }, []);
 
   // Keyboard shortcut handler
@@ -311,7 +316,7 @@ export default function App() {
       return;
     }
 
-    console.log('Non-alpha flow initializing...');
+    console.log(`Initializing app in non-alpha mode...`);
 
     // Attempt to detect config for a stored provider
     const detectStoredProvider = () => {
@@ -474,6 +479,30 @@ export default function App() {
             />
           )}
           {view === 'sessions' && <SessionsView setView={setView} />}
+          {view === 'sharedSession' && (
+            <SharedSessionView
+              session={viewOptions.sessionDetails}
+              isLoading={isLoadingSharedSession}
+              error={viewOptions.error || sharedSessionError}
+              onBack={() => setView('sessions')}
+              onRetry={async () => {
+                if (viewOptions.shareToken && viewOptions.baseUrl) {
+                  setIsLoadingSharedSession(true);
+                  try {
+                    await openSharedSessionFromDeepLink(
+                      `goose://sessions/${viewOptions.shareToken}`,
+                      setView,
+                      viewOptions.baseUrl
+                    );
+                  } catch (error) {
+                    console.error('Failed to retry loading shared session:', error);
+                  } finally {
+                    setIsLoadingSharedSession(false);
+                  }
+                }
+              }}
+            />
+          )}
         </div>
       </div>
       {isGoosehintsModalOpen && (

@@ -2287,7 +2287,7 @@ dependencies = [
 
 [[package]]
 name = "goose"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2341,7 +2341,7 @@ dependencies = [
 
 [[package]]
 name = "goose-bench"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2364,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "goose-cli"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2401,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "goose-mcp"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2446,7 +2446,7 @@ dependencies = [
 
 [[package]]
 name = "goose-server"
-version = "1.0.15"
+version = "1.0.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2465,6 +2465,7 @@ dependencies = [
  "mcp-core",
  "mcp-server",
  "once_cell",
+ "reqwest 0.12.12",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -4724,6 +4725,7 @@ dependencies = [
  "cookie",
  "cookie_store",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2 0.4.8",

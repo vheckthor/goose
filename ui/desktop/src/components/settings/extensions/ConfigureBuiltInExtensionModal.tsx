@@ -5,8 +5,7 @@ import { Input } from '../../ui/input';
 import { FullExtensionConfig } from '../../../extensions';
 import { getApiUrl, getSecretKey } from '../../../config';
 import { addExtension } from '../../../extensions';
-import { toast } from 'react-toastify';
-import { ToastError, ToastSuccess } from '../models/toasts';
+import { toastError, toastSuccess } from '../../../toasts';
 
 interface ConfigureExtensionModalProps {
   isOpen: boolean;
@@ -69,7 +68,7 @@ export function ConfigureBuiltInExtensionModal({
         throw new Error('Failed to add system configuration');
       }
 
-      ToastSuccess({
+      toastSuccess({
         title: extension.name,
         msg: `Successfully configured extension`,
       });
@@ -77,10 +76,10 @@ export function ConfigureBuiltInExtensionModal({
       onClose();
     } catch (error) {
       console.error('Error configuring extension:', error);
-      ToastError({
+      toastError({
         title: extension.name,
         msg: `Failed to configure the extension`,
-        errorMessage: error.message,
+        traceback: error.message,
       });
     } finally {
       setIsSubmitting(false);
