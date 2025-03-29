@@ -41,4 +41,4 @@ debug_*.txt
 benchmark-*
 benchconf.toml
 scripts/fake.sh
-crates/goose-bench/src/benchmark_analyzer.rs
+local_ignore/
