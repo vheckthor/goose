@@ -140,6 +140,7 @@ let appConfig = {
   GOOSE_API_HOST: 'http://127.0.0.1',
   GOOSE_PORT: 0,
   GOOSE_WORKING_DIR: '',
+  USER_NAME: process.env.USER,
   secretKey: generateSecretKey(),
 };
 

@@ -57,6 +57,8 @@ export default function ChatView({
   const [generatedBotConfig, setGeneratedBotConfig] = useState<any>(null);
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
+  console.log('USER IS ' + window.appConfig.get('USER_NAME'));
+
   // Get botConfig directly from appConfig
   const botConfig = window.appConfig.get('botConfig') as BotConfig | null;
 
