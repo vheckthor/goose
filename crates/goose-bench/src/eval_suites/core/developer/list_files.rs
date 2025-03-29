@@ -23,15 +23,13 @@ impl DeveloperListFiles {
 impl Evaluation for DeveloperListFiles {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to list files
-        let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
-            "list the files in the current directory".to_string(),
-        )
-        .await;
+        let (messages, perf_metrics) =
+            collect_baseline_metrics(agent, "list the files in the current directory".to_string())
+                .await;
 
         // Convert HashMap to Vec for our metrics
         let mut metrics = metrics_hashmap_to_vec(perf_metrics);

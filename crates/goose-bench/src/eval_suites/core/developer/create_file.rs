@@ -25,12 +25,12 @@ impl DeveloperCreateFile {
 impl Evaluation for DeveloperCreateFile {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to create and read
         let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "Create a new file called test.txt in the current directory with the content 'Hello, World!'. Then read the contents of the new file to confirm.".to_string()
         ).await;
 

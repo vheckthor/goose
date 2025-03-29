@@ -24,12 +24,12 @@ impl DeveloperImage {
 impl Evaluation for DeveloperImage {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to list files
         let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "Take a screenshot of the display 0 and describe what you see.".to_string(),
         )
         .await;

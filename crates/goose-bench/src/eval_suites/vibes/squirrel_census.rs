@@ -31,7 +31,7 @@ impl SquirrelCensus {
 impl Evaluation for SquirrelCensus {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("SquirrelCensus - run");
@@ -46,7 +46,7 @@ impl Evaluation for SquirrelCensus {
 
         // Collect baseline metrics (execution time, token usage, tool calls)
         let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             format!(
                 "Create a Python script called analyze_squirrels.py that analyzes the CSV file at {}. Do not ask for any clarification or further instructions - proceed with the implementation as specified below.
 

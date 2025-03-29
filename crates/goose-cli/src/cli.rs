@@ -72,7 +72,6 @@ enum SessionCommand {
     },
 }
 
-
 #[derive(Subcommand)]
 pub enum BenchCommand {
     #[command(name = "config-init", about = "Create a new starter-config")]
@@ -113,7 +112,6 @@ pub enum BenchCommand {
         config: String,
     },
 }
-
 
 #[derive(Subcommand)]
 enum Command {
@@ -307,13 +305,13 @@ pub async fn cli() -> Result<()> {
             let _ = run_server(&name).await;
         }
         Some(Command::Session {
-                 command,
-                 identifier,
-                 resume,
-                 debug,
-                 extension,
-                 builtin,
-             }) => {
+            command,
+            identifier,
+            resume,
+            debug,
+            extension,
+            builtin,
+        }) => {
             match command {
                 Some(SessionCommand::List { verbose, format }) => {
                     handle_session_list(verbose, format)?;
@@ -328,7 +326,7 @@ pub async fn cli() -> Result<()> {
                         builtin,
                         debug,
                     )
-                        .await;
+                    .await;
                     setup_logging(
                         session.session_file().file_stem().and_then(|s| s.to_str()),
                         None,
@@ -339,15 +337,15 @@ pub async fn cli() -> Result<()> {
             }
         }
         Some(Command::Run {
-                 instructions,
-                 input_text,
-                 interactive,
-                 identifier,
-                 resume,
-                 debug,
-                 extension,
-                 builtin,
-             }) => {
+            instructions,
+            input_text,
+            interactive,
+            identifier,
+            resume,
+            debug,
+            extension,
+            builtin,
+        }) => {
             let contents = match (instructions, input_text) {
                 (Some(file), _) if file == "-" => {
                     let mut stdin = String::new();
@@ -377,7 +375,7 @@ pub async fn cli() -> Result<()> {
                 builtin,
                 debug,
             )
-                .await;
+            .await;
 
             setup_logging(
                 session.session_file().file_stem().and_then(|s| s.to_str()),
@@ -397,9 +395,9 @@ pub async fn cli() -> Result<()> {
             return Ok(());
         }
         Some(Command::Update {
-                 canary,
-                 reconfigure,
-             }) => {
+            canary,
+            reconfigure,
+        }) => {
             crate::commands::update::update(canary, reconfigure)?;
             return Ok(());
         }

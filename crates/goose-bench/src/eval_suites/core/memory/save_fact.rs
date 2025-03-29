@@ -25,12 +25,12 @@ impl MemoryRememberMemory {
 impl Evaluation for MemoryRememberMemory {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to list files
         let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "Save this fact: The capital of France is Paris.".to_string(),
         )
         .await;

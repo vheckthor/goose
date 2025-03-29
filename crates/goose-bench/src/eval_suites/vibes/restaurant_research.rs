@@ -31,14 +31,14 @@ impl RestaurantResearch {
 impl Evaluation for RestaurantResearch {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("RestaurantResearch - run");
 
         // Collect baseline metrics (execution time, token usage, tool calls)
         let (response, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "Search the internet for and provide a current, detailed list of the best Sichuanese restaurants specifically in the East Village neighborhood of NYC. Format your response in Markdown using bullet points (either - or *) for each restaurant. For each restaurant include:
 - Restaurant name and what they're known for
 - Signature dishes

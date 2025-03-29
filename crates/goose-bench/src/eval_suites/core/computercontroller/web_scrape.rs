@@ -25,12 +25,12 @@ impl ComputerControllerWebScrape {
 impl Evaluation for ComputerControllerWebScrape {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to list files
         let (messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "What are the headlines on hackernews? Organize the list into categories.".to_string(),
         )
         .await;

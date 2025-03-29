@@ -24,14 +24,14 @@ impl BlogSummary {
 impl Evaluation for BlogSummary {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("BlogSummary - run");
 
         // Collect baseline metrics (execution time, token usage, tool calls)
         let (response, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "What are the top 5 most counterintuitive insights from this blog post? Format your response in Markdown with 5 numbered points (1. 2. 3. 4. 5.) https://huyenchip.com/2025/01/07/agents.html".to_string()
         ).await;
 

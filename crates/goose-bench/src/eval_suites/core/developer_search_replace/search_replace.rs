@@ -21,7 +21,7 @@ impl DeveloperSearchReplace {
 impl Evaluation for DeveloperSearchReplace {
     async fn run(
         &self,
-        mut agent: &mut Box<dyn BenchAgent>,
+        agent: &mut Box<dyn BenchAgent>,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         let _target_file = match run_loc.fs_get("./assets/kubernetes_swagger.json".to_string()) {
@@ -37,7 +37,7 @@ impl Evaluation for DeveloperSearchReplace {
 
         // Send the prompt to modify the file
         let (_messages, perf_metrics) = collect_baseline_metrics(
-            &mut agent,
+            agent,
             "Remove the io.k8s.api.admissionregistration.v1.ServiceReference definition block and replace with a new definition for io.k8s.api.admissionregistration.v1.FakeServiceReference. Update the fields in the definition as well to be consistent. Don't change the property names. Don't update any references to the old definition. Only modify the definition and it's description to 'FakeServiceReference simulates a reference to a fake service for testing purposes.'.The file to modify is kubernetes_swagger.json.".to_string()
         ).await;
 

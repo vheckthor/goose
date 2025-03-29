@@ -55,7 +55,7 @@ impl Default for BenchRunConfig {
             ],
             evals: vec![BenchEval {
                 selector: "core".into(),
-                post_process_cmd: None
+                post_process_cmd: None,
             }],
             include_dirs: vec![],
             repeat: Some(2),
@@ -156,11 +156,7 @@ impl BenchRunner {
 
     pub fn run_eval_model(&self) -> anyhow::Result<()> {
         let model = self.config.models.first().unwrap();
-        let repeat = if let Some(repeat) = self.config.repeat {
-            repeat
-        } else {
-            1
-        };
+        let repeat = self.config.repeat.unwrap_or(1);
 
         let mut handles = vec![];
 
@@ -213,11 +209,12 @@ impl BenchRunner {
 
         let mut results_handles = HashMap::<String, Vec<Child>>::new();
 
-        let envs = vec![
+        let envs = [
             vec![(model.clone().name, model.clone().provider)],
             self.toolshim_envs(),
         ]
-            .concat();
+        .concat();
+
         for (suite, evals) in union_hashmaps(suites).iter() {
             results_handles.insert((*suite).clone(), Vec::new());
 
@@ -256,7 +253,7 @@ impl BenchRunner {
     pub async fn run_eval<F, Fut>(&mut self, agent_generator: F) -> anyhow::Result<()>
     where
         F: Fn(ExtensionRequirements) -> Fut,
-        Fut: Future<Output=Box<dyn BenchAgent>> + Send,
+        Fut: Future<Output = Box<dyn BenchAgent>> + Send,
     {
         let goose_model = self.config.models.first().unwrap();
         let model_name = goose_model.name.clone();
@@ -284,9 +281,9 @@ impl BenchRunner {
         let work_dir_name = format!("{}-{}{}", provider_name, model_name, work_dir_name_shim);
         let mut work_dir = BenchmarkWorkDir::new(work_dir_name, Vec::new());
         let bench_eval = self.config.evals.first().unwrap();
-        work_dir.set_eval(&*bench_eval.selector, run_id);
+        work_dir.set_eval(&bench_eval.selector, run_id);
 
-        if let Some(eval) = EvaluationSuite::from(&*bench_eval.selector) {
+        if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
             let mut agent = agent_generator(eval.required_extensions()).await;
 
             let mut result = EvaluationResult::new(eval.name().to_string());
@@ -303,14 +300,11 @@ impl BenchRunner {
             }
 
             let eval_results_file = env::current_dir()?.join("eval_result.json");
-            fs::write(
-                &eval_results_file,
-                serde_json::to_string_pretty(&result)?,
-            )?;
+            fs::write(&eval_results_file, serde_json::to_string_pretty(&result)?)?;
 
             if let Some(cmd) = &bench_eval.post_process_cmd {
                 let handle = Command::new(cmd).arg(eval_results_file).spawn()?;
-                self.await_process_exits(&mut vec![handle]);
+                self.await_process_exits(&mut [handle]);
             }
 
             // todo get and write session file
@@ -319,7 +313,7 @@ impl BenchRunner {
         Ok(())
     }
 
-    fn await_process_exits(&self, child_processes: &mut Vec<Child>) {
+    fn await_process_exits(&self, child_processes: &mut [Child]) {
         for child in child_processes.iter_mut() {
             match child.wait() {
                 Ok(status) => println!("Child exited with status: {}", status),
@@ -343,9 +337,7 @@ impl BenchRunner {
             cmd.env(key, value);
         }
 
-        let child = cmd.spawn().expect("Failed to spawn child process");
-
-        child
+        cmd.spawn().expect("Failed to spawn child process")
     }
 
     pub fn handle_summary(&self) -> anyhow::Result<()> {
