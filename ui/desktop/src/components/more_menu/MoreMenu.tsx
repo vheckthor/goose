@@ -164,6 +164,12 @@ export default function MoreMenu({
     }
   };
 
+  const handleVersionSelect = (version: string) => {
+    setOpen(false);
+    setShowVersions(false);
+    window.electron.createChatWindow(undefined, undefined, version);
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

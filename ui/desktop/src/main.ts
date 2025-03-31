@@ -235,22 +235,36 @@ const createChat = async (
     });
   }
 
-  // Set up local keyboard shortcuts that only work when the window is focused
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'r' && input.meta) {
-      mainWindow.reload();
-      event.preventDefault();
-    }
+  // DevTools shortcut management
+  const registerDevToolsShortcut = (window: BrowserWindow) => {
+    globalShortcut.register('Alt+Command+I', () => {
+      window.webContents.openDevTools();
+    });
+  };
 
-    if (input.key === 'i' && input.alt && input.meta) {
-      mainWindow.webContents.openDevTools();
-      event.preventDefault();
-    }
+  const unregisterDevToolsShortcut = () => {
+    globalShortcut.unregister('Alt+Command+I');
+  };
+
+  // Register shortcuts when window is focused
+  mainWindow.on('focus', () => {
+    registerDevToolsShortcut(mainWindow);
+    // Register reload shortcut
+    globalShortcut.register('CommandOrControl+R', () => {
+      mainWindow.reload();
+    });
+  });
+
+  // Unregister shortcuts when window loses focus
+  mainWindow.on('blur', () => {
+    unregisterDevToolsShortcut();
+    globalShortcut.unregister('CommandOrControl+R');
   });
 
   windowMap.set(windowId, mainWindow);
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
+    unregisterDevToolsShortcut();
     goosedProcess.kill();
   });
   return mainWindow;
