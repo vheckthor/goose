@@ -68,6 +68,8 @@ impl HuggingFaceProvider {
             .json(&payload);
 
         let response = request.send().await?;
+
+        println!("RAW RESPONSE: {:?}", response);
         handle_response_openai_compat(response).await
     }
 }
@@ -111,6 +113,8 @@ impl Provider for HuggingFaceProvider {
 
         // Make request
         let response = self.post(payload.clone()).await?;
+
+        println!("Response: {:?}", response);
 
         // Parse response
         let message = response_to_message(response.clone())?;
