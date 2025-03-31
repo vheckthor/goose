@@ -1,102 +1,89 @@
 # DeepSeek Tool Calling Implementation
 
-This implementation adds support for tool calling with DeepSeek models by embedding tools directly in the system prompt, as shown in the Hugging Face Rust bindings example.
+## Overview
+
+This document describes the implementation of tool calling support for DeepSeek models in the Goose project. The implementation embeds tools directly in the system prompt and handles the special format used by DeepSeek models for tool calls.
 
 ## Key Components
 
-### 1. DeepSeek Model Detection
+### 1. Tool Definition in System Prompt
 
-```rust
-fn is_deepseek_model(&self) -> bool {
-    self.model.model_name.contains("deepseek") || 
-    self.model.model_name.contains("DeepSeek")
-}
+For DeepSeek models, tools are embedded directly in the system prompt following the format shown in the Hugging Face example:
+
 ```
+You are a helpful Assistant.
 
-This function detects when we're working with a DeepSeek model.
+## Tools
 
-### 2. Tool Embedding in System Prompt
+### Function
 
-```rust
-fn create_system_prompt_with_tools(&self, system: &str, tools: &[Tool]) -> String {
-    if tools.is_empty() {
-        return system.to_string();
+You have the following functions available:
+
+- `get_current_weather`:
+```json
+{
+    "name": "get_current_weather",
+    "description": "Get the current weather in a given location",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "The city and state, e.g. San Francisco, CA"
+            },
+            "unit": {
+                "type": "string",
+                "enum": [
+                    "celsius",
+                    "fahrenheit"
+                ]
+            }
+        },
+        "required": [
+            "location"
+        ]
     }
-    
-    // Start with the original system prompt
-    let mut tool_system_prompt = format!("{}\n\n## Tools\n", system);
-    
-    // Add function section
-    tool_system_prompt.push_str("\n### Function\n\n");
-    tool_system_prompt.push_str("You have the following functions available:\n\n");
-    
-    // Add each tool as a function definition in the format shown in the example
-    for tool in tools {
-        tool_system_prompt.push_str(&format!("- `{}`:\n```json\n{}\n```\n\n", 
-            tool.name,
-            json!({
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.input_schema
-            }).to_string()
-        ));
-    }
-    
-    tool_system_prompt
 }
 ```
-
-This function embeds tools directly in the system prompt following the format shown in the Hugging Face example.
-
-### 3. Updated Complete Method
-
-```rust
-async fn complete(
-    &self,
-    system: &str,
-    messages: &[Message],
-    tools: &[Tool],
-) -> Result<(Message, ProviderUsage), ProviderError> {
-    // For DeepSeek models, embed tools in the system prompt
-    let system_prompt = if self.is_deepseek_model() && !tools.is_empty() {
-        self.create_system_prompt_with_tools(system, tools)
-    } else {
-        system.to_string()
-    };
-    
-    // Create request with the appropriate system prompt and tools
-    let payload = create_request(
-        &self.model, 
-        &system_prompt, 
-        messages, 
-        tools, 
-        &ImageFormat::OpenAi
-    )?;
-    
-    // Make the request
-    let response = self.post(payload.clone()).await?;
-    
-    // Parse response
-    let message = response_to_message(response.clone())?;
-    let usage = match get_usage(&response) {
-        Ok(usage) => usage,
-        Err(ProviderError::UsageError(e)) => {
-            tracing::debug!("Failed to get usage data: {}", e);
-            Usage::default()
-        }
-        Err(e) => return Err(e),
-    };
-    let model = get_model(&response);
-    emit_debug_trace(&self.model, &payload, &response, &usage);
-    Ok((message, ProviderUsage::new(model, usage)))
-}
 ```
 
-The `complete` method now checks if we're using a DeepSeek model and, if so, embeds the tools in the system prompt.
+### 2. Custom Response Parsing
 
-## Implementation Notes
+DeepSeek models return tool calls in a special format with markers like `<｜tool▁calls▁begin｜>` and `<｜tool▁call▁end｜>`. Our implementation includes a custom parser that:
 
-1. For DeepSeek models, tools are embedded directly in the system prompt following the exact format from the Hugging Face example.
-2. For other models, the standard OpenAI-compatible API is used.
-3. The implementation is minimal and focused, adding only what's necessary to support tool calling with DeepSeek models.
-4. The code compiles without warnings.
+1. Detects these special markers
+2. Extracts the function name and arguments
+3. Converts them to the standard Goose tool call format
+
+### 3. Implementation Details
+
+The implementation consists of three main functions:
+
+1. `is_deepseek_model()`: Detects when we're working with a DeepSeek model
+2. `create_system_prompt_with_tools()`: Embeds tools in the system prompt for DeepSeek models
+3. `parse_deepseek_response()`: Parses the special format used by DeepSeek models for tool calls
+
+### 4. Known Limitations
+
+As noted in the `deepseek.md` file, DeepSeek models have difficulty handling the full conversation loop with tool calling. After receiving a tool response, the model encounters errors when attempting to continue the conversation:
+
+```
+Error: "Invalid request. Please check the parameters and try again. Details: can only concatenate str (not \"dict\") to str"
+```
+
+This appears to be a Python error in the HuggingFace API backend when processing tool results with DeepSeek models.
+
+## Usage
+
+To use the DeepSeek model with tool calling:
+
+```bash
+GOOSE_PROVIDER=huggingface GOOSE_MODEL=deepseek-ai/DeepSeek-V3-0324 cargo run --bin goose run -t "run ls -la"
+```
+
+## Future Improvements
+
+1. Implement a better solution for handling tool responses to avoid the API error
+2. Add support for multiple tool calls in a single response
+3. Improve error handling and recovery
+4. Work with HuggingFace to improve their DeepSeek integration for full tool calling support

@@ -8,9 +8,10 @@ use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
 use super::formats::openai::{create_request, get_usage, response_to_message};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat, ImageFormat};
-use crate::message::Message;
+use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
-use mcp_core::tool::Tool;
+use mcp_core::tool::{Tool, ToolCall};
+use mcp_core::{Role, ToolError};
 
 pub const HUGGINGFACE_DEFAULT_MODEL: &str = "deepseek-ai/DeepSeek-V3-0324-fast";
 pub const HUGGINGFACE_KNOWN_MODELS: &[&str] = &[
@@ -104,6 +105,71 @@ impl HuggingFaceProvider {
         
         tool_system_prompt
     }
+    
+    /// Parse DeepSeek model response that contains tool calls in a special format
+    fn parse_deepseek_response(&self, content: &str) -> Result<Message, ProviderError> {
+        let mut message_content = Vec::new();
+        
+        // Check if the response contains tool calls
+        if content.contains("<｜tool▁calls▁begin｜>") {
+            // Extract the tool call section
+            if let Some(tool_calls_section) = content.split("<｜tool▁calls▁begin｜>").nth(1) {
+                if let Some(tool_calls) = tool_calls_section.split("<｜tool▁calls▁end｜>").next() {
+                    // Process each tool call
+                    let tool_call_parts: Vec<&str> = tool_calls.split("<｜tool▁call▁begin｜>").collect();
+                    
+                    // Skip the first part (it's empty or contains text before the first tool call)
+                    for part in tool_call_parts.iter().skip(1) {
+                        // Extract function name and arguments
+                        if let Some(function_part) = part.split("<｜tool▁sep｜>").nth(1) {
+                            if let Some((function_name, rest)) = function_part.split_once('\n') {
+                                // Extract JSON arguments - look for the text between ```json and ```
+                                if let Some(json_block) = rest.split("```json").nth(1) {
+                                    if let Some(json_str) = json_block.split("```").next() {
+                                        let arguments_str = json_str.trim();
+                                        
+                                        // Generate a random ID for the tool call
+                                        let id = format!("deepseek-{}", uuid::Uuid::new_v4().to_string());
+                                        
+                                        // Parse arguments as JSON
+                                        match serde_json::from_str::<Value>(arguments_str) {
+                                            Ok(params) => {
+                                                message_content.push(MessageContent::tool_request(
+                                                    id,
+                                                    Ok(ToolCall::new(function_name, params)),
+                                                ));
+                                            }
+                                            Err(e) => {
+                                                let error = ToolError::InvalidParameters(format!(
+                                                    "Could not interpret tool use parameters: {}. Raw JSON: {}",
+                                                    e, arguments_str
+                                                ));
+                                                message_content.push(MessageContent::tool_request(id, Err(error)));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // If there are no tool calls, treat the content as regular text
+            message_content.push(MessageContent::text(content));
+        }
+        
+        // If we couldn't parse any content, fall back to the original text
+        if message_content.is_empty() {
+            message_content.push(MessageContent::text(content));
+        }
+        
+        Ok(Message {
+            role: Role::Assistant,
+            created: chrono::Utc::now().timestamp(),
+            content: message_content,
+        })
+    }
 }
 
 #[async_trait]
@@ -138,7 +204,8 @@ impl Provider for HuggingFaceProvider {
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
         // For DeepSeek models, embed tools in the system prompt
-        let system_prompt = if self.is_deepseek_model() && !tools.is_empty() {
+        let is_deepseek = self.is_deepseek_model();
+        let system_prompt = if is_deepseek && !tools.is_empty() {
             self.create_system_prompt_with_tools(system, tools)
         } else {
             system.to_string()
@@ -157,7 +224,19 @@ impl Provider for HuggingFaceProvider {
         let response = self.post(payload.clone()).await?;
         
         // Parse response
-        let message = response_to_message(response.clone())?;
+        let message = if is_deepseek {
+            // For DeepSeek models, we need to use our custom parser
+            if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+                self.parse_deepseek_response(content)?
+            } else {
+                // Fall back to standard parser if content is not a string
+                response_to_message(response.clone())?
+            }
+        } else {
+            // For other models, use the standard parser
+            response_to_message(response.clone())?
+        };
+        
         let usage = match get_usage(&response) {
             Ok(usage) => usage,
             Err(ProviderError::UsageError(e)) => {
