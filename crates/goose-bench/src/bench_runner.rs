@@ -69,7 +69,7 @@ impl Default for BenchRunConfig {
 }
 impl BenchRunConfig {
     pub fn from_string(cfg: String) -> anyhow::Result<Self> {
-        let mut config: Self = toml::from_str(cfg.as_str())?;
+        let mut config: Self = serde_json::from_str(cfg.as_str())?;
         config.include_dirs = BenchmarkWorkDir::canonical_dirs(config.include_dirs);
         Self::canonicalize_eval_post_proc_cmd(&mut config);
         Ok(config)
@@ -93,11 +93,11 @@ impl BenchRunConfig {
     }
 
     pub fn to_string(&self) -> anyhow::Result<String> {
-        Ok(toml::to_string(self)?)
+        Ok(serde_json::to_string_pretty(self)?)
     }
 
     pub fn save(&self, name: String) {
-        let config = toml::to_string(self).unwrap();
+        let config = self.to_string().unwrap();
         fs::write(name, config).expect("Unable to write bench config file");
     }
 }
@@ -129,13 +129,14 @@ impl BenchRunner {
             .partition(|model| model.parallel_safe);
 
         let mut parallel_models_handle = self.parallelize_models(parallel_models);
-        self.await_process_exits(&mut parallel_models_handle);
 
         for model in serial_models {
             self.config.models = vec![model.clone()];
             self.run_eval_model()?;
         }
 
+        self.await_process_exits(&mut parallel_models_handle);
+        
         Ok(())
     }
 
