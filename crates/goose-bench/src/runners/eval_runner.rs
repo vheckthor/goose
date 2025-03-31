@@ -50,7 +50,7 @@ impl EvalRunner {
     pub async fn run<F, Fut>(&mut self, agent_generator: F) -> anyhow::Result<()>
     where
         F: Fn(ExtensionRequirements, String) -> Fut,
-        Fut: Future<Output = Box<dyn BenchAgent>> + Send,
+        Fut: Future<Output = BenchAgent> + Send,
     {
         let mut work_dir = self.create_work_dir(&self.config)?;
         let bench_eval = self.config.evals.first().unwrap();
@@ -77,7 +77,7 @@ impl EvalRunner {
                 }
 
                 // Add any errors that occurred
-                for error in (*agent).get_errors().await {
+                for error in agent.get_errors().await {
                     result.add_error(error);
                 }
             }

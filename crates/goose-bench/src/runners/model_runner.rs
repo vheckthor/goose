@@ -120,7 +120,6 @@ impl ModelRunner {
         run_summary.push(summary_path.clone().unwrap());
         run_summary.push(&self.config.run_summary_filename);
 
-        println!("summary_path: {:?}", run_summary.clone());
         let output_str = serde_json::to_string_pretty(&results)?;
         std::fs::write(run_summary, &output_str)?;
 

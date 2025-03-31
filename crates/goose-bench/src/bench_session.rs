@@ -13,17 +13,6 @@ pub struct BenchAgentError {
     pub level: String, // ERROR, WARN, etc.
     pub timestamp: DateTime<Utc>,
 }
-#[async_trait]
-pub trait BenchAgent: Send + Sync {
-    async fn prompt(&mut self, p: String) -> anyhow::Result<Vec<Message>>;
-
-    // Make get_errors async
-    async fn get_errors(&self) -> Vec<BenchAgentError>;
-
-    // Get token usage information
-    async fn get_token_usage(&self) -> Option<i32>;
-    fn session_file(&self) -> PathBuf;
-}
 
 // avoid tying benchmarking to current session-impl.
 #[async_trait]
@@ -34,21 +23,18 @@ pub trait BenchBaseSession: Send + Sync {
     fn get_total_token_usage(&self) -> anyhow::Result<Option<i32>>;
 }
 // struct for managing agent-session-access. to be passed to evals for benchmarking
-pub struct BenchSession {
+pub struct BenchAgent {
     session: Box<dyn BenchBaseSession>,
     errors: Arc<Mutex<Vec<BenchAgentError>>>,
 }
 
-impl BenchSession {
+impl BenchAgent {
     pub fn new(session: Box<dyn BenchBaseSession>) -> Self {
         let errors = Arc::new(Mutex::new(Vec::new()));
         Self { session, errors }
     }
-}
 
-#[async_trait]
-impl BenchAgent for BenchSession {
-    async fn prompt(&mut self, p: String) -> anyhow::Result<Vec<Message>> {
+    pub(crate) async fn prompt(&mut self, p: String) -> anyhow::Result<Vec<Message>> {
         // Clear previous errors
         {
             let mut errors = self.errors.lock().await;
@@ -58,15 +44,15 @@ impl BenchAgent for BenchSession {
         Ok(self.session.message_history())
     }
 
-    async fn get_errors(&self) -> Vec<BenchAgentError> {
+    pub async fn get_errors(&self) -> Vec<BenchAgentError> {
         let errors = self.errors.lock().await;
         errors.clone()
     }
 
-    async fn get_token_usage(&self) -> Option<i32> {
+    pub(crate) async fn get_token_usage(&self) -> Option<i32> {
         self.session.get_total_token_usage().ok().flatten()
     }
-    fn session_file(&self) -> PathBuf {
+    pub(crate) fn session_file(&self) -> PathBuf {
         self.session.session_file()
     }
 }

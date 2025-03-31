@@ -25,7 +25,7 @@ impl DeveloperCreateFile {
 impl Evaluation for DeveloperCreateFile {
     async fn run(
         &self,
-        agent: &mut Box<dyn BenchAgent>,
+        agent: &mut BenchAgent,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         // Send the prompt to create and read

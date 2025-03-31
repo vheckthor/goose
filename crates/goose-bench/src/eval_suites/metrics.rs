@@ -6,7 +6,7 @@ use std::time::Instant;
 
 /// Collect baseline metrics including execution time, tool usage, and token count
 pub async fn collect_baseline_metrics(
-    agent: &mut Box<dyn BenchAgent>,
+    agent: &mut BenchAgent,
     prompt: String,
 ) -> (Vec<Message>, HashMap<String, EvalMetricValue>) {
     // Initialize metrics map

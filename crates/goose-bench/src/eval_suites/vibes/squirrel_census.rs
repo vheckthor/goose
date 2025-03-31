@@ -31,7 +31,7 @@ impl SquirrelCensus {
 impl Evaluation for SquirrelCensus {
     async fn run(
         &self,
-        agent: &mut Box<dyn BenchAgent>,
+        agent: &mut BenchAgent,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("SquirrelCensus - run");

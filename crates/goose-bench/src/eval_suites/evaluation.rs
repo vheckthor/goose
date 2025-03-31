@@ -30,7 +30,7 @@ pub struct ExtensionRequirements {
 pub trait Evaluation: Send + Sync {
     async fn run(
         &self,
-        agent: &mut Box<dyn BenchAgent>,
+        agent: &mut BenchAgent,
         run_loc: &mut BenchmarkWorkDir,
     ) -> Result<Vec<(String, EvalMetricValue)>>;
 

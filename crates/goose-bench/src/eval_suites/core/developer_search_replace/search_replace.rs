@@ -21,7 +21,7 @@ impl DeveloperSearchReplace {
 impl Evaluation for DeveloperSearchReplace {
     async fn run(
         &self,
-        agent: &mut Box<dyn BenchAgent>,
+        agent: &mut BenchAgent,
         run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         let _target_file = match run_loc.fs_get("./assets/kubernetes_swagger.json".to_string()) {

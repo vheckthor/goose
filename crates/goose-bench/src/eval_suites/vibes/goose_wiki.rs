@@ -22,7 +22,7 @@ impl GooseWiki {
 impl Evaluation for GooseWiki {
     async fn run(
         &self,
-        agent: &mut Box<dyn BenchAgent>,
+        agent: &mut BenchAgent,
         _run_loc: &mut BenchmarkWorkDir,
     ) -> anyhow::Result<Vec<(String, EvalMetricValue)>> {
         println!("GooseWiki - run");
