@@ -4,10 +4,11 @@ import { startCodeServer, stopCodeServer, getWebViewUrl } from '../utils/webView
 interface WebViewProps {
   isVisible: boolean;
   onClose: () => void;
-  url?: string; // Make url optional as we'll generate it dynamically
+  url?: string;
+  onFileSelect?: (fileInfo: { path: string; content: string }) => void;
 }
 
-const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }) => {
+const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose, onFileSelect }) => {
   const webviewRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,12 +22,10 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
 
   // Start the code server when the component mounts
   useEffect(() => {
-    // Skip if we already have a URL or server is already starting/ready
     if (webViewUrl || serverState === 'starting' || serverState === 'ready') return;
 
     const workingDir = window.appConfig.get('GOOSE_WORKING_DIR') || '';
 
-    // Start the code server and get the URL
     const startServer = async () => {
       try {
         setServerState('starting');
@@ -48,51 +47,114 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
     };
 
     startServer();
-
-    // No need to stop the server when the component unmounts
-    // The server will continue running until the app exits
-    // This is handled by the main process in app.on('will-quit')
   }, [webViewUrl, serverState]);
+
+  // Setup IPC communication and VS Code commands
+  const setupVSCodeIntegration = (webview: HTMLWebViewElement) => {
+    // Listen for messages from VS Code webview
+    webview.addEventListener('ipc-message', (event) => {
+      console.log('IPC message received:', event.channel, event.args);
+      if (event.channel === 'file-selected') {
+        const fileInfo = event.args[0];
+        console.log('File selected:', fileInfo);
+        onFileSelect?.(fileInfo);
+      }
+    });
+    
+    // Add console message to verify listener is attached
+    console.log('IPC listeners set up for webview');
+
+    // Inject our custom VS Code commands when the webview is ready
+    webview.addEventListener('dom-ready', () => {
+      const injectCommands = `
+        (function() {
+          console.log('Attempting to inject Goose commands into VS Code...');
+          
+          // Wait for VS Code API to be available
+          const waitForVSCode = setInterval(() => {
+            console.log('Checking for VS Code API...');
+            if (typeof acquireVsCodeApi !== 'undefined') {
+              console.log('VS Code API found, setting up commands...');
+              clearInterval(waitForVSCode);
+              const vscode = acquireVsCodeApi();
+
+              // Register command to add current file to Goose context
+              vscode.commands.registerCommand('goose.addToContext', () => {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                  const document = editor.document;
+                  window.postMessage({
+                    channel: 'file-selected',
+                    args: [{
+                      path: document.uri.fsPath,
+                      content: document.getText()
+                    }]
+                  });
+                }
+              });
+
+              // Register command to add selected text to Goose context
+              vscode.commands.registerCommand('goose.addSelectionToContext', () => {
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                  const selection = editor.selection;
+                  const text = editor.document.getText(selection);
+                  const document = editor.document;
+                  window.postMessage({
+                    channel: 'file-selected',
+                    args: [{
+                      path: document.uri.fsPath,
+                      content: text,
+                      isSelection: true
+                    }]
+                  });
+                }
+              });
+
+              // Add context menu contributions
+              vscode.commands.executeCommand('setContext', 'goose.enabled', true);
+            }
+          }, 100);
+        })();
+      `;
+
+      webview.executeJavaScript(injectCommands);
+    });
+  };
 
   // Create or update the webview when URL is available and server is ready
   useEffect(() => {
-    // Only proceed if we have the URL, DOM reference, and server is ready
     if (!webviewRef.current || !webViewUrl || serverState !== 'ready') return;
 
-    // If webview doesn't exist yet, create it
     if (!webviewCreated) {
       console.log('Creating new webview with URL:', webViewUrl);
 
-      // Clear any existing content
       webviewRef.current.innerHTML = '';
 
-      // Create a new webview element
       const webview = document.createElement('webview');
 
-      // Set attributes
       webview.src = webViewUrl;
       webview.style.width = '100%';
       webview.style.height = '100%';
       webview.style.border = 'none';
 
-      // Add webPreferences to disable security features for localhost
       webview.setAttribute('webpreferences', 'contextIsolation=no, nodeIntegration=yes');
 
-      // Add event listener for load completion
       webview.addEventListener('dom-ready', () => {
         console.log('WebView loaded:', webViewUrl);
         setIsLoading(false);
         setWebviewCreated(true);
+        
+        // Setup VS Code integration after webview is ready
+        setupVSCodeIntegration(webview);
       });
 
-      // Add error handler
       webview.addEventListener('did-fail-load', (event) => {
         console.error('WebView failed to load:', event);
         setLoadError(`Failed to load: ${event.errorDescription || 'Unknown error'}`);
         setIsLoading(false);
       });
 
-      // Append the webview to our container
       webviewRef.current.appendChild(webview);
     }
   }, [webViewUrl, webviewCreated, serverState]);
@@ -104,7 +166,6 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
       if (webview) {
         console.log(`Setting webview visibility to ${isVisible ? 'visible' : 'hidden'}`);
         if (isVisible) {
-          // When showing, make sure it's loaded
           (webview as any).reload();
           setIsLoading(true);
         }
@@ -135,9 +196,28 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
           Code Editor
         </div>
         <div className="flex items-center">
+          {/* Test button */}
           <button
             onClick={() => {
-              // Force reload the webview
+              if (webviewRef.current) {
+                const webview = webviewRef.current.querySelector('webview');
+                if (webview) {
+                  console.log('Testing VS Code command...');
+                  webview.executeJavaScript(`
+                    vscode.commands.executeCommand('goose.addToContext')
+                      .then(() => console.log('Command executed'))
+                      .catch(err => console.error('Command failed:', err));
+                  `);
+                }
+              }
+            }}
+            className="rounded-full p-1 hover:bg-bgSubtle text-textStandard mr-1"
+            title="Test Command"
+          >
+            Test
+          </button>
+          <button
+            onClick={() => {
               if (webviewRef.current) {
                 const webview = webviewRef.current.querySelector('webview');
                 if (webview) {
@@ -202,7 +282,6 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
               <p>{loadError}</p>
               <button
                 onClick={() => {
-                  // Force reload the webview
                   if (webviewRef.current) {
                     const webview = webviewRef.current.querySelector('webview');
                     if (webview) {
@@ -210,8 +289,7 @@ const WebView: React.FC<WebViewProps> = ({ url: initialUrl, isVisible, onClose }
                       setLoadError(null);
                       (webview as any).reload();
                     } else {
-                      // If webview element doesn't exist, create it
-                      setWebviewCreated(false); // This will trigger recreation
+                      setWebviewCreated(false);
                     }
                   }
                 }}
