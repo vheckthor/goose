@@ -216,6 +216,7 @@ impl Provider for HuggingFaceProvider {
 
         // Create a new messages vector that replaces tool responses with text content
         let modified_messages: Vec<Message> = messages.iter().map(|message| {
+            println!("Processing message: {:?}", message);
             if message.is_tool_response() {
                 println!("Converting tool response to text content: {:?}", message.content);
                 // Create a completely new message with text content
@@ -225,17 +226,31 @@ impl Provider for HuggingFaceProvider {
                     created: chrono::Utc::now().timestamp(),
                     content: vec![MessageContent::text(text_content)],
                 }
+            } else if message.is_tool_call() {
+                // Create a completely new message with text content
+                let text_content = format!("{:?}", message.content);
+                Message {
+                    role: Role::User,
+                    created: chrono::Utc::now().timestamp(),
+                    content: vec![MessageContent::text(text_content)],
+                }                
             } else {
+                // Keep the original message
                 message.clone()
             }
         }).collect();
         
         // print out message types for debugging
         for message in &modified_messages {
-            println!("Message is tool call: {:?}", message.is_tool_call());
-            println!("Message is tool response: {:?}", message.is_tool_response());
 
-            println!("Message info: {:?}", message);
+
+            // there should be no tool call ones, crash if to
+            if message.is_tool_call() {
+                panic!("Tool call message found in modified messages: {:?}", message);
+            }
+            if message.is_tool_response() {
+                panic!("Tool call response found in modified messages: {:?}", message);
+            }
         }
         
 
