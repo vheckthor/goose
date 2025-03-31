@@ -74,8 +74,8 @@ enum SessionCommand {
 
 #[derive(Subcommand)]
 pub enum BenchCommand {
-    #[command(name = "config-init", about = "Create a new starter-config")]
-    ConfigInit {
+    #[command(name = "init-config", about = "Create a new starter-config")]
+    InitConfig {
         #[arg(short, long, help = "filename with extension for generated config")]
         name: String,
     },
@@ -404,7 +404,7 @@ pub async fn cli() -> Result<()> {
         Some(Command::Bench { cmd }) => {
             match cmd {
                 BenchCommand::Selectors { config } => BenchRunner::list_selectors(config)?,
-                BenchCommand::ConfigInit { name } => BenchRunConfig::default().save(name),
+                BenchCommand::InitConfig { name } => BenchRunConfig::default().save(name),
                 BenchCommand::Run { config } => BenchRunner::new(config)?.run()?,
                 BenchCommand::EvalModel { config } => {
                     BenchRunner::from(config)?.run_eval_model()?
