@@ -216,9 +216,9 @@ impl Provider for HuggingFaceProvider {
 
         // Create a new messages vector that replaces tool responses with text content
         let modified_messages: Vec<Message> = messages.iter().map(|message| {
-            println!("Processing message: {:?}", message);
+            //println!("Processing message: {:?}", message);
             if message.is_tool_response() {
-                println!("Converting tool response to text content: {:?}", message.content);
+                //println!("Converting tool response to text content: {:?}", message.content);
                 // Create a completely new message with text content
                 let text_content = format!("{:?}", message.content);
                 Message {
