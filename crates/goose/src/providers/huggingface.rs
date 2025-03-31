@@ -206,11 +206,22 @@ impl Provider for HuggingFaceProvider {
         // For DeepSeek models, embed tools in the system prompt
         let is_deepseek = self.is_deepseek_model();
         let system_prompt = if is_deepseek && !tools.is_empty() {
+            println!("Embedding tools in system prompt for DeepSeek model");
             self.create_system_prompt_with_tools(system, tools)
         } else {
             system.to_string()
         };
+
+        // print out message types
+        for message in messages {
+            println!("Message is tool call: {:?}", message.is_tool_call());
+            println!("Message is tool response: {:?}", message.is_tool_response());
+            if (message.is_tool_response()) {
+                println!("Message is tool response: {:?}", message.content);
+            }
+        }
         
+
         // Create request with the appropriate system prompt and tools
         let payload = create_request(
             &self.model, 
