@@ -17,6 +17,10 @@ This document summarizes findings and solutions for integrating DeepSeek models 
    - Error: `"Invalid request. Please check the parameters and try again. Details: can only concatenate str (not \"dict\") to str"`
    - This appears to be a Python error in the HuggingFace API backend when processing tool results with DeepSeek models.
 
+3. **Conversational Queries**
+   - The model tries to use tools even for conversational queries where no tool is needed.
+   - This can lead to inappropriate tool usage for simple questions.
+
 ## Solutions Implemented
 
 1. **Tool Choice Parameter**
@@ -32,10 +36,16 @@ This document summarizes findings and solutions for integrating DeepSeek models 
      - Doesn't include any tools in the request
    - This approach avoids the API error by not using the tool response format at all.
 
+3. **No-Operation Tool**
+   - Added a "noop" tool for conversational queries where no actual tool is needed.
+   - The noop tool is automatically added when no other tools are present.
+   - This prevents the model from trying to use inappropriate tools for simple conversational queries.
+
 ## Current Status
 
 - Basic tool calling works - the model can successfully use tools like `developer__shell`.
 - After tool execution, the model provides a detailed analysis of the tool output.
+- Conversational queries work properly without triggering unnecessary tool calls.
 - The solution effectively works around the API limitations while providing a good user experience.
 
 ## Future Improvements

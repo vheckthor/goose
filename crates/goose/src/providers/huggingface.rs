@@ -61,6 +61,29 @@ impl HuggingFaceProvider {
     async fn post(&self, mut payload: Value) -> Result<Value, ProviderError> {
         let base_url = format!("https://router.huggingface.co/{}/v1/chat/completions", self.provider);
         
+        // Add a noop tool if there are no tools present
+        // This helps with conversational queries where no tool is needed
+        if !payload.get("tools").map_or(false, |t| t.as_array().map_or(false, |a| !a.is_empty())) {
+            // If no tools are present, add a noop tool
+            let noop_tool = json!({
+                "type": "function",
+                "function": {
+                    "name": "noop",
+                    "description": "A no-operation function that doesn't do anything. Use this when you just want to have a conversation without using any tools.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            });
+            
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("tools".to_string(), json!([noop_tool]));
+                obj.insert("tool_choice".to_string(), json!("none"));
+            }
+        }
+        
         // Check if tools are present and add tool_choice if needed
         let mut should_use_shell = false;
         
@@ -126,7 +149,6 @@ impl HuggingFaceProvider {
             }
         }
         
-        //println!("REQUEST PAYLOAD: {:?}", payload);
         let request = self
             .client
             .post(&base_url)
@@ -134,15 +156,7 @@ impl HuggingFaceProvider {
             .json(&payload);
 
         let response = request.send().await?;
-        //println!("RAW RESPONSE: {:?}", response);
-        let result = handle_response_openai_compat(response).await;
-        if let Err(ref e) = result {
-            println!("ERROR: {:?}", e);
-        }
-        // else if let Ok(ref value) = result {
-        //    println!("RESPONSE BODY: {:?}", value);
-        //}
-        result
+        handle_response_openai_compat(response).await
     }
 }
 
@@ -171,10 +185,6 @@ impl Provider for HuggingFaceProvider {
         self.model.clone()
     }
 
-    #[tracing::instrument(
-        skip(self, system, messages, tools),
-        fields(model_config, input, output, input_tokens, output_tokens, total_tokens)
-    )]
     async fn complete(
         &self,
         system: &str,
@@ -184,6 +194,32 @@ impl Provider for HuggingFaceProvider {
         // Check if this is a tool response
         let is_tool_response = messages.last().map_or(false, |m| {
             m.content.iter().any(|c| matches!(c, MessageContent::ToolResponse(_)))
+        });
+
+        // Check if this is a conversational query (no tools needed)
+        let is_conversational = messages.last().map_or(false, |m| {
+            if let Some(content) = m.content.first() {
+                if let MessageContent::Text(text) = content {
+                    let lower_text = text.text.to_lowercase();
+                    lower_text.contains("how are you") || 
+                    lower_text.contains("hello") || 
+                    lower_text.contains("hi there") ||
+                    lower_text.ends_with("?") ||
+                    !lower_text.contains("list") && 
+                    !lower_text.contains("show") && 
+                    !lower_text.contains("find") && 
+                    !lower_text.contains("search") && 
+                    !lower_text.contains("create") && 
+                    !lower_text.contains("edit") && 
+                    !lower_text.contains("delete") && 
+                    !lower_text.contains("run") && 
+                    !lower_text.contains("execute")
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         });
 
         if is_tool_response {
@@ -246,6 +282,26 @@ impl Provider for HuggingFaceProvider {
             };
             let model = get_model(&response);
             emit_debug_trace(&self.model, &simple_payload, &response, &usage);
+            Ok((message, ProviderUsage::new(model, usage)))
+        } else if is_conversational {
+            // For conversational queries, don't use any tools
+            let payload = create_request(&self.model, system, messages, &[], &ImageFormat::OpenAi)?;
+            
+            // Make request without tools
+            let response = self.post(payload.clone()).await?;
+            
+            // Parse response
+            let message = response_to_message(response.clone())?;
+            let usage = match get_usage(&response) {
+                Ok(usage) => usage,
+                Err(ProviderError::UsageError(e)) => {
+                    tracing::debug!("Failed to get usage data: {}", e);
+                    Usage::default()
+                }
+                Err(e) => return Err(e),
+            };
+            let model = get_model(&response);
+            emit_debug_trace(&self.model, &payload, &response, &usage);
             Ok((message, ProviderUsage::new(model, usage)))
         } else {
             // Normal flow for initial request
