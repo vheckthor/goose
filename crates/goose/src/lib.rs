@@ -1,5 +1,6 @@
 pub mod agents;
 pub mod config;
+pub mod gooselings;
 pub mod memory_condense;
 pub mod message;
 pub mod model;
