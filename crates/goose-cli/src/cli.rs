@@ -312,10 +312,10 @@ pub async fn cli() -> Result<()> {
             extension,
             builtin,
         }) => {
-            match command {
+            return match command {
                 Some(SessionCommand::List { verbose, format }) => {
                     handle_session_list(verbose, format)?;
-                    return Ok(());
+                    Ok(())
                 }
                 None => {
                     // Run session command by default
@@ -326,13 +326,13 @@ pub async fn cli() -> Result<()> {
                         builtin,
                         debug,
                     )
-                    .await;
+                        .await;
                     setup_logging(
                         session.session_file().file_stem().and_then(|s| s.to_str()),
                         None,
                     )?;
                     let _ = session.interactive(None).await;
-                    return Ok(());
+                    Ok(())
                 }
             }
         }
@@ -416,9 +416,9 @@ pub async fn cli() -> Result<()> {
             return Ok(());
         }
         None => {
-            if !Config::global().exists() {
+            return if !Config::global().exists() {
                 let _ = handle_configure().await;
-                return Ok(());
+                Ok(())
             } else {
                 // Run session command by default
                 let mut session = build_session(None, false, vec![], vec![], false).await;
@@ -427,7 +427,7 @@ pub async fn cli() -> Result<()> {
                     None,
                 )?;
                 let _ = session.interactive(None).await;
-                return Ok(());
+                Ok(())
             }
         }
     }
