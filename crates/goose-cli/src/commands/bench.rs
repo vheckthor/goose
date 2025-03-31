@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+// allow session obj to be used in benchmarking
 #[async_trait]
 impl BenchBaseSession for Session {
     async fn headless(&mut self, message: String) -> anyhow::Result<()> {
@@ -33,12 +34,12 @@ pub async fn agent_generator(requirements: ExtensionRequirements) -> Box<dyn Ben
     )
     .await;
 
+    // package session obj into benchmark-compatible struct
     let bench_agent = BenchSession::new(Box::new(base_session));
 
     // Initialize logging with error capture
     let errors = Some(Arc::new(Mutex::new(bench_agent.get_errors().await)));
     logging::setup_logging(Some("bench"), errors).expect("Failed to initialize logging");
 
-    // Create session with error capture
     Box::new(bench_agent)
 }

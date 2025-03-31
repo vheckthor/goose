@@ -25,6 +25,7 @@ pub trait BenchAgent: Send + Sync {
     fn session_file(&self) -> PathBuf;
 }
 
+// avoid tying benchmarking to current session-impl.
 #[async_trait]
 pub trait BenchBaseSession: Send + Sync {
     async fn headless(&mut self, message: String) -> anyhow::Result<()>;
@@ -32,6 +33,7 @@ pub trait BenchBaseSession: Send + Sync {
     fn message_history(&self) -> Vec<Message>;
     fn get_total_token_usage(&self) -> anyhow::Result<Option<i32>>;
 }
+// struct for managing agent-session-access. to be passed to evals for benchmarking
 pub struct BenchSession {
     session: Box<dyn BenchBaseSession>,
     errors: Arc<Mutex<Vec<BenchAgentError>>>,

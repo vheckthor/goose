@@ -54,6 +54,7 @@ impl BenchmarkWorkDir {
     }
 
     pub fn init_experiment() {
+        // create experiment folder
         let current_time = Local::now().format("%H:%M:%S").to_string();
         let current_date = Local::now().format("%Y-%m-%d").to_string();
         let exp_name = format!("{}-{}", &current_date, current_time);

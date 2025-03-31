@@ -70,12 +70,14 @@ impl Default for BenchRunConfig {
 impl BenchRunConfig {
     pub fn from_string(cfg: String) -> anyhow::Result<Self> {
         let mut config: Self = serde_json::from_str(cfg.as_str())?;
+        // update include_dirs to contain full-paths only
         config.include_dirs = BenchmarkWorkDir::canonical_dirs(config.include_dirs);
         Self::canonicalize_eval_post_proc_cmd(&mut config);
         Ok(config)
     }
 
     fn canonicalize_eval_post_proc_cmd(config: &mut BenchRunConfig) {
+        // update eval post-process script paths to all be full-paths
         config.evals.iter_mut().for_each(|eval| {
             if let Some(post_process_cmd) = &eval.post_process_cmd {
                 let canon = BenchmarkWorkDir::canonical_dirs(vec![post_process_cmd.clone()]);
@@ -121,6 +123,7 @@ impl BenchRunner {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
+        // split models that must run serial from those that can be run in parallel
         let (parallel_models, serial_models): &(Vec<BenchModel>, Vec<BenchModel>) = &self
             .config
             .models
@@ -141,6 +144,7 @@ impl BenchRunner {
     }
 
     fn parallelize_models(&mut self, parallel_models: &Vec<BenchModel>) -> Vec<Child> {
+        // create subprocesses to run all parallel models at once
         let mut models_handles = Vec::new();
         for model in parallel_models {
             self.config.models = vec![model.clone()];
@@ -161,6 +165,7 @@ impl BenchRunner {
         for i in 0..repeat {
             let mut self_copy = self.clone();
             let model_clone = model.clone();
+            // create thread to handle launching parallel processes to run model's evals in parallel
             let handle =
                 thread::spawn(move || self_copy.run_benchmark(&model_clone, i.to_string()));
             handles.push(handle);
@@ -183,6 +188,7 @@ impl BenchRunner {
     }
 
     fn run_benchmark(&mut self, model: &BenchModel, run_id: String) -> anyhow::Result<()> {
+        // convert suites map {suite_name => [eval_selector_str] to map suite_name => [BenchEval]
         let suites = self
             .config
             .evals
@@ -216,6 +222,7 @@ impl BenchRunner {
         for (suite, evals) in union_hashmaps(suites).iter() {
             results_handles.insert((*suite).clone(), Vec::new());
 
+            // launch single suite's evals in parallel
             for eval_selector in evals {
                 self.config.run_id = Some(run_id.clone());
                 self.config.evals = vec![(*eval_selector).clone()];
@@ -226,6 +233,7 @@ impl BenchRunner {
             }
         }
 
+        // await all suite's evals
         for (_, child_procs) in results_handles.iter_mut() {
             self.await_process_exits(child_procs);
         }
@@ -234,6 +242,7 @@ impl BenchRunner {
     }
 
     fn toolshim_envs(&self) -> Vec<(String, String)> {
+        // read tool-shim preference from config, set respective env vars accordingly
         let mut shim_envs: Vec<(String, String)> = Vec::new();
         if let Some(shim_opt) = &self.config.tool_shim {
             if shim_opt.use_tool_shim {
@@ -262,6 +271,8 @@ impl BenchRunner {
         } else {
             "run-1".to_string()
         };
+
+        // construct work-dir name to have a shim component only if shim configured to be used
         let work_dir_name_shim = {
             let mut shim_name = "".to_string();
             if let Some(shim_opt) = &self.config.tool_shim {
@@ -281,6 +292,7 @@ impl BenchRunner {
         let work_dir_name = format!("{}-{}{}", provider_name, model_name, work_dir_name_shim);
         let mut work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
         let bench_eval = self.config.evals.first().unwrap();
+        // create entire dir sub-tree for eval and cd into dir for running eval
         work_dir.set_eval(&bench_eval.selector, run_id);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
@@ -306,11 +318,13 @@ impl BenchRunner {
             let eval_results_file = env::current_dir()?.join("eval_result.json");
             fs::write(&eval_results_file, &eval_results)?;
 
+            // handle running post-process cmd if configured
             if let Some(cmd) = &bench_eval.post_process_cmd {
                 let handle = Command::new(cmd).arg(&eval_results_file).spawn()?;
                 self.await_process_exits(&mut [handle]);
             }
 
+            // copy session file into eval-dir
             let here = std::env::current_dir()?.canonicalize()?;
             BenchmarkWorkDir::deep_copy(agent.session_file().as_path(), here.as_path(), false)?;
         }
