@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::time::Duration;
 
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
@@ -58,8 +58,61 @@ impl HuggingFaceProvider {
         })
     }
 
-    async fn post(&self, payload: Value) -> Result<Value, ProviderError> {
+    async fn post(&self, mut payload: Value) -> Result<Value, ProviderError> {
         let base_url = format!("https://router.huggingface.co/{}/v1/chat/completions", self.provider);
+        
+        // Check if tools are present and add tool_choice if needed
+        let mut should_use_shell = false;
+        
+        // First check if there's a shell tool
+        if let Some(tools) = payload.get("tools") {
+            if let Some(tools_array) = tools.as_array() {
+                for tool in tools_array.iter() {
+                    if let Some(function) = tool.get("function") {
+                        if let Some(name) = function.get("name") {
+                            if name.as_str() == Some("developer__shell") {
+                                should_use_shell = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Now add the tool_choice
+        if let Some(tools) = payload.get("tools") {
+            if !tools.as_array().unwrap_or(&vec![]).is_empty() {
+                if let Some(obj) = payload.as_object_mut() {
+                    if should_use_shell {
+                        obj.insert("tool_choice".to_string(), json!({
+                            "type": "function",
+                            "function": {
+                                "name": "developer__shell"
+                            }
+                        }));
+                    } else {
+                        obj.insert("tool_choice".to_string(), json!("none"));
+                    }
+                }
+            }
+        }
+        
+        // Check if we're handling a tool response and need to switch back to "none"
+        // This is to work around the model's limitation with tool responses
+        if let Some(messages) = payload.get("messages") {
+            if let Some(messages_array) = messages.as_array() {
+                // Check if the last message is a tool response
+                if let Some(last_message) = messages_array.last() {
+                    if last_message.get("role").and_then(|r| r.as_str()) == Some("tool") {
+                        // After a tool response, use "none" for tool_choice
+                        if let Some(obj) = payload.as_object_mut() {
+                            obj.insert("tool_choice".to_string(), json!("none"));
+                        }
+                    }
+                }
+            }
+        }
         
         let request = self
             .client
@@ -68,8 +121,6 @@ impl HuggingFaceProvider {
             .json(&payload);
 
         let response = request.send().await?;
-
-        println!("RAW RESPONSE: {:?}", response);
         handle_response_openai_compat(response).await
     }
 }
