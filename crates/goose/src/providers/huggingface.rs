@@ -126,7 +126,7 @@ impl HuggingFaceProvider {
             }
         }
         
-        println!("REQUEST PAYLOAD: {:?}", payload);
+        //println!("REQUEST PAYLOAD: {:?}", payload);
         let request = self
             .client
             .post(&base_url)
@@ -134,13 +134,14 @@ impl HuggingFaceProvider {
             .json(&payload);
 
         let response = request.send().await?;
-        println!("RAW RESPONSE: {:?}", response);
+        //println!("RAW RESPONSE: {:?}", response);
         let result = handle_response_openai_compat(response).await;
         if let Err(ref e) = result {
             println!("ERROR: {:?}", e);
-        } else if let Ok(ref value) = result {
-            println!("RESPONSE BODY: {:?}", value);
         }
+        // else if let Ok(ref value) = result {
+        //    println!("RESPONSE BODY: {:?}", value);
+        //}
         result
     }
 }
