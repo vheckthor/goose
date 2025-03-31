@@ -12,7 +12,8 @@ use crate::commands::session::handle_session_list;
 use crate::logging::setup_logging;
 use crate::session;
 use crate::session::build_session;
-use goose_bench::bench_runner::{BenchRunConfig, BenchRunner};
+use goose_bench::bench_config::BenchRunConfig;
+use goose_bench::bench_runner::BenchRunner;
 use std::io::Read;
 use std::path::PathBuf;
 
@@ -326,7 +327,7 @@ pub async fn cli() -> Result<()> {
                         builtin,
                         debug,
                     )
-                        .await;
+                    .await;
                     setup_logging(
                         session.session_file().file_stem().and_then(|s| s.to_str()),
                         None,
@@ -334,7 +335,7 @@ pub async fn cli() -> Result<()> {
                     let _ = session.interactive(None).await;
                     Ok(())
                 }
-            }
+            };
         }
         Some(Command::Run {
             instructions,
@@ -428,7 +429,7 @@ pub async fn cli() -> Result<()> {
                 )?;
                 let _ = session.interactive(None).await;
                 Ok(())
-            }
+            };
         }
     }
     Ok(())

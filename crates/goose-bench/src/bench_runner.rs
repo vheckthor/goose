@@ -1,108 +1,15 @@
+use crate::bench_config::{BenchModel, BenchRunConfig};
 use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
 use crate::reporting::EvaluationResult;
 use crate::utilities::union_hashmaps;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::fs::read_to_string;
 use std::future::Future;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::{env, thread};
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BenchModel {
-    provider: String,
-    name: String,
-    parallel_safe: bool,
-}
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BenchEval {
-    selector: String,
-    post_process_cmd: Option<PathBuf>,
-}
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BenchToolShimOpt {
-    use_tool_shim: bool,
-    tool_shim_model: Option<String>,
-}
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BenchRunConfig {
-    models: Vec<BenchModel>,
-    evals: Vec<BenchEval>,
-    include_dirs: Vec<PathBuf>,
-    repeat: Option<usize>,
-    tool_shim: Option<BenchToolShimOpt>,
-    run_id: Option<String>,
-}
-
-impl Default for BenchRunConfig {
-    fn default() -> Self {
-        BenchRunConfig {
-            models: vec![
-                BenchModel {
-                    provider: "databricks".to_string(),
-                    name: "goose".to_string(),
-                    parallel_safe: true,
-                },
-                BenchModel {
-                    provider: "databricks".to_string(),
-                    name: "goose-claude-3-5-sonnet".to_string(),
-                    parallel_safe: true,
-                },
-            ],
-            evals: vec![BenchEval {
-                selector: "core".into(),
-                post_process_cmd: None,
-            }],
-            include_dirs: vec![],
-            repeat: Some(2),
-            tool_shim: Some(BenchToolShimOpt {
-                use_tool_shim: false,
-                tool_shim_model: None,
-            }),
-            run_id: None,
-        }
-    }
-}
-impl BenchRunConfig {
-    pub fn from_string(cfg: String) -> anyhow::Result<Self> {
-        let mut config: Self = serde_json::from_str(cfg.as_str())?;
-        // update include_dirs to contain full-paths only
-        config.include_dirs = BenchmarkWorkDir::canonical_dirs(config.include_dirs);
-        Self::canonicalize_eval_post_proc_cmd(&mut config);
-        Ok(config)
-    }
-
-    fn canonicalize_eval_post_proc_cmd(config: &mut BenchRunConfig) {
-        // update eval post-process script paths to all be full-paths
-        config.evals.iter_mut().for_each(|eval| {
-            if let Some(post_process_cmd) = &eval.post_process_cmd {
-                let canon = BenchmarkWorkDir::canonical_dirs(vec![post_process_cmd.clone()]);
-                let full_path_cmd = canon[0].clone();
-                if !full_path_cmd.exists() {
-                    panic!("BenchConfigError: Eval post-process command not found. File {:?} does not exist", full_path_cmd);
-                }
-                eval.post_process_cmd = Some(full_path_cmd);
-            }
-        });
-    }
-    pub fn from(cfg: PathBuf) -> anyhow::Result<Self> {
-        let config = Self::from_string(read_to_string(cfg)?)?;
-        Ok(config)
-    }
-
-    pub fn to_string(&self) -> anyhow::Result<String> {
-        Ok(serde_json::to_string_pretty(self)?)
-    }
-
-    pub fn save(&self, name: String) {
-        let config = self.to_string().unwrap();
-        fs::write(name, config).expect("Unable to write bench config file");
-    }
-}
 
 #[derive(Clone)]
 pub struct BenchRunner {
@@ -292,7 +199,7 @@ impl BenchRunner {
         let work_dir_name = format!("{}-{}{}", provider_name, model_name, work_dir_name_shim);
         let mut work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
         let bench_eval = self.config.evals.first().unwrap();
-        // create entire dir sub-tree for eval and cd into dir for running eval
+        // create entire dir subtree for eval and cd into dir for running eval
         work_dir.set_eval(&bench_eval.selector, run_id);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
@@ -325,7 +232,7 @@ impl BenchRunner {
             }
 
             // copy session file into eval-dir
-            let here = std::env::current_dir()?.canonicalize()?;
+            let here = env::current_dir()?.canonicalize()?;
             BenchmarkWorkDir::deep_copy(agent.session_file().as_path(), here.as_path(), false)?;
         }
 
