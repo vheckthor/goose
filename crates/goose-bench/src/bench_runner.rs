@@ -136,7 +136,7 @@ impl BenchRunner {
         }
 
         self.await_process_exits(&mut parallel_models_handle);
-        
+
         Ok(())
     }
 
