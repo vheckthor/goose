@@ -36,9 +36,8 @@ impl BenchRunner {
         let mut parallel_models_handle = Vec::new();
         for model in parallel_models {
             self.config.models = vec![model.clone()];
-            let bench_cmd = "eval-model".to_string();
             let cfg = self.config.to_string()?;
-            let model_handle = parallel_bench_cmd(bench_cmd, cfg, Vec::new());
+            let model_handle = parallel_bench_cmd("eval-model".to_string(), cfg, Vec::new());
             parallel_models_handle.push(model_handle);
         }
 
@@ -48,33 +47,11 @@ impl BenchRunner {
             ModelRunner::from(self.config.to_string()?)?.run()?;
         }
 
-        await_process_exits(&mut parallel_models_handle);
+        await_process_exits(&mut parallel_models_handle, Vec::new());
 
         Ok(())
     }
 
-    pub fn handle_summary(&self) -> anyhow::Result<()> {
-        // Handle output based on format
-        // let output_str = match format.as_str() {
-        //     "json" => serde_json::to_string_pretty(&results)?,
-        //     _ => results.to_string(), // Uses Display impl
-        // };
-        //
-        // // Save to file if specified
-        // if let Some(path) = &output {
-        //     std::fs::write(current_dir.join(path), &output_str)?;
-        //     println!("Results saved to: {}", path.display());
-        // } else {
-        //     // Print to console
-        //     if summary {
-        //         println!("{}", results.summary());
-        //     } else {
-        //         println!("{}", output_str);
-        //     }
-        // }
-
-        Ok(())
-    }
     pub fn list_selectors(_config: Option<PathBuf>) -> anyhow::Result<()> {
         let selector_eval_counts = EvaluationSuite::available_selectors();
         let mut keys: Vec<_> = selector_eval_counts.keys().collect();

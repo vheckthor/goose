@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::process::{Child, Command};
+use std::thread::JoinHandle;
 
 pub fn union_hashmaps<K, V>(maps: Vec<HashMap<K, V>>) -> HashMap<K, V>
 where
@@ -15,11 +16,24 @@ where
     })
 }
 
-pub fn await_process_exits(child_processes: &mut [Child]) {
+pub fn await_process_exits(
+    child_processes: &mut [Child],
+    handles: Vec<JoinHandle<anyhow::Result<()>>>,
+) {
     for child in child_processes.iter_mut() {
         match child.wait() {
             Ok(status) => println!("Child exited with status: {}", status),
             Err(e) => println!("Error waiting for child: {}", e),
+        }
+    }
+
+    for handle in handles {
+        match handle.join() {
+            Ok(_res) => (),
+            Err(e) => {
+                // Handle thread panic
+                println!("Thread panicked: {:?}", e);
+            }
         }
     }
 }

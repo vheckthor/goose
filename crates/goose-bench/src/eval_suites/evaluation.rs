@@ -2,12 +2,12 @@ use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use anyhow::Result;
 use async_trait::async_trait;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub type Model = (String, String);
 pub type Extension = String;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub enum EvalMetricValue {
     Integer(i64),
     Float(f64),

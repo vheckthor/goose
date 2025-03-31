@@ -41,4 +41,4 @@ debug_*.txt
 benchmark-*
 benchconf.json
 scripts/fake.sh
-local_ignore/
+do_not_version/

@@ -1,4 +1,4 @@
-use crate::bench_config::BenchRunConfig;
+use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
 use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
@@ -7,6 +7,7 @@ use crate::utilities::await_process_exits;
 use std::env;
 use std::fs;
 use std::future::Future;
+use std::path::PathBuf;
 use std::process::Command;
 
 #[derive(Clone)]
@@ -65,7 +66,6 @@ impl EvalRunner {
         work_dir.set_eval(&bench_eval.selector, run_id);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
-            self.config.save("config.cfg".to_string());
             let session_id = bench_eval.selector.clone();
             let mut agent = agent_generator(eval.required_extensions(), session_id).await;
 
@@ -82,17 +82,17 @@ impl EvalRunner {
                 }
             }
 
-            work_dir.save();
-
             let eval_results = serde_json::to_string_pretty(&result)?;
 
-            let eval_results_file = env::current_dir()?.join("eval_result.json");
+            let eval_results_file = env::current_dir()?.join(&self.config.eval_result_filename);
             fs::write(&eval_results_file, &eval_results)?;
+            self.config.save("config.cfg".to_string());
+            work_dir.save();
 
             // handle running post-process cmd if configured
             if let Some(cmd) = &bench_eval.post_process_cmd {
                 let handle = Command::new(cmd).arg(&eval_results_file).spawn()?;
-                await_process_exits(&mut [handle]);
+                await_process_exits(&mut [handle], Vec::new());
             }
 
             // copy session file into eval-dir
@@ -101,5 +101,20 @@ impl EvalRunner {
         }
 
         Ok(())
+    }
+
+    pub fn path_for_eval(model: &BenchModel, eval: &BenchEval, run_id: String) -> PathBuf {
+        let provider = model.provider.clone();
+        let model = model.name.clone();
+        let eval_path = &eval.selector.replace(":", std::path::MAIN_SEPARATOR_STR);
+        let eval_results_location = format!(
+            "{}-{}/run-{}{}{}",
+            &provider,
+            model,
+            run_id,
+            std::path::MAIN_SEPARATOR_STR,
+            eval_path
+        );
+        PathBuf::from(eval_results_location.clone())
     }
 }

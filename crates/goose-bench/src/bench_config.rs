@@ -28,6 +28,8 @@ pub struct BenchRunConfig {
     pub repeat: Option<usize>,
     pub tool_shim: Option<BenchToolShimOpt>,
     pub run_id: Option<String>,
+    pub eval_result_filename: String,
+    pub run_summary_filename: String,
 }
 
 impl Default for BenchRunConfig {
@@ -56,6 +58,8 @@ impl Default for BenchRunConfig {
                 tool_shim_model: None,
             }),
             run_id: None,
+            eval_result_filename: "eval-results.json".to_string(),
+            run_summary_filename: "run-results-summary.json".to_string(),
         }
     }
 }

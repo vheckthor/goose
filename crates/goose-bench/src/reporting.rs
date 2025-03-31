@@ -1,11 +1,11 @@
 use crate::bench_session::BenchAgentError;
 use crate::eval_suites::EvalMetricValue;
 use chrono::Local;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Represents a single evaluation result
-#[derive(Default, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct EvaluationResult {
     pub name: String,
     pub metrics: Vec<(String, EvalMetricValue)>,
@@ -13,14 +13,14 @@ pub struct EvaluationResult {
 }
 
 /// Represents results for an entire suite
-#[derive(Default, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct SuiteResult {
     pub name: String,
     pub evaluations: Vec<EvaluationResult>,
 }
 
 /// Contains all benchmark results and metadata
-#[derive(Default, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct BenchmarkResults {
     pub provider: String,
     pub start_time: String,
