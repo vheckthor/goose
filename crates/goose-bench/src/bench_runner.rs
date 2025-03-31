@@ -164,25 +164,15 @@ impl BenchRunner {
         }
         shim_envs
     }
-    pub async fn run_eval<F, Fut>(&mut self, agent_generator: F) -> anyhow::Result<()>
-    where
-        F: Fn(ExtensionRequirements) -> Fut,
-        Fut: Future<Output = Box<dyn BenchAgent>> + Send,
-    {
-        let goose_model = self.config.models.first().unwrap();
+    fn create_work_dir(&self, config: &BenchRunConfig) -> anyhow::Result<BenchmarkWorkDir> {
+        let goose_model = config.models.first().unwrap();
         let model_name = goose_model.name.clone();
         let provider_name = goose_model.provider.clone();
-
-        let run_id = if let Some(run_id) = &self.config.run_id {
-            format!("run-{}", run_id.clone())
-        } else {
-            "run-1".to_string()
-        };
 
         // construct work-dir name to have a shim component only if shim configured to be used
         let work_dir_name_shim = {
             let mut shim_name = "".to_string();
-            if let Some(shim_opt) = &self.config.tool_shim {
+            if let Some(shim_opt) = &config.tool_shim {
                 if shim_opt.use_tool_shim {
                     let shim_model = if let Some(shim_model) = &shim_opt.tool_shim_model {
                         shim_model.clone()
@@ -195,15 +185,33 @@ impl BenchRunner {
             shim_name
         };
 
-        let include_dir = self.config.include_dirs.clone();
+        let include_dir = config.include_dirs.clone();
         let work_dir_name = format!("{}-{}{}", provider_name, model_name, work_dir_name_shim);
-        let mut work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
+        let work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
+        Ok(work_dir)
+    }
+    pub async fn run_eval<F, Fut>(&mut self, agent_generator: F) -> anyhow::Result<()>
+    where
+        F: Fn(ExtensionRequirements, String) -> Fut,
+        Fut: Future<Output = Box<dyn BenchAgent>> + Send,
+    {
+        let mut work_dir = self.create_work_dir(&self.config)?;
         let bench_eval = self.config.evals.first().unwrap();
+
+        let run_id = &self
+            .config
+            .run_id
+            .clone()
+            .unwrap_or_else(|| "run-0".to_string());
+        let run_id = format!("run-{}", run_id.clone());
+
         // create entire dir subtree for eval and cd into dir for running eval
         work_dir.set_eval(&bench_eval.selector, run_id);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
-            let mut agent = agent_generator(eval.required_extensions()).await;
+            self.config.save("config.cfg".to_string());
+            let session_id = bench_eval.selector.clone();
+            let mut agent = agent_generator(eval.required_extensions(), session_id).await;
 
             let mut result = EvaluationResult::new(eval.name().to_string());
 

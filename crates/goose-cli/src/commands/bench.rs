@@ -1,5 +1,5 @@
 use crate::session::build_session;
-use crate::{logging, Session};
+use crate::{logging, session, Session};
 use async_trait::async_trait;
 use goose::message::Message;
 use goose_bench::bench_session::{BenchAgent, BenchBaseSession, BenchSession};
@@ -24,9 +24,14 @@ impl BenchBaseSession for Session {
         self.get_total_token_usage()
     }
 }
-pub async fn agent_generator(requirements: ExtensionRequirements) -> Box<dyn BenchAgent> {
+pub async fn agent_generator(
+    requirements: ExtensionRequirements,
+    session_id: String,
+) -> Box<dyn BenchAgent> {
+    let identifier = Some(session::Identifier::Name(session_id));
+
     let base_session = build_session(
-        None,
+        identifier,
         false,
         requirements.external,
         requirements.builtin,
