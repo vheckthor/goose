@@ -41,6 +41,8 @@ use xcap::{Monitor, Window};
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
+use goose::config::{ExtensionConfig, ExtensionManager};
+
 // Embeds the prompts directory to the build
 static PROMPTS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/src/developer/prompts");
 
@@ -150,6 +152,20 @@ impl DeveloperRouter {
                   - List files that contain a regex: `rg '<regex>' -l`
             "#},
         };
+
+        let discover_extensions: Tool = Tool::new(
+            "discover_extensions".to_string(),
+            "Discover additional capabilities to help complete tasks. Lists extensions that are available but not currently active. Use this tool when you're unable to find a specific feature or functionality, or when standard approaches aren't working. These extensions might provide the exact tools needed to solve your problem. If you find a relevant one, suggest that the user enable the extension.
+            
+            Also lists extensions curated by the Goose team that can be installed. To install them, direct the user to install them via the Goose Settings UI or the Goose CLI configure command with the command they will need to configure/add the extension. They cannot just enter the command directly into terminal to install. They will have to go through the CLI or the Settings UI outside of the current Goose session.
+            
+            First suggest the user enable any already-installed relevant extensions and otherwise suggest installing the relevant extension.".to_string(),
+            json!({
+                "type": "object",
+                "required": [],
+                "properties": {}
+            }),
+        );
 
         let bash_tool = Tool::new(
             "shell".to_string(),
@@ -398,6 +414,7 @@ impl DeveloperRouter {
                 list_windows_tool,
                 screen_capture_tool,
                 image_processor_tool,
+                discover_extensions,
             ],
             prompts: Arc::new(load_prompt_files()),
             instructions,
@@ -841,6 +858,88 @@ impl DeveloperRouter {
         path.to_path_buf()
     }
 
+    async fn discover_extensions(&self, _params: Value) -> Result<Vec<Content>, ToolError> {
+        let mut output_parts = vec![];
+
+        // First get disabled extensions from current config
+        let mut disabled_extensions: Vec<String> = vec![];
+        for extension in ExtensionManager::get_all().expect("should load extensions") {
+            if !extension.enabled {
+                let config = extension.config.clone();
+                let description = match &config {
+                    ExtensionConfig::Builtin {
+                        name, display_name, ..
+                    } => {
+                        // For builtin extensions, use display name if available
+                        display_name
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| name.clone())
+                    }
+                    ExtensionConfig::Sse {
+                        description, name, ..
+                    }
+                    | ExtensionConfig::Stdio {
+                        description, name, ..
+                    } => {
+                        // For SSE/Stdio, use description if available
+                        description
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| format!("Extension '{}'", name))
+                    }
+                };
+                disabled_extensions.push(format!("- {} - {}", config.name(), description));
+            }
+        }
+
+        if !disabled_extensions.is_empty() {
+            output_parts.push(format!(
+                "Currently disabled extensions:\n{}\n",
+                disabled_extensions.join("\n")
+            ));
+        } else {
+            output_parts
+                .push("No disabled extensions found in current configuration.\n".to_string());
+        }
+
+        // Read the servers.json file that's included at compile time
+        static SERVERS_JSON: &str = include_str!("../../../../documentation/static/servers.json");
+
+        if let Ok(servers) = serde_json::from_str::<Vec<serde_json::Value>>(SERVERS_JSON) {
+            let mut available_extensions: Vec<String> = vec![];
+            for server in servers {
+                let id = server["id"].as_str().unwrap_or("unknown");
+                let name = server["name"].as_str().unwrap_or("Unknown Name");
+                let description = server["description"].as_str().unwrap_or("No description");
+                let is_builtin = server["is_builtin"].as_bool().unwrap_or(false);
+                let command = server["command"].as_str().unwrap_or("");
+
+                // Only show non-builtin extensions that have an installation command
+                if !is_builtin && !command.is_empty() {
+                    available_extensions.push(format!(
+                        "- {} ({}) - {}\n  Install with: {}",
+                        name, id, description, command
+                    ));
+                }
+            }
+
+            if !available_extensions.is_empty() {
+                output_parts.push(format!(
+                    "\nAvailable extensions that can be installed:\n{}\n",
+                    available_extensions.join("\n")
+                ));
+            }
+        }
+
+        // Add a note about installation
+        output_parts
+            .push("\nTo enable a disabled extension, use the Settings page in Goose.".to_string());
+        output_parts.push("To install a new extension, run the installation command shown above and then enable it in Settings.".to_string());
+
+        Ok(vec![Content::text(output_parts.join("\n"))])
+    }
+
     async fn image_processor(&self, params: Value) -> Result<Vec<Content>, ToolError> {
         let path_str = params
             .get("path")
@@ -1031,6 +1130,7 @@ impl Router for DeveloperRouter {
                 "list_windows" => this.list_windows(arguments).await,
                 "screen_capture" => this.screen_capture(arguments).await,
                 "image_processor" => this.image_processor(arguments).await,
+                "discover_extensions" => this.discover_extensions(arguments).await,
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })

@@ -2410,6 +2410,7 @@ dependencies = [
  "etcetera",
  "google-drive3",
  "google-sheets4",
+ "goose",
  "http-body-util",
  "ignore",
  "image 0.24.9",
