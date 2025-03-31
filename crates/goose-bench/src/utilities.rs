@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::env;
+use std::process::{Child, Command};
 
 pub fn union_hashmaps<K, V>(maps: Vec<HashMap<K, V>>) -> HashMap<K, V>
 where
@@ -11,4 +13,26 @@ where
         result.extend(map);
         result
     })
+}
+
+pub fn await_process_exits(child_processes: &mut [Child]) {
+    for child in child_processes.iter_mut() {
+        match child.wait() {
+            Ok(status) => println!("Child exited with status: {}", status),
+            Err(e) => println!("Error waiting for child: {}", e),
+        }
+    }
+}
+
+pub fn parallel_bench_cmd(bench_cmd: String, config: String, envs: Vec<(String, String)>) -> Child {
+    let current_exe = env::current_exe().expect("Failed to get current executable path");
+
+    let mut cmd = Command::new(current_exe);
+    cmd.arg("bench").arg(bench_cmd).arg("--config").arg(config);
+
+    for (key, value) in envs.into_iter() {
+        cmd.env(key, value);
+    }
+
+    cmd.spawn().expect("Failed to spawn child process")
 }

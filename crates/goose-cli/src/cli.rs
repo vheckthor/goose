@@ -13,7 +13,9 @@ use crate::logging::setup_logging;
 use crate::session;
 use crate::session::build_session;
 use goose_bench::bench_config::BenchRunConfig;
-use goose_bench::bench_runner::BenchRunner;
+use goose_bench::runners::bench_runner::BenchRunner;
+use goose_bench::runners::eval_runner::EvalRunner;
+use goose_bench::runners::model_runner::ModelRunner;
 use std::io::Read;
 use std::path::PathBuf;
 
@@ -407,11 +409,9 @@ pub async fn cli() -> Result<()> {
                 BenchCommand::Selectors { config } => BenchRunner::list_selectors(config)?,
                 BenchCommand::InitConfig { name } => BenchRunConfig::default().save(name),
                 BenchCommand::Run { config } => BenchRunner::new(config)?.run()?,
-                BenchCommand::EvalModel { config } => {
-                    BenchRunner::from(config)?.run_eval_model()?
-                }
+                BenchCommand::EvalModel { config } => ModelRunner::from(config)?.run()?,
                 BenchCommand::ExecEval { config } => {
-                    BenchRunner::from(config)?.run_eval(agent_generator).await?
+                    EvalRunner::from(config)?.run(agent_generator).await?
                 }
             }
             return Ok(());
