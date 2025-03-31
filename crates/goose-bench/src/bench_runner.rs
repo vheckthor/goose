@@ -276,8 +276,10 @@ impl BenchRunner {
             }
             shim_name
         };
+
+        let include_dir = self.config.include_dirs.clone();
         let work_dir_name = format!("{}-{}{}", provider_name, model_name, work_dir_name_shim);
-        let mut work_dir = BenchmarkWorkDir::new(work_dir_name, Vec::new());
+        let mut work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
         let bench_eval = self.config.evals.first().unwrap();
         work_dir.set_eval(&bench_eval.selector, run_id);
 
