@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
-use super::formats::deepseek::{create_request, get_usage, response_to_message};
+use super::formats::openai::{create_request, get_usage, response_to_message};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat, ImageFormat};
 use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
@@ -50,6 +50,8 @@ impl HuggingFaceProvider {
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_secs))
             .build()?;
+
+        println!("Using HuggingFace provider: {}", provider);
 
         Ok(Self {
             client,
@@ -212,13 +214,28 @@ impl Provider for HuggingFaceProvider {
             system.to_string()
         };
 
-        // print out message types
-        for message in messages {
+        // Create a new messages vector that replaces tool responses with text content
+        let modified_messages: Vec<Message> = messages.iter().map(|message| {
+            if message.is_tool_response() {
+                println!("Converting tool response to text content: {:?}", message.content);
+                // Create a completely new message with text content
+                let text_content = format!("{:?}", message.content);
+                Message {
+                    role: Role::User,
+                    created: chrono::Utc::now().timestamp(),
+                    content: vec![MessageContent::text(text_content)],
+                }
+            } else {
+                message.clone()
+            }
+        }).collect();
+        
+        // print out message types for debugging
+        for message in &modified_messages {
             println!("Message is tool call: {:?}", message.is_tool_call());
             println!("Message is tool response: {:?}", message.is_tool_response());
-            if (message.is_tool_response()) {
-                println!("Message is tool response: {:?}", message.content);
-            }
+
+            println!("Message info: {:?}", message);
         }
         
 
@@ -226,7 +243,7 @@ impl Provider for HuggingFaceProvider {
         let payload = create_request(
             &self.model, 
             &system_prompt, 
-            messages, 
+            &modified_messages, 
             &[], 
             &ImageFormat::OpenAi
         )?;
