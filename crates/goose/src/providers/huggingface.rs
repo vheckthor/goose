@@ -8,7 +8,7 @@ use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
 use super::errors::ProviderError;
 use super::formats::openai::{create_request, get_usage, response_to_message};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat, ImageFormat};
-use crate::message::Message;
+use crate::message::{Message, MessageContent};
 use crate::model::ModelConfig;
 use mcp_core::tool::Tool;
 
@@ -160,25 +160,53 @@ impl Provider for HuggingFaceProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        let payload = create_request(&self.model, system, messages, tools, &ImageFormat::OpenAi)?;
+        // Check if this is a tool response - if so, we need to handle it differently
+        let is_tool_response = messages.last().map_or(false, |m| {
+            m.content.iter().any(|c| matches!(c, MessageContent::ToolResponse(_)))
+        });
 
-        // Make request
-        let response = self.post(payload.clone()).await?;
-
-        println!("Response: {:?}", response);
-
-        // Parse response
-        let message = response_to_message(response.clone())?;
-        let usage = match get_usage(&response) {
-            Ok(usage) => usage,
-            Err(ProviderError::UsageError(e)) => {
-                tracing::debug!("Failed to get usage data: {}", e);
-                Usage::default()
-            }
-            Err(e) => return Err(e),
-        };
-        let model = get_model(&response);
-        emit_debug_trace(&self.model, &payload, &response, &usage);
-        Ok((message, ProviderUsage::new(model, usage)))
+        // If this is a tool response, we need to create a text-only response
+        // DeepSeek models don't handle the full conversation loop with tool calling
+        if is_tool_response {
+            // Create a simplified payload without tools for the final response
+            let simple_payload = create_request(&self.model, system, messages, &[], &ImageFormat::OpenAi)?;
+            
+            // Make request with simplified payload
+            let response = self.post(simple_payload.clone()).await?;
+            
+            // Parse response
+            let message = response_to_message(response.clone())?;
+            let usage = match get_usage(&response) {
+                Ok(usage) => usage,
+                Err(ProviderError::UsageError(e)) => {
+                    tracing::debug!("Failed to get usage data: {}", e);
+                    Usage::default()
+                }
+                Err(e) => return Err(e),
+            };
+            let model = get_model(&response);
+            emit_debug_trace(&self.model, &simple_payload, &response, &usage);
+            Ok((message, ProviderUsage::new(model, usage)))
+        } else {
+            // Normal flow for initial request
+            let payload = create_request(&self.model, system, messages, tools, &ImageFormat::OpenAi)?;
+            
+            // Make request
+            let response = self.post(payload.clone()).await?;
+            
+            // Parse response
+            let message = response_to_message(response.clone())?;
+            let usage = match get_usage(&response) {
+                Ok(usage) => usage,
+                Err(ProviderError::UsageError(e)) => {
+                    tracing::debug!("Failed to get usage data: {}", e);
+                    Usage::default()
+                }
+                Err(e) => return Err(e),
+            };
+            let model = get_model(&response);
+            emit_debug_trace(&self.model, &payload, &response, &usage);
+            Ok((message, ProviderUsage::new(model, usage)))
+        }
     }
 }
