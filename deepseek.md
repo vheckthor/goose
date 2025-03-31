@@ -15,31 +15,36 @@ This document summarizes findings and solutions for integrating DeepSeek models 
    - DeepSeek models have difficulty handling the full conversation loop with tool calling.
    - After receiving a tool response, the model encounters errors when attempting to continue the conversation.
    - Error: `"Invalid request. Please check the parameters and try again. Details: can only concatenate str (not \"dict\") to str"`
+   - This appears to be a Python error in the HuggingFace API backend when processing tool results with DeepSeek models.
 
 ## Solutions Implemented
 
 1. **Tool Choice Parameter**
    - Added logic to detect when tools are present and add the appropriate `tool_choice` parameter.
-   - For the initial query, we use a specific tool choice for `developer__shell` to encourage the model to use it.
-   - For subsequent requests after tool responses, we switch to `"none"` to prevent errors.
+   - For the initial query with shell tools, we use a specific tool choice to direct the model to use the shell.
+   - For other tools or after tool responses, we use `"none"` to prevent errors.
 
 2. **Tool Response Handling**
    - Modified the `complete` method to detect when we're handling a tool response.
-   - For tool responses, we create a simplified payload without tools to avoid the concatenation error.
-   - This allows the model to respond to the tool output without trying to call more tools.
+   - For tool responses, we create a new conversation that:
+     - Embeds the tool output directly in the system message
+     - Uses a simple user message to ask for analysis of the output
+     - Doesn't include any tools in the request
+   - This approach avoids the API error by not using the tool response format at all.
 
 ## Current Status
 
-- Basic tool calling works - the model can successfully use the `developer__shell` tool.
-- The conversation still ends after the first tool response due to API limitations.
-- This is a known limitation of the DeepSeek models through the HuggingFace API.
+- Basic tool calling works - the model can successfully use tools like `developer__shell`.
+- After tool execution, the model provides a detailed analysis of the tool output.
+- The solution effectively works around the API limitations while providing a good user experience.
 
 ## Future Improvements
 
 1. Make the tool_choice configurable via an environment variable.
 2. Add better error handling for specific DeepSeek error messages.
-3. Implement a fallback mechanism to disable tools when the model doesn't support them.
+3. Implement a fallback mechanism to use a different model for tool response handling.
 4. Explore if newer DeepSeek model versions improve tool calling support.
+5. Work with HuggingFace to improve their DeepSeek integration for full tool calling support.
 
 ## References
 

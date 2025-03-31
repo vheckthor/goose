@@ -80,11 +80,29 @@ impl HuggingFaceProvider {
             }
         }
         
+        // Check if we're handling a tool response
+        let mut has_tool_response = false;
+        if let Some(messages) = payload.get("messages") {
+            if let Some(messages_array) = messages.as_array() {
+                // Check if any message is a tool response
+                for message in messages_array {
+                    if message.get("role").and_then(|r| r.as_str()) == Some("tool") {
+                        has_tool_response = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
         // Now add the tool_choice
         if let Some(tools) = payload.get("tools") {
             if !tools.as_array().unwrap_or(&vec![]).is_empty() {
                 if let Some(obj) = payload.as_object_mut() {
-                    if should_use_shell {
+                    if has_tool_response {
+                        // After a tool response, use "none" for tool_choice
+                        obj.insert("tool_choice".to_string(), json!("none"));
+                    } else if should_use_shell {
+                        // For initial request with shell tool, direct to use shell
                         obj.insert("tool_choice".to_string(), json!({
                             "type": "function",
                             "function": {
@@ -92,28 +110,23 @@ impl HuggingFaceProvider {
                             }
                         }));
                     } else {
+                        // Default case
                         obj.insert("tool_choice".to_string(), json!("none"));
                     }
                 }
             }
         }
         
-        // Check if we're handling a tool response and need to switch back to "none"
-        // This is to work around the model's limitation with tool responses
-        if let Some(messages) = payload.get("messages") {
-            if let Some(messages_array) = messages.as_array() {
-                // Check if the last message is a tool response
-                if let Some(last_message) = messages_array.last() {
-                    if last_message.get("role").and_then(|r| r.as_str()) == Some("tool") {
-                        // After a tool response, use "none" for tool_choice
-                        if let Some(obj) = payload.as_object_mut() {
-                            obj.insert("tool_choice".to_string(), json!("none"));
-                        }
-                    }
-                }
+        // For requests with tool responses, we need to modify the payload to work around the API limitation
+        if has_tool_response {
+            // Remove tools completely to avoid the concatenation error
+            if let Some(obj) = payload.as_object_mut() {
+                obj.remove("tools");
+                obj.insert("tool_choice".to_string(), json!("none"));
             }
         }
         
+        println!("REQUEST PAYLOAD: {:?}", payload);
         let request = self
             .client
             .post(&base_url)
@@ -121,7 +134,14 @@ impl HuggingFaceProvider {
             .json(&payload);
 
         let response = request.send().await?;
-        handle_response_openai_compat(response).await
+        println!("RAW RESPONSE: {:?}", response);
+        let result = handle_response_openai_compat(response).await;
+        if let Err(ref e) = result {
+            println!("ERROR: {:?}", e);
+        } else if let Ok(ref value) = result {
+            println!("RESPONSE BODY: {:?}", value);
+        }
+        result
     }
 }
 
@@ -160,16 +180,55 @@ impl Provider for HuggingFaceProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        // Check if this is a tool response - if so, we need to handle it differently
+        // Check if this is a tool response
         let is_tool_response = messages.last().map_or(false, |m| {
             m.content.iter().any(|c| matches!(c, MessageContent::ToolResponse(_)))
         });
 
-        // If this is a tool response, we need to create a text-only response
-        // DeepSeek models don't handle the full conversation loop with tool calling
         if is_tool_response {
-            // Create a simplified payload without tools for the final response
-            let simple_payload = create_request(&self.model, system, messages, &[], &ImageFormat::OpenAi)?;
+            // For tool responses, we need to create a simplified payload without tools
+            
+            // Extract the tool response content
+            let tool_output = messages.last()
+                .and_then(|m| m.content.iter().find_map(|c| {
+                    if let MessageContent::ToolResponse(resp) = c {
+                        if let Ok(contents) = &resp.tool_result {
+                            // Extract text content from the tool result
+                            let text = contents.iter()
+                                .filter_map(|content| {
+                                    match content {
+                                        mcp_core::Content::Text(text) => Some(text.text.clone()),
+                                        _ => None
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n");
+                            Some(text)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                }))
+                .unwrap_or_else(|| "".to_string());
+                
+            // Create a new set of messages for the model
+            // We'll use a completely new conversation to avoid any issues with the API
+            let mut new_messages = Vec::new();
+            
+            // Add a system message with the tool output
+            let system_with_output = format!(
+                "{}\n\nThe following command was executed and produced this output:\n\n```\n{}\n```\n\nPlease analyze this output and provide a helpful response.",
+                system,
+                tool_output
+            );
+            
+            // Add a simple user message
+            new_messages.push(Message::user().with_text("Please describe what you see in the command output above."));
+            
+            // Create a request without tools and with the new conversation
+            let simple_payload = create_request(&self.model, &system_with_output, &new_messages, &[], &ImageFormat::OpenAi)?;
             
             // Make request with simplified payload
             let response = self.post(simple_payload.clone()).await?;
@@ -191,7 +250,7 @@ impl Provider for HuggingFaceProvider {
             // Normal flow for initial request
             let payload = create_request(&self.model, system, messages, tools, &ImageFormat::OpenAi)?;
             
-            // Make request
+            // Make request - post method handles tool responses
             let response = self.post(payload.clone()).await?;
             
             // Parse response
