@@ -13,7 +13,7 @@
             <link>https://block.github.io/goose/blog/2025/03/31/goose-benchmark</link>
             <guid>https://block.github.io/goose/blog/2025/03/31/goose-benchmark</guid>
             <pubDate>Mon, 31 Mar 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[Explore the new Speech MCP server that enables voice-controlled coding and natural conversation with your AI agent]]></description>
+            <description><![CDATA[See how open source AI models measure up in our first Goose agent benchmark tests]]></description>
             <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/goose-benchmark-d9726c203290ef892fe3fe3adc7d898f.png" width="1200" height="630" class="img_ev3q"></p>
 <p>We've been measuring Goose's performance with various AI models, including a variety of popular open-source models that can run locally on consumer hardware (RTX 4080, Mac M-series). We understand that many in our community value a fully open-source, local experience without relying on cloud services.</p>
 <p>This blog shares our findings comparing open-source models against their closed counterparts, highlighting both current performance gaps and paths for future improvement. Our benchmark is still in its early stages, but we wanted to release it as a starting point for distinguishing models that exhibit stronger agentic capabilities by their ability to pilot Goose (distinct from reasoning or other capabilities often captured in other popular benchmarks).</p>
