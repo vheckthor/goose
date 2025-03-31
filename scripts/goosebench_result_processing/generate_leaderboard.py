@@ -26,7 +26,6 @@ class ModelMetrics:
     model: str
     success_rate: float
     avg_correctness_score_all: float
-    avg_correctness_score_successful: float
     total_runs: int
     successful_runs: int
     avg_tokens_all: float
@@ -94,7 +93,6 @@ def calculate_model_metrics(df: pd.DataFrame) -> Dict[str, ModelMetrics]:
         avg_exec_time_all = group['avg_exec_time_all'].iloc[0]
         
         # Get metrics for successful runs
-        avg_correctness_score_successful = avg_correctness_score_all  # Same since we already have averages
         avg_tokens_successful = group['avg_tokens_successful'].iloc[0]
         avg_tool_calls_successful = group['avg_tool_calls_successful'].iloc[0]
         avg_exec_time_successful = group['avg_exec_time_successful'].iloc[0]
@@ -104,7 +102,6 @@ def calculate_model_metrics(df: pd.DataFrame) -> Dict[str, ModelMetrics]:
             model=model,
             success_rate=success_rate,
             avg_correctness_score_all=avg_correctness_score_all,
-            avg_correctness_score_successful=avg_correctness_score_successful,
             total_runs=total_runs,
             successful_runs=successful_runs,
             avg_tokens_all=avg_tokens_all,
@@ -151,7 +148,6 @@ def average_metrics_across_tasks(task_metrics_list: List[Dict[str, ModelMetrics]
         # Average all metrics
         success_rate = sum(m.success_rate for m in model_metrics_list) / len(model_metrics_list)
         avg_correctness_score_all = sum(m.avg_correctness_score_all for m in model_metrics_list) / len(model_metrics_list)
-        avg_correctness_score_successful = sum(m.avg_correctness_score_successful for m in model_metrics_list) / len(model_metrics_list)
         total_runs = sum(m.total_runs for m in model_metrics_list)
         successful_runs = sum(m.successful_runs for m in model_metrics_list)
         avg_tokens_all = sum(m.avg_tokens_all for m in model_metrics_list) / len(model_metrics_list)
@@ -166,7 +162,6 @@ def average_metrics_across_tasks(task_metrics_list: List[Dict[str, ModelMetrics]
             model=model_name,
             success_rate=success_rate,
             avg_correctness_score_all=avg_correctness_score_all,
-            avg_correctness_score_successful=avg_correctness_score_successful,
             total_runs=total_runs,
             successful_runs=successful_runs,
             avg_tokens_all=avg_tokens_all,
@@ -210,7 +205,6 @@ def generate_leaderboard(input_dir: str, output_path: str) -> None:
                 'model': metrics.model,
                 'success_rate': round(metrics.success_rate * 100, 1),
                 'avg_correctness_score_all': round(metrics.avg_correctness_score_all, 2),
-                'avg_correctness_score_successful': round(metrics.avg_correctness_score_successful, 2),
                 'successful_runs': metrics.successful_runs,
                 'total_runs': metrics.total_runs,
                 'avg_tokens_all': round(metrics.avg_tokens_all),

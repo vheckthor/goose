@@ -11,7 +11,7 @@ import json
 import glob
 import csv
 import re
-from collections import defaultdict
+from collections import defaultdict, Counter
 from typing import Dict, List, Any, Tuple, Optional, Callable
 from openai import OpenAI
 
@@ -311,24 +311,61 @@ Do not include any markdown formatting or additional text. Return only the JSON 
         
         input_prompt = f"{prompt} {output_instructions}\Response to evaluate: {text}"
         
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "user", "content": input_prompt}
-            ],
-            temperature=0.9
-        )
+        # Run the chat completion 3 times and collect scores
+        scores = []
+        for _ in range(3):
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "user", "content": input_prompt}
+                ],
+                temperature=0.9
+            )
+            
+            # Extract and parse JSON from response
+            response_text = response.choices[0].message.content.strip()
+            try:
+                evaluation = json.loads(response_text)
+                score = float(evaluation.get("score", 0.0))
+                score = max(0.0, min(score, rubric_max_score))
+                scores.append(score)
+                print(f"Run score: {score}")
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error parsing OpenAI response as JSON: {str(e)}")
+                print(f"Response text: {response_text}")
+                raise ValueError(f"Failed to parse OpenAI evaluation response: {str(e)}")
         
-        # Extract and parse JSON from response
-        response_text = response.choices[0].message.content.strip()
-        try:
-            evaluation = json.loads(response_text)
-            score = float(evaluation.get("score", 0.0))
-            return max(0.0, min(score, rubric_max_score))
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"Error parsing OpenAI response as JSON: {str(e)}")
-            print(f"Response text: {response_text}")
-            raise ValueError(f"Failed to parse OpenAI evaluation response: {str(e)}")
+        # Count occurrences of each score
+        score_counts = Counter(scores)
+        
+        # If there's no single most common score (all scores are different), run one more time
+        if len(scores) == 3 and max(score_counts.values()) == 1:
+            print("No majority score found. Running tie-breaker...")
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "user", "content": input_prompt}
+                ],
+                temperature=0.9
+            )
+            
+            response_text = response.choices[0].message.content.strip()
+            try:
+                evaluation = json.loads(response_text)
+                score = float(evaluation.get("score", 0.0))
+                score = max(0.0, min(score, rubric_max_score))
+                scores.append(score)
+                print(f"Tie-breaker score: {score}")
+                score_counts = Counter(scores)
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error parsing tie-breaker response as JSON: {str(e)}")
+                print(f"Response text: {response_text}")
+                raise ValueError(f"Failed to parse tie-breaker response: {str(e)}")
+        
+        # Get the most common score
+        most_common_score = score_counts.most_common(1)[0][0]
+        print(f"Most common score: {most_common_score} (occurred {score_counts[most_common_score]} times)")
+        return most_common_score
             
     except Exception as e:
         if "OPENAI_API_KEY" in str(e):

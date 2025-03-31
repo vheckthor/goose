@@ -57,7 +57,7 @@ class BlogSummaryAnalyzer(AnalyzeProtocol):
         response_text = load_output_file(dir_path, "blog_summary_output.txt")
         if not response_text:
             print(f"No blog_summary_output.txt found in {dir_path}")
-            raise ValueError(f"Missing output file: {dir_path}/blog_summary_output.txt")
+            return 0
             
         print(f"Found output file, length: {len(response_text)} chars")
         print("Calling OpenAI evaluation...")

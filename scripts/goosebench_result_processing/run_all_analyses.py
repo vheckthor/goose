@@ -30,16 +30,16 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Define analysis script directories and their corresponding evaluation names
 ANALYSIS_DIRS = {
-    # "vibes": [
-    #     ("analyze_blog_summary.py", "blog_summary"),
-    #     ("analyze_squirrel_census.py", "squirrel_census"),
-    #     ("analyze_flappy_bird.py", "flappy_bird"),
-    #     ("analyze_goose_wiki.py", "goose_wiki"),
-    #     ("analyze_restaurant_research.py", "restaurant_research")
-    # ],
+    "vibes": [
+        ("analyze_blog_summary.py", "blog_summary"),
+        ("analyze_squirrel_census.py", "squirrel_census"),
+        ("analyze_flappy_bird.py", "flappy_bird"),
+        ("analyze_goose_wiki.py", "goose_wiki"),
+        ("analyze_restaurant_research.py", "restaurant_research")
+    ],
     "core": [
         ("analyze_search_replace.py", "search_replace"),
-        ("analyze_save_fact.py", "save_fact"),
+        # ("analyze_save_fact.py", "save_fact"),
         ("analyze_create_file.py", "create_file"),
         ("analyze_list_files.py", "list_files")
     ]
