@@ -10,6 +10,12 @@ use mcp_server::{router::CapabilitiesBuilder, Router};
 use serde_json::{json, Value};
 use std::{future::Future, pin::Pin};
 use goose::config::{ExtensionConfig, ExtensionManager};
+use goose::agents::Capabilities;
+use goose::model::ModelConfig;
+use goose::providers::base::{Provider, ProviderMetadata, ProviderUsage, Usage};
+use goose::providers::errors::ProviderError;
+use goose::message::Message;
+use goose::agents::AgentFactory;
 
 pub struct GooseUtilsRouter {
     tools: Vec<Tool>,
@@ -24,9 +30,10 @@ impl Default for GooseUtilsRouter {
 impl GooseUtilsRouter {
     pub fn new() -> Self {
         let discover_extensions = create_discover_extensions_tool();
+        let install_extension = create_install_extension_tool();
 
         Self {
-            tools: vec![discover_extensions],
+            tools: vec![discover_extensions, install_extension],
         }
     }
 
@@ -110,6 +117,26 @@ impl GooseUtilsRouter {
 
         Ok(vec![Content::text(output_parts.join("\n"))])
     }
+
+    async fn install_extension(&self, extension_name: String) -> Result<Vec<Content>, ToolError> {
+        let extension = ExtensionManager::get_config(&extension_name)
+            .map_err(|e| ToolError::ExecutionError(format!("Failed to get extension config: {}", e)))?
+            .ok_or_else(|| ToolError::ExecutionError(format!("Extension {} not found", extension_name)))?;
+
+        // Create a real agent using AgentFactory
+        let model_config = ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
+        let provider = Box::new(MockProvider { model_config }); // Still need mock provider
+        // We want the agent from goose-cli to be used here
+        let mut agent = AgentFactory::create(&AgentFactory::configured_version(), provider)
+            .expect("Failed to create agent");
+
+        // This will properly set up the extension through Capabilities
+        agent.add_extension(extension)
+            .await
+            .map_err(|e| ToolError::ExecutionError(format!("Failed to add extension: {}", e)))?;
+
+        Ok(vec![Content::text(format!("Successfully installed and enabled extension '{}'", extension_name))])
+    }
 }
 
 impl Router for GooseUtilsRouter {
@@ -142,6 +169,16 @@ impl Router for GooseUtilsRouter {
         Box::pin(async move {
             match tool_name.as_str() {
                 "discover_extensions" => this.discover_extensions(arguments).await,
+                "install_extension" => {
+                    let extension_name = arguments
+                        .get("extension_name")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| {
+                            ToolError::InvalidParameters("Missing extension_name parameter".to_string())
+                        })?
+                        .to_string();
+                    this.install_extension(extension_name).await
+                }
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })
@@ -198,4 +235,53 @@ fn create_discover_extensions_tool() -> Tool {
             "properties": {}
         }),
     )
+}
+
+// Create the tool definition
+fn create_install_extension_tool() -> Tool {
+    Tool::new(
+        "install_extension".to_string(),
+        "Install and enable a Goose extension. This tool takes an extension name and installs the extension \
+         using information from the extension registry. The extension will be installed and enabled automatically. \
+         Only non-builtin extensions can be installed this way.".to_string(),
+        json!({
+            "type": "object",
+            "required": ["extension_name"],
+            "properties": {
+                "extension_name": {
+                    "type": "string",
+                    "description": "The name of the extension to install"
+                }
+            }
+        }),
+    )
+}
+
+// TODO: centralize MockProvider
+#[derive(Clone)]
+struct MockProvider {
+    model_config: ModelConfig,
+}
+
+#[async_trait::async_trait]
+impl Provider for MockProvider {
+    fn metadata() -> ProviderMetadata {
+        ProviderMetadata::empty()
+    }
+
+    fn get_model_config(&self) -> ModelConfig {
+        self.model_config.clone()
+    }
+
+    async fn complete(
+        &self,
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[Tool],
+    ) -> anyhow::Result<(Message, ProviderUsage), ProviderError> {
+        Ok((
+            Message::assistant().with_text("Mock response"),
+            ProviderUsage::new("mock".to_string(), Usage::default()),
+        ))
+    }
 }
