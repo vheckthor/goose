@@ -18,6 +18,7 @@ use crate::agents::capabilities::{get_parameter_names, Capabilities};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::agents::ToolPermissionStore;
 use crate::config::Config;
+use crate::config::ExtensionManager;
 use crate::gooselings::Gooseling;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
@@ -582,11 +583,19 @@ impl Agent for TruncateAgent {
             .filter(|line| !line.is_empty())
             .collect();
 
+        let extensions = ExtensionManager::get_all().unwrap_or_default();
+        let extension_configs: Vec<_> = extensions
+            .iter()
+            .filter(|e| e.enabled)
+            .map(|e| e.config.clone())
+            .collect();
+
         let gooseling = Gooseling::builder()
             .title("Custom gooseling from chat")
             .description("a custom gooseling instance from this chat session")
             .instructions(instructions)
             .activities(activities)
+            .extensions(extension_configs)
             .build()
             .expect("valid gooseling");
 
