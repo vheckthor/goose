@@ -18,6 +18,7 @@ use goose::agents::{Agent, SessionConfig};
 use goose::config::Config;
 use goose::message::{Message, MessageContent};
 use goose::session;
+use input::InputResult;
 use mcp_core::handler::ToolError;
 use mcp_core::prompt::PromptMessage;
 
@@ -487,6 +488,11 @@ impl Session {
                             Err(e) => output::render_error(&e.to_string()),
                         }
                     }
+                }
+                InputResult::Gooseling => {
+                    let gooseling = self.agent.create_gooseling(&self.messages).await;
+                    println!("{:?}", gooseling);
+                    continue;
                 }
             }
         }

@@ -17,6 +17,7 @@ pub enum InputResult {
     GooseMode(String),
     Plan(PlanCommandOptions),
     EndPlan,
+    Gooseling,
 }
 
 #[derive(Debug)]
@@ -89,6 +90,7 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
     const CMD_MODE: &str = "/mode ";
     const CMD_PLAN: &str = "/plan";
     const CMD_ENDPLAN: &str = "/endplan";
+    const CMD_GOOSELING: &str = "/gooseling";
 
     match input {
         "/exit" | "/quit" => Some(InputResult::Exit),
@@ -130,6 +132,7 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
         }
         s if s.starts_with(CMD_PLAN) => parse_plan_command(s[CMD_PLAN.len()..].trim().to_string()),
         s if s == CMD_ENDPLAN => Some(InputResult::EndPlan),
+        s if s == CMD_GOOSELING => Some(InputResult::Gooseling),
         _ => None,
     }
 }

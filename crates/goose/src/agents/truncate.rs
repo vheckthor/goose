@@ -548,14 +548,21 @@ impl Agent for TruncateAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling> {
+    async fn create_gooseling(&self, messages: &[Message]) -> Result<Gooseling> {
         // get the gooseling prompt
-        let capabilities = self.capabilities.lock().await;
+        let mut capabilities = self.capabilities.lock().await;
+        let system_prompt = capabilities.get_system_prompt().await;
         let gooseling_prompt = capabilities.get_gooseling_prompt().await;
-
         let provider = capabilities.provider();
+        let tools = capabilities.get_prefixed_tools().await?;
 
-        let (result, _usage) = provider.complete(&gooseling_prompt, &messages, &[]).await?;
+        let mut messages_vec = messages.to_vec();
+        messages_vec.push(Message::user().with_text(gooseling_prompt));
+
+        let (result, _usage) = provider
+            .complete(&system_prompt, &messages_vec, &tools)
+            .await?;
+
         let content = result.as_concat_text();
 
         // Use split_once to get the content after "Instructions:".

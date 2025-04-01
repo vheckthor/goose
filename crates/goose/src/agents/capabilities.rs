@@ -658,7 +658,7 @@ impl Capabilities {
     pub async fn get_gooseling_prompt(&self) -> String {
         let context: HashMap<&str, Value> = HashMap::new();
 
-        prompt_template::render_inline_once("gooseling.md", &context)
+        prompt_template::render_global_file("gooseling.md", &context)
             .expect("should render gooseling prompt")
     }
 }
