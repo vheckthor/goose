@@ -114,6 +114,7 @@ pub async fn build_session(
                 });
         }
     }
+    
 
     // Create new session
     let mut session = Session::new(agent, session_file.clone(), debug);

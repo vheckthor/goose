@@ -10,6 +10,9 @@ pub const DEFAULT_EXTENSION_TIMEOUT: u64 = 300;
 pub const DEFAULT_EXTENSION_DESCRIPTION: &str = "";
 pub const DEFAULT_DISPLAY_NAME: &str = "Developer";
 
+pub const GOOSE_UTILS_EXTENSION: &str = "goose_utils";
+pub const GOOSE_UTILS_DISPLAY_NAME: &str = "Goose Utils";
+
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct ExtensionEntry {
     pub enabled: bool,
@@ -21,6 +24,7 @@ pub fn name_to_key(name: &str) -> String {
     name.chars()
         .filter(|c| !c.is_whitespace())
         .collect::<String>()
+        .replace("-", "_")
         .to_lowercase()
 }
 
@@ -36,18 +40,31 @@ impl ExtensionManager {
         let extensions: HashMap<String, ExtensionEntry> = match config.get_param("extensions") {
             Ok(exts) => exts,
             Err(super::ConfigError::NotFound(_)) => {
-                // Initialize with default developer extension
-                let defaults = HashMap::from([(
-                    name_to_key(DEFAULT_EXTENSION), // Use key format for top-level key in config
-                    ExtensionEntry {
-                        enabled: true,
-                        config: ExtensionConfig::Builtin {
-                            name: DEFAULT_EXTENSION.to_string(),
-                            display_name: Some(DEFAULT_DISPLAY_NAME.to_string()),
-                            timeout: Some(DEFAULT_EXTENSION_TIMEOUT),
+                // Initialize with default extensions
+                let defaults = HashMap::from([
+                    (
+                        name_to_key(DEFAULT_EXTENSION), // Use key format for top-level key in config
+                        ExtensionEntry {
+                            enabled: true,
+                            config: ExtensionConfig::Builtin {
+                                name: DEFAULT_EXTENSION.to_string(),
+                                display_name: Some(DEFAULT_DISPLAY_NAME.to_string()),
+                                timeout: Some(DEFAULT_EXTENSION_TIMEOUT),
+                            },
                         },
-                    },
-                )]);
+                    ),
+                    (
+                        name_to_key(GOOSE_UTILS_EXTENSION),
+                        ExtensionEntry {
+                            enabled: true,
+                            config: ExtensionConfig::Builtin {
+                                name: GOOSE_UTILS_EXTENSION.to_string(),
+                                display_name: Some(GOOSE_UTILS_DISPLAY_NAME.to_string()),
+                                timeout: Some(DEFAULT_EXTENSION_TIMEOUT),
+                            },
+                        },
+                    ),
+                ]);
                 config.set_param("extensions", serde_json::to_value(&defaults)?)?;
                 defaults
             }

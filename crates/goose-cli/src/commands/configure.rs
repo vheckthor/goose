@@ -22,6 +22,7 @@ fn get_display_name(extension_id: &str) -> String {
         "memory" => "Memory".to_string(),
         "tutorial" => "Tutorial".to_string(),
         "jetbrains" => "JetBrains".to_string(),
+        "goose_utils" => "Goose Utils".to_string(),
         // Add other extensions as needed
         _ => {
             extension_id
@@ -479,6 +480,11 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                     "Access interactive tutorials and guides",
                 )
                 .item("jetbrains", "JetBrains", "Connect to jetbrains IDEs")
+                .item(
+                    "goose_utils",
+                    "Goose Utils",
+                    "Core Goose utilities and extension management",
+                )
                 .interact()?
                 .to_string();
 
