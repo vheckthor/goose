@@ -25,6 +25,7 @@ use mcp_core::prompt::PromptMessage;
 use rand::{distributions::Alphanumeric, Rng};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -490,13 +491,35 @@ impl Session {
                     }
                 }
                 InputResult::Gooseling => {
+                    println!("{}", console::style("Generating gooseling").green());
+
+                    output::show_thinking();
                     let gooseling = self.agent.create_gooseling(self.messages.clone()).await;
+                    output::hide_thinking();
+
                     if gooseling.is_ok() {
+                        let gooseling = gooseling.unwrap();
+                        if let Ok(file) = File::create("./gooseling.yaml") {
+                            match serde_yaml::to_writer(file, &gooseling) {
+                                Ok(_) => println!(
+                                    "{}",
+                                    console::style("Saved gooseling to ./gooseling.yaml").green()
+                                ),
+                                Err(e) => println!(
+                                    "{}: {:?}",
+                                    console::style("Failed to save gooseling").red(),
+                                    e
+                                ),
+                            }
+                        }
+                    } else {
                         println!(
-                            "{}",
-                            serde_json::to_string_pretty(&gooseling.unwrap()).unwrap_or_default()
+                            "{}: {:?}",
+                            console::style("Failed to generate gooseling").red(),
+                            gooseling
                         );
                     }
+
                     continue;
                 }
             }
