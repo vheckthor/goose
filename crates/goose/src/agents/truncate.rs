@@ -548,7 +548,7 @@ impl Agent for TruncateAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, messages: &[Message]) -> Result<Gooseling> {
+    async fn create_gooseling(&self, mut messages: Vec<Message>) -> Result<Gooseling> {
         // get the gooseling prompt
         let mut capabilities = self.capabilities.lock().await;
         let system_prompt = capabilities.get_system_prompt().await;
@@ -556,12 +556,9 @@ impl Agent for TruncateAgent {
         let provider = capabilities.provider();
         let tools = capabilities.get_prefixed_tools().await?;
 
-        let mut messages_vec = messages.to_vec();
-        messages_vec.push(Message::user().with_text(gooseling_prompt));
+        messages.push(Message::user().with_text(gooseling_prompt));
 
-        let (result, _usage) = provider
-            .complete(&system_prompt, &messages_vec, &tools)
-            .await?;
+        let (result, _usage) = provider.complete(&system_prompt, &messages, &tools).await?;
 
         let content = result.as_concat_text();
 

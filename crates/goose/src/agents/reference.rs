@@ -278,7 +278,7 @@ impl Agent for ReferenceAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, messages: &[Message]) -> Result<Gooseling> {
+    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling> {
         Err(anyhow::Error::msg("Not implemented"))
     }
 }

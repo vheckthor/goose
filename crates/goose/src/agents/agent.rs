@@ -71,5 +71,5 @@ pub trait Agent: Send + Sync {
     async fn provider(&self) -> Arc<Box<dyn Provider>>;
 
     /// Create a gooseling file
-    async fn create_gooseling(&self, messages: &[Message]) -> Result<Gooseling>;
+    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling>;
 }
