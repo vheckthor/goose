@@ -594,11 +594,7 @@ impl Session {
             let confirmed = !selected.is_empty();
             if confirmed {
                 for extension in selected {
-                    println!("Enabling extension: {}", extension);
-                    println!("All extensions: {:?}", ExtensionManager::get_all().unwrap());
-                    println!("All extension names: {:?}", ExtensionManager::get_all_names().unwrap());
-                    println!("ExtensionManager: {:?}", ExtensionManager::get_config(&extension));
-                    // self.add_builtin(extension.clone()).await?;
+                    self.add_builtin(extension.clone()).await?;
                 }
             }
             output::show_thinking();
