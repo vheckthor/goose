@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 
-use goose::config::Config;
+use goose::config::{Config, ExtensionConfig};
 
 use crate::commands::agent_version::AgentCommand;
 use crate::commands::bench::{list_selectors, run_benchmark};
@@ -9,6 +9,7 @@ use crate::commands::configure::handle_configure;
 use crate::commands::info::handle_info;
 use crate::commands::mcp::run_server;
 use crate::commands::session::handle_session_list;
+use crate::gooseling::load_gooseling;
 use crate::logging::setup_logging;
 use crate::session;
 use crate::session::build_session;
@@ -148,7 +149,8 @@ enum Command {
             long,
             value_name = "FILE",
             help = "Path to instruction file containing commands. Use - for stdin.",
-            conflicts_with = "input_text"
+            conflicts_with = "input_text",
+            conflicts_with = "gooseling"
         )]
         instructions: Option<String>,
 
@@ -159,9 +161,22 @@ enum Command {
             value_name = "TEXT",
             help = "Input text to provide to Goose directly",
             long_help = "Input text containing commands for Goose. Use this in lieu of the instructions argument.",
-            conflicts_with = "instructions"
+            conflicts_with = "instructions",
+            conflicts_with = "gooseling"
         )]
         input_text: Option<String>,
+
+        /// Path to gooseling.yaml file
+        #[arg(
+            short = 'a',
+            long = "gooseling",
+            value_name = "FILE",
+            help = "Path to gooseling.yaml file",
+            long_help = "Path to a gooseling.yaml file that defines a custom agent configuration",
+            conflicts_with = "instructions",
+            conflicts_with = "input_text"
+        )]
+        gooseling: Option<String>,
 
         /// Continue in interactive mode after processing input
         #[arg(
@@ -201,7 +216,7 @@ enum Command {
             long_help = "Add stdio extensions from full commands with environment variables. Can be specified multiple times. Format: 'ENV1=val1 ENV2=val2 command args...'",
             action = clap::ArgAction::Append
         )]
-        extension: Vec<String>,
+        extensions: Vec<String>,
 
         /// Add builtin extensions by name
         #[arg(
@@ -211,7 +226,7 @@ enum Command {
             long_help = "Add one or more builtin extensions that are bundled with goose by specifying their names, comma-separated",
             value_delimiter = ','
         )]
-        builtin: Vec<String>,
+        builtins: Vec<String>,
     },
 
     /// List available agent versions
@@ -337,6 +352,7 @@ pub async fn cli() -> Result<()> {
                         resume,
                         extension,
                         builtin,
+                        None,
                         debug,
                     )
                     .await;
@@ -352,31 +368,49 @@ pub async fn cli() -> Result<()> {
         Some(Command::Run {
             instructions,
             input_text,
+            gooseling,
             interactive,
             identifier,
             resume,
             debug,
-            extension,
-            builtin,
+            extensions,
+            builtins,
         }) => {
-            let contents = match (instructions, input_text) {
-                (Some(file), _) if file == "-" => {
+            let mut extensions_override: Option<Vec<ExtensionConfig>> = None;
+            let contents = match (instructions, input_text, gooseling) {
+                (Some(file), _, _) if file == "-" => {
                     let mut stdin = String::new();
                     std::io::stdin()
                         .read_to_string(&mut stdin)
                         .expect("Failed to read from stdin");
                     stdin
                 }
-                (Some(file), _) => std::fs::read_to_string(&file).unwrap_or_else(|err| {
+                (Some(file), _, _) => std::fs::read_to_string(&file).unwrap_or_else(|err| {
                     eprintln!(
                         "Instruction file not found — did you mean to use goose run --text?\n{}",
                         err
                     );
                     std::process::exit(1);
                 }),
-                (None, Some(text)) => text,
-                (None, None) => {
-                    eprintln!("Error: Must provide either --instructions (-i) or --text (-t). Use -i - for stdin.");
+                (_, Some(text), _) => text,
+                (_, _, Some(file)) => {
+                    // Load and validate the gooseling file
+                    let gooseling = match load_gooseling(&file) {
+                        Ok(g) => g,
+                        Err(err) => {
+                            eprintln!("{}: {}", console::style("Error").red().bold(), err);
+                            std::process::exit(1);
+                        }
+                    };
+
+                    // Apply extensions from the gooseling
+                    extensions_override = gooseling.extensions;
+
+                    // Return the instructions as the content to be processed
+                    gooseling.instructions
+                }
+                (None, None, None) => {
+                    eprintln!("Error: Must provide either --instructions (-i), --text (-t), or --gooseling (-a). Use -i - for stdin.");
                     std::process::exit(1);
                 }
             };
@@ -384,8 +418,9 @@ pub async fn cli() -> Result<()> {
             let mut session = build_session(
                 identifier.map(extract_identifier),
                 resume,
-                extension,
-                builtin,
+                extensions,
+                builtins,
+                extensions_override,
                 debug,
             )
             .await;
@@ -468,7 +503,7 @@ pub async fn cli() -> Result<()> {
                 return Ok(());
             } else {
                 // Run session command by default
-                let mut session = build_session(None, false, vec![], vec![], false).await;
+                let mut session = build_session(None, false, vec![], vec![], None, false).await;
                 setup_logging(
                     session.session_file().file_stem().and_then(|s| s.to_str()),
                     None,

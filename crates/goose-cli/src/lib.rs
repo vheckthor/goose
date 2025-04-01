@@ -2,6 +2,7 @@ use etcetera::AppStrategyArgs;
 use once_cell::sync::Lazy;
 pub mod cli;
 pub mod commands;
+pub mod gooseling;
 pub mod logging;
 pub mod session;
 

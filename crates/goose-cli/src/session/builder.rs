@@ -1,7 +1,7 @@
 use console::style;
 use goose::agents::extension::ExtensionError;
 use goose::agents::AgentFactory;
-use goose::config::{Config, ExtensionManager};
+use goose::config::{Config, ExtensionConfig, ExtensionManager};
 use goose::session;
 use goose::session::Identifier;
 use mcp_client::transport::Error as McpClientError;
@@ -15,6 +15,7 @@ pub async fn build_session(
     resume: bool,
     extensions: Vec<String>,
     builtins: Vec<String>,
+    extensions_override: Option<Vec<ExtensionConfig>>,
     debug: bool,
 ) -> Session {
     // Load config and get provider/model
@@ -90,13 +91,12 @@ pub async fn build_session(
         }
     }
 
-    // Setup extensions for the agent
-    // Extensions need to be added after the session is created because we change directory when resuming a session
-    for extension in ExtensionManager::get_all().expect("should load extensions") {
-        if extension.enabled {
-            let config = extension.config.clone();
+    // If we get extensions_override, only run those extensions and none other
+    if let Some(extensions) = extensions_override {
+        println!("\n{}:", style("Extensions").dim());
+        for extension in extensions {
             agent
-                .add_extension(config.clone())
+                .add_extension(extension.clone())
                 .await
                 .unwrap_or_else(|e| {
                     let err = match e {
@@ -105,13 +105,40 @@ pub async fn build_session(
                         }
                         _ => e.to_string(),
                     };
-                    println!("Failed to start extension: {}, {:?}", config.name(), err);
+                    println!("Failed to start extension: {}, {:?}", extension.name(), err);
                     println!(
                         "Please check extension configuration for {}.",
-                        config.name()
+                        extension.name()
                     );
                     process::exit(1);
                 });
+            println!("- {}", extension.name());
+        }
+        println!();
+    } else {
+        // Setup extensions for the agent
+        // Extensions need to be added after the session is created because we change directory when resuming a session
+        for extension in ExtensionManager::get_all().expect("should load extensions") {
+            if extension.enabled {
+                let config = extension.config.clone();
+                agent
+                    .add_extension(config.clone())
+                    .await
+                    .unwrap_or_else(|e| {
+                        let err = match e {
+                            ExtensionError::Transport(McpClientError::StdioProcessError(inner)) => {
+                                inner
+                            }
+                            _ => e.to_string(),
+                        };
+                        println!("Failed to start extension: {}, {:?}", config.name(), err);
+                        println!(
+                            "Please check extension configuration for {}.",
+                            config.name()
+                        );
+                        process::exit(1);
+                    });
+            }
         }
     }
 
@@ -133,7 +160,6 @@ pub async fn build_session(
             process::exit(1);
         }
     }
-
     // Add CLI-specific system prompt extension
     session
         .agent
