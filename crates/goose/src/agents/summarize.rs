@@ -476,6 +476,11 @@ impl Agent for SummarizeAgent {
         let capabilities = self.capabilities.lock().await;
         capabilities.provider()
     }
+
+    async fn suggest_enable_extension(&self) -> Vec<String> {
+        let capabilities = self.capabilities.lock().await;
+        vec![capabilities.suggest_enable_extension().unwrap_or_default()]
+    }
 }
 
 register_agent!("summarize", SummarizeAgent);

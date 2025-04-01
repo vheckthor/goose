@@ -6,6 +6,7 @@ mod prompt;
 mod thinking;
 
 pub use builder::build_session;
+use goose::config::ExtensionManager;
 use goose::providers::base::Provider;
 pub use goose::session::Identifier;
 
@@ -571,6 +572,38 @@ impl Session {
 
     async fn process_agent_response(&mut self, interactive: bool) -> Result<()> {
         let session_id = session::Identifier::Path(self.session_file.clone());
+
+        // Settings suggestions, determine whether the extensions are enabled
+        // is extension enabled
+        let extension_suggestions = self.agent.suggest_enable_extension().await;
+        if !extension_suggestions.is_empty() {
+            output::hide_thinking();
+            // Format the confirmation prompt
+            let extension_prompt = format!("Goose would like to enable the following extensions: {}", extension_suggestions.join(", "));
+            // Get confirmation from user
+            let selected = cliclack::multiselect(extension_prompt)
+                .required(false)
+                .items(
+                    &extension_suggestions
+                        .iter()
+                        .map(|name| (name, name.as_str(), ""))
+                        .collect::<Vec<_>>(),
+                )
+                .initial_values(extension_suggestions.iter().collect::<Vec<_>>())
+                .interact()?;
+            let confirmed = !selected.is_empty();
+            if confirmed {
+                for extension in selected {
+                    println!("Enabling extension: {}", extension);
+                    println!("All extensions: {:?}", ExtensionManager::get_all().unwrap());
+                    println!("All extension names: {:?}", ExtensionManager::get_all_names().unwrap());
+                    println!("ExtensionManager: {:?}", ExtensionManager::get_config(&extension));
+                    // self.add_builtin(extension.clone()).await?;
+                }
+            }
+            output::show_thinking();
+        }
+
         let mut stream = self
             .agent
             .reply(

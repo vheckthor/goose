@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
-use crate::config::Config;
+use crate::config::{Config, ExtensionManager};
 use crate::prompt_template;
 use crate::providers::base::Provider;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
@@ -216,6 +216,13 @@ impl Capabilities {
     /// Get a reference to the provider
     pub fn provider(&self) -> Arc<Box<dyn Provider>> {
         Arc::clone(&self.provider)
+    }
+
+    pub fn suggest_enable_extension(&self) -> Option<String> {
+        ExtensionManager::get_all()
+            .expect("should load extensions")
+            .first()
+            .map(|extension| extension.config.name().to_string())
     }
 
     /// Get aggregated usage statistics

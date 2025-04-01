@@ -68,4 +68,7 @@ pub trait Agent: Send + Sync {
 
     /// Get a reference to the provider used by this agent
     async fn provider(&self) -> Arc<Box<dyn Provider>>;
+
+    /// Suggest extensions to enable based on the current context
+    async fn suggest_enable_extension(&self) -> Vec<String>;
 }
