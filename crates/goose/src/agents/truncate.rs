@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use mcp_core::tool::ToolAnnotations;
+use regex::Regex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -17,6 +18,7 @@ use crate::agents::capabilities::{get_parameter_names, Capabilities};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::agents::ToolPermissionStore;
 use crate::config::Config;
+use crate::gooselings::Gooseling;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
@@ -543,6 +545,52 @@ impl Agent for TruncateAgent {
     async fn provider(&self) -> Arc<Box<dyn Provider>> {
         let capabilities = self.capabilities.lock().await;
         capabilities.provider()
+    }
+
+    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling> {
+        // get the gooseling prompt
+        let capabilities = self.capabilities.lock().await;
+        let gooseling_prompt = capabilities.get_gooseling_prompt().await;
+
+        let provider = capabilities.provider();
+
+        let (result, _usage) = provider.complete(&gooseling_prompt, &messages, &[]).await?;
+        let content = result.as_concat_text();
+
+        // Use split_once to get the content after "Instructions:".
+        let after_instructions = content
+            .split_once("Instructions:")
+            .map(|(_, rest)| rest)
+            .unwrap_or(&content);
+
+        // Split once more to separate instructions from activities.
+        let (instructions_part, activities_text) = after_instructions
+            .split_once("Activities:")
+            .unwrap_or((after_instructions, ""));
+
+        let instructions = instructions_part.trim().to_string();
+        let activities_text = activities_text.trim();
+
+        // Regex to remove bullet markers or numbers with an optional dot.
+        let bullet_re = Regex::new(r"^[•\-\*\d]+\.?\s*").expect("Invalid regex");
+
+        // Process each line in the activities section.
+        let activities: Vec<String> = activities_text
+            .lines()
+            .map(|line| bullet_re.replace(line, "").to_string())
+            .map(|s| s.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+
+        let gooseling = Gooseling::builder()
+            .title("Custom gooseling from chat")
+            .description("a custom gooseling instance from this chat session")
+            .instructions(instructions)
+            .activities(activities)
+            .build()
+            .expect("valid gooseling");
+
+        Ok(gooseling)
     }
 }
 

@@ -18,6 +18,7 @@ use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::config::Config;
+use crate::gooselings::Gooseling;
 use crate::memory_condense::condense_messages;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
@@ -490,6 +491,10 @@ impl Agent for SummarizeAgent {
     async fn provider(&self) -> Arc<Box<dyn Provider>> {
         let capabilities = self.capabilities.lock().await;
         capabilities.provider()
+    }
+
+    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling> {
+        Err(anyhow::Error::msg("Not implemented"))
     }
 }
 

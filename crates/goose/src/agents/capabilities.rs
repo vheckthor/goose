@@ -12,6 +12,7 @@ use tracing::{debug, instrument};
 
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
 use crate::config::Config;
+use crate::gooselings::Gooseling;
 use crate::prompt_template;
 use crate::providers::base::Provider;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
@@ -652,6 +653,13 @@ impl Capabilities {
             .get_prompt(name, arguments)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get prompt: {}", e))
+    }
+
+    pub async fn get_gooseling_prompt(&self) -> String {
+        let context: HashMap<&str, Value> = HashMap::new();
+
+        prompt_template::render_inline_once("gooseling.md", &context)
+            .expect("should render gooseling prompt")
     }
 }
 

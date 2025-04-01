@@ -21,7 +21,6 @@ fn default_version() -> String {
 /// * `goosehints` - Additional goosehints to be merged with existing .goosehints configuration
 /// * `context` - Supplementary context information for the Gooseling
 /// * `activities` - Activity labels that appear when loading the Gooseling
-/// * `settings` - Configuration settings including model preferences
 /// * `author` - Information about the Gooseling's creator and metadata
 ///
 /// # Example
@@ -29,6 +28,15 @@ fn default_version() -> String {
 /// ```
 /// use your_crate::Gooseling;
 ///
+/// // Using the builder pattern
+/// let gooseling = Gooseling::builder()
+///     .title("Example Agent")
+///     .description("An example Gooseling configuration")
+///     .instructions("Act as a helpful assistant")
+///     .build()
+///     .expect("Missing required fields");
+///
+/// // Or using struct initialization
 /// let gooseling = Gooseling {
 ///     version: "1.0.0".to_string(),
 ///     title: "Example Agent".to_string(),
@@ -38,7 +46,6 @@ fn default_version() -> String {
 ///     goosehints: None,
 ///     context: None,
 ///     activities: None,
-///     settings: None,
 ///     author: None,
 /// };
 /// ```
@@ -68,16 +75,7 @@ pub struct Gooseling {
     pub activities: Option<Vec<String>>, // the activity pills that show up when loading the
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub settings: Option<Settings>, // any additional settings information
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Author>, // any additional author information
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Settings {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>, // settings/model; optionally provided
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -87,4 +85,125 @@ pub struct Author {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<String>, // any additional metadata for the author
+}
+
+/// Builder for creating Gooseling instances
+pub struct GooselingBuilder {
+    // Required fields with default values
+    version: String,
+    title: Option<String>,
+    description: Option<String>,
+    instructions: Option<String>,
+
+    // Optional fields
+    extensions: Option<Vec<ExtensionConfig>>,
+    goosehints: Option<String>,
+    context: Option<Vec<String>>,
+    activities: Option<Vec<String>>,
+    author: Option<Author>,
+}
+
+impl Gooseling {
+    /// Creates a new GooselingBuilder to construct a Gooseling instance
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let gooseling = Gooseling::builder()
+    ///     .title("My Gooseling")
+    ///     .description("A helpful assistant")
+    ///     .instructions("Act as a helpful assistant")
+    ///     .build()
+    ///     .expect("Failed to build Gooseling: missing required fields");
+    /// ```
+    pub fn builder() -> GooselingBuilder {
+        GooselingBuilder {
+            version: default_version(),
+            title: None,
+            description: None,
+            instructions: None,
+            extensions: None,
+            goosehints: None,
+            context: None,
+            activities: None,
+            author: None,
+        }
+    }
+}
+
+impl GooselingBuilder {
+    /// Sets the version of the Gooseling
+    pub fn version(mut self, version: impl Into<String>) -> Self {
+        self.version = version.into();
+        self
+    }
+
+    /// Sets the title of the Gooseling (required)
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    /// Sets the description of the Gooseling (required)
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Sets the instructions for the Gooseling (required)
+    pub fn instructions(mut self, instructions: impl Into<String>) -> Self {
+        self.instructions = Some(instructions.into());
+        self
+    }
+
+    /// Sets the extensions for the Gooseling
+    pub fn extensions(mut self, extensions: Vec<ExtensionConfig>) -> Self {
+        self.extensions = Some(extensions);
+        self
+    }
+
+    /// Sets the goosehints for the Gooseling
+    pub fn goosehints(mut self, goosehints: impl Into<String>) -> Self {
+        self.goosehints = Some(goosehints.into());
+        self
+    }
+
+    /// Sets the context for the Gooseling
+    pub fn context(mut self, context: Vec<String>) -> Self {
+        self.context = Some(context);
+        self
+    }
+
+    /// Sets the activities for the Gooseling
+    pub fn activities(mut self, activities: Vec<String>) -> Self {
+        self.activities = Some(activities);
+        self
+    }
+
+    /// Sets the author information for the Gooseling
+    pub fn author(mut self, author: Author) -> Self {
+        self.author = Some(author);
+        self
+    }
+
+    /// Builds the Gooseling instance
+    ///
+    /// Returns an error if any required fields are missing
+    pub fn build(self) -> Result<Gooseling, &'static str> {
+        let title = self.title.ok_or("Title is required")?;
+        let description = self.description.ok_or("Description is required")?;
+        let instructions = self.instructions.ok_or("Instructions are required")?;
+
+        Ok(Gooseling {
+            version: self.version,
+            title,
+            description,
+            instructions,
+            extensions: self.extensions,
+            goosehints: self.goosehints,
+            context: self.context,
+            activities: self.activities,
+            author: self.author,
+        })
+    }
 }

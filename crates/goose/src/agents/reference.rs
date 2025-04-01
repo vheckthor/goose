@@ -13,6 +13,7 @@ use super::extension::ToolInfo;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
+use crate::gooselings::Gooseling;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::token_counter::TokenCounter;
@@ -275,6 +276,10 @@ impl Agent for ReferenceAgent {
     async fn provider(&self) -> Arc<Box<dyn Provider>> {
         let capabilities = self.capabilities.lock().await;
         capabilities.provider()
+    }
+
+    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling> {
+        Err(anyhow::Error::msg("Not implemented"))
     }
 }
 
