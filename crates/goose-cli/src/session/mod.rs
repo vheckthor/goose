@@ -490,8 +490,13 @@ impl Session {
                     }
                 }
                 InputResult::Gooseling => {
-                    let gooseling = self.agent.create_gooseling(&self.messages).await;
-                    println!("{:?}", gooseling);
+                    let gooseling = self.agent.create_gooseling(self.messages.clone()).await;
+                    if gooseling.is_ok() {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&gooseling.unwrap()).unwrap_or_default()
+                        );
+                    }
                     continue;
                 }
             }

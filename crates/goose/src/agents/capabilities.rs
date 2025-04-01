@@ -12,7 +12,6 @@ use tracing::{debug, instrument};
 
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
 use crate::config::Config;
-use crate::gooselings::Gooseling;
 use crate::prompt_template;
 use crate::providers::base::Provider;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
