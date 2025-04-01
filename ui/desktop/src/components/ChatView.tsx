@@ -387,10 +387,10 @@ export default function ChatView({
             activities={botConfig?.activities || null}
           />
         ) : (
-          <ScrollArea ref={scrollRef} className="flex-1 px-4" autoScroll>
-            <SearchView className="mt-[16px]" scrollAreaRef={scrollRef}>
+          <ScrollArea ref={scrollRef} className="flex-1" autoScroll>
+            <SearchView scrollAreaRef={scrollRef}>
               {filteredMessages.map((message, index) => (
-                <div key={message.id || index} className="mt-[16px] message-content">
+                <div key={message.id || index} className="mt-4 px-4">
                   {isUserMessage(message) ? (
                     <UserMessage message={message} />
                   ) : (
@@ -442,8 +442,7 @@ export default function ChatView({
             isLoading={isLoading}
             onStop={onStopGoose}
             commandHistory={commandHistory}
-            value={_input}
-            onValueChange={_setInput}
+            initialValue={_input}
           />
           <BottomMenu hasMessages={hasMessages} setView={setView} />
         </div>

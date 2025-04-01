@@ -280,6 +280,8 @@ impl Agent for TruncateAgent {
                             let mut metadata = session::read_metadata(&session_file)?;
                             metadata.working_dir = session.working_dir;
                             metadata.total_tokens = usage.usage.total_tokens;
+                            metadata.input_tokens = usage.usage.input_tokens;
+                            metadata.output_tokens = usage.usage.output_tokens;
                             // The message count is the number of messages in the session + 1 for the response
                             // The message count does not include the tool response till next iteration
                             metadata.message_count = messages.len() + 1;
@@ -377,7 +379,10 @@ impl Agent for TruncateAgent {
                                                         // User declined - add declined response
                                                         message_tool_response = message_tool_response.with_tool_response(
                                                             request.id.clone(),
-                                                            Ok(vec![Content::text("User declined to run this tool. Don't try to make the same tool call again. If there is no other ways to do it, it is ok to stop.")]),
+                                                            Ok(vec![Content::text(
+                                                                "The user has declined to run this tool. \
+                                                                DO NOT attempt to call this tool again. \
+                                                                If there are no alternative methods to proceed, clearly explain the situation and STOP.")]),
                                                         );
                                                     }
                                                     break; // Exit the loop once the matching `req_id` is found
