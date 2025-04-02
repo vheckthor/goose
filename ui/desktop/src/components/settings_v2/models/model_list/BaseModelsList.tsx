@@ -3,6 +3,8 @@ import Model, { getProviderMetadata } from '../modelInterface';
 import { useRecentModels } from './recentModels';
 import { changeModel, getCurrentModelAndProvider } from '../index';
 import { useConfig } from '../../../ConfigContext';
+import { getExtensions } from '@/src/api';
+import ToastService, { toastService } from '@/src/toasts';
 
 interface ModelRadioListProps {
   renderItem: (props: {
@@ -29,7 +31,7 @@ export function BaseModelsList({
   } else {
     modelList = providedModelList;
   }
-  const { read, upsert, getProviders } = useConfig();
+  const { read, upsert, getExtensions, addExtension } = useConfig();
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -52,6 +54,7 @@ export function BaseModelsList({
           } else {
             currentModel = match;
           }
+          console.log('Checking for set selected model', currentModel);
           setSelectedModel(currentModel);
           setIsInitialized(true);
         }
@@ -72,11 +75,13 @@ export function BaseModelsList({
 
   const handleModelSelection = async (model: Model) => {
     // Fix: Use the model parameter that's passed in
-    await changeModel({ model: model, writeToConfig: upsert });
+    console.log('in handleModelSelection');
+    await changeModel({ model: model, writeToConfig: upsert, getExtensions, addExtension });
   };
 
   // Updated to work with CustomRadio
   const handleRadioChange = async (model: Model) => {
+    console.log('In handle Radio Change');
     // Check if the selected model is already active
     if (
       selectedModel &&
@@ -84,14 +89,22 @@ export function BaseModelsList({
       selectedModel.provider === model.provider
     ) {
       console.log(`Model "${model.name}" is already active.`);
+      toastService.error({
+        title: 'same model already',
+        msg: `Model "${model.name}" is already active.`,
+        traceback: null,
+      });
+
       return;
     }
 
     try {
       // Fix: First save the model to config, then update local state
+      console.log('about to go into handle model selection');
       await handleModelSelection(model);
 
       // Update local state after successful save
+      console.log('Checking selected model 2', model);
       setSelectedModel(model);
     } catch (error) {
       console.error('Error selecting model:', error);
@@ -105,16 +118,17 @@ export function BaseModelsList({
 
   return (
     <div className={className}>
-      {modelList.map((model) =>
-        renderItem({
+      {modelList.map((model) => {
+        console.log('A string easy to search for. selectedmodel', selectedModel, 'model', model);
+        return renderItem({
           model,
           isSelected:
             selectedModel &&
             selectedModel.name === model.name &&
             selectedModel.provider === model.provider,
           onSelect: () => handleRadioChange(model),
-        })
-      )}
+        });
+      })}
     </div>
   );
 }
