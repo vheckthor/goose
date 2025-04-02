@@ -4,7 +4,7 @@ import { useRecentModels } from './recentModels';
 import { changeModel, getCurrentModelAndProvider } from '../index';
 import { useConfig } from '../../../ConfigContext';
 import { getExtensions } from '@/src/api';
-import ToastService, { toastService } from '@/src/toasts';
+import ToastService, { toastService } from '../../../../toasts';
 
 interface ModelRadioListProps {
   renderItem: (props: {
