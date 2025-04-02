@@ -90,6 +90,18 @@ export async function getCurrentModelAndProvider({
     console.error(`Failed to read GOOSE_MODEL or GOOSE_PROVIDER from config`);
     throw error;
   }
+  if (!model || !provider) {
+    // hail mary
+    console.log('[getCurrentModelAndProvider] Checking app environment as fallback');
+    return getFallbackModelAndProvider();
+  }
+  return { model: model, provider: provider };
+}
+
+export async function getFallbackModelAndProvider() {
+  const config = window.electron.getConfig();
+  const provider = config.GOOSE_DEFAULT_PROVIDER;
+  const model = config.GOOSE_DEFAULT_MODEL;
   return { model: model, provider: provider };
 }
 
