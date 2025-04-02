@@ -21,7 +21,7 @@ use goose::gooselings::Gooseling;
 /// - The file can't be read
 /// - The YAML/JSON is invalid
 /// - The required fields are missing
-pub fn load_gooseling<P: AsRef<Path>>(path: P) -> Result<Gooseling> {
+pub fn load_gooseling<P: AsRef<Path>>(path: P, log: bool) -> Result<Gooseling> {
     let path = path.as_ref();
 
     // Check if file exists
@@ -58,23 +58,25 @@ pub fn load_gooseling<P: AsRef<Path>>(path: P) -> Result<Gooseling> {
         ));
     };
 
-    // Display information about the loaded gooseling
-    println!(
-        "{} {}",
-        style("Loading gooseling:").green().bold(),
-        style(&gooseling.title).green()
-    );
-    println!("{} {}", style("Description:").dim(), &gooseling.description);
+    if log {
+        // Display information about the loaded gooseling
+        println!(
+            "{} {}",
+            style("Loading gooseling:").green().bold(),
+            style(&gooseling.title).green()
+        );
+        println!("{} {}", style("Description:").dim(), &gooseling.description);
 
-    // Display activities if available
-    if let Some(activities) = &gooseling.activities {
-        println!("\n{}:", style("Activities").dim());
-        for activity in activities {
-            println!("- {}", activity);
+        // Display activities if available
+        if let Some(activities) = &gooseling.activities {
+            println!("\n{}:", style("Activities").dim());
+            for activity in activities {
+                println!("- {}", activity);
+            }
         }
-    }
 
-    println!(); // Add a blank line for spacing
+        println!(); // Add a blank line for spacing
+    }
 
     Ok(gooseling)
 }

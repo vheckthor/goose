@@ -6,6 +6,7 @@ use goose::config::{Config, ExtensionConfig};
 use crate::commands::agent_version::AgentCommand;
 use crate::commands::bench::{list_selectors, run_benchmark};
 use crate::commands::configure::handle_configure;
+use crate::commands::gooseling::{handle_deeplink, handle_validate};
 use crate::commands::info::handle_info;
 use crate::commands::mcp::run_server;
 use crate::commands::session::handle_session_list;
@@ -69,6 +70,25 @@ enum SessionCommand {
             default_value = "text"
         )]
         format: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum GooselingCommand {
+    /// Validate a gooseling file
+    #[command(about = "Validate a gooseling file")]
+    Validate {
+        /// Path to the gooseling file to validate
+        #[arg(help = "Path to the gooseling file to validate")]
+        file: String,
+    },
+
+    /// Generate a deeplink for a gooseling file
+    #[command(about = "Generate a deeplink for a gooseling file")]
+    Deeplink {
+        /// Path to the gooseling file
+        #[arg(help = "Path to the gooseling file")]
+        file: String,
     },
 }
 
@@ -227,6 +247,13 @@ enum Command {
             value_delimiter = ','
         )]
         builtins: Vec<String>,
+    },
+
+    /// Gooseling utilities for validation and deeplinking
+    #[command(about = "Gooseling utilities for validation and deeplinking")]
+    Gooseling {
+        #[command(subcommand)]
+        command: GooselingCommand,
     },
 
     /// List available agent versions
@@ -395,7 +422,7 @@ pub async fn cli() -> Result<()> {
                 (_, Some(text), _) => text,
                 (_, _, Some(file)) => {
                     // Load and validate the gooseling file
-                    let gooseling = match load_gooseling(&file) {
+                    let gooseling = match load_gooseling(&file, true) {
                         Ok(g) => g,
                         Err(err) => {
                             eprintln!("{}: {}", console::style("Error").red().bold(), err);
@@ -447,6 +474,17 @@ pub async fn cli() -> Result<()> {
             reconfigure,
         }) => {
             crate::commands::update::update(canary, reconfigure)?;
+            return Ok(());
+        }
+        Some(Command::Gooseling { command }) => {
+            match command {
+                GooselingCommand::Validate { file } => {
+                    handle_validate(file)?;
+                }
+                GooselingCommand::Deeplink { file } => {
+                    handle_deeplink(file)?;
+                }
+            }
             return Ok(());
         }
         Some(Command::Bench {
