@@ -165,30 +165,6 @@ export default function ChatView({
 
   // Handle scheduled task
   const handleScheduleTask = (duration: number, interval: number) => {
-    // Find the last user message
-    const lastUserMessage = messages.reduceRight(
-      (found, m) => found || (isUserMessage(m) ? m : null),
-      null as Message | null
-    );
-
-    if (!lastUserMessage) {
-      window.electron.showNotification({
-        title: 'Schedule Task Error',
-        body: 'No user message found to schedule.',
-      });
-      return;
-    }
-
-    // Get the text content from the last user message
-    const textContent = lastUserMessage.content.find((c) => c.type === 'text')?.text || '';
-    if (!textContent.trim()) {
-      window.electron.showNotification({
-        title: 'Schedule Task Error',
-        body: 'Last message has no text content to schedule.',
-      });
-      return;
-    }
-
     // Clear any existing scheduled task
     if (scheduledTask) {
       clearInterval(scheduledTask);
@@ -201,14 +177,12 @@ export default function ChatView({
     const startTime = Date.now();
     const endTime = startTime + durationMs;
 
-    window.electron.logInfo(
-      `Scheduling task: "${textContent}" every ${interval} minutes for ${duration} minutes`
-    );
+    window.electron.logInfo(`Scheduling task every ${interval} minutes for ${duration} minutes`);
 
     // Show notification that task is scheduled
     window.electron.showNotification({
       title: 'Task Scheduled',
-      body: `Will run "${textContent.substring(0, 30)}${textContent.length > 30 ? '...' : ''}" every ${interval} minutes for ${duration} minutes.`,
+      body: `Will run every ${interval} minutes for ${duration} minutes.`,
     });
 
     // Store task info for display
@@ -232,14 +206,14 @@ export default function ChatView({
         return;
       }
 
-      // Execute the task - replay the last user message
-      window.electron.logInfo(`Executing scheduled task: "${textContent}"`);
-      append(createUserMessage(textContent));
+      // Execute the task - send a simple message to repeat the last task
+      window.electron.logInfo(`Executing scheduled task`);
+      append(createUserMessage('please do that task again'));
 
       // Show notification
       window.electron.showNotification({
         title: 'Scheduled Task Executed',
-        body: `Ran "${textContent.substring(0, 30)}${textContent.length > 30 ? '...' : ''}"`,
+        body: 'Requested to repeat the last task',
       });
     }, intervalMs);
 
