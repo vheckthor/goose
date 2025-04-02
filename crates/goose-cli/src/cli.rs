@@ -344,6 +344,12 @@ enum CliProviderVariant {
     Ollama,
 }
 
+struct InputConfig {
+    contents: Option<String>,
+    extensions_override: Option<Vec<ExtensionConfig>>,
+    additional_system_prompt: Option<String>,
+}
+
 pub async fn cli() -> Result<()> {
     let cli = Cli::parse();
 
@@ -380,6 +386,7 @@ pub async fn cli() -> Result<()> {
                         extension,
                         builtin,
                         None,
+                        None,
                         debug,
                     )
                     .await;
@@ -403,38 +410,48 @@ pub async fn cli() -> Result<()> {
             extensions,
             builtins,
         }) => {
-            let mut extensions_override: Option<Vec<ExtensionConfig>> = None;
-            let contents = match (instructions, input_text, gooseling) {
+            let input_config = match (instructions, input_text, gooseling) {
                 (Some(file), _, _) if file == "-" => {
-                    let mut stdin = String::new();
+                    let mut input = String::new();
                     std::io::stdin()
-                        .read_to_string(&mut stdin)
+                        .read_to_string(&mut input)
                         .expect("Failed to read from stdin");
-                    stdin
+
+                    InputConfig {
+                        contents: Some(input),
+                        extensions_override: None,
+                        additional_system_prompt: None,
+                    }
                 }
-                (Some(file), _, _) => std::fs::read_to_string(&file).unwrap_or_else(|err| {
-                    eprintln!(
-                        "Instruction file not found — did you mean to use goose run --text?\n{}",
-                        err
-                    );
-                    std::process::exit(1);
-                }),
-                (_, Some(text), _) => text,
+                (Some(file), _, _) => {
+                    let contents = std::fs::read_to_string(&file).unwrap_or_else(|err| {
+                        eprintln!(
+                            "Instruction file not found — did you mean to use goose run --text?\n{}",
+                            err
+                        );
+                        std::process::exit(1);
+                    });
+                    InputConfig {
+                        contents: Some(contents),
+                        extensions_override: None,
+                        additional_system_prompt: None,
+                    }
+                }
+                (_, Some(text), _) => InputConfig {
+                    contents: Some(text),
+                    extensions_override: None,
+                    additional_system_prompt: None,
+                },
                 (_, _, Some(file)) => {
-                    // Load and validate the gooseling file
-                    let gooseling = match load_gooseling(&file, true) {
-                        Ok(g) => g,
-                        Err(err) => {
-                            eprintln!("{}: {}", console::style("Error").red().bold(), err);
-                            std::process::exit(1);
-                        }
-                    };
-
-                    // Apply extensions from the gooseling
-                    extensions_override = gooseling.extensions;
-
-                    // Return the instructions as the content to be processed
-                    gooseling.instructions
+                    let gooseling = load_gooseling(&file, true).unwrap_or_else(|err| {
+                        eprintln!("{}: {}", console::style("Error").red().bold(), err);
+                        std::process::exit(1);
+                    });
+                    InputConfig {
+                        contents: gooseling.prompt,
+                        extensions_override: gooseling.extensions,
+                        additional_system_prompt: Some(gooseling.instructions),
+                    }
                 }
                 (None, None, None) => {
                     eprintln!("Error: Must provide either --instructions (-i), --text (-t), or --gooseling (-a). Use -i - for stdin.");
@@ -447,7 +464,8 @@ pub async fn cli() -> Result<()> {
                 resume,
                 extensions,
                 builtins,
-                extensions_override,
+                input_config.extensions_override,
+                input_config.additional_system_prompt,
                 debug,
             )
             .await;
@@ -458,9 +476,12 @@ pub async fn cli() -> Result<()> {
             )?;
 
             if interactive {
-                session.interactive(Some(contents)).await?;
-            } else {
+                session.interactive(input_config.contents).await?;
+            } else if let Some(contents) = input_config.contents {
                 session.headless(contents).await?;
+            } else {
+                eprintln!("Error: no text provided for prompt in headless mode");
+                std::process::exit(1);
             }
 
             return Ok(());
@@ -541,7 +562,8 @@ pub async fn cli() -> Result<()> {
                 return Ok(());
             } else {
                 // Run session command by default
-                let mut session = build_session(None, false, vec![], vec![], None, false).await;
+                let mut session =
+                    build_session(None, false, vec![], vec![], None, None, false).await;
                 setup_logging(
                     session.session_file().file_stem().and_then(|s| s.to_str()),
                     None,

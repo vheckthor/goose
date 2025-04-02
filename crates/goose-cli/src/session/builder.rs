@@ -16,6 +16,7 @@ pub async fn build_session(
     extensions: Vec<String>,
     builtins: Vec<String>,
     extensions_override: Option<Vec<ExtensionConfig>>,
+    additional_system_prompt: Option<String>,
     debug: bool,
 ) -> Session {
     // Load config and get provider/model
@@ -136,11 +137,16 @@ pub async fn build_session(
             process::exit(1);
         }
     }
+
     // Add CLI-specific system prompt extension
     session
         .agent
         .extend_system_prompt(super::prompt::get_cli_prompt())
         .await;
+
+    if let Some(additional_prompt) = additional_system_prompt {
+        session.agent.extend_system_prompt(additional_prompt).await;
+    }
 
     // Only override system prompt if a system override exists
     let system_prompt_file: Option<String> = config.get_param("GOOSE_SYSTEM_PROMPT_FILE_PATH").ok();

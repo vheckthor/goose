@@ -17,6 +17,7 @@ fn default_version() -> String {
 /// * `Instructions` - Instructions that defines the Gooseling's behavior
 ///
 /// ## Optional Fields
+/// * `prompt` - the initial prompt to the session to start with
 /// * `extensions` - List of extension configurations required by the Gooseling
 /// * `goosehints` - Additional goosehints to be merged with existing .goosehints configuration
 /// * `context` - Supplementary context information for the Gooseling
@@ -26,7 +27,7 @@ fn default_version() -> String {
 /// # Example
 ///
 /// ```
-/// use your_crate::Gooseling;
+/// use goose::gooseling::Gooseling;
 ///
 /// // Using the builder pattern
 /// let gooseling = Gooseling::builder()
@@ -42,6 +43,7 @@ fn default_version() -> String {
 ///     title: "Example Agent".to_string(),
 ///     description: "An example Gooseling configuration".to_string(),
 ///     instructions: "Act as a helpful assistant".to_string(),
+///     prompt: None,
 ///     extensions: None,
 ///     goosehints: None,
 ///     context: None,
@@ -62,6 +64,9 @@ pub struct Gooseling {
     pub instructions: String, // the instructions for the model
 
     // Optional fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>, // the prompt to start the session with
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extensions: Option<Vec<ExtensionConfig>>, // a list of extensions to enable
 
@@ -96,6 +101,7 @@ pub struct GooselingBuilder {
     instructions: Option<String>,
 
     // Optional fields
+    prompt: Option<String>,
     extensions: Option<Vec<ExtensionConfig>>,
     goosehints: Option<String>,
     context: Option<Vec<String>>,
@@ -122,6 +128,7 @@ impl Gooseling {
             title: None,
             description: None,
             instructions: None,
+            prompt: None,
             extensions: None,
             goosehints: None,
             context: None,
@@ -153,6 +160,11 @@ impl GooselingBuilder {
     /// Sets the instructions for the Gooseling (required)
     pub fn instructions(mut self, instructions: impl Into<String>) -> Self {
         self.instructions = Some(instructions.into());
+        self
+    }
+
+    pub fn prompt(mut self, prompt: impl Into<String>) -> Self {
+        self.prompt = Some(prompt.into());
         self
     }
 
@@ -199,6 +211,7 @@ impl GooselingBuilder {
             title,
             description,
             instructions,
+            prompt: self.prompt,
             extensions: self.extensions,
             goosehints: self.goosehints,
             context: self.context,
