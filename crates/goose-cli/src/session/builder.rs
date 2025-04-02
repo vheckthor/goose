@@ -92,53 +92,29 @@ pub async fn build_session(
     }
 
     // If we get extensions_override, only run those extensions and none other
-    if let Some(extensions) = extensions_override {
-        println!("\n{}:", style("Extensions").dim());
-        for extension in extensions {
-            agent
-                .add_extension(extension.clone())
-                .await
-                .unwrap_or_else(|e| {
-                    let err = match e {
-                        ExtensionError::Transport(McpClientError::StdioProcessError(inner)) => {
-                            inner
-                        }
-                        _ => e.to_string(),
-                    };
-                    println!("Failed to start extension: {}, {:?}", extension.name(), err);
-                    println!(
-                        "Please check extension configuration for {}.",
-                        extension.name()
-                    );
-                    process::exit(1);
-                });
-            println!("- {}", extension.name());
-        }
-        println!();
+    let extensions_to_run: Vec<_> = if let Some(extensions) = extensions_override {
+        extensions.into_iter().collect()
     } else {
-        // Setup extensions for the agent
-        // Extensions need to be added after the session is created because we change directory when resuming a session
-        for extension in ExtensionManager::get_all().expect("should load extensions") {
-            if extension.enabled {
-                let config = extension.config.clone();
-                agent
-                    .add_extension(config.clone())
-                    .await
-                    .unwrap_or_else(|e| {
-                        let err = match e {
-                            ExtensionError::Transport(McpClientError::StdioProcessError(inner)) => {
-                                inner
-                            }
-                            _ => e.to_string(),
-                        };
-                        println!("Failed to start extension: {}, {:?}", config.name(), err);
-                        println!(
-                            "Please check extension configuration for {}.",
-                            config.name()
-                        );
-                        process::exit(1);
-                    });
-            }
+        ExtensionManager::get_all()
+            .expect("should load extensions")
+            .into_iter()
+            .filter(|ext| ext.enabled)
+            .map(|ext| ext.config)
+            .collect()
+    };
+
+    for extension in extensions_to_run {
+        if let Err(e) = agent.add_extension(extension.clone()).await {
+            let err = match e {
+                ExtensionError::Transport(McpClientError::StdioProcessError(inner)) => inner,
+                _ => e.to_string(),
+            };
+            eprintln!("Failed to start extension: {}, {:?}", extension.name(), err);
+            eprintln!(
+                "Please check extension configuration for {}.",
+                extension.name()
+            );
+            process::exit(1);
         }
     }
 
