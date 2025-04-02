@@ -4,11 +4,11 @@ use std::path::Path;
 
 use goose::gooselings::Gooseling;
 
-/// Loads and validates a gooseling from a YAML file
+/// Loads and validates a gooseling from a YAML or JSON file
 ///
 /// # Arguments
 ///
-/// * `path` - Path to the gooseling YAML file
+/// * `path` - Path to the gooseling file (YAML or JSON)
 ///
 /// # Returns
 ///
@@ -19,7 +19,7 @@ use goose::gooselings::Gooseling;
 /// Returns an error if:
 /// - The file doesn't exist
 /// - The file can't be read
-/// - The YAML is invalid
+/// - The YAML/JSON is invalid
 /// - The required fields are missing
 pub fn load_gooseling<P: AsRef<Path>>(path: P) -> Result<Gooseling> {
     let path = path.as_ref();
@@ -35,9 +35,28 @@ pub fn load_gooseling<P: AsRef<Path>>(path: P) -> Result<Gooseling> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read gooseling file: {}", path.display()))?;
 
-    // Parse YAML into Gooseling struct
-    let gooseling: Gooseling = serde_yaml::from_str(&content)
-        .with_context(|| format!("Failed to parse gooseling file: {}", path.display()))?;
+    // Determine file format based on extension and parse accordingly
+    let gooseling: Gooseling = if let Some(extension) = path.extension() {
+        match extension.to_str().unwrap_or("").to_lowercase().as_str() {
+            "json" => serde_json::from_str(&content).with_context(|| {
+                format!("Failed to parse JSON gooseling file: {}", path.display())
+            })?,
+            "yaml" | "yml" => serde_yaml::from_str(&content).with_context(|| {
+                format!("Failed to parse YAML gooseling file: {}", path.display())
+            })?,
+            _ => {
+                return Err(anyhow::anyhow!(
+                "Unsupported file format for gooseling file: {}. Expected .yaml, .yml, or .json",
+                path.display()
+            ))
+            }
+        }
+    } else {
+        return Err(anyhow::anyhow!(
+            "File has no extension: {}. Expected .yaml, .yml, or .json",
+            path.display()
+        ));
+    };
 
     // Display information about the loaded gooseling
     println!(
