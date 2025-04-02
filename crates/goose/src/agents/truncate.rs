@@ -570,10 +570,13 @@ impl Agent for TruncateAgent {
 
         // Split once more to separate instructions from activities.
         let (instructions_part, activities_text) = after_instructions
-            .split_once("#Activities:")
+            .split_once("Activities:")
             .unwrap_or((after_instructions, ""));
 
-        let instructions = instructions_part.trim().to_string();
+        let instructions = instructions_part
+            .trim_end_matches(|c: char| c.is_whitespace() || c == '#')
+            .trim()
+            .to_string();
         let activities_text = activities_text.trim();
 
         // Regex to remove bullet markers or numbers with an optional dot.
