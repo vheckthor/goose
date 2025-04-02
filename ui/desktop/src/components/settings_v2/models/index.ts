@@ -91,7 +91,6 @@ export async function getCurrentModelAndProvider({
     throw error;
   }
   if (!model || !provider) {
-    // hail mary
     console.log('[getCurrentModelAndProvider] Checking app environment as fallback');
     return getFallbackModelAndProvider();
   }
@@ -99,9 +98,8 @@ export async function getCurrentModelAndProvider({
 }
 
 export async function getFallbackModelAndProvider() {
-  const config = window.electron.getConfig();
-  const provider = config.GOOSE_DEFAULT_PROVIDER;
-  const model = config.GOOSE_DEFAULT_MODEL;
+  const provider = window.appConfig.get('GOOSE_DEFAULT_PROVIDER');
+  const model = window.appConfig.get('GOOSE_DEFAULT_MODEL');
   return { model: model, provider: provider };
 }
 
