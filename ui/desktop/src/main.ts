@@ -51,13 +51,30 @@ app.on('open-url', async (event, url) => {
   const recentDirs = loadRecentDirs();
   const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
 
-  // Store the URL for processing after React is ready
   pendingDeepLink = url;
 
-  // For bot URLs, parse the config first
-  let botConfig = null;
-  if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
+  if (parsedUrl.hostname !== 'bot' && parsedUrl.hostname !== 'gooseling') {
+    // For non URL types, reuse existing window if available
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+      firstOpenWindow = existingWindows[0];
+      if (firstOpenWindow.isMinimized()) firstOpenWindow.restore();
+      firstOpenWindow.focus();
+    } else {
+      firstOpenWindow = await createChat(app, undefined, openDir);
+    }
+  }
+
+  // Handle extension install links and sessions
+  if (parsedUrl.hostname === 'extension') {
+    firstOpenWindow.webContents.send('add-extension', pendingDeepLink);
+  } else if (parsedUrl.hostname === 'sessions') {
+    firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
+  } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
+    // For bot URLs, parse the config first
+    let botConfig = null;
     const configParam = parsedUrl.searchParams.get('config');
+    console.log('asdfnksjdfkjsbdkfjsndf');
     if (configParam) {
       try {
         botConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
@@ -66,12 +83,8 @@ app.on('open-url', async (event, url) => {
         console.error('Failed to parse bot config:', e);
       }
     }
-  }
-
-  // Create or focus window based on URL type
-  const existingWindows = BrowserWindow.getAllWindows();
-
-  if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
+    // Create or focus window based on URL type
+    const existingWindows = BrowserWindow.getAllWindows();
     // Always create a new window for bot URLs
     console.log('Creating new window for bot');
     // Pass botConfig both ways to ensure it gets through
@@ -81,22 +94,6 @@ app.on('open-url', async (event, url) => {
     firstOpenWindow.webContents.on('did-finish-load', () => {
       console.log('Window loaded, sending load-gooseling event with config:', botConfig);
       firstOpenWindow.webContents.send('load-gooseling', botConfig);
-    });
-  } else {
-    // For extension and session URLs, always create a new window
-    console.log('Creating new window for URL type:', parsedUrl.hostname);
-    firstOpenWindow = await createChat(app, undefined, openDir);
-
-    // Wait for window to be ready before sending events
-    firstOpenWindow.webContents.on('did-finish-load', () => {
-      console.log('Window loaded, sending event for:', parsedUrl.hostname);
-      if (parsedUrl.hostname === 'extension') {
-        console.log('Sending add-extension event');
-        firstOpenWindow.webContents.send('add-extension', url);
-      } else if (parsedUrl.hostname === 'sessions') {
-        console.log('Sending open-shared-session event');
-        firstOpenWindow.webContents.send('open-shared-session', url);
-      }
     });
   }
 });
