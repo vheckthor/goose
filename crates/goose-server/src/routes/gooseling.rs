@@ -120,65 +120,6 @@ async fn load_gooseling(
         None => return Err(StatusCode::PRECONDITION_REQUIRED),
     };
 
-    // Add extensions if provided
-    if let Some(extensions) = request.gooseling.extensions {
-        eprintln!("Processing {} extensions", extensions.len());
-        for ext_config in extensions {
-            // Convert ExtensionConfig to ExtensionConfigRequest
-            // Use the extension config directly since we already have all the information we need
-            let extension_config = match ext_config {
-                goose::agents::extension::ExtensionConfig::Sse { 
-                    name, uri, envs, description: _, timeout 
-                } => {
-                    eprintln!("Processing SSE extension: {}", name);
-                    ExtensionConfig::Sse {
-                        name,
-                        uri,
-                        envs,  // Keep the original environment variables
-                        description: None,
-                        timeout,
-                    }
-                },
-                goose::agents::extension::ExtensionConfig::Stdio { 
-                    name, cmd, args, description: _, envs, timeout 
-                } => {
-                    eprintln!("Processing Stdio extension: {}", name);
-                    ExtensionConfig::Stdio {
-                        name,
-                        cmd,
-                        args,
-                        description: None,
-                        envs,  // Keep the original environment variables
-                        timeout,
-                    }
-                },
-                goose::agents::extension::ExtensionConfig::Builtin { 
-                    name, display_name, timeout 
-                } => {
-                    eprintln!("Processing Builtin extension: {}", name);
-                    ExtensionConfig::Builtin {
-                        name,
-                        display_name,
-                        timeout,
-                    }
-                },
-            };
-            
-            match crate::routes::extension::add_extension_internal(agent, extension_config).await {
-                Ok(response) => {
-                    if response.error {
-                        eprintln!("Extension addition failed: {:?}", response.message);
-                        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                    }
-                    eprintln!("Successfully added extension");
-                },
-                Err(e) => {
-                    eprintln!("Failed to add extension with error: {:?}", e);
-                    return Err(e);
-                }
-            }
-        }
-    }
 
     // Add goosehints if provided
     if let Some(goosehints) = request.gooseling.goosehints {

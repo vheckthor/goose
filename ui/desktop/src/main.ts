@@ -74,7 +74,14 @@ app.on('open-url', async (event, url) => {
   if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
     // Always create a new window for bot URLs
     console.log('Creating new window for bot');
+    // Pass botConfig both ways to ensure it gets through
     firstOpenWindow = await createChat(app, undefined, openDir, undefined, undefined, botConfig);
+
+    // Wait for window to be ready before sending the load-gooseling event
+    firstOpenWindow.webContents.on('did-finish-load', () => {
+      console.log('Window loaded, sending load-gooseling event with config:', botConfig);
+      firstOpenWindow.webContents.send('load-gooseling', botConfig);
+    });
   } else {
     // For extension and session URLs, always create a new window
     console.log('Creating new window for URL type:', parsedUrl.hostname);
