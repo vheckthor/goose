@@ -27,7 +27,7 @@ fn default_version() -> String {
 /// # Example
 ///
 /// ```
-/// use goose::gooseling::Gooseling;
+/// use goose::gooselings::Gooseling;
 ///
 /// // Using the builder pattern
 /// let gooseling = Gooseling::builder()
@@ -115,6 +115,8 @@ impl Gooseling {
     /// # Example
     ///
     /// ```
+    /// use goose::gooselings::Gooseling;
+    ///
     /// let gooseling = Gooseling::builder()
     ///     .title("My Gooseling")
     ///     .description("A helpful assistant")

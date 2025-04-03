@@ -41,19 +41,19 @@ pub fn load_gooseling<P: AsRef<Path>>(path: P, log: bool) -> Result<Gooseling> {
             "json" => serde_json::from_str(&content).with_context(|| {
                 format!("Failed to parse JSON gooseling file: {}", path.display())
             })?,
-            "yaml" | "yml" => serde_yaml::from_str(&content).with_context(|| {
+            "yaml" => serde_yaml::from_str(&content).with_context(|| {
                 format!("Failed to parse YAML gooseling file: {}", path.display())
             })?,
             _ => {
                 return Err(anyhow::anyhow!(
-                "Unsupported file format for gooseling file: {}. Expected .yaml, .yml, or .json",
-                path.display()
-            ))
+                    "Unsupported file format for gooseling file: {}. Expected .yaml or .json",
+                    path.display()
+                ))
             }
         }
     } else {
         return Err(anyhow::anyhow!(
-            "File has no extension: {}. Expected .yaml, .yml, or .json",
+            "File has no extension: {}. Expected .yaml or .json",
             path.display()
         ));
     };

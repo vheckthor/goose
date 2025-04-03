@@ -490,26 +490,62 @@ impl Session {
                         }
                     }
                 }
-                InputResult::Gooseling => {
+                InputResult::Gooseling(filepath_opt) => {
                     println!("{}", console::style("Generating gooseling").green());
 
                     output::show_thinking();
                     let gooseling = self.agent.create_gooseling(self.messages.clone()).await;
                     output::hide_thinking();
 
-                    if gooseling.is_ok() {
-                        let gooseling = gooseling.unwrap();
-                        if let Ok(file) = File::create("./gooseling.yaml") {
-                            match serde_yaml::to_writer(file, &gooseling) {
-                                Ok(_) => println!(
-                                    "{}",
-                                    console::style("Saved gooseling to ./gooseling.yaml").green()
-                                ),
-                                Err(e) => println!(
-                                    "{}: {:?}",
-                                    console::style("Failed to save gooseling").red(),
-                                    e
-                                ),
+                    if let Ok(gooseling) = gooseling {
+                        // Use provided filepath or default
+                        let filepath = filepath_opt.as_ref().map_or("./gooseling.yaml", |s| s);
+
+                        let result: Result<(), String> = (|| {
+                            let path = std::path::Path::new(filepath);
+
+                            if let Some(parent) = path.parent() {
+                                if !parent.exists() {
+                                    return Err(format!(
+                                        "Directory '{}' does not exist",
+                                        parent.display()
+                                    ));
+                                }
+
+                                // Try getting metadata and check write permissions.
+                                let metadata = std::fs::metadata(parent).map_err(|_| {
+                                    format!(
+                                        "Failed to retrieve metadata for '{}'",
+                                        parent.display()
+                                    )
+                                })?;
+                                if metadata.permissions().readonly() {
+                                    return Err(format!(
+                                        "Cannot write to directory '{}'",
+                                        parent.display()
+                                    ));
+                                }
+                            }
+
+                            // Try creating the file.
+                            let file = std::fs::File::create(filepath)
+                                .map_err(|_| format!("Failed to create file '{}'", filepath))?;
+
+                            // Write YAML.
+                            serde_yaml::to_writer(file, &gooseling)
+                                .map_err(|e| format!("Failed to save gooseling: {:?}", e))?;
+                            Ok(())
+                        })();
+
+                        // Handle the result.
+                        match result {
+                            Ok(_) => println!(
+                                "{}",
+                                console::style(format!("Saved gooseling to {}", filepath)).green()
+                            ),
+                            Err(e) => {
+                                println!("{}", console::style(e).red());
+                                continue;
                             }
                         }
                     } else {
