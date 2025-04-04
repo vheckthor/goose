@@ -147,22 +147,15 @@ export default function ChatView({
         window.electron.logInfo(JSON.stringify(gooselingConfig, null, 2));
 
         // Get config values
-        const provider = window.appConfig.get('provider');
-        const model = window.appConfig.get('model');
-        console.log('Using provider/model:', { provider, model });
+        // const provider = window.appConfig.get('GOOSE_PROVIDER');
+        // const model = window.appConfig.get('GOOSE_MODEL');
+        // console.log('Using provider/model:', { provider, model });
 
-        if (!provider) {
-          throw new Error('No provider configured - please configure a provider first');
-        }
+        // if (!provider) {
+        //   throw new Error('No provider configured - please configure a provider first');
+        // }
 
-        // Then load the gooseling
-        const response = await loadGooseling({
-          gooseling: gooselingConfig,
-          provider,
-          model,
-        });
-
-        // Configure extensions first
+        // Configure extensions first with notifications enabled (not silent)
         if (gooselingConfig.extensions) {
           console.log('Found extensions to configure:', gooselingConfig.extensions);
           window.electron.logInfo('Configuring extensions:');
@@ -170,15 +163,24 @@ export default function ChatView({
           await configureGooselingExtensions(gooselingConfig.extensions);
         }
 
-        window.electron.logInfo('Load response:');
-        window.electron.logInfo(JSON.stringify(response, null, 2));
+        // Ensure activities are properly formatted
+        const formattedConfig = {
+          ...gooselingConfig,
+          activities: Array.isArray(gooselingConfig.activities) ? gooselingConfig.activities : [],
+        };
 
-        // Update the chat with the loaded gooseling
+        // Update the chat state to start fresh
         setChat((prevChat) => ({
           ...prevChat,
           messageHistoryIndex: -1,
           messages: [],
         }));
+
+        // Update the app config
+        window.electron.emit('update-config', { botConfig: formattedConfig });
+
+        window.electron.logInfo('Successfully loaded gooseling with configuration:');
+        window.electron.logInfo(JSON.stringify(gooselingConfig, null, 2));
       } catch (err) {
         console.error('Failed to load gooseling:', err);
         window.electron.logInfo('Failed to load gooseling:', err);
@@ -374,7 +376,7 @@ export default function ChatView({
         {messages.length === 0 ? (
           <Splash
             append={(text) => append(createUserMessage(text))}
-            activities={botConfig?.activities || null}
+            activities={Array.isArray(botConfig?.activities) ? botConfig.activities : null}
           />
         ) : (
           <ScrollArea ref={scrollRef} className="flex-1 px-4" autoScroll>

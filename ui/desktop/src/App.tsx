@@ -177,20 +177,6 @@ export default function App() {
     };
   }, []);
 
-  // Handle gooseling deep links
-  useEffect(() => {
-    const handleLoadGooseling = async (_: any, gooselingConfig: any) => {
-      console.log('Received load-gooseling event with config:', gooselingConfig);
-      // Set view to gooselingEditor with the config
-      setView('gooselingEditor', { gooseling: gooselingConfig });
-    };
-
-    window.electron.on('load-gooseling', handleLoadGooseling);
-    return () => {
-      window.electron.off('load-gooseling', handleLoadGooseling);
-    };
-  }, []);
-
   // Keyboard shortcut handler
   useEffect(() => {
     console.log('Setting up keyboard shortcuts');

@@ -68,9 +68,9 @@ export async function configureGooselingExtensions(extensions: ExtensionConfig[]
       console.log('Storing updated settings:', newSettings);
       localStorage.setItem('user_settings', newSettings);
 
-      // Add to agent (with silent=true to avoid notification spam)
+      // Add to agent (with silent=true and skipReInit=true to avoid notification spam and re-initialization)
       console.log('Adding extension to agent...');
-      await addExtension(fullConfig, true);
+      await addExtension(fullConfig, false, true);
       console.log('Successfully added extension to agent');
 
       // Notify settings update
