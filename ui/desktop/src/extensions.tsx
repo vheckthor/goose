@@ -1,4 +1,3 @@
-import React from 'react';
 import { getApiUrl, getSecretKey } from './config';
 import { type View } from './App';
 import { type SettingsViewOptions } from './components/settings/SettingsView';
@@ -6,7 +5,6 @@ import { toast } from 'react-toastify';
 
 import builtInExtensionsData from './built-in-extensions.json';
 import { toastError, toastLoading, toastSuccess } from './toasts';
-import { Toast } from 'react-toastify/dist/components';
 
 // Hardcoded default extension timeout in seconds
 export const DEFAULT_EXTENSION_TIMEOUT = 300;
@@ -64,6 +62,7 @@ export async function addExtension(
   silent: boolean = false
 ): Promise<Response> {
   try {
+    console.log('Adding extension:', extension);
     // Create the config based on the extension type
     const config = {
       type: extension.type,
@@ -83,9 +82,19 @@ export async function addExtension(
       timeout: extension.timeout,
     };
 
+    console.log('Extension config to be sent:', config);
+    console.log('Extension config to be sent:', config);
+    console.log('API URL:', getApiUrl('/extensions/add'));
+    console.log('Headers:', {
+      'Content-Type': 'application/json',
+      'X-Secret-Key': getSecretKey(),
+    });
+    console.log('Request body:', JSON.stringify(config));
+
     let toastId;
     if (!silent) toastId = toastLoading({ title: extension.name, msg: 'Adding extension...' });
 
+    console.log('secret', getSecretKey());
     const response = await fetch(getApiUrl('/extensions/add'), {
       method: 'POST',
       headers: {
@@ -95,7 +104,39 @@ export async function addExtension(
       body: JSON.stringify(config),
     });
 
-    const data = await response.json();
+    console.log('Response status:', response.status);
+    console.log('Response status text:', response.statusText);
+    const responseText = await response.text();
+    console.log('Response text:', responseText);
+
+    if (!response.ok) {
+      const errorMsg = `Server returned ${response.status}: ${response.statusText}. Response: ${responseText}`;
+      console.error(errorMsg);
+      if (toastId) toast.dismiss(toastId);
+      toastError({
+        title: extension.name,
+        msg: 'Failed to add extension',
+        traceback: errorMsg,
+        toastOptions: { autoClose: false },
+      });
+      return response;
+    }
+
+    // Wait a moment for the extension to initialize
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    // Only try to parse JSON if we got a successful response and have JSON content
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('Extension add response data:', data);
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', e);
+      data = { error: true, message: responseText };
+    }
+
+    // const data = await response.json();
+    // console.log('Extension add response:', data);
 
     if (!data.error) {
       if (!silent) {
@@ -129,6 +170,7 @@ export async function addExtension(
   } catch (error) {
     const errorMessage = `Failed to add ${extension.name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
     console.error(errorMessage);
+    console.error('Error in addExtension:', error);
     toastError({
       title: extension.name,
       msg: 'Failed to add extension',
