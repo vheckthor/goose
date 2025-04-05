@@ -197,6 +197,19 @@ const createChat = async (
     },
   });
 
+  let originalExtensionState = null;
+  if (botConfig) {
+    const response = await fetch(
+      `${appConfig.GOOSE_API_HOST}: ${appConfig.GOOSE_PORT}/extensions`,
+      {
+        headers: {
+          'X-Secret-Key': appConfig.secretKey,
+        },
+      }
+    );
+    originalExtensionState = await response.json();
+  }
+
   console.log('[main] Creating window with config:', {
     ...appConfig,
     GOOSE_PORT: port,
@@ -274,7 +287,26 @@ const createChat = async (
   });
 
   windowMap.set(windowId, mainWindow);
-  mainWindow.on('closed', () => {
+  // Handle window closure
+  mainWindow.on('closed', async () => {
+    // If this was a bot window, restore original extension state
+    if (originalExtensionState && botConfig?.isFromDeepLink) {
+      // Restore original extension states
+      for (const ext of originalExtensionState.extensions) {
+        await fetch(`${appConfig.GOOSE_API_HOST}:${appConfig.GOOSE_PORT}/extensions/${ext.name}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Secret-Key': appConfig.secretKey,
+          },
+          body: JSON.stringify({
+            name: ext.name,
+            config: ext,
+            enabled: ext.enabled,
+          }),
+        });
+      }
+    }
     windowMap.delete(windowId);
     goosedProcess.kill();
   });
