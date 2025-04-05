@@ -19,5 +19,6 @@ pub fn configure(state: crate::state::AppState) -> Router {
         .merge(extension::routes(state.clone()))
         .merge(configs::routes(state.clone()))
         .merge(config_management::routes(state.clone()))
+        .merge(gooseling::routes(state.clone()))
         .merge(session::routes(state))
 }

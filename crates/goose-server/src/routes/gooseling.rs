@@ -48,7 +48,7 @@ async fn create_gooseling(
     let agent = agent.as_ref().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
     
     // Create base gooseling from agent state and messages
-    let mut gooseling = agent.create_gooseling(request.messages).await?;
+    let mut gooseling = agent.create_gooseling(request.messages).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Update with user-provided metadata
     gooseling.title = request.title;

@@ -33,7 +33,7 @@ export interface CreateGooselingResponse {
 export async function createGooseling(
   request: CreateGooselingRequest
 ): Promise<CreateGooselingResponse> {
-  const url = getApiUrl('/api/gooseling/create');
+  const url = getApiUrl('/gooseling/create');
   console.log('Creating gooseling at:', url);
   console.log('Request:', JSON.stringify(request, null, 2));
 
