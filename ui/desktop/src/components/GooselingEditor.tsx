@@ -3,10 +3,13 @@ import { Gooseling } from '../gooseling';
 import { Card } from './ui/card';
 import Copy from './icons/Copy';
 import { Buffer } from 'buffer';
+import { type View } from '../App';
 
 interface GooselingEditorProps {
-  gooseling: Gooseling;
-  setView: (view: string) => void;
+  config?: Gooseling;
+  onClose: () => void;
+  onSave?: (config: Gooseling) => void;
+  setView: (view: View, viewOptions?: Record<string, any>) => void;
 }
 
 // Function to generate a deep link from a gooseling
@@ -15,29 +18,19 @@ function generateDeepLink(gooseling: Gooseling): string {
   return `goose://gooseling?config=${configBase64}`;
 }
 
-export default function GooselingEditor({
-  gooseling: initialGooseling,
-  setView,
-}: GooselingEditorProps) {
-  const [gooseling, setGooseling] = useState<Gooseling>(initialGooseling);
-  const [title, setTitle] = useState(initialGooseling.title || '');
-  const [description, setDescription] = useState(initialGooseling.description || '');
-  const [instructions, setInstructions] = useState(initialGooseling.instructions || '');
-  const [activities, setActivities] = useState<string[]>(initialGooseling.activities || []);
+export default function GooselingEditor({ config, onClose, onSave }: GooselingEditorProps) {
+  console.log('GooselingEditor mounted with config:', JSON.stringify(config, null, 2));
+
+  // Create editable state for the bot config
+  const [botConfig, setBotConfig] = useState<Gooseling | undefined>(config);
+  const [title, setTitle] = useState(config?.title || '');
+  const [description, setDescription] = useState(config?.description || '');
+  const [instructions, setInstructions] = useState(config?.instructions || '');
+  const [activities, setActivities] = useState<string[]>(config?.activities || []);
+
   const [activityInput, setActivityInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Update gooseling when fields change
-  useEffect(() => {
-    setGooseling({
-      ...gooseling,
-      title,
-      description,
-      instructions,
-      activities,
-    });
-  }, [title, description, instructions, activities]);
 
   // Handle adding a new activity
   const handleAddActivity = () => {
@@ -54,15 +47,20 @@ export default function GooselingEditor({
     setActivities(newActivities);
   };
 
-  // Generate deep link
-  const deepLink = generateDeepLink(gooseling);
+  const deeplink = generateDeepLink(config);
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(config);
+    }
+  };
 
   return (
     <div className="flex flex-col w-full h-screen bg-bgApp p-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-textStandard">Edit Gooseling</h1>
         <button
-          onClick={() => window.close()}
+          onClick={onClose}
           className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
         >
           Close
@@ -148,13 +146,13 @@ export default function GooselingEditor({
           <div className="flex">
             <input
               type="text"
-              value={deepLink}
+              value={deeplink}
               readOnly
               className="flex-1 p-3 border border-borderSubtle rounded-l-md bg-transparent text-textStandard"
             />
             <button
               onClick={() => {
-                navigator.clipboard.writeText(deepLink);
+                navigator.clipboard.writeText(deeplink);
                 window.electron.logInfo('Deep link copied to clipboard');
               }}
               className="px-4 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 flex items-center"
@@ -168,34 +166,24 @@ export default function GooselingEditor({
         {/* Action Buttons */}
         <div className="flex justify-end space-x-4">
           <button
-            onClick={async () => {
+            onClick={() => {
               setIsLoading(true);
               setError(null);
-              try {
-                // Get current provider and model from appConfig
-                const provider = window.appConfig.get('GOOSE_PROVIDER');
-                const model = window.appConfig.get('GOOSE_MODEL');
-
-                // Load the gooseling using the API
-                window.electron.logInfo('Loading gooseling with config:', gooseling);
-
-                // Create a new chat window
-                window.electron.createChatWindow(
-                  undefined, // query
-                  undefined, // dir
-                  undefined, // version
-                  undefined, // resumeSessionId
-                  gooseling, // gooseling config
-                  undefined // viewType - not gooselingEditor this time
-                );
-              } catch (err) {
-                console.error('Failed to load gooseling:', err);
-                setError(err.message || 'Failed to load gooseling');
-              } finally {
-                setIsLoading(false);
-              }
+              // Open the deep link with the current bot config
+              const currentConfig = {
+                ...botConfig,
+                instructions,
+                activities,
+              };
+              window.electron.createChatWindow(
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                currentConfig,
+                undefined
+              );
             }}
-            disabled={isLoading}
             className={`px-6 py-3 bg-green-500 text-white rounded-md hover:bg-green-600 ${
               isLoading ? 'opacity-50 cursor-not-allowed' : ''
             }`}

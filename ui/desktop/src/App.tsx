@@ -550,6 +550,7 @@ export default function App() {
               key={viewOptions?.config ? 'with-config' : 'no-config'}
               config={viewOptions?.config || window.electron.getConfig().botConfig}
               onClose={() => setView('chat')}
+              setView={setView}
               onSave={(config) => {
                 console.log('Saving gooseling config:', config);
                 window.electron.createChatWindow(
