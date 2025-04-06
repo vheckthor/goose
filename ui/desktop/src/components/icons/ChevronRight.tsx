@@ -1,7 +1,8 @@
-import { React, SVGSVGElement } from 'react';
+import React from 'react';
 
-interface Props extends React.SVGProps<SVGSVGElement> {
+interface Props {
   className?: string;
+  [key: string]: any; // This will allow any other SVG props to pass through
 }
 
 export function ChevronRight({ className = '', ...props }: Props) {
