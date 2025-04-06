@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Gooseling } from '../gooseling';
-import { Card } from './ui/card';
-import Copy from './icons/Copy';
 import { Buffer } from 'buffer';
 import { type View } from '../App';
 import { ExtensionItem } from './settings/extensions/ExtensionItem';
 import { FullExtensionConfig } from '../extensions';
+import { ChevronRight } from './icons/ChevronRight';
+import Back from './icons/Back';
+import Copy from './icons/Copy';
 
 interface GooselingEditorProps {
   config?: Gooseling;
@@ -17,7 +18,7 @@ interface GooselingEditorProps {
 // Function to generate a deep link from a gooseling
 function generateDeepLink(gooseling: Gooseling): string {
   const configBase64 = Buffer.from(JSON.stringify(gooseling)).toString('base64');
-  return `goose://gooseling?config=${configBase64}`;
+  return `goose://bot?config=${configBase64}`;
 }
 
 export default function GooselingEditor({
@@ -26,9 +27,7 @@ export default function GooselingEditor({
   onSave,
   setView,
 }: GooselingEditorProps) {
-  console.log('GooselingEditor mounted with config:', JSON.stringify(config, null, 2));
-
-  // Create editable state for the bot config
+  // State management
   const [botConfig, setBotConfig] = useState<Gooseling | undefined>(config);
   const [title, setTitle] = useState(config?.title || '');
   const [description, setDescription] = useState(config?.description || '');
@@ -38,42 +37,49 @@ export default function GooselingEditor({
   const [selectedExtensions, setSelectedExtensions] = useState<string[]>(
     config?.extensions?.map((e) => e.id) || []
   );
+  const [newActivity, setNewActivity] = useState('');
 
-  const [activityInput, setActivityInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Section visibility state
+  const [activeSection, setActiveSection] = useState<
+    'none' | 'activities' | 'instructions' | 'extensions'
+  >('none');
 
-  // Load available extensions from localStorage
+  // Load extensions
   useEffect(() => {
     const loadExtensions = () => {
       const userSettingsStr = localStorage.getItem('user_settings');
       if (userSettingsStr) {
         const userSettings = JSON.parse(userSettingsStr);
-        console.log('Loaded extensions from settings:', userSettings.extensions);
         setAvailableExtensions(userSettings.extensions || []);
       }
     };
     loadExtensions();
-    console.log('Initial config extensions:', config?.extensions);
-    console.log('Initial selected extensions:', selectedExtensions);
   }, []);
 
-  // const handleExtensionToggle = (id: string) => {
-  //   const extension = availableExtensions.find((e) => e.id === id);
-  //   if (!extension) return;
+  const handleExtensionToggle = (id: string) => {
+    console.log('Toggling extension:', id);
+    console.log('Current selected extensions:', selectedExtensions);
+    setSelectedExtensions((prev) => {
+      const isSelected = prev.includes(id);
+      const newState = isSelected ? prev.filter((extId) => extId !== id) : [...prev, id];
+      console.log('New selected extensions:', newState);
+      return newState;
+    });
+  };
 
-  //   setSelectedExtensions((prev) => {
-  //     const isSelected = prev.some((e) => e.id === id);
-  //     if (isSelected) {
-  //       return prev.filter((e) => e.id !== id);
-  //     }
-  //     return [...prev, { ...extension, enabled: true }];
-  //   });
-  // };
+  const handleAddActivity = () => {
+    if (newActivity.trim()) {
+      setActivities((prev) => [...prev, newActivity.trim()]);
+      setNewActivity('');
+    }
+  };
 
-  // Update getCurrentConfig to preserve all botConfig fields
+  const handleRemoveActivity = (activity: string) => {
+    setActivities((prev) => prev.filter((a) => a !== activity));
+  };
+
   const getCurrentConfig = (): Gooseling => ({
-    ...botConfig, // Keep ALL original fields
+    ...botConfig,
     title,
     description,
     instructions,
@@ -82,207 +88,258 @@ export default function GooselingEditor({
       .map((id) => {
         const extension = availableExtensions.find((e) => e.id === id);
         if (!extension) return null;
-        return {
-          ...extension,
-          enabled: true,
-        };
+        return { ...extension, enabled: true };
       })
       .filter(Boolean) as FullExtensionConfig[],
   });
 
-  const handleExtensionToggle = (id: string) => {
-    console.log('Toggling extension:', id);
-    console.log('Current selected extensions:', selectedExtensions);
-
-    setSelectedExtensions((prev) => {
-      const newState = prev.includes(id) ? prev.filter((extId) => extId !== id) : [...prev, id];
-
-      console.log('New selected extensions:', newState);
-      return newState;
-    });
-  };
-
-  // Handle adding a new activity
-  const handleAddActivity = () => {
-    if (activityInput.trim()) {
-      setActivities([...activities, activityInput.trim()]);
-      setActivityInput('');
-    }
-  };
-
-  // Handle removing an activity
-  const handleRemoveActivity = (index: number) => {
-    const newActivities = [...activities];
-    newActivities.splice(index, 1);
-    setActivities(newActivities);
-  };
-
   const deeplink = generateDeepLink(getCurrentConfig());
 
-  const handleSave = () => {
-    if (onSave) {
-      const updatedConfig = getCurrentConfig();
-      console.log('Saving updated config:', updatedConfig);
-      onSave(updatedConfig);
+  // Render expanded section content
+  const renderSectionContent = () => {
+    switch (activeSection) {
+      case 'activities':
+        return (
+          <div className="p-6">
+            <div className="flex items-center mb-6">
+              <button onClick={() => setActiveSection('none')} className="mr-4">
+                <Back className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-2xl font-medium">Activities</h2>
+                <p className="text-gray-600">
+                  The top-line prompts and activities that will display within your goose home page.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {activities.map((activity, index) => (
+                  <div
+                    key={index}
+                    className="inline-flex items-center bg-gray-100 rounded-full px-4 py-2"
+                  >
+                    <span className="mr-2">{activity}</span>
+                    <button
+                      onClick={() => handleRemoveActivity(activity)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newActivity}
+                  onChange={(e) => setNewActivity(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddActivity()}
+                  className="flex-1 p-2 border border-gray-200 rounded-lg"
+                  placeholder="Add new activity..."
+                />
+                <button
+                  onClick={handleAddActivity}
+                  className="px-4 py-2 bg-black text-white rounded-lg"
+                >
+                  Add activity
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'instructions':
+        return (
+          <div className="p-6">
+            <div className="flex items-center mb-6">
+              <button onClick={() => setActiveSection('none')} className="mr-4">
+                <Back className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-2xl font-medium">Instructions</h2>
+                <p className="text-gray-600">
+                  Hidden instructions that will be passed to the provider to help direct and add
+                  context to your responses.
+                </p>
+              </div>
+            </div>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              className="w-full h-64 p-4 border border-gray-200 rounded-lg resize-none"
+              placeholder="Enter instructions..."
+            />
+          </div>
+        );
+
+      case 'extensions':
+        return (
+          <div className="p-6">
+            <div className="flex items-center mb-6">
+              <button onClick={() => setActiveSection('none')} className="mr-4">
+                <Back className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-2xl font-medium">Extensions</h2>
+                <p className="text-gray-600">
+                  Hidden instructions that will be passed to the provider to help direct and add
+                  context to your responses.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {availableExtensions.map((extension) => (
+                <button
+                  key={extension.id}
+                  className="p-4 border border-gray-200 rounded-lg flex justify-between items-center w-full text-left hover:bg-gray-50"
+                  onClick={() => handleExtensionToggle(extension.id)}
+                >
+                  <div>
+                    <h3 className="font-medium">{extension.name || 'File viewer'}</h3>
+                    <p className="text-sm text-gray-600">Standard config</p>
+                  </div>
+                  <div className="relative inline-block w-10 align-middle select-none">
+                    <div
+                      className={`w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                        selectedExtensions.includes(extension.id) ? 'bg-black' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full bg-white border-2 transform transition-transform duration-200 ease-in-out ${
+                          selectedExtensions.includes(extension.id)
+                            ? 'translate-x-4 border-black'
+                            : 'translate-x-0 border-gray-300'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium mb-2">Agent</h2>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full p-3 border border-gray-200 rounded-lg"
+                placeholder="Customer Success"
+              />
+            </div>
+
+            <div>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full p-3 border border-gray-200 rounded-lg"
+                placeholder="Description"
+              />
+            </div>
+
+            {/* Section buttons */}
+            <button
+              onClick={() => setActiveSection('activities')}
+              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+            >
+              <div>
+                <h3 className="font-medium">Activities</h3>
+                <p className="text-gray-600 text-sm">
+                  Starting activities present in the home panel on a fresh goose session
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => setActiveSection('instructions')}
+              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+            >
+              <div>
+                <h3 className="font-medium">Instructions</h3>
+                <p className="text-gray-600 text-sm">
+                  Starting activities present in the home panel on a fresh goose session
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => setActiveSection('extensions')}
+              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+            >
+              <div>
+                <h3 className="font-medium">Extensions</h3>
+                <p className="text-gray-600 text-sm">
+                  Starting activities present in the home panel on a fresh goose session
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Deep Link Display */}
+            <div className="w-full p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+              <code className="text-sm text-gray-600 truncate">{deeplink}</code>
+              <button onClick={() => navigator.clipboard.writeText(deeplink)} className="ml-2">
+                <Copy className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col space-y-2 pt-4">
+              <button
+                onClick={() => {
+                  const updatedConfig = getCurrentConfig();
+                  window.electron.createChatWindow(
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    updatedConfig,
+                    undefined
+                  );
+                }}
+                className="w-full p-3 bg-black text-white rounded-lg hover:bg-gray-900"
+              >
+                Open agent
+              </button>
+              <button
+                onClick={() => window.electron.closeWindow()}
+                className="w-full p-3 text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        );
     }
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-bgApp p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-textStandard">Edit Gooseling</h1>
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-        >
-          Close
-        </button>
+    <div className="flex flex-col w-full h-screen bg-white p-4 max-w-2xl mx-auto">
+      {/* Header with Icon */}
+      <div className="flex flex-col items-center mb-6">
+        <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-4">
+          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M15.5 19l-7-7 7-7" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-medium text-center">Create custom agent</h1>
+        <p className="text-gray-600 text-center mt-2">
+          Your custom agent can be shared with others, keeping context and activities linked to
+          their agent
+        </p>
       </div>
 
-      <Card className="flex-1 p-6 overflow-y-auto">
-        {/* Name Field */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Name:</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full p-3 border border-borderSubtle rounded-md bg-transparent text-textStandard focus:border-borderStandard hover:border-borderStandard"
-            placeholder="Enter gooseling name..."
-          />
-        </div>
-
-        {/* Description Field */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Description:</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full p-3 border border-borderSubtle rounded-md bg-transparent text-textStandard focus:border-borderStandard hover:border-borderStandard"
-            placeholder="Enter gooseling description..."
-            rows={3}
-          />
-        </div>
-
-        {/* Instructions Field */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Instructions:</label>
-          <textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            className="w-full p-3 border border-borderSubtle rounded-md bg-transparent text-textStandard focus:border-borderStandard hover:border-borderStandard"
-            placeholder="Enter instructions for the gooseling..."
-            rows={6}
-          />
-        </div>
-
-        {/* Extensions Section */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Extensions:</label>
-          <div className="space-y-2">
-            {availableExtensions.map((extension) => (
-              <ExtensionItem
-                key={extension.id}
-                {...extension}
-                enabled={selectedExtensions.includes(extension.id)}
-                onToggle={handleExtensionToggle}
-                onConfigure={() => {}} // We don't need configuration in the editor
-                canConfigure={false}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Activities Section */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Activities:</label>
-          <div className="border border-borderSubtle rounded-md bg-transparent mb-3 max-h-[200px] overflow-y-auto">
-            <ul className="divide-y divide-borderSubtle">
-              {activities.map((activity, index) => (
-                <li key={index} className="flex items-center p-2">
-                  <span className="flex-1 text-textStandard">{activity}</span>
-                  <button
-                    onClick={() => handleRemoveActivity(index)}
-                    className="p-1 bg-red-500 text-white rounded-md hover:bg-red-600 ml-2"
-                  >
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="flex">
-            <input
-              type="text"
-              value={activityInput}
-              onChange={(e) => setActivityInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleAddActivity()}
-              className="flex-1 p-3 border border-borderSubtle rounded-l-md bg-transparent text-textStandard focus:border-borderStandard hover:border-borderStandard"
-              placeholder="Add new activity..."
-            />
-            <button
-              onClick={handleAddActivity}
-              className="px-4 bg-green-500 text-white rounded-r-md hover:bg-green-600"
-            >
-              Add
-            </button>
-          </div>
-        </div>
-
-        {/* Deep Link Section */}
-        <div className="mb-6">
-          <label className="block font-medium mb-2 text-textStandard">Share Link:</label>
-          <div className="flex">
-            <input
-              type="text"
-              value={deeplink}
-              readOnly
-              className="flex-1 p-3 border border-borderSubtle rounded-l-md bg-transparent text-textStandard"
-            />
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(deeplink);
-                window.electron.logInfo('Deep link copied to clipboard');
-              }}
-              className="px-4 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 flex items-center"
-            >
-              <Copy className="w-5 h-5 mr-2" />
-              Copy
-            </button>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end space-x-4">
-          <button
-            onClick={() => {
-              setIsLoading(true);
-              setError(null);
-              const updatedConfig = getCurrentConfig();
-              console.log('Opening gooseling with config:', updatedConfig);
-              window.electron.createChatWindow(
-                undefined,
-                undefined,
-                undefined,
-                undefined,
-                updatedConfig,
-                undefined
-              );
-            }}
-            className={`px-6 py-3 bg-green-500 text-white rounded-md hover:bg-green-600 ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            Open Gooseling
-          </button>
-        </div>
-
-        {error && (
-          <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-      </Card>
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto">{renderSectionContent()}</div>
     </div>
   );
 }

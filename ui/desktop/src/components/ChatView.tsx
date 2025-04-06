@@ -13,6 +13,7 @@ import UserMessage from './UserMessage';
 import Splash from './Splash';
 import { SearchView } from './conversation/SearchView';
 import { createGooseling } from '../gooseling';
+import { AgentHeader } from './AgentHeader';
 // import { configureGooselingExtensions } from '../utils/gooselingExtensions';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
@@ -334,6 +335,18 @@ export default function ChatView({
       </div>
 
       <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
+        {botConfig?.title && messages.length > 0 && (
+          <AgentHeader
+            title={botConfig.title}
+            profileInfo={
+              botConfig.profile ? `${botConfig.profile} - ${botConfig.mcps || 12} MCPs` : undefined
+            }
+            onChangeProfile={() => {
+              // Handle profile change
+              console.log('Change profile clicked');
+            }}
+          />
+        )}
         {messages.length === 0 ? (
           <Splash
             append={(text) => append(createUserMessage(text))}
