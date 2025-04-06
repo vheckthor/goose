@@ -4,6 +4,8 @@ import { Card } from './ui/card';
 import Copy from './icons/Copy';
 import { Buffer } from 'buffer';
 import { type View } from '../App';
+import { ExtensionItem } from './settings/extensions/ExtensionItem';
+import { FullExtensionConfig } from '../extensions';
 
 interface GooselingEditorProps {
   config?: Gooseling;
@@ -18,7 +20,12 @@ function generateDeepLink(gooseling: Gooseling): string {
   return `goose://gooseling?config=${configBase64}`;
 }
 
-export default function GooselingEditor({ config, onClose, onSave }: GooselingEditorProps) {
+export default function GooselingEditor({
+  config,
+  onClose,
+  onSave,
+  setView,
+}: GooselingEditorProps) {
   console.log('GooselingEditor mounted with config:', JSON.stringify(config, null, 2));
 
   // Create editable state for the bot config
@@ -27,10 +34,39 @@ export default function GooselingEditor({ config, onClose, onSave }: GooselingEd
   const [description, setDescription] = useState(config?.description || '');
   const [instructions, setInstructions] = useState(config?.instructions || '');
   const [activities, setActivities] = useState<string[]>(config?.activities || []);
+  const [availableExtensions, setAvailableExtensions] = useState<FullExtensionConfig[]>([]);
+  const [selectedExtensions, setSelectedExtensions] = useState<FullExtensionConfig[]>(
+    config?.extensions || []
+  );
 
   const [activityInput, setActivityInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load available extensions from localStorage
+  useEffect(() => {
+    const loadExtensions = () => {
+      const userSettingsStr = localStorage.getItem('user_settings');
+      if (userSettingsStr) {
+        const userSettings = JSON.parse(userSettingsStr);
+        setAvailableExtensions(userSettings.extensions || []);
+      }
+    };
+    loadExtensions();
+  }, []);
+
+  const handleExtensionToggle = (id: string) => {
+    const extension = availableExtensions.find((e) => e.id === id);
+    if (!extension) return;
+
+    setSelectedExtensions((prev) => {
+      const isSelected = prev.some((e) => e.id === id);
+      if (isSelected) {
+        return prev.filter((e) => e.id !== id);
+      }
+      return [...prev, { ...extension, enabled: true }];
+    });
+  };
 
   // Handle adding a new activity
   const handleAddActivity = () => {
@@ -51,7 +87,15 @@ export default function GooselingEditor({ config, onClose, onSave }: GooselingEd
 
   const handleSave = () => {
     if (onSave) {
-      onSave(config);
+      const gooseling: Gooseling = {
+        ...config, // Keep existing config
+        title: title,
+        description: description,
+        instructions: instructions,
+        activities: activities,
+        extensions: selectedExtensions, // Add the selected extensions
+      };
+      onSave(gooseling);
     }
   };
 
@@ -102,6 +146,23 @@ export default function GooselingEditor({ config, onClose, onSave }: GooselingEd
             placeholder="Enter instructions for the gooseling..."
             rows={6}
           />
+        </div>
+
+        {/* Extensions Section */}
+        <div className="mb-6">
+          <label className="block font-medium mb-2 text-textStandard">Extensions:</label>
+          <div className="space-y-2">
+            {availableExtensions.map((extension) => (
+              <ExtensionItem
+                key={extension.id}
+                {...extension}
+                enabled={selectedExtensions.some((e) => e.id === extension.id)}
+                onToggle={handleExtensionToggle}
+                onConfigure={() => {}} // We don't need configuration in the editor
+                canConfigure={false}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Activities Section */}

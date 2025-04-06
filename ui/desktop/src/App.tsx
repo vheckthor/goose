@@ -27,6 +27,7 @@ import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
 import GooselingEditor from './components/GooselingEditor';
 import { useChat } from './hooks/useChat';
+import { addExtension } from './extensions';
 
 import 'react-toastify/dist/ReactToastify.css';
 import { useConfig } from './components/ConfigContext';

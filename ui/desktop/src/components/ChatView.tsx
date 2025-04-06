@@ -17,6 +17,7 @@ import { createGooseling } from '../gooseling';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
 import { BotConfig } from '../botConfig';
+import { Gooseling } from '../gooseling';
 import {
   Message,
   createUserMessage,
@@ -54,14 +55,11 @@ export default function ChatView({
   const [hasMessages, setHasMessages] = useState(false);
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
   const [showGame, setShowGame] = useState(false);
-  const [waitingForAgentResponse, setWaitingForAgentResponse] = useState(false);
-  const [showShareableBotModal, setshowShareableBotModal] = useState(false);
-  const [generatedBotConfig, setGeneratedBotConfig] = useState<any>(null);
   const [isGeneratingGooseling, setIsGeneratingGooseling] = useState(false);
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
   // Get botConfig directly from appConfig
-  const botConfig = window.appConfig.get('botConfig') as BotConfig | null;
+  const botConfig = window.appConfig.get('botConfig') as Gooseling | null;
 
   const {
     messages,
@@ -340,6 +338,7 @@ export default function ChatView({
           <Splash
             append={(text) => append(createUserMessage(text))}
             activities={Array.isArray(botConfig?.activities) ? botConfig.activities : null}
+            title={botConfig?.title}
           />
         ) : (
           <ScrollArea ref={scrollRef} className="flex-1 px-4" autoScroll>

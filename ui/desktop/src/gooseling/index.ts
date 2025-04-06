@@ -1,5 +1,6 @@
 import { Message } from '../types/message';
 import { getApiUrl } from '../config';
+import { FullExtensionConfig } from '../extensions';
 
 export interface Gooseling {
   title: string;
@@ -10,7 +11,7 @@ export interface Gooseling {
     contact?: string;
     metadata?: string;
   };
-  extensions?: any[];
+  extensions?: FullExtensionConfig[];
   goosehints?: string;
   context?: string[];
 }
