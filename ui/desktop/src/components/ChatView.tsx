@@ -123,6 +123,13 @@ export default function ChatView({
         window.electron.logInfo(JSON.stringify(response.gooseling, null, 2));
 
         // Create a new window for the gooseling editor
+        console.log('Opening gooseling editor with config:', response.gooseling);
+
+        // First, verify the gooseling data
+        if (!response.gooseling || !response.gooseling.title) {
+          throw new Error('Invalid gooseling data received');
+        }
+
         window.electron.createChatWindow(
           undefined, // query
           undefined, // dir

@@ -82,9 +82,18 @@ app.on('open-url', async (event, url) => {
         console.error('Failed to parse bot config:', e);
       }
     }
-    // Always create a new window for bot URLs
-    console.log('[main] Creating new window for bot');
-    firstOpenWindow = await createChat(app, undefined, openDir, undefined, undefined, botConfig);
+    // Always create a new window for bot URLs, with gooselingEditor view for gooseling
+    console.log('[main] Creating new window for bot/gooseling');
+    const viewType = parsedUrl.hostname === 'gooseling' ? 'gooselingEditor' : undefined;
+    firstOpenWindow = await createChat(
+      app,
+      undefined,
+      openDir,
+      undefined,
+      undefined,
+      botConfig,
+      viewType
+    );
   }
 });
 
@@ -164,10 +173,39 @@ const createChat = async (
   botConfig?: any, // Bot configuration
   viewType?: string // View type
 ) => {
-  // Apply current environment settings before creating chat
-  updateEnvironmentVariables(envToggles);
+  // Initialize variables for process and configuration
+  let port = 0;
+  let working_dir = '';
+  let goosedProcess = null;
 
-  const [port, working_dir, goosedProcess] = await startGoosed(app, dir);
+  if (viewType === 'gooselingEditor') {
+    // For gooselingEditor, get the port from existing windows' config
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+      // Get the config from localStorage through an existing window
+      try {
+        const result = await existingWindows[0].webContents.executeJavaScript(
+          `localStorage.getItem('gooseConfig')`
+        );
+        if (result) {
+          const config = JSON.parse(result);
+          port = config.GOOSE_PORT;
+          working_dir = config.GOOSE_WORKING_DIR;
+        }
+      } catch (e) {
+        console.error('Failed to get config from localStorage:', e);
+      }
+    }
+    if (port === 0) {
+      console.error('No existing Goose process found for gooselingEditor');
+      throw new Error('Cannot create gooselingEditor window: No existing Goose process found');
+    }
+  } else {
+    // Apply current environment settings before creating chat
+    updateEnvironmentVariables(envToggles);
+    // Start new Goosed process for regular windows
+    [port, working_dir, goosedProcess] = await startGoosed(app, dir);
+  }
 
   const mainWindow = new BrowserWindow({
     titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
@@ -197,27 +235,25 @@ const createChat = async (
     },
   });
 
-  let originalExtensionState = null;
-  if (botConfig) {
-    const response = await fetch(
-      `${appConfig.GOOSE_API_HOST}: ${appConfig.GOOSE_PORT}/extensions`,
-      {
-        headers: {
-          'X-Secret-Key': appConfig.secretKey,
-        },
-      }
-    );
-    originalExtensionState = await response.json();
-  }
-
-  console.log('[main] Creating window with config:', {
+  // Store config in localStorage for future windows
+  const windowConfig = {
     ...appConfig,
     GOOSE_PORT: port,
     GOOSE_WORKING_DIR: working_dir,
     REQUEST_DIR: dir,
     GOOSE_BASE_URL_SHARE: sharingUrl,
     botConfig: botConfig,
+  };
+
+  // We need to wait for the window to load before we can access localStorage
+  mainWindow.webContents.on('did-finish-load', () => {
+    const configStr = JSON.stringify(windowConfig).replace(/'/g, "\\'");
+    mainWindow.webContents.executeJavaScript(`
+      localStorage.setItem('gooseConfig', '${configStr}')
+    `);
   });
+
+  console.log('[main] Creating window with config:', windowConfig);
 
   // Handle new window creation for links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -288,27 +324,11 @@ const createChat = async (
 
   windowMap.set(windowId, mainWindow);
   // Handle window closure
-  mainWindow.on('closed', async () => {
-    // If this was a bot window, restore original extension state
-    if (originalExtensionState && botConfig?.isFromDeepLink) {
-      // Restore original extension states
-      for (const ext of originalExtensionState.extensions) {
-        await fetch(`${appConfig.GOOSE_API_HOST}:${appConfig.GOOSE_PORT}/extensions/${ext.name}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Secret-Key': appConfig.secretKey,
-          },
-          body: JSON.stringify({
-            name: ext.name,
-            config: ext,
-            enabled: ext.enabled,
-          }),
-        });
-      }
-    }
+  mainWindow.on('closed', () => {
     windowMap.delete(windowId);
-    goosedProcess.kill();
+    if (goosedProcess) {
+      goosedProcess.kill();
+    }
   });
   return mainWindow;
 };
@@ -629,6 +649,7 @@ app.whenReady().then(async () => {
         const recentDirs = loadRecentDirs();
         dir = recentDirs.length > 0 ? recentDirs[0] : null;
       }
+      // Pass botConfig as part of viewOptions when viewType is gooselingEditor
       createChat(app, query, dir, version, resumeSessionId, botConfig, viewType);
     }
   );

@@ -25,6 +25,7 @@ import ConfigureProvidersView from './components/settings/providers/ConfigurePro
 import SessionsView from './components/sessions/SessionsView';
 import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
+import GooselingEditor from './components/GooselingEditor';
 import { useChat } from './hooks/useChat';
 
 import 'react-toastify/dist/ReactToastify.css';
@@ -42,7 +43,8 @@ export type View =
   | 'ConfigureProviders'
   | 'settingsV2'
   | 'sessions'
-  | 'sharedSession';
+  | 'sharedSession'
+  | 'gooselingEditor';
 
 export type ViewConfig = {
   view: View;
@@ -54,15 +56,42 @@ export type ViewConfig = {
     | Record<string, any>;
 };
 
+// Add this function at the top of the App component to determine initial view
+const getInitialView = (): ViewConfig => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewFromUrl = urlParams.get('view');
+  const windowConfig = window.electron.getConfig();
+
+  if (viewFromUrl === 'gooselingEditor' && windowConfig?.botConfig) {
+    return {
+      view: 'gooselingEditor',
+      viewOptions: {
+        config: windowConfig.botConfig,
+      },
+    };
+  }
+
+  // Any other URL-specified view
+  if (viewFromUrl) {
+    return {
+      view: viewFromUrl as View,
+      viewOptions: {},
+    };
+  }
+
+  // Default case
+  return {
+    view: 'welcome', // Or whatever default view you prefer
+    viewOptions: {},
+  };
+};
+
 export default function App() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [pendingLink, setPendingLink] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<string>('');
-  const [{ view, viewOptions }, setInternalView] = useState<ViewConfig>({
-    view: 'welcome',
-    viewOptions: {},
-  });
+  const [{ view, viewOptions }, setInternalView] = useState<ViewConfig>(getInitialView());
   const { getExtensions, addExtension, read } = useConfig();
   const initAttemptedRef = useRef(false);
 
@@ -220,6 +249,24 @@ export default function App() {
       setView(newView);
     };
 
+    // Get initial view and config
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewFromUrl = urlParams.get('view');
+    if (viewFromUrl) {
+      // Get the config from the electron window config
+      const windowConfig = window.electron.getConfig();
+
+      if (viewFromUrl === 'gooselingEditor') {
+        const initialViewOptions = {
+          botConfig: windowConfig?.botConfig,
+          view: viewFromUrl,
+        };
+        setView(viewFromUrl, initialViewOptions);
+      } else {
+        setView(viewFromUrl);
+      }
+    }
+
     window.electron.on('set-view', handleSetView);
     return () => window.electron.off('set-view', handleSetView);
   }, []);
@@ -227,7 +274,7 @@ export default function App() {
   // Add cleanup for session states when view changes
   useEffect(() => {
     console.log(`View changed to: ${view}`);
-    if (view !== 'chat') {
+    if (view !== 'chat' && view !== 'gooselingEditor') {
       console.log('Not in chat view, clearing loading session state');
       setIsLoadingSession(false);
     }
@@ -291,6 +338,22 @@ export default function App() {
   const { addRecentModel } = useRecentModels(); // TODO: remove
 
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewType = urlParams.get('view');
+    const botConfig = window.appConfig.get('botConfig');
+
+    // If we have a specific view type in the URL, use that and skip provider detection
+    if (viewType) {
+      console.log(`Using view from URL: ${viewType}`);
+      if (viewType === 'gooselingEditor' && botConfig) {
+        console.log('Setting view to gooselingEditor with config:', botConfig);
+        setView('gooselingEditor', { config: botConfig });
+      } else {
+        setView(viewType as View);
+      }
+      return;
+    }
+
     if (process.env.ALPHA) {
       return;
     }
@@ -479,6 +542,26 @@ export default function App() {
                     setIsLoadingSharedSession(false);
                   }
                 }
+              }}
+            />
+          )}
+          {view === 'gooselingEditor' && (
+            <GooselingEditor
+              key={viewOptions?.config ? 'with-config' : 'no-config'}
+              config={viewOptions?.config || window.electron.getConfig().botConfig}
+              onClose={() => setView('chat')}
+              onSave={(config) => {
+                console.log('Saving gooseling config:', config);
+                window.electron.createChatWindow(
+                  undefined,
+                  undefined,
+                  undefined,
+                  undefined,
+                  config,
+                  'gooselingEditor',
+                  { config }
+                );
+                setView('chat');
               }}
             />
           )}
