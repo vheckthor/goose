@@ -27,7 +27,7 @@ import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
 import GooselingEditor from './components/GooselingEditor';
 import { useChat } from './hooks/useChat';
-import { addExtension } from './extensions';
+import { addExtension as addExtensionDirect, FullExtensionConfig } from './extensions';
 
 import 'react-toastify/dist/ReactToastify.css';
 import { useConfig } from './components/ConfigContext';
@@ -57,7 +57,6 @@ export type ViewConfig = {
     | Record<string, any>;
 };
 
-// Add this function at the top of the App component to determine initial view
 const getInitialView = (): ViewConfig => {
   const urlParams = new URLSearchParams(window.location.search);
   const viewFromUrl = urlParams.get('view');
@@ -93,7 +92,7 @@ export default function App() {
   const [pendingLink, setPendingLink] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<string>('');
   const [{ view, viewOptions }, setInternalView] = useState<ViewConfig>(getInitialView());
-  const { getExtensions, addExtension, read } = useConfig();
+  const { getExtensions, addExtension: addExtensionToConfig, read } = useConfig();
   const initAttemptedRef = useRef(false);
 
   // Utility function to extract the command from the link
@@ -103,6 +102,55 @@ export default function App() {
     const args = url.searchParams.getAll('arg').map(decodeURIComponent);
     return `${cmd} ${args.join(' ')}`.trim();
   }
+  // In App.tsx
+  const enableBotConfigExtensions = async (extensions: FullExtensionConfig[]) => {
+    if (!extensions?.length) {
+      console.log('No extensions to enable from bot config');
+      return;
+    }
+
+    console.log(`Enabling ${extensions.length} extensions from bot config:`, extensions);
+
+    // Wait for initial server readiness
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    for (const extension of extensions) {
+      try {
+        console.log(`Enabling extension: ${extension.name}`);
+        const extensionConfig = {
+          ...extension,
+          enabled: true,
+        };
+
+        // Try to add the extension
+        const response = await addExtensionDirect(extensionConfig, true);
+
+        if (!response.ok) {
+          console.error(
+            `Failed to enable extension ${extension.name}: Server returned ${response.status}`
+          );
+          // If it's a 428, retry once
+          if (response.status === 428) {
+            console.log('Server not ready, waiting and will retry...');
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            try {
+              await addExtensionDirect(extensionConfig, true);
+              console.log(`Successfully enabled extension ${extension.name} on retry`);
+            } catch (retryError) {
+              console.error(`Failed to enable extension ${extension.name} on retry:`, retryError);
+            }
+          }
+          continue;
+        }
+
+        console.log(`Successfully enabled extension: ${extension.name}`);
+      } catch (error) {
+        console.error(`Failed to enable extension ${extension.name}:`, error);
+      }
+    }
+
+    console.log('Finished enabling bot config extensions');
+  };
 
   useEffect(() => {
     if (!process.env.ALPHA) {
@@ -131,7 +179,7 @@ export default function App() {
           try {
             await initializeSystem(provider, model, {
               getExtensions,
-              addExtension,
+              addExtensionToConfig,
             });
           } catch (error) {
             console.error('Error in alpha initialization:', error);
@@ -313,7 +361,7 @@ export default function App() {
       setModalVisible(false); // Dismiss modal immediately
       try {
         if (process.env.ALPHA) {
-          await addExtensionFromDeepLinkV2(pendingLink, addExtension, setView);
+          await addExtensionFromDeepLinkV2(pendingLink, addExtensionToConfig, setView);
         } else {
           await addExtensionFromDeepLink(pendingLink, setView);
         }
@@ -333,6 +381,7 @@ export default function App() {
     setModalVisible(false);
     setPendingLink(null);
   };
+  // goose://gooseling?config=eyJ2ZXJzaW9uIjoiMS4wLjAiLCJ0aXRsZSI6IkN1c3RvbSBHb29zZWxpbmciLCJkZXNjcmlwdGlvbiI6IkNyZWF0ZWQgZnJvbSBjaGF0IHNlc3Npb24iLCJpbnN0cnVjdGlvbnMiOiJQcm92aWRlIGNsZWFyLCBtYXJrZG93bi1mb3JtYXR0ZWQgcmVzcG9uc2VzIGFib3V0IGdlbmVyYWwgY2FwYWJpbGl0aWVzIGFuZCBzeXN0ZW0gZmVhdHVyZXMuIE5vIHNwZWNpYWwgdG9vbHMgb3IgZXh0ZW5zaW9ucyBhcmUgY3VycmVudGx5IGVuYWJsZWQsIHRob3VnaCB0aGV5IGNhbiBiZSBhZGRlZCB0aHJvdWdoIFNldHRpbmdzLiBSZXNwb25zZXMgc2hvdWxkIHVzZSBwcm9wZXIgbWFya2Rvd24gZm9ybWF0dGluZyBpbmNsdWRpbmcgaGVhZGVycywgYnVsbGV0IHBvaW50cywgYW5kIGNvZGUgYmxvY2tzIHdoZXJlIGFwcHJvcHJpYXRlLiIsImV4dGVuc2lvbnMiOltdLCJhY3Rpdml0aWVzIjpbIkV4cGxhaW4gYXZhaWxhYmxlIGZlYXR1cmVzIiwiRGVzY3JpYmUgZXh0ZW5zaW9uIGNhcGFiaWxpdGllcyIsIkZvcm1hdCByZXNwb25zZXMgaW4gbWFya2Rvd24iLCJOb3RlOiBPdXIgY29udmVyc2F0aW9uIGhhcyBiZWVuIHF1aXRlIGxpbWl0ZWQgc28gZmFyLCBzbyB0aGVzZSBpbnN0cnVjdGlvbnMgYW5kIGFjdGl2aXRpZXMgYXJlIGJhc2VkIHByaW1hcmlseSBvbiBvdXIgaW5pdGlhbCBjYXBhYmlsaXR5IGRpc2N1c3Npb24uIFdpdGggbW9yZSBzcGVjaWZpYyBpbnRlcmFjdGlvbnMsIEkgY291bGQgcHJvdmlkZSBtb3JlIHRhcmdldGVkIGV4YW1wbGVzIGFuZCBpbnN0cnVjdGlvbnMuKiJdfQ==
 
   // TODO: remove
   const { switchModel } = useModel(); // TODO: remove
@@ -343,9 +392,14 @@ export default function App() {
     const viewType = urlParams.get('view');
     const botConfig = window.appConfig.get('botConfig');
 
+    // Handle bot config extensions first
+    if (botConfig?.extensions?.length > 0) {
+      console.log('Found extensions in bot config:', botConfig.extensions);
+      enableBotConfigExtensions(botConfig.extensions);
+    }
+
     // If we have a specific view type in the URL, use that and skip provider detection
     if (viewType) {
-      console.log(`Using view from URL: ${viewType}`);
       if (viewType === 'gooselingEditor' && botConfig) {
         console.log('Setting view to gooselingEditor with config:', botConfig);
         setView('gooselingEditor', { config: botConfig });

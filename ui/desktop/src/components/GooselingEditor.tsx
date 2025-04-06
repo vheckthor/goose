@@ -35,8 +35,8 @@ export default function GooselingEditor({
   const [instructions, setInstructions] = useState(config?.instructions || '');
   const [activities, setActivities] = useState<string[]>(config?.activities || []);
   const [availableExtensions, setAvailableExtensions] = useState<FullExtensionConfig[]>([]);
-  const [selectedExtensions, setSelectedExtensions] = useState<FullExtensionConfig[]>(
-    config?.extensions || []
+  const [selectedExtensions, setSelectedExtensions] = useState<string[]>(
+    config?.extensions?.map((e) => e.id) || []
   );
 
   const [activityInput, setActivityInput] = useState('');
@@ -49,22 +49,56 @@ export default function GooselingEditor({
       const userSettingsStr = localStorage.getItem('user_settings');
       if (userSettingsStr) {
         const userSettings = JSON.parse(userSettingsStr);
+        console.log('Loaded extensions from settings:', userSettings.extensions);
         setAvailableExtensions(userSettings.extensions || []);
       }
     };
     loadExtensions();
+    console.log('Initial config extensions:', config?.extensions);
+    console.log('Initial selected extensions:', selectedExtensions);
   }, []);
 
+  // const handleExtensionToggle = (id: string) => {
+  //   const extension = availableExtensions.find((e) => e.id === id);
+  //   if (!extension) return;
+
+  //   setSelectedExtensions((prev) => {
+  //     const isSelected = prev.some((e) => e.id === id);
+  //     if (isSelected) {
+  //       return prev.filter((e) => e.id !== id);
+  //     }
+  //     return [...prev, { ...extension, enabled: true }];
+  //   });
+  // };
+
+  // Update getCurrentConfig to preserve all botConfig fields
+  const getCurrentConfig = (): Gooseling => ({
+    ...botConfig, // Keep ALL original fields
+    title,
+    description,
+    instructions,
+    activities,
+    extensions: selectedExtensions
+      .map((id) => {
+        const extension = availableExtensions.find((e) => e.id === id);
+        if (!extension) return null;
+        return {
+          ...extension,
+          enabled: true,
+        };
+      })
+      .filter(Boolean) as FullExtensionConfig[],
+  });
+
   const handleExtensionToggle = (id: string) => {
-    const extension = availableExtensions.find((e) => e.id === id);
-    if (!extension) return;
+    console.log('Toggling extension:', id);
+    console.log('Current selected extensions:', selectedExtensions);
 
     setSelectedExtensions((prev) => {
-      const isSelected = prev.some((e) => e.id === id);
-      if (isSelected) {
-        return prev.filter((e) => e.id !== id);
-      }
-      return [...prev, { ...extension, enabled: true }];
+      const newState = prev.includes(id) ? prev.filter((extId) => extId !== id) : [...prev, id];
+
+      console.log('New selected extensions:', newState);
+      return newState;
     });
   };
 
@@ -83,19 +117,13 @@ export default function GooselingEditor({
     setActivities(newActivities);
   };
 
-  const deeplink = generateDeepLink(config);
+  const deeplink = generateDeepLink(getCurrentConfig());
 
   const handleSave = () => {
     if (onSave) {
-      const gooseling: Gooseling = {
-        ...config, // Keep existing config
-        title: title,
-        description: description,
-        instructions: instructions,
-        activities: activities,
-        extensions: selectedExtensions, // Add the selected extensions
-      };
-      onSave(gooseling);
+      const updatedConfig = getCurrentConfig();
+      console.log('Saving updated config:', updatedConfig);
+      onSave(updatedConfig);
     }
   };
 
@@ -156,7 +184,7 @@ export default function GooselingEditor({
               <ExtensionItem
                 key={extension.id}
                 {...extension}
-                enabled={selectedExtensions.some((e) => e.id === extension.id)}
+                enabled={selectedExtensions.includes(extension.id)}
                 onToggle={handleExtensionToggle}
                 onConfigure={() => {}} // We don't need configuration in the editor
                 canConfigure={false}
@@ -230,18 +258,14 @@ export default function GooselingEditor({
             onClick={() => {
               setIsLoading(true);
               setError(null);
-              // Open the deep link with the current bot config
-              const currentConfig = {
-                ...botConfig,
-                instructions,
-                activities,
-              };
+              const updatedConfig = getCurrentConfig();
+              console.log('Opening gooseling with config:', updatedConfig);
               window.electron.createChatWindow(
                 undefined,
                 undefined,
                 undefined,
                 undefined,
-                currentConfig,
+                updatedConfig,
                 undefined
               );
             }}

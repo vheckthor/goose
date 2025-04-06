@@ -649,6 +649,10 @@ app.whenReady().then(async () => {
         const recentDirs = loadRecentDirs();
         dir = recentDirs.length > 0 ? recentDirs[0] : null;
       }
+
+      // Log the botConfig for debugging
+      console.log('Creating chat window with botConfig:', botConfig);
+
       // Pass botConfig as part of viewOptions when viewType is gooselingEditor
       createChat(app, query, dir, version, resumeSessionId, botConfig, viewType);
     }
