@@ -19,7 +19,6 @@ fn default_version() -> String {
 /// ## Optional Fields
 /// * `prompt` - the initial prompt to the session to start with
 /// * `extensions` - List of extension configurations required by the Gooseling
-/// * `goosehints` - Additional goosehints to be merged with existing .goosehints configuration
 /// * `context` - Supplementary context information for the Gooseling
 /// * `activities` - Activity labels that appear when loading the Gooseling
 /// * `author` - Information about the Gooseling's creator and metadata
@@ -71,9 +70,6 @@ pub struct Gooseling {
     pub extensions: Option<Vec<ExtensionConfig>>, // a list of extensions to enable
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub goosehints: Option<String>, // any additional goosehints to merge with existing .goosehints
-
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub context: Option<Vec<String>>, // any additional context
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -103,7 +99,6 @@ pub struct GooselingBuilder {
     // Optional fields
     prompt: Option<String>,
     extensions: Option<Vec<ExtensionConfig>>,
-    goosehints: Option<String>,
     context: Option<Vec<String>>,
     activities: Option<Vec<String>>,
     author: Option<Author>,
@@ -132,7 +127,6 @@ impl Gooseling {
             instructions: None,
             prompt: None,
             extensions: None,
-            goosehints: None,
             context: None,
             activities: None,
             author: None,
@@ -176,12 +170,6 @@ impl GooselingBuilder {
         self
     }
 
-    /// Sets the goosehints for the Gooseling
-    pub fn goosehints(mut self, goosehints: impl Into<String>) -> Self {
-        self.goosehints = Some(goosehints.into());
-        self
-    }
-
     /// Sets the context for the Gooseling
     pub fn context(mut self, context: Vec<String>) -> Self {
         self.context = Some(context);
@@ -215,7 +203,6 @@ impl GooselingBuilder {
             instructions,
             prompt: self.prompt,
             extensions: self.extensions,
-            goosehints: self.goosehints,
             context: self.context,
             activities: self.activities,
             author: self.author,

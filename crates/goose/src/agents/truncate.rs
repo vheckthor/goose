@@ -19,6 +19,7 @@ use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::agents::ToolPermissionStore;
 use crate::config::Config;
 use crate::config::ExtensionManager;
+use crate::gooselings::Author;
 use crate::gooselings::Gooseling;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
@@ -597,12 +598,20 @@ impl Agent for TruncateAgent {
             .map(|e| e.config.clone())
             .collect();
 
+        let author = Author {
+            contact: std::env::var("USER")
+                .or_else(|_| std::env::var("USERNAME"))
+                .ok(),
+            metadata: None,
+        };
+
         let gooseling = Gooseling::builder()
             .title("Custom gooseling from chat")
             .description("a custom gooseling instance from this chat session")
             .instructions(instructions)
             .activities(activities)
             .extensions(extension_configs)
+            .author(author)
             .build()
             .expect("valid gooseling");
 
