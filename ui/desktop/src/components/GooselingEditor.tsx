@@ -58,11 +58,9 @@ export default function GooselingEditor({
 
   const handleExtensionToggle = (id: string) => {
     console.log('Toggling extension:', id);
-    console.log('Current selected extensions:', selectedExtensions);
     setSelectedExtensions((prev) => {
       const isSelected = prev.includes(id);
       const newState = isSelected ? prev.filter((extId) => extId !== id) : [...prev, id];
-      console.log('New selected extensions:', newState);
       return newState;
     });
   };

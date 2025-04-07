@@ -81,7 +81,7 @@ const getInitialView = (): ViewConfig => {
 
   // Default case
   return {
-    view: 'welcome', // Or whatever default view you prefer
+    view: 'welcome',
     viewOptions: {},
   };
 };
@@ -103,7 +103,6 @@ export default function App() {
     return `${cmd} ${args.join(' ')}`.trim();
   }
 
-  // In App.tsx
   const disableAllStoredExtensions = () => {
     const userSettingsStr = localStorage.getItem('user_settings');
     if (!userSettingsStr) return;
@@ -112,7 +111,7 @@ export default function App() {
       const userSettings = JSON.parse(userSettingsStr);
       // Store original state before modifying
       localStorage.setItem('user_settings_backup', userSettingsStr);
-      console.log('user settings backup 1', localStorage.getItem('user_settings_backup'));
+      console.log('Backing up user_settings');
 
       // Disable all extensions
       userSettings.extensions = userSettings.extensions.map((ext) => ({
@@ -120,12 +119,9 @@ export default function App() {
         enabled: false,
       }));
 
-      console.log('disabled user settings', userSettings);
-
       localStorage.setItem('user_settings', JSON.stringify(userSettings));
       console.log('Disabled all stored extensions');
       window.electron.emit('settings-updated');
-      console.log('user settings backup 1', localStorage.getItem('user_settings_backup'));
     } catch (error) {
       console.error('Error disabling stored extensions:', error);
     }
@@ -174,7 +170,6 @@ export default function App() {
     }
   };
 
-  // In App.tsx
   const enableBotConfigExtensions = async (extensions: FullExtensionConfig[]) => {
     if (!extensions?.length) {
       console.log('No extensions to enable from bot config');
@@ -456,7 +451,6 @@ export default function App() {
     setModalVisible(false);
     setPendingLink(null);
   };
-  // goose://gooseling?config=eyJ2ZXJzaW9uIjoiMS4wLjAiLCJ0aXRsZSI6IkN1c3RvbSBHb29zZWxpbmciLCJkZXNjcmlwdGlvbiI6IkNyZWF0ZWQgZnJvbSBjaGF0IHNlc3Npb24iLCJpbnN0cnVjdGlvbnMiOiJQcm92aWRlIGNsZWFyLCBtYXJrZG93bi1mb3JtYXR0ZWQgcmVzcG9uc2VzIGFib3V0IGdlbmVyYWwgY2FwYWJpbGl0aWVzIGFuZCBzeXN0ZW0gZmVhdHVyZXMuIE5vIHNwZWNpYWwgdG9vbHMgb3IgZXh0ZW5zaW9ucyBhcmUgY3VycmVudGx5IGVuYWJsZWQsIHRob3VnaCB0aGV5IGNhbiBiZSBhZGRlZCB0aHJvdWdoIFNldHRpbmdzLiBSZXNwb25zZXMgc2hvdWxkIHVzZSBwcm9wZXIgbWFya2Rvd24gZm9ybWF0dGluZyBpbmNsdWRpbmcgaGVhZGVycywgYnVsbGV0IHBvaW50cywgYW5kIGNvZGUgYmxvY2tzIHdoZXJlIGFwcHJvcHJpYXRlLiIsImV4dGVuc2lvbnMiOltdLCJhY3Rpdml0aWVzIjpbIkV4cGxhaW4gYXZhaWxhYmxlIGZlYXR1cmVzIiwiRGVzY3JpYmUgZXh0ZW5zaW9uIGNhcGFiaWxpdGllcyIsIkZvcm1hdCByZXNwb25zZXMgaW4gbWFya2Rvd24iLCJOb3RlOiBPdXIgY29udmVyc2F0aW9uIGhhcyBiZWVuIHF1aXRlIGxpbWl0ZWQgc28gZmFyLCBzbyB0aGVzZSBpbnN0cnVjdGlvbnMgYW5kIGFjdGl2aXRpZXMgYXJlIGJhc2VkIHByaW1hcmlseSBvbiBvdXIgaW5pdGlhbCBjYXBhYmlsaXR5IGRpc2N1c3Npb24uIFdpdGggbW9yZSBzcGVjaWZpYyBpbnRlcmFjdGlvbnMsIEkgY291bGQgcHJvdmlkZSBtb3JlIHRhcmdldGVkIGV4YW1wbGVzIGFuZCBpbnN0cnVjdGlvbnMuKiJdfQ==
 
   // TODO: remove
   const { switchModel } = useModel(); // TODO: remove

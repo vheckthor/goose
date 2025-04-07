@@ -82,19 +82,9 @@ export async function addExtension(
       timeout: extension.timeout,
     };
 
-    console.log('Extension config to be sent:', config);
-    console.log('Extension config to be sent:', config);
-    console.log('API URL:', getApiUrl('/extensions/add'));
-    console.log('Headers:', {
-      'Content-Type': 'application/json',
-      'X-Secret-Key': getSecretKey(),
-    });
-    console.log('Request body:', JSON.stringify(config));
-
     let toastId;
     if (!silent) toastId = toastLoading({ title: extension.name, msg: 'Adding extension...' });
 
-    console.log('secret', getSecretKey());
     const response = await fetch(getApiUrl('/extensions/add'), {
       method: 'POST',
       headers: {
@@ -104,10 +94,7 @@ export async function addExtension(
       body: JSON.stringify(config),
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response status text:', response.statusText);
     const responseText = await response.text();
-    console.log('Response text:', responseText);
 
     if (!response.ok) {
       const errorMsg = `Server returned ${response.status}: ${response.statusText}. Response: ${responseText}`;
@@ -123,20 +110,16 @@ export async function addExtension(
     }
 
     // Wait a moment for the extension to initialize
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Only try to parse JSON if we got a successful response and have JSON content
     let data;
     try {
       data = JSON.parse(responseText);
-      console.log('Extension add response data:', data);
     } catch (e) {
       console.error('Failed to parse response as JSON:', e);
       data = { error: true, message: responseText };
     }
-
-    // const data = await response.json();
-    // console.log('Extension add response:', data);
 
     if (!data.error) {
       if (!silent) {
@@ -170,7 +153,6 @@ export async function addExtension(
   } catch (error) {
     const errorMessage = `Failed to add ${extension.name} extension: ${error instanceof Error ? error.message : 'Unknown error'}`;
     console.error(errorMessage);
-    console.error('Error in addExtension:', error);
     toastError({
       title: extension.name,
       msg: 'Failed to add extension',

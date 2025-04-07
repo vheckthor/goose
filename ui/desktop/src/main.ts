@@ -42,11 +42,8 @@ app.setAsDefaultProtocolClient('goose');
 // Triggered when the user opens "goose://..." links
 let firstOpenWindow: BrowserWindow;
 let pendingDeepLink = null; // Store deep link if sent before React is ready
-let pendingGooselingConfig = null; // Store gooseling config if sent before React is ready
-app.on('open-url', async (event, url) => {
-  // event.preventDefault();
-  console.log('[main] Received deep link:', url);
 
+app.on('open-url', async (event, url) => {
   const parsedUrl = new URL(url);
   const recentDirs = loadRecentDirs();
   const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
@@ -71,7 +68,6 @@ app.on('open-url', async (event, url) => {
   } else if (parsedUrl.hostname === 'sessions') {
     firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
   } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
-    // For bot URLs, parse the config first
     let botConfig = null;
     const configParam = parsedUrl.searchParams.get('config');
     if (configParam) {
@@ -83,7 +79,6 @@ app.on('open-url', async (event, url) => {
       }
     }
     // Always create a new window for bot URLs, with gooselingEditor view for gooseling
-    console.log('[main] Creating new window for bot/gooseling');
     const viewType = parsedUrl.hostname === 'gooseling' ? 'gooselingEditor' : undefined;
     firstOpenWindow = await createChat(
       app,
@@ -145,7 +140,6 @@ const getSharingUrl = () => {
 };
 
 let [provider, model] = getGooseProvider();
-console.log('[main] Got provider and model:', { provider, model });
 
 let sharingUrl = getSharingUrl();
 
@@ -157,8 +151,6 @@ let appConfig = {
   GOOSE_WORKING_DIR: '',
   secretKey: generateSecretKey(),
 };
-
-console.log('[main] Created appConfig:', appConfig);
 
 // Track windows by ID
 let windowCounter = 0;
@@ -225,7 +217,7 @@ const createChat = async (
         JSON.stringify({
           ...appConfig,
           GOOSE_PORT: port,
-          GOOSE_WORKGIN_DIR: working_dir,
+          GOOSE_WORKING_DIR: working_dir,
           REQUEST_DIR: dir,
           GOOSE_BASE_URL_SHARE: sharingUrl,
           botConfig: botConfig,
@@ -453,10 +445,6 @@ ipcMain.on('react-ready', (event) => {
   } else {
     console.log('No pending deep link to process');
   }
-
-  // We don't need to handle pending deep links here anymore
-  // since we're handling them in the window creation flow
-  console.log('[main] React ready - window is prepared for deep links');
 });
 
 // Add file/directory selection handler
