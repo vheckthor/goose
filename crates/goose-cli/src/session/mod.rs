@@ -25,7 +25,6 @@ use mcp_core::prompt::PromptMessage;
 use rand::{distributions::Alphanumeric, Rng};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
