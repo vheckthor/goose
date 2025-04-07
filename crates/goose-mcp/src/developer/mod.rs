@@ -447,7 +447,12 @@ impl DeveloperRouter {
         let cwd = std::env::current_dir().expect("should have a current working dir");
         let os = std::env::consts::OS;
 
-        let base_instructions = match os {
+        // Check if git checkpointing is enabled for instructions
+        let git_checkpointing_enabled = std::env::var("GOOSE_GIT_CHECKPOINTING")
+            .map(|val| val.to_lowercase() == "true")
+            .unwrap_or(false);
+
+        let mut base_instructions = match os {
             "windows" => formatdoc! {r#"
                 The developer extension gives you the capabilities to edit code files and run shell commands,
                 and can be used to solve a wide range of problems.
@@ -485,6 +490,41 @@ impl DeveloperRouter {
                 cwd=cwd.to_string_lossy(),
             },
         };
+
+        // Add git checkpointing instructions if enabled
+        if git_checkpointing_enabled {
+            let git_instructions = indoc! {r#"
+                To help keep track of changes as you work, you should make use of git to checkpoint your work as you go using the tools below.
+                You can make branches for different logical tasks (check with user if needed) and to rollback if needed.
+                Ensure you have a clean git repo to start with, no unstaged chages, make a git repo if needed to avoid losing work.
+
+                1. `git_status` - Use this at the beginning of your work to check if you're in a git repository and if there are unstaged changes.
+                
+                2. `git_branch` - Use this to:
+                   - Create a new branch for a specific task with `action: "create", name: "branch-name"`
+                   - Switch between branches with `action: "switch", name: "branch-name"`
+                   - List available branches with `action: "list"`
+                
+                3. `git_checkpoint` - Use this to save your progress at logical points when the code is in a working state:
+                   - Commit changes with `message: "Description of changes"`
+                
+                4. `git_rollback` - Use this if you need to undo changes:
+                   - View recent commits with `action: "show_commits"`
+                   - Soft reset (keep changes unstaged) with `action: "reset_soft", commit: "hash"` 
+                   - Hard reset (discard changes) with `action: "reset_hard", commit: "hash"`
+
+                Recommended workflow:
+                1. Start by checking status with `git_status`
+                2. Create a new branch for your task with `git_branch`
+                3. Make changes to files
+                4. Create checkpoints at logical points with `git_checkpoint`
+                5. If needed, roll back to previous states with `git_rollback`
+                6. When done, consider if you should switch to another branch if it is a totally different task
+
+            "#};
+
+            base_instructions.push_str(git_instructions);
+        }
 
         // choose_app_strategy().config_dir()
         // - macOS/Linux: ~/.config/goose/
