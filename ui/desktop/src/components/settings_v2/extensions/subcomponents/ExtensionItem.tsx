@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Switch } from '../../../ui/switch';
 import { Gear } from '../../../icons/Gear';
-import { FixedExtensionEntry } from '../../../ConfigContext';
+import { ExtensionEntry } from '../../../ConfigContext';
 import { getSubtitle, getFriendlyTitle } from './ExtensionList';
 
 interface ExtensionItemProps {
-  extension: FixedExtensionEntry;
-  onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void>;
-  onConfigure: (extension: FixedExtensionEntry) => void;
+  extension: ExtensionEntry;
+  onToggle: (extension: ExtensionEntry) => Promise<boolean | void>;
+  onConfigure: (extension: ExtensionEntry) => void;
 }
 
 export default function ExtensionItem({ extension, onToggle, onConfigure }: ExtensionItemProps) {
@@ -16,7 +16,7 @@ export default function ExtensionItem({ extension, onToggle, onConfigure }: Exte
   // Track if we're in the process of toggling
   const [isToggling, setIsToggling] = useState(false);
 
-  const handleToggle = async (ext: FixedExtensionEntry) => {
+  const handleToggle = async (ext: ExtensionEntry) => {
     // Prevent multiple toggles while one is in progress
     if (isToggling) return;
 

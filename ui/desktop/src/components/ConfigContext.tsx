@@ -18,15 +18,11 @@ import type {
   ProviderDetails,
   ExtensionQuery,
   ExtensionConfig,
+  ExtensionEntry,
 } from '../api/types.gen';
 import { removeShims } from './settings_v2/extensions/utils';
 
-export type { ExtensionConfig } from '../api/types.gen';
-
-// Define a local version that matches the structure of the imported one
-export type FixedExtensionEntry = ExtensionConfig & {
-  enabled: boolean;
-};
+export type { ExtensionConfig, ExtensionEntry } from '../api/types.gen';
 
 // Initialize client configuration
 client.setConfig({
@@ -40,7 +36,7 @@ client.setConfig({
 interface ConfigContextType {
   config: ConfigResponse['config'];
   providersList: ProviderDetails[];
-  extensionsList: FixedExtensionEntry[];
+  extensionsList: ExtensionEntry[];
   upsert: (key: string, value: unknown, is_secret: boolean) => Promise<void>;
   read: (key: string, is_secret: boolean) => Promise<unknown>;
   remove: (key: string, is_secret: boolean) => Promise<void>;
@@ -48,7 +44,7 @@ interface ConfigContextType {
   toggleExtension: (name: string) => Promise<void>;
   removeExtension: (name: string) => Promise<void>;
   getProviders: (b: boolean) => Promise<ProviderDetails[]>;
-  getExtensions: (b: boolean) => Promise<FixedExtensionEntry[]>;
+  getExtensions: (b: boolean) => Promise<ExtensionEntry[]>;
 }
 
 interface ConfigProviderProps {
@@ -68,7 +64,7 @@ const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
   const [config, setConfig] = useState<ConfigResponse['config']>({});
   const [providersList, setProvidersList] = useState<ProviderDetails[]>([]);
-  const [extensionsList, setExtensionsList] = useState<FixedExtensionEntry[]>([]);
+  const [extensionsList, setExtensionsList] = useState<ExtensionEntry[]>([]);
 
   useEffect(() => {
     // Load all configuration data and providers on mount
@@ -167,7 +163,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
     return providersList;
   };
 
-  const getExtensions = async (forceRefresh = false): Promise<FixedExtensionEntry[]> => {
+  const getExtensions = async (forceRefresh = false): Promise<ExtensionEntry[]> => {
     // If a refresh is forced, or we don't have providers yet
     if (forceRefresh || extensionsList.length === 0) {
       const result = await apiGetExtensions();

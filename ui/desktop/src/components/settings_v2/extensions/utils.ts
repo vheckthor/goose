@@ -16,7 +16,7 @@ export function nameToKey(name: string): string {
     .toLowerCase();
 }
 
-import { FixedExtensionEntry } from '../../ConfigContext';
+import { ExtensionEntry } from '../../ConfigContext';
 import { ExtensionConfig } from '../../../api/types.gen';
 
 export interface ExtensionFormData {
@@ -43,7 +43,7 @@ export function getDefaultFormData(): ExtensionFormData {
   };
 }
 
-export function extensionToFormData(extension: FixedExtensionEntry): ExtensionFormData {
+export function extensionToFormData(extension: ExtensionEntry): ExtensionFormData {
   // Type guard: Check if 'envs' property exists for this variant
   const hasEnvs = extension.type === 'sse' || extension.type === 'stdio';
 
@@ -127,11 +127,11 @@ export function combineCmdAndArgs(cmd: string, args: string[]): string {
 }
 
 /**
- * Extracts the ExtensionConfig from a FixedExtensionEntry object
- * @param fixedEntry - The FixedExtensionEntry object
+ * Extracts the ExtensionConfig from an ExtensionEntry object
+ * @param fixedEntry - The ExtensionEntry object
  * @returns The ExtensionConfig portion of the object
  */
-export function extractExtensionConfig(fixedEntry: FixedExtensionEntry): ExtensionConfig {
+export function extractExtensionConfig(fixedEntry: ExtensionEntry): ExtensionConfig {
   const { enabled, ...extensionConfig } = fixedEntry;
   return extensionConfig;
 }

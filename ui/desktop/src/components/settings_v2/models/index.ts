@@ -3,7 +3,7 @@ import { toastError, toastSuccess } from '../../../toasts';
 import { ProviderDetails } from '@/src/api';
 import Model, { getProviderMetadata } from './modelInterface';
 import { ProviderMetadata } from '../../../api';
-import type { ExtensionConfig, FixedExtensionEntry } from '../../ConfigContext';
+import type { ExtensionConfig, ExtensionEntry } from '../../ConfigContext';
 
 // titles
 export const UNKNOWN_PROVIDER_TITLE = 'Provider name lookup';
@@ -22,7 +22,7 @@ const SWITCH_MODEL_SUCCESS_MSG = 'Successfully switched models';
 interface changeModelProps {
   model: Model;
   writeToConfig: (key: string, value: unknown, is_secret: boolean) => Promise<void>;
-  getExtensions?: (b: boolean) => Promise<FixedExtensionEntry[]>;
+  getExtensions?: (b: boolean) => Promise<ExtensionEntry[]>;
   addExtension?: (name: string, config: ExtensionConfig, enabled: boolean) => Promise<void>;
 }
 

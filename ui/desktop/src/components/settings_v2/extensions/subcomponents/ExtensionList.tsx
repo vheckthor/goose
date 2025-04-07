@@ -1,14 +1,14 @@
 import React from 'react';
-import { FixedExtensionEntry } from '../../../ConfigContext';
+import { ExtensionEntry } from '../../../ConfigContext';
 import { ExtensionConfig } from '../../../../api/types.gen';
 import ExtensionItem from './ExtensionItem';
 import builtInExtensionsData from '../../../../built-in-extensions.json';
 import { combineCmdAndArgs, removeShims } from '../utils';
 
 interface ExtensionListProps {
-  extensions: FixedExtensionEntry[];
-  onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void>;
-  onConfigure: (extension: FixedExtensionEntry) => void;
+  extensions: ExtensionEntry[];
+  onToggle: (extension: ExtensionEntry) => Promise<boolean | void>;
+  onConfigure: (extension: ExtensionEntry) => void;
 }
 
 export default function ExtensionList({ extensions, onToggle, onConfigure }: ExtensionListProps) {
@@ -27,7 +27,7 @@ export default function ExtensionList({ extensions, onToggle, onConfigure }: Ext
 }
 // Helper functions
 // Helper function to get a friendly title from extension name
-export function getFriendlyTitle(extension: FixedExtensionEntry): string {
+export function getFriendlyTitle(extension: ExtensionEntry): string {
   let name = '';
 
   // if it's a builtin, check if there's a display_name (old configs didn't have this field)

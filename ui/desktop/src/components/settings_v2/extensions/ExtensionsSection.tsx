@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '../../ui/button';
 import { Plus } from 'lucide-react';
 import { GPSIcon } from '../../ui/icons';
-import { useConfig, FixedExtensionEntry } from '../../ConfigContext';
+import { useConfig, ExtensionEntry } from '../../ConfigContext';
 import ExtensionList from './subcomponents/ExtensionList';
 import ExtensionModal from './modal/ExtensionModal';
 import {
@@ -19,8 +19,8 @@ export default function ExtensionsSection() {
   const { getExtensions, addExtension, removeExtension } = useConfig();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [extensions, setExtensions] = useState<FixedExtensionEntry[]>([]);
-  const [selectedExtension, setSelectedExtension] = useState<FixedExtensionEntry | null>(null);
+  const [extensions, setExtensions] = useState<ExtensionEntry[]>([]);
+  const [selectedExtension, setSelectedExtension] = useState<ExtensionEntry | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -44,7 +44,7 @@ export default function ExtensionsSection() {
     fetchExtensions();
   }, []);
 
-  const handleExtensionToggle = async (extension: FixedExtensionEntry) => {
+  const handleExtensionToggle = async (extension: ExtensionEntry) => {
     // If extension is enabled, we are trying to toggle if off, otherwise on
     const toggleDirection = extension.enabled ? 'toggleOff' : 'toggleOn';
     const extensionConfig = extractExtensionConfig(extension);
@@ -66,7 +66,7 @@ export default function ExtensionsSection() {
     }
   };
 
-  const handleConfigureClick = (extension: FixedExtensionEntry) => {
+  const handleConfigureClick = (extension: ExtensionEntry) => {
     setSelectedExtension(extension);
     setIsModalOpen(true);
   };

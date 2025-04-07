@@ -11,7 +11,7 @@ import {
   addToAgentOnStartup,
 } from '../components/settings_v2/extensions';
 import { extractExtensionConfig } from '../components/settings_v2/extensions/utils';
-import type { ExtensionConfig, FixedExtensionEntry } from '../components/ConfigContext';
+import type { ExtensionConfig, ExtensionEntry } from '../components/ConfigContext';
 
 export function getStoredProvider(config: any): string | null {
   return config.GOOSE_PROVIDER || localStorage.getItem(GOOSE_PROVIDER);
@@ -77,7 +77,7 @@ export const initializeSystem = async (
   provider: string,
   model: string,
   options?: {
-    getExtensions?: (b: boolean) => Promise<FixedExtensionEntry[]>;
+    getExtensions?: (b: boolean) => Promise<ExtensionEntry[]>;
     addExtension?: (name: string, config: ExtensionConfig, enabled: boolean) => Promise<void>;
   }
 ) => {

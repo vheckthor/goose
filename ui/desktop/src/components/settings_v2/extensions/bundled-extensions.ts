@@ -1,5 +1,5 @@
 import type { ExtensionConfig } from '../../../api/types.gen';
-import { FixedExtensionEntry } from '../../ConfigContext';
+import { ExtensionEntry } from '../../ConfigContext';
 import bundledExtensionsData from './bundled-extensions.json';
 import { nameToKey } from './utils';
 
@@ -29,7 +29,7 @@ type BundledExtension = {
  * @returns Promise that resolves when sync is complete
  */
 export async function syncBundledExtensions(
-  existingExtensions: FixedExtensionEntry[],
+  existingExtensions: ExtensionEntry[],
   addExtensionFn: (name: string, config: ExtensionConfig, enabled: boolean) => Promise<void>
 ): Promise<void> {
   try {
