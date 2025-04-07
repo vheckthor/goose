@@ -3,7 +3,6 @@ use clap::{Args, Parser, Subcommand};
 
 use goose::config::Config;
 
-use crate::commands::agent_version::AgentCommand;
 use crate::commands::bench::{list_selectors, run_benchmark};
 use crate::commands::configure::handle_configure;
 use crate::commands::info::handle_info;
@@ -41,7 +40,7 @@ struct Identifier {
         help = "Path for the chat session (e.g., './playground.jsonl')",
         long_help = "Specify a path for your chat session. When used with --resume, will resume this specific session if it exists."
     )]
-    path: Option<PathBuf>,
+path: Option<PathBuf>,
 }
 
 fn extract_identifier(identifier: Identifier) -> session::Identifier {
@@ -234,9 +233,6 @@ enum Command {
         builtin: Vec<String>,
     },
 
-    /// List available agent versions
-    Agents(AgentCommand),
-
     /// Update the Goose CLI version
     #[command(about = "Update the goose CLI version")]
     Update {
@@ -425,10 +421,6 @@ pub async fn cli() -> Result<()> {
                 session.headless(contents).await?;
             }
 
-            return Ok(());
-        }
-        Some(Command::Agents(cmd)) => {
-            cmd.run()?;
             return Ok(());
         }
         Some(Command::Update {

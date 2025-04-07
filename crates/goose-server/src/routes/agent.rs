@@ -6,7 +6,11 @@ use axum::{
     Json, Router,
 };
 use goose::config::Config;
-use goose::{agents::AgentFactory, model::ModelConfig, providers};
+use goose::{
+    agents::{Agent, GooseAgent},
+    model::ModelConfig,
+    providers,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -29,7 +33,6 @@ struct ExtendPromptResponse {
 
 #[derive(Deserialize)]
 struct CreateAgentRequest {
-    version: Option<String>,
     provider: String,
     model: Option<String>,
 }
@@ -62,8 +65,8 @@ struct ProviderList {
 }
 
 async fn get_versions() -> Json<VersionsResponse> {
-    let versions = AgentFactory::available_versions();
-    let default_version = AgentFactory::default_version().to_string();
+    let versions = vec!["goose".to_string()];
+    let default_version = "goose".to_string();
 
     Json(VersionsResponse {
         available_versions: versions.iter().map(|v| v.to_string()).collect(),
@@ -128,11 +131,8 @@ async fn create_agent(
     let provider =
         providers::create(&payload.provider, model_config).expect("Failed to create provider");
 
-    let version = payload
-        .version
-        .unwrap_or_else(|| AgentFactory::default_version().to_string());
-
-    let new_agent = AgentFactory::create(&version, provider).expect("Failed to create agent");
+    let version = String::from("goose");
+    let new_agent: Box<dyn Agent> = Box::new(GooseAgent::new(provider));
 
     let mut agent = state.agent.write().await;
     *agent = Some(new_agent);

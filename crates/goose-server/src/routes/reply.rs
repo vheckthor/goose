@@ -467,7 +467,7 @@ pub fn routes(state: AppState) -> Router {
 mod tests {
     use super::*;
     use goose::{
-        agents::AgentFactory,
+        agents::{Agent, GooseAgent},
         model::ModelConfig,
         providers::{
             base::{Provider, ProviderUsage, Usage},
@@ -521,7 +521,7 @@ mod tests {
             let mock_provider = Box::new(MockProvider {
                 model_config: mock_model_config,
             });
-            let agent = AgentFactory::create("reference", mock_provider).unwrap();
+            let agent = GooseAgent::new(mock_provider);
             let state = AppState {
                 config: Arc::new(Mutex::new(HashMap::new())),
                 agent: Arc::new(RwLock::new(Some(agent))),

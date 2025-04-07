@@ -1,6 +1,6 @@
 use console::style;
 use goose::agents::extension::ExtensionError;
-use goose::agents::AgentFactory;
+use goose::agents::{Agent, GooseAgent};
 use goose::config::{Config, ExtensionManager};
 use goose::session;
 use goose::session::Identifier;
@@ -33,8 +33,7 @@ pub async fn build_session(
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent
-    let mut agent = AgentFactory::create(&AgentFactory::configured_version(), provider)
-        .expect("Failed to create agent");
+    let mut agent: Box<dyn Agent> = Box::new(GooseAgent::new(provider));
 
     // Handle session file resolution and resuming
     let session_file = if resume {

@@ -26,7 +26,6 @@ use crate::providers::errors::ProviderError;
 use crate::providers::toolshim::{
     augment_message_with_tool_calls, modify_system_prompt_for_tool_json, OllamaInterpreter,
 };
-use crate::register_agent;
 use crate::session;
 use crate::token_counter::TokenCounter;
 use crate::truncate::{truncate_messages, OldestFirstTruncation};
@@ -41,7 +40,7 @@ const MAX_TRUNCATION_ATTEMPTS: usize = 3;
 const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 
 /// Truncate implementation of an Agent
-pub struct TruncateAgent {
+pub struct GooseAgent {
     capabilities: Mutex<Capabilities>,
     token_counter: TokenCounter,
     confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
@@ -50,7 +49,7 @@ pub struct TruncateAgent {
     tool_result_rx: ToolResultReceiver,
 }
 
-impl TruncateAgent {
+impl GooseAgent {
     pub fn new(provider: Box<dyn Provider>) -> Self {
         let token_counter = TokenCounter::new(provider.get_model_config().tokenizer_name());
         // Create channels with buffer size 32 (adjust if needed)
@@ -133,7 +132,7 @@ impl TruncateAgent {
 }
 
 #[async_trait]
-impl Agent for TruncateAgent {
+impl Agent for GooseAgent {
     async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
         let mut capabilities = self.capabilities.lock().await;
         capabilities.add_extension(extension).await
@@ -622,5 +621,3 @@ impl Agent for TruncateAgent {
         }
     }
 }
-
-register_agent!("truncate", TruncateAgent);
