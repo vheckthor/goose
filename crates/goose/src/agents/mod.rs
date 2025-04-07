@@ -2,8 +2,6 @@ mod agent;
 pub mod capabilities;
 pub mod extension;
 mod factory;
-mod reference;
-mod summarize;
 mod truncate;
 mod types;
 
