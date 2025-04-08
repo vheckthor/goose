@@ -1,8 +1,8 @@
 mod agent;
 pub mod extension;
-pub mod extension_manager;
+pub mod mcp;
 mod types;
 
 pub use agent::{Agent, SessionConfig};
 pub use extension::ExtensionConfig;
-pub use extension_manager::ExtensionManager;
+pub use mcp::McpManager;

@@ -33,7 +33,7 @@ pub struct FrontendTool {
 }
 
 /// Manages Goose extensions / MCP clients and their interactions
-pub struct ExtensionManager {
+pub struct McpManager {
     clients: HashMap<String, McpClientBox>,
     frontend_tools: HashMap<String, FrontendTool>,
     instructions: HashMap<String, String>,
@@ -97,8 +97,8 @@ pub fn get_parameter_names(tool: &Tool) -> Vec<String> {
         .unwrap_or_default()
 }
 
-impl ExtensionManager {
-    /// Create a new ExtensionManager instance
+impl McpManager {
+    /// Create a new McpManager instance
     pub fn new() -> Self {
         Self {
             clients: HashMap::new(),
@@ -813,46 +813,46 @@ mod tests {
         let mock_model_config =
             ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
 
-        let mut ext_manager = ExtensionManager::new(Box::new(MockProvider {
+        let mut mcp_manager = McpManager::new(Box::new(MockProvider {
             model_config: mock_model_config,
         }));
 
         // Add some mock clients
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("test_client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("__client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("__cli__ent__".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("client 🚀".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
         // Test basic case
-        assert!(ext_manager
+        assert!(mcp_manager
             .get_client_for_tool("test_client__tool")
             .is_some());
 
         // Test leading underscores
-        assert!(ext_manager.get_client_for_tool("__client__tool").is_some());
+        assert!(mcp_manager.get_client_for_tool("__client__tool").is_some());
 
         // Test multiple underscores in client name, and ending with __
-        assert!(ext_manager
+        assert!(mcp_manager
             .get_client_for_tool("__cli__ent____tool")
             .is_some());
 
         // Test unicode in tool name, "client 🚀" should become "client_"
-        assert!(ext_manager.get_client_for_tool("client___tool").is_some());
+        assert!(mcp_manager.get_client_for_tool("client___tool").is_some());
     }
 
     #[tokio::test]
@@ -862,22 +862,22 @@ mod tests {
         let mock_model_config =
             ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
 
-        let mut ext_manager = ExtensionManager::new(Box::new(MockProvider {
+        let mut mcp_manager = McpManager::new(Box::new(MockProvider {
             model_config: mock_model_config,
         }));
 
         // Add some mock clients
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("test_client".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("__cli__ent__".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
 
-        ext_manager.clients.insert(
+        mcp_manager.clients.insert(
             normalize("client 🚀".to_string()),
             Arc::new(Mutex::new(Box::new(MockClient {}))),
         );
@@ -888,7 +888,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
 
         let tool_call = ToolCall {
@@ -896,7 +896,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
 
         // verify a multiple underscores dispatch
@@ -905,7 +905,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
 
         // Test unicode in tool name, "client 🚀" should become "client_"
@@ -914,7 +914,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
 
         let tool_call = ToolCall {
@@ -922,7 +922,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(tool_call).await;
         assert!(result.is_ok());
 
         // this should error out, specifically for an ToolError::ExecutionError
@@ -931,7 +931,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(invalid_tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(invalid_tool_call).await;
         assert!(matches!(
             result.err().unwrap(),
             ToolError::ExecutionError(_)
@@ -944,7 +944,7 @@ mod tests {
             arguments: json!({}),
         };
 
-        let result = ext_manager.dispatch_tool_call(invalid_tool_call).await;
+        let result = mcp_manager.dispatch_tool_call(invalid_tool_call).await;
         assert!(matches!(result.err().unwrap(), ToolError::NotFound(_)));
     }
 }
