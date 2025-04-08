@@ -507,6 +507,9 @@ impl DeveloperRouter {
                 
                 3. `git_checkpoint` - Use this to save your progress at logical points when the code is in a working state:
                    - Commit changes with `message: "Description of changes"`
+                   - Use it when there is a logical task point, things are working, user says it is ok etc, or you need to park changes for a different task.
+                   - avoid just committing everything when you are done without knowing it is worth committing
+                   - summarise your work after making a checkpoint, and before, so user knows what is and has been committed.
                 
                 4. `git_rollback` - Use this if you need to undo changes:
                    - View recent commits with `action: "show_commits"`
@@ -517,7 +520,7 @@ impl DeveloperRouter {
                 1. Start by checking status with `git_status`
                 2. Create a new branch for your task with `git_branch`
                 3. Make changes to files
-                4. Create checkpoints at logical points with `git_checkpoint`
+                4. Create checkpoints at logical points with `git_checkpoint`, but only do this if you or the user has validated changes are ok (eg tests passing, or you get the OK)
                 5. If needed, roll back to previous states with `git_rollback`
                 6. When done, consider if you should switch to another branch if it is a totally different task
 
