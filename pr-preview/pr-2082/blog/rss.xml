@@ -13,7 +13,7 @@
             <link>https://block.github.io/goose/pr-preview/pr-2082/blog/2025/04/08/vibe-code-responsibly</link>
             <guid>https://block.github.io/goose/pr-preview/pr-2082/blog/2025/04/08/vibe-code-responsibly</guid>
             <pubDate>Tue, 08 Apr 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[Vibe coding feels magical until it isn't. Learn how to flow with Goose while protecting your code, your team, and your future self..]]></description>
+            <description><![CDATA[Vibe coding feels magical until it isn't. Learn how to flow with Goose while protecting your code, your team, and your future self.]]></description>
             <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-2082/assets/images/responsible-vibe-code-a77f5e24a879edda943cc76f1fc0bd2a.png" width="2240" height="1260" class="img_ev3q"></p>
 <p>On Feb 2, 2025, Andrej Karpathy coined the phrase "<a href="https://x.com/karpathy/status/1886192184808149383" target="_blank" rel="noopener noreferrer">vibe coding</a>". Vibe coding represents a new approach to coding where developers ask an AI agent to build something, and they go with the flow.</p>
 <p>The <a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener noreferrer">Model Context Protocol (MCP)</a> makes this practice possible. Before MCP, developers copied and pasted context between applications. This workflow fell short of the promised AI agent automation that everyone claimed. Today, AI agents can work autonomously using MCP and integrate with any application, from GitHub to Cloudflare, YouTube, and Figma.</p>
