@@ -65,6 +65,7 @@ pub async fn handle_configure() -> Result<(), Box<dyn Error>> {
                 // This operation is best-effort and errors are ignored
                 ExtensionManager::set(ExtensionEntry {
                     enabled: true,
+                    editable: Some(false),
                     config: ExtensionConfig::Builtin {
                         name: "developer".to_string(),
                         display_name: Some(goose::config::DEFAULT_DISPLAY_NAME.to_string()),
@@ -504,6 +505,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 
             ExtensionManager::set(ExtensionEntry {
                 enabled: true,
+                editable: Some(false),
                 config: ExtensionConfig::Builtin {
                     name: extension.clone(),
                     display_name: Some(display_name),
@@ -592,6 +594,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 
             ExtensionManager::set(ExtensionEntry {
                 enabled: true,
+                editable: Some(true),
                 config: ExtensionConfig::Stdio {
                     name: name.clone(),
                     cmd,
@@ -679,6 +682,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
 
             ExtensionManager::set(ExtensionEntry {
                 enabled: true,
+                editable: Some(true),
                 config: ExtensionConfig::Sse {
                     name: name.clone(),
                     uri,

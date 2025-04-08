@@ -1,5 +1,5 @@
 import type { ExtensionConfig } from '../../../api/types.gen';
-import { FixedExtensionEntry } from '../../ConfigContext';
+import type { FixedExtensionEntry } from '../../ConfigContext';
 import bundledExtensionsData from './bundled-extensions.json';
 import { nameToKey } from './utils';
 
@@ -16,7 +16,6 @@ type BundledExtension = {
   uri?: string;
   envs?: { [key: string]: string };
   timeout?: number;
-  allow_configure?: boolean;
 };
 
 /**
@@ -30,7 +29,12 @@ type BundledExtension = {
  */
 export async function syncBundledExtensions(
   existingExtensions: FixedExtensionEntry[],
-  addExtensionFn: (name: string, config: ExtensionConfig, enabled: boolean) => Promise<void>
+  addExtensionFn: (
+    name: string,
+    config: ExtensionConfig,
+    enabled: boolean,
+    editable: boolean
+  ) => Promise<void>
 ): Promise<void> {
   try {
     // Create a set of existing extension IDs for quick lookup
@@ -77,9 +81,9 @@ export async function syncBundledExtensions(
               uri: bundledExt.uri,
             };
         }
-        // Add the extension with its default enabled state
+        // Add the extension with its default enabled state, and non-editable because these are bundled extensions
         try {
-          await addExtensionFn(bundledExt.name, extConfig, bundledExt.enabled);
+          await addExtensionFn(bundledExt.name, extConfig, bundledExt.enabled, false);
           addedCount++;
         } catch (error) {
           console.error(`Failed to add built-in extension ${bundledExt.name}:`, error);
@@ -104,7 +108,12 @@ export async function syncBundledExtensions(
  * This can be called when the application is first installed.
  */
 export async function initializeBundledExtensions(
-  addExtensionFn: (name: string, config: ExtensionConfig, enabled: boolean) => Promise<void>
+  addExtensionFn: (
+    name: string,
+    config: ExtensionConfig,
+    enabled: boolean,
+    editable: boolean
+  ) => Promise<void>
 ): Promise<void> {
   // Call with an empty list to ensure all built-ins are added
   await syncBundledExtensions([], addExtensionFn);

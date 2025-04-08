@@ -542,6 +542,10 @@
               "enabled"
             ],
             "properties": {
+              "editable": {
+                "type": "boolean",
+                "nullable": true
+              },
               "enabled": {
                 "type": "boolean"
               }
@@ -559,6 +563,10 @@
         "properties": {
           "config": {
             "$ref": "#/components/schemas/ExtensionConfig"
+          },
+          "editable": {
+            "type": "boolean",
+            "nullable": true
           },
           "enabled": {
             "type": "boolean"

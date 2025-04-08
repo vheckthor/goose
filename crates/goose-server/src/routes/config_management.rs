@@ -42,6 +42,7 @@ pub struct ExtensionQuery {
     pub name: String,
     pub config: ExtensionConfig,
     pub enabled: bool,
+    pub editable: Option<bool>
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -227,6 +228,7 @@ pub async fn add_extension(
     // Use ExtensionManager to set the extension
     match ExtensionManager::set(ExtensionEntry {
         enabled: extension_query.enabled,
+        editable: extension_query.editable,
         config: extension_query.config,
     }) {
         Ok(_) => {

@@ -23,9 +23,9 @@ import { removeShims } from './settings_v2/extensions/utils';
 
 export type { ExtensionConfig } from '../api/types.gen';
 
-// Define a local version that matches the structure of the imported one
-export type FixedExtensionEntry = ExtensionConfig & {
+type FixedExtensionEntry = ExtensionConfig & {
   enabled: boolean;
+  editable: boolean;
 };
 
 // Initialize client configuration
@@ -128,12 +128,17 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
     await reloadConfig();
   };
 
-  const addExtension = async (name: string, config: ExtensionConfig, enabled: boolean) => {
+  const addExtension = async (
+    name: string,
+    config: ExtensionConfig,
+    enabled: boolean,
+    editable: boolean
+  ) => {
     // remove shims if present
     if (config.type == 'stdio') {
       config.cmd = removeShims(config.cmd);
     }
-    const query: ExtensionQuery = { name, config, enabled };
+    const query: ExtensionQuery = { name, config, enabled, editable };
     await apiAddExtension({
       body: query,
     });
@@ -152,7 +157,7 @@ export const ConfigProvider: React.FC<ConfigProviderProps> = ({ children }) => {
 
     if (extension) {
       // Toggle the enabled state and update using addExtension
-      await addExtension(name, extension, !extension.enabled);
+      await addExtension(name, extension, !extension.enabled, extension.editable);
     }
   };
 

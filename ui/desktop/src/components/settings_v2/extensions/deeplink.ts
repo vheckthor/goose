@@ -11,7 +11,8 @@ export async function addExtensionFromDeepLink(
   addExtensionFn: (
     name: string,
     extensionConfig: ExtensionConfig,
-    enabled: boolean
+    enabled: boolean,
+    editable: boolean
   ) => Promise<void>,
   setView: (view: string, options: { extensionId: string; showEnvVars: boolean }) => void
 ) {
@@ -99,7 +100,7 @@ export async function addExtensionFromDeepLink(
 
   // If no env vars are required, proceed with adding the extension
   try {
-    await activateExtension({ extensionConfig: config, addToConfig: addExtensionFn });
+    await activateExtension({ extensionConfig: config, addExtensionFn });
   } catch (error) {
     console.error('Failed to activate extension from deeplink:', error);
     throw error;

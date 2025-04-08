@@ -13,6 +13,7 @@ pub const DEFAULT_DISPLAY_NAME: &str = "Developer";
 #[derive(Debug, Deserialize, Serialize, Clone, ToSchema)]
 pub struct ExtensionEntry {
     pub enabled: bool,
+    pub editable: Option<bool>,
     #[serde(flatten)]
     pub config: ExtensionConfig,
 }
@@ -41,6 +42,7 @@ impl ExtensionManager {
                     name_to_key(DEFAULT_EXTENSION), // Use key format for top-level key in config
                     ExtensionEntry {
                         enabled: true,
+                        editable: Some(false),
                         config: ExtensionConfig::Builtin {
                             name: DEFAULT_EXTENSION.to_string(),
                             display_name: Some(DEFAULT_DISPLAY_NAME.to_string()),

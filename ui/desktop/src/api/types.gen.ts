@@ -71,11 +71,13 @@ export type ExtensionConfig = {
 export type ExtensionEntry = ExtensionConfig & {
     type?: 'ExtensionEntry';
 } & {
+    editable?: boolean | null;
     enabled: boolean;
 };
 
 export type ExtensionQuery = {
     config: ExtensionConfig;
+    editable?: boolean | null;
     enabled: boolean;
     name: string;
 };

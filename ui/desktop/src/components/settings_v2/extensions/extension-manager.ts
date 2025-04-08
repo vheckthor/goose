@@ -3,8 +3,13 @@ import { toastService, ToastServiceOptions } from '../../../toasts';
 import { addToAgent, removeFromAgent } from './agent-api';
 
 interface ActivateExtensionProps {
-  addToConfig: (name: string, extensionConfig: ExtensionConfig, enabled: boolean) => Promise<void>;
   extensionConfig: ExtensionConfig;
+  addExtensionFn: (
+    name: string,
+    extensionConfig: ExtensionConfig,
+    enabled: boolean,
+    editable: boolean
+  ) => Promise<void>;
 }
 
 /**
@@ -13,23 +18,24 @@ interface ActivateExtensionProps {
  * @returns Promise that resolves when activation is complete
  */
 export async function activateExtension({
-  addToConfig,
   extensionConfig,
+  addExtensionFn,
 }: ActivateExtensionProps): Promise<void> {
   try {
     // AddToAgent
     await addToAgent(extensionConfig, { silent: false });
   } catch (error) {
     console.error('Failed to add extension to agent:', error);
-    // add to config with enabled = false
-    await addToConfig(extensionConfig.name, extensionConfig, false);
+    // add to config with enabled = false and editable = true
+    await addExtensionFn(extensionConfig.name, extensionConfig, false, true);
     // Rethrow the error to inform the caller
     throw error;
   }
 
   // Then add to config
   try {
-    await addToConfig(extensionConfig.name, extensionConfig, true);
+    // add to config with enabled = true and editable = true
+    await addExtensionFn(extensionConfig.name, extensionConfig, true, true);
   } catch (error) {
     console.error('Failed to add extension to config:', error);
     // remove from Agent
