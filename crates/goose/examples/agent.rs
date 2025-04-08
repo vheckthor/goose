@@ -1,6 +1,6 @@
 use dotenv::dotenv;
 use futures::StreamExt;
-use goose::agents::{Agent, ExtensionConfig, GooseAgent};
+use goose::agents::{Agent, ExtensionConfig};
 use goose::config::{DEFAULT_EXTENSION_DESCRIPTION, DEFAULT_EXTENSION_TIMEOUT};
 use goose::message::Message;
 use goose::providers::databricks::DatabricksProvider;
@@ -13,7 +13,7 @@ async fn main() {
     let provider = Box::new(DatabricksProvider::default());
 
     // Setup an agent with the developer extension
-    let mut agent = GooseAgent::new(provider);
+    let mut agent = Agent::new(provider);
 
     let config = ExtensionConfig::stdio(
         "developer",

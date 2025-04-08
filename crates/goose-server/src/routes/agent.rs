@@ -6,11 +6,7 @@ use axum::{
     Json, Router,
 };
 use goose::config::Config;
-use goose::{
-    agents::{Agent, GooseAgent},
-    model::ModelConfig,
-    providers,
-};
+use goose::{agents::Agent, model::ModelConfig, providers};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -132,7 +128,7 @@ async fn create_agent(
         providers::create(&payload.provider, model_config).expect("Failed to create provider");
 
     let version = String::from("goose");
-    let new_agent: Box<dyn Agent> = Box::new(GooseAgent::new(provider));
+    let new_agent = Agent::new(provider);
 
     let mut agent = state.agent.write().await;
     *agent = Some(new_agent);

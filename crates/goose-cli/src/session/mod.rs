@@ -38,7 +38,7 @@ pub enum RunMode {
 }
 
 pub struct Session {
-    agent: Box<dyn Agent>,
+    agent: Agent,
     messages: Vec<Message>,
     session_file: PathBuf,
     // Cache for completion data - using std::sync for thread safety without async
@@ -101,7 +101,7 @@ pub async fn classify_planner_response(
 }
 
 impl Session {
-    pub fn new(agent: Box<dyn Agent>, session_file: PathBuf, debug: bool) -> Self {
+    pub fn new(agent: Agent, session_file: PathBuf, debug: bool) -> Self {
         let messages = match session::read_messages(&session_file) {
             Ok(msgs) => msgs,
             Err(e) => {

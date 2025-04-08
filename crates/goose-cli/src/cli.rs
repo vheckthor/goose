@@ -40,7 +40,7 @@ struct Identifier {
         help = "Path for the chat session (e.g., './playground.jsonl')",
         long_help = "Specify a path for your chat session. When used with --resume, will resume this specific session if it exists."
     )]
-path: Option<PathBuf>,
+    path: Option<PathBuf>,
 }
 
 fn extract_identifier(identifier: Identifier) -> session::Identifier {

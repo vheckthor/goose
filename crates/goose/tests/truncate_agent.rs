@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use futures::StreamExt;
-use goose::agents::{Agent, GooseAgent};
+use goose::agents::Agent;
 use goose::message::Message;
 use goose::model::ModelConfig;
 use goose::providers::base::Provider;
@@ -108,7 +108,7 @@ async fn run_truncate_test(
         .with_temperature(Some(0.0));
     let provider = provider_type.create_provider(model_config)?;
 
-    let agent = GooseAgent::new(provider);
+    let agent = Agent::new(provider);
     let repeat_count = context_window + 10_000;
     let large_message_content = "hello ".repeat(repeat_count);
     let messages = vec![
