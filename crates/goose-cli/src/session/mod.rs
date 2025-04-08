@@ -498,11 +498,23 @@ impl Session {
 
                     if let Ok(gooseling) = gooseling {
                         // Use provided filepath or default
-                        let filepath = filepath_opt.as_ref().map_or("./gooseling.yaml", |s| s);
+                        let filepath_str = filepath_opt.as_deref().unwrap_or("gooseling.yaml");
+                        let path_buf = PathBuf::from(filepath_str);
+
+                        // Create a variable to store the final path that will be accessible outside the closure
+                        let mut path = path_buf.clone();
 
                         let result: Result<(), String> = (|| {
-                            let path = std::path::Path::new(filepath);
+                            // Update the final path if it's relative
+                            if path_buf.is_relative() {
+                                // If the path is relative, resolve it relative to the current working directory
+                                let cwd = std::env::current_dir().map_err(|e| {
+                                    format!("Failed to get current directory: {}", e)
+                                })?;
+                                path = cwd.join(&path_buf);
+                            }
 
+                            // Check if parent directory exists
                             if let Some(parent) = path.parent() {
                                 if !parent.exists() {
                                     return Err(format!(
@@ -510,25 +522,12 @@ impl Session {
                                         parent.display()
                                     ));
                                 }
-
-                                // Try getting metadata and check write permissions.
-                                let metadata = std::fs::metadata(parent).map_err(|_| {
-                                    format!(
-                                        "Failed to retrieve metadata for '{}'",
-                                        parent.display()
-                                    )
-                                })?;
-                                if metadata.permissions().readonly() {
-                                    return Err(format!(
-                                        "Cannot write to directory '{}'",
-                                        parent.display()
-                                    ));
-                                }
                             }
 
                             // Try creating the file.
-                            let file = std::fs::File::create(filepath)
-                                .map_err(|_| format!("Failed to create file '{}'", filepath))?;
+                            let file = std::fs::File::create(path.as_path()).map_err(|_| {
+                                format!("Failed to create file '{}'", path.display())
+                            })?;
 
                             // Write YAML.
                             serde_yaml::to_writer(file, &gooseling)
@@ -540,7 +539,8 @@ impl Session {
                         match result {
                             Ok(_) => println!(
                                 "{}",
-                                console::style(format!("Saved gooseling to {}", filepath)).green()
+                                console::style(format!("Saved gooseling to {}", path.display()))
+                                    .green()
                             ),
                             Err(e) => {
                                 println!("{}", console::style(e).red());
