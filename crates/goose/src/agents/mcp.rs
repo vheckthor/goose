@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
-use crate::config::Config;
+use crate::config::{Config, ExtensionManager};
 use crate::prompt_template;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
 use mcp_client::transport::{SseTransport, StdioTransport, Transport};
@@ -95,6 +95,12 @@ pub fn get_parameter_names(tool: &Tool) -> Vec<String> {
         .and_then(|props| props.as_object())
         .map(|props| props.keys().cloned().collect())
         .unwrap_or_default()
+}
+
+impl Default for McpManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl McpManager {
@@ -594,6 +600,8 @@ impl McpManager {
             self.read_resource(tool_call.arguments.clone()).await
         } else if tool_call.name == "platform__list_resources" {
             self.list_resources(tool_call.arguments.clone()).await
+        } else if tool_call.name == "platform__search_available_extensions" {
+            self.search_available_extensions().await
         } else if self.is_frontend_tool(&tool_call.name) {
             // For frontend tools, return an error indicating we need frontend execution
             Err(ToolError::ExecutionError(
@@ -708,6 +716,57 @@ impl McpManager {
             .get_prompt(name, arguments)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get prompt: {}", e))
+    }
+
+    pub async fn search_available_extensions(&self) -> Result<Vec<Content>, ToolError> {
+        let mut output_parts = vec![];
+
+        // First get disabled extensions from current config
+        let mut disabled_extensions: Vec<String> = vec![];
+        for extension in ExtensionManager::get_all().expect("should load extensions") {
+            if !extension.enabled {
+                let config = extension.config.clone();
+                let description = match &config {
+                    ExtensionConfig::Builtin {
+                        name, display_name, ..
+                    } => {
+                        // For builtin extensions, use display name if available
+                        display_name
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| name.clone())
+                    }
+                    ExtensionConfig::Sse {
+                        description, name, ..
+                    }
+                    | ExtensionConfig::Stdio {
+                        description, name, ..
+                    } => {
+                        // For SSE/Stdio, use description if available
+                        description
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| format!("Extension '{}'", name))
+                    }
+                    ExtensionConfig::Frontend { name, .. } => {
+                        format!("Frontend extension '{}'", name)
+                    }
+                };
+                disabled_extensions.push(format!("- {} - {}", config.name(), description));
+            }
+        }
+
+        if !disabled_extensions.is_empty() {
+            output_parts.push(format!(
+                "Currently available extensions user can enable:\n{}\n",
+                disabled_extensions.join("\n")
+            ));
+        } else {
+            output_parts
+                .push("No available extensions found in current configuration.\n".to_string());
+        }
+
+        Ok(vec![Content::text(output_parts.join("\n"))])
     }
 }
 
