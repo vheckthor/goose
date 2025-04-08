@@ -518,7 +518,7 @@ mod tests {
         async fn test_ask_endpoint() {
             // Create a mock app state with mock provider
             let mock_model_config = ModelConfig::new("test-model".to_string());
-            let mock_provider = Box::new(MockProvider {
+            let mock_provider = Arc::new(MockProvider {
                 model_config: mock_model_config,
             });
             let agent = Agent::new(mock_provider);

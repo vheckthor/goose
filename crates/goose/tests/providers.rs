@@ -84,7 +84,7 @@ struct ProviderTester {
 impl ProviderTester {
     fn new<T: Provider + Send + Sync + 'static>(provider: T, name: String) -> Self {
         Self {
-            provider: Box::new(provider),
+            provider: Arc::new(provider),
             name,
         }
     }

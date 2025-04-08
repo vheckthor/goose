@@ -374,7 +374,7 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let temp_path = temp_file.path();
         let mut permission_manager = PermissionManager::new(temp_path);
-        let capabilities = create_mock_capabilities();
+        let provider = create_mock_provider();
 
         let tools_with_readonly_annotation: HashSet<String> =
             vec!["file_reader".to_string()].into_iter().collect();
@@ -410,7 +410,7 @@ mod tests {
             tools_with_readonly_annotation,
             tools_without_annotation,
             &mut permission_manager,
-            &capabilities,
+            provider,
         )
         .await;
 

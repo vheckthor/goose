@@ -1,5 +1,7 @@
 // src/lib.rs or tests/truncate_agent_tests.rs
 
+use std::sync::Arc;
+
 use anyhow::Result;
 use futures::StreamExt;
 use goose::agents::Agent;

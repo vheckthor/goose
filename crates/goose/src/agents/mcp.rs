@@ -773,10 +773,6 @@ impl McpManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::Message;
-    use crate::model::ModelConfig;
-    use crate::providers::base::{Provider, ProviderMetadata, ProviderUsage, Usage};
-    use crate::providers::errors::ProviderError;
     use mcp_client::client::Error;
     use mcp_client::client::McpClientTrait;
     use mcp_core::protocol::{
@@ -784,35 +780,6 @@ mod tests {
         ListToolsResult, ReadResourceResult,
     };
     use serde_json::json;
-
-    // Mock Provider implementation for testing
-    #[derive(Clone)]
-    struct MockProvider {
-        model_config: ModelConfig,
-    }
-
-    #[async_trait::async_trait]
-    impl Provider for MockProvider {
-        fn metadata() -> ProviderMetadata {
-            ProviderMetadata::empty()
-        }
-
-        fn get_model_config(&self) -> ModelConfig {
-            self.model_config.clone()
-        }
-
-        async fn complete(
-            &self,
-            _system: &str,
-            _messages: &[Message],
-            _tools: &[Tool],
-        ) -> anyhow::Result<(Message, ProviderUsage), ProviderError> {
-            Ok((
-                Message::assistant().with_text("Mock response"),
-                ProviderUsage::new("mock".to_string(), Usage::default()),
-            ))
-        }
-    }
 
     struct MockClient {}
 
@@ -869,12 +836,7 @@ mod tests {
 
     #[test]
     fn test_get_client_for_tool() {
-        let mock_model_config =
-            ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
-
-        let mut mcp_manager = McpManager::new(Box::new(MockProvider {
-            model_config: mock_model_config,
-        }));
+        let mut mcp_manager = McpManager::new();
 
         // Add some mock clients
         mcp_manager.clients.insert(
@@ -918,12 +880,7 @@ mod tests {
     async fn test_dispatch_tool_call() {
         // test that dispatch_tool_call parses out the sanitized name correctly, and extracts
         // tool_names
-        let mock_model_config =
-            ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
-
-        let mut mcp_manager = McpManager::new(Box::new(MockProvider {
-            model_config: mock_model_config,
-        }));
+        let mut mcp_manager = McpManager::new();
 
         // Add some mock clients
         mcp_manager.clients.insert(

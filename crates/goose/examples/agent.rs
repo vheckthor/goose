@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use dotenv::dotenv;
 use futures::StreamExt;
 use goose::agents::{Agent, ExtensionConfig};
@@ -10,7 +12,7 @@ async fn main() {
     // Setup a model provider from env vars
     let _ = dotenv();
 
-    let provider = Box::new(DatabricksProvider::default());
+    let provider = Arc::new(DatabricksProvider::default());
 
     // Setup an agent with the developer extension
     let mut agent = Agent::new(provider);
