@@ -34,7 +34,7 @@ export default function SettingsView({
 
           {/* Content Area */}
           <div className="flex-1 pt-[20px]">
-            <div className="space-y-8">
+            <div className="space-y-12">
               {/* Models Section */}
               <ModelsSection setView={setView} />
               {/* Extensions Section */}

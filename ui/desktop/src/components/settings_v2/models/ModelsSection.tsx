@@ -48,14 +48,36 @@ export default function ModelsSection({ setView }: ModelsSectionProps) {
   }, []);
 
   return (
+<<<<<<< HEAD
     <section id="models" className="px-8">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-medium text-textStandard">Models</h2>
+||||||| parent of 05baff154 (wip)
+    <section id="models">
+      <div className="flex justify-between items-center mb-6 px-8">
+        <h1 className="text-3xl font-medium text-textStandard">Models</h1>
+=======
+    <section id="models">
+      <div className="flex justify-between items-center mb-4 px-8">
+        <h2 className="text-xl font-medium text-textStandard">Models</h2>
+>>>>>>> 05baff154 (wip)
       </div>
+<<<<<<< HEAD
       <div className="border-b border-borderSubtle pb-8">
         <div className="">
           <h3 className="text-textStandard">{model}</h3>
           <h4 className="text-xs text-textSubtle">{provider}</h4>
+||||||| parent of 05baff154 (wip)
+      <div className="px-8">
+        <div className="space-y-2">
+          <h3 className="font-medium text-textStandard">{model}</h3>
+          <h4 className="font-medium text-textSubtle">{provider}</h4>
+=======
+      <div className="px-8">
+        <div className="">
+          <h3 className="text-textStandard">{model}</h3>
+          <h4 className="text-sm text-textSubtle">{provider}</h4>
+>>>>>>> 05baff154 (wip)
         </div>
         <ModelSettingsButtons setView={setView} />
       </div>
