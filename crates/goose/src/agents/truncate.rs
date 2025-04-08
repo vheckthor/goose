@@ -563,9 +563,18 @@ impl Agent for TruncateAgent {
 
         let content = result.as_concat_text();
 
+        // the response may be contained in ```json ```, strip that before parsing json
+        let re = Regex::new(r"(?s)^```[^\n]*\n(.*?)\n```$").unwrap();
+        let clean_content = re
+            .captures(&content)
+            .and_then(|caps| caps.get(1).map(|m| m.as_str()))
+            .unwrap_or(&content)
+            .trim()
+            .to_string();
+
         // try to parse json response from the LLM
         let (instructions, activities) =
-            if let Ok(json_content) = serde_json::from_str::<Value>(&content) {
+            if let Ok(json_content) = serde_json::from_str::<Value>(&clean_content) {
                 let instructions = json_content
                     .get("instructions")
                     .ok_or_else(|| anyhow!("Missing 'instructions' in json response"))?
