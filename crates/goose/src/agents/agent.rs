@@ -10,8 +10,8 @@ use serde_json::{json, Value};
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, instrument, warn};
 
-use crate::agents::capabilities::{get_parameter_names, Capabilities};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
+use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::types::ToolResultReceiver;
 use crate::config::Config;
 use crate::message::{Message, MessageContent, ToolRequest};
@@ -48,7 +48,7 @@ pub struct SessionConfig {
 
 /// Truncate implementation of an Agent
 pub struct Agent {
-    capabilities: Mutex<Capabilities>,
+    ext_manager: Mutex<ExtensionManager>,
     token_counter: TokenCounter,
     confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
     confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
@@ -64,7 +64,7 @@ impl Agent {
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
         Self {
-            capabilities: Mutex::new(Capabilities::new(provider)),
+            ext_manager: Mutex::new(ExtensionManager::new(provider)),
             token_counter,
             confirmation_tx: confirm_tx,
             confirmation_rx: Mutex::new(confirm_rx),
@@ -84,7 +84,7 @@ impl Agent {
     ) -> anyhow::Result<()> {
         // Model's actual context limit
         let context_limit = self
-            .capabilities
+            .ext_manager
             .lock()
             .await
             .provider()
@@ -129,32 +129,32 @@ impl Agent {
     }
 
     async fn create_tool_future(
-        capabilities: &Capabilities,
+        ext_manager: &ExtensionManager,
         tool_call: mcp_core::tool::ToolCall,
         request_id: String,
     ) -> (String, Result<Vec<Content>, ToolError>) {
-        let output = capabilities.dispatch_tool_call(tool_call).await;
+        let output = ext_manager.dispatch_tool_call(tool_call).await;
         (request_id, output)
     }
 
     // Previously, the agent trait was implemented here but now they're methods in the Agent struct
 
     pub async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
-        let mut capabilities = self.capabilities.lock().await;
-        capabilities.add_extension(extension).await
+        let mut ext_manager = self.ext_manager.lock().await;
+        ext_manager.add_extension(extension).await
     }
 
     pub async fn remove_extension(&mut self, name: &str) {
-        let mut capabilities = self.capabilities.lock().await;
-        capabilities
+        let mut ext_manager = self.ext_manager.lock().await;
+        ext_manager
             .remove_extension(name)
             .await
             .expect("Failed to remove extension");
     }
 
     pub async fn list_extensions(&self) -> Vec<String> {
-        let capabilities = self.capabilities.lock().await;
-        capabilities
+        let ext_manager = self.ext_manager.lock().await;
+        ext_manager
             .list_extensions()
             .await
             .expect("Failed to list extensions")
@@ -179,8 +179,8 @@ impl Agent {
     ) -> anyhow::Result<BoxStream<'_, anyhow::Result<Message>>> {
         let mut messages = messages.to_vec();
         let reply_span = tracing::Span::current();
-        let mut capabilities = self.capabilities.lock().await;
-        let mut tools = capabilities.get_prefixed_tools().await?;
+        let mut ext_manager = self.ext_manager.lock().await;
+        let mut tools = ext_manager.get_prefixed_tools().await?;
         let mut truncation_attempt: usize = 0;
 
         // Load settings from config
@@ -241,7 +241,7 @@ impl Agent {
             }),
         );
 
-        if capabilities.supports_resources() {
+        if ext_manager.supports_resources() {
             tools.push(read_resource_tool);
             tools.push(list_resources_tool);
         }
@@ -261,8 +261,8 @@ impl Agent {
                 acc
             });
 
-        let config = capabilities.provider().get_model_config();
-        let mut system_prompt = capabilities.get_system_prompt().await;
+        let config = ext_manager.provider().get_model_config();
+        let mut system_prompt = ext_manager.get_system_prompt().await;
         let mut toolshim_tools = vec![];
         if config.toolshim {
             // If tool interpretation is enabled, modify the system prompt to instruct to return JSON tool requests
@@ -285,7 +285,7 @@ impl Agent {
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
-                match capabilities.provider().complete(
+                match ext_manager.provider().complete(
                     &system_prompt,
                     &messages,
                     &tools,
@@ -325,7 +325,7 @@ impl Agent {
                                 if let MessageContent::ToolRequest(req) = c {
                                     // Only filter out frontend tool requests
                                     if let Ok(tool_call) = &req.tool_call {
-                                        return !capabilities.is_frontend_tool(&tool_call.name);
+                                        return !ext_manager.is_frontend_tool(&tool_call.name);
                                     }
                                 }
                                 true
@@ -352,7 +352,7 @@ impl Agent {
                         let mut remaining_requests = Vec::new();
                         for request in &tool_requests {
                             if let Ok(tool_call) = request.tool_call.clone() {
-                                if capabilities.is_frontend_tool(&tool_call.name) {
+                                if ext_manager.is_frontend_tool(&tool_call.name) {
                                     // Send frontend tool request and wait for response
                                     yield Message::assistant().with_frontend_tool_request(
                                         request.id.clone(),
@@ -407,7 +407,7 @@ impl Agent {
 
                                 // Only check read-only status for tools without annotation
                                 if !llm_detect_candidates.is_empty() && mode == "smart_approve" {
-                                    detected_read_only_tools = detect_read_only_tools(&capabilities, llm_detect_candidates.clone()).await;
+                                    detected_read_only_tools = detect_read_only_tools(&ext_manager, llm_detect_candidates.clone()).await;
                                 }
 
                                 // Handle pre-approved and read-only tools in parallel
@@ -415,7 +415,7 @@ impl Agent {
 
                                 // Add pre-approved tools
                                 for (request_id, tool_call) in approved_tools {
-                                    let tool_future = Self::create_tool_future(&capabilities, tool_call, request_id.clone());
+                                    let tool_future = Self::create_tool_future(&ext_manager, tool_call, request_id.clone());
                                     tool_futures.push(tool_future);
                                 }
 
@@ -424,7 +424,7 @@ impl Agent {
                                     if let Ok(tool_call) = request.tool_call.clone() {
                                         // Skip confirmation if the tool_call.name is in the read_only_tools list
                                         if detected_read_only_tools.contains(&tool_call.name) {
-                                            let tool_future = Self::create_tool_future(&capabilities, tool_call, request.id.clone());
+                                            let tool_future = Self::create_tool_future(&ext_manager, tool_call, request.id.clone());
                                             tool_futures.push(tool_future);
                                         } else {
                                             let confirmation = Message::user().with_tool_confirmation_request(
@@ -443,7 +443,7 @@ impl Agent {
                                                     let confirmed = tool_confirmation.permission == Permission::AllowOnce || tool_confirmation.permission == Permission::AlwaysAllow;
                                                     if confirmed {
                                                         // Add this tool call to the futures collection
-                                                        let tool_future = Self::create_tool_future(&capabilities, tool_call, request.id.clone());
+                                                        let tool_future = Self::create_tool_future(&ext_manager, tool_call, request.id.clone());
                                                         tool_futures.push(tool_future);
                                                     } else {
                                                         // User declined - add declined response
@@ -496,7 +496,7 @@ impl Agent {
                                 let mut tool_futures = Vec::new();
                                 for request in &remaining_requests {
                                     if let Ok(tool_call) = request.tool_call.clone() {
-                                        let tool_future = Self::create_tool_future(&capabilities, tool_call, request.id.clone());
+                                        let tool_future = Self::create_tool_future(&ext_manager, tool_call, request.id.clone());
                                         tool_futures.push(tool_future);
                                     }
                                 }
@@ -533,7 +533,7 @@ impl Agent {
                         let estimate_factor: f32 = ESTIMATE_FACTOR_DECAY.powi(truncation_attempt as i32);
 
                         // release the lock before truncation to prevent deadlock
-                        drop(capabilities);
+                        drop(ext_manager);
 
                         if let Err(err) = self.truncate_messages(&mut messages, estimate_factor, &system_prompt, &mut tools).await {
                             yield Message::assistant().with_text(format!("Error: Unable to truncate messages to stay within context limit. \n\nRan into this error: {}.\n\nPlease start a new session with fresh context and try again.", err));
@@ -542,7 +542,7 @@ impl Agent {
 
 
                         // Re-acquire the lock
-                        capabilities = self.capabilities.lock().await;
+                        ext_manager = self.ext_manager.lock().await;
 
                         // Retry the loop after truncation
                         continue;
@@ -562,28 +562,28 @@ impl Agent {
     }
 
     pub async fn extend_system_prompt(&mut self, extension: String) {
-        let mut capabilities = self.capabilities.lock().await;
-        capabilities.add_system_prompt_extension(extension);
+        let mut ext_manager = self.ext_manager.lock().await;
+        ext_manager.add_system_prompt_extension(extension);
     }
 
     pub async fn override_system_prompt(&mut self, template: String) {
-        let mut capabilities = self.capabilities.lock().await;
-        capabilities.set_system_prompt_override(template);
+        let mut ext_manager = self.ext_manager.lock().await;
+        ext_manager.set_system_prompt_override(template);
     }
 
     pub async fn list_extension_prompts(&self) -> HashMap<String, Vec<Prompt>> {
-        let capabilities = self.capabilities.lock().await;
-        capabilities
+        let ext_manager = self.ext_manager.lock().await;
+        ext_manager
             .list_prompts()
             .await
             .expect("Failed to list prompts")
     }
 
     pub async fn get_prompt(&self, name: &str, arguments: Value) -> Result<GetPromptResult> {
-        let capabilities = self.capabilities.lock().await;
+        let ext_manager = self.ext_manager.lock().await;
 
         // First find which extension has this prompt
-        let prompts = capabilities
+        let prompts = ext_manager
             .list_prompts()
             .await
             .map_err(|e| anyhow!("Failed to list prompts: {}", e))?;
@@ -593,7 +593,7 @@ impl Agent {
             .find(|(_, prompt_list)| prompt_list.iter().any(|p| p.name == name))
             .map(|(extension, _)| extension)
         {
-            return capabilities
+            return ext_manager
                 .get_prompt(extension, name, arguments)
                 .await
                 .map_err(|e| anyhow!("Failed to get prompt: {}", e));
@@ -603,21 +603,21 @@ impl Agent {
     }
 
     pub async fn get_plan_prompt(&self) -> anyhow::Result<String> {
-        let mut capabilities = self.capabilities.lock().await;
-        let tools = capabilities.get_prefixed_tools().await?;
+        let mut ext_manager = self.ext_manager.lock().await;
+        let tools = ext_manager.get_prefixed_tools().await?;
         let tools_info = tools
             .into_iter()
             .map(|tool| ToolInfo::new(&tool.name, &tool.description, get_parameter_names(&tool)))
             .collect();
 
-        let plan_prompt = capabilities.get_planning_prompt(tools_info).await;
+        let plan_prompt = ext_manager.get_planning_prompt(tools_info).await;
 
         Ok(plan_prompt)
     }
 
     pub async fn provider(&self) -> Arc<Box<dyn Provider>> {
-        let capabilities = self.capabilities.lock().await;
-        capabilities.provider()
+        let ext_manager = self.ext_manager.lock().await;
+        ext_manager.provider()
     }
 
     pub async fn handle_tool_result(&self, id: String, result: ToolResult<Vec<Content>>) {

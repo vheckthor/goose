@@ -1,4 +1,4 @@
-use crate::agents::capabilities::Capabilities;
+use crate::agents::extension_manager::ExtensionManager;
 use crate::message::{Message, MessageContent, ToolRequest};
 use chrono::Utc;
 use indoc::indoc;
@@ -110,7 +110,7 @@ fn extract_read_only_tools(response: &Message) -> Option<Vec<String>> {
 
 /// Executes the read-only tools detection and returns the list of tools with read-only operations.
 pub async fn detect_read_only_tools(
-    capabilities: &Capabilities,
+    ext_manager: &ExtensionManager,
     tool_requests: Vec<&ToolRequest>,
 ) -> Vec<String> {
     if tool_requests.is_empty() {
@@ -119,7 +119,7 @@ pub async fn detect_read_only_tools(
     let tool = create_read_only_tool();
     let check_messages = create_check_messages(tool_requests);
 
-    let res = capabilities
+    let res = ext_manager
         .provider()
         .complete(
             "You are a good analyst and can detect operations whether they have read-only operations.",
@@ -139,7 +139,7 @@ pub async fn detect_read_only_tools(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agents::capabilities::Capabilities;
+    use crate::agents::extension_manager::ExtensionManager;
     use crate::message::{Message, MessageContent, ToolRequest};
     use crate::model::ModelConfig;
     use crate::providers::base::{Provider, ProviderMetadata, ProviderUsage, Usage};
@@ -189,10 +189,10 @@ mod tests {
         }
     }
 
-    fn create_mock_capabilities() -> Capabilities {
+    fn create_mock_capabilities() -> ExtensionManager {
         let mock_model_config =
             ModelConfig::new("test-model".to_string()).with_context_limit(200_000.into());
-        Capabilities::new(Box::new(MockProvider {
+        ExtensionManager::new(Box::new(MockProvider {
             model_config: mock_model_config,
         }))
     }
@@ -251,7 +251,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_read_only_tools() {
-        let capabilities = create_mock_capabilities();
+        let ext_manager = create_mock_capabilities();
         let tool_request = ToolRequest {
             id: "tool_1".to_string(),
             tool_call: ToolResult::Ok(ToolCall {
@@ -266,7 +266,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_detect_read_only_tools_empty_requests() {
-        let capabilities = create_mock_capabilities();
+        let ext_manager = create_mock_capabilities();
         let result = detect_read_only_tools(&capabilities, vec![]).await;
         assert!(result.is_empty());
     }

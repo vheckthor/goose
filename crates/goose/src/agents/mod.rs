@@ -1,8 +1,8 @@
 mod agent;
-pub mod capabilities;
 pub mod extension;
+pub mod extension_manager;
 mod types;
 
 pub use agent::{Agent, SessionConfig};
-pub use capabilities::Capabilities;
 pub use extension::ExtensionConfig;
+pub use extension_manager::ExtensionManager;

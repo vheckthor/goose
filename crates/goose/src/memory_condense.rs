@@ -1,4 +1,4 @@
-use crate::agents::Capabilities;
+use crate::agents::ExtensionManager;
 use crate::message::Message;
 use crate::token_counter::TokenCounter;
 use anyhow::{anyhow, Result};
@@ -12,17 +12,17 @@ fn create_summarize_request(messages: &[Message]) -> Vec<Message> {
     ]
 }
 async fn single_request(
-    capabilities: &Capabilities,
+    ext_manager: &ExtensionManager,
     messages: &[Message],
 ) -> Result<Message, anyhow::Error> {
-    Ok(capabilities
+    Ok(ext_manager
         .provider()
         .complete(SYSTEM_PROMPT, messages, &[])
         .await?
         .0)
 }
 async fn memory_condense(
-    capabilities: &Capabilities,
+    ext_manager: &ExtensionManager,
     token_counter: &TokenCounter,
     messages: &mut Vec<Message>,
     token_counts: &mut Vec<usize>,
@@ -67,7 +67,7 @@ async fn memory_condense(
 
         diff = -(current_tokens as isize);
         let request = create_summarize_request(&batch);
-        let response_text = single_request(capabilities, &request)
+        let response_text = single_request(ext_manager, &request)
             .await?
             .as_concat_text();
 
@@ -96,7 +96,7 @@ async fn memory_condense(
 }
 
 pub async fn condense_messages(
-    capabilities: &Capabilities,
+    ext_manager: &ExtensionManager,
     token_counter: &TokenCounter,
     messages: &mut Vec<Message>,
     token_counts: &mut Vec<usize>,
@@ -108,7 +108,7 @@ pub async fn condense_messages(
     // The compressor should determine whether we need to compress the messages or not. This
     // function just checks if the limit is satisfied.
     memory_condense(
-        capabilities,
+        ext_manager,
         token_counter,
         messages,
         token_counts,
