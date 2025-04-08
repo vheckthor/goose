@@ -115,10 +115,6 @@ const parseArgs = () => {
 
 const getGooseProvider = () => {
   loadShellEnv(app.isPackaged);
-  console.log('Environment after loadShellEnv:', {
-    GOOSE_PROVIDER: process.env.GOOSE_PROVIDER,
-    GOOSE_MODEL: process.env.GOOSE_MODEL,
-  });
   //{env-macro-start}//
   //needed when goose is bundled for a specific provider
   //{env-macro-end}//

@@ -109,9 +109,6 @@ export async function addExtension(
       return response;
     }
 
-    // Wait a moment for the extension to initialize
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
     // Only try to parse JSON if we got a successful response and have JSON content
     let data;
     try {

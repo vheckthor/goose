@@ -118,6 +118,10 @@ export default function ChatView({
 
         const response = await createGooseling(createGooselingRequest);
 
+        if (response.error) {
+          throw new Error(`Failed to create gooseling: ${response.error}`);
+        }
+
         window.electron.logInfo('Created gooseling:');
         window.electron.logInfo(JSON.stringify(response.gooseling, null, 2));
 
@@ -142,7 +146,6 @@ export default function ChatView({
       } catch (error) {
         window.electron.logInfo('Failed to create gooseling:');
         window.electron.logInfo(error.message);
-        // TODO: Show error to user
       } finally {
         setIsGeneratingGooseling(false);
       }

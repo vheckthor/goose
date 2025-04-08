@@ -28,7 +28,8 @@ export interface CreateGooselingRequest {
 }
 
 export interface CreateGooselingResponse {
-  gooseling: Gooseling;
+  gooseling: Gooseling | null;
+  error: string | null;
 }
 
 export async function createGooseling(
