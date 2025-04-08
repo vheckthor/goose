@@ -563,33 +563,62 @@ impl Agent for TruncateAgent {
 
         let content = result.as_concat_text();
 
-        // Use split_once to get the content after "Instructions:".
-        let after_instructions = content
-            .split_once("Instructions:")
-            .map(|(_, rest)| rest)
-            .unwrap_or(&content);
+        // try to parse json response from the LLM
+        let (instructions, activities) =
+            if let Ok(json_content) = serde_json::from_str::<Value>(&content) {
+                let instructions = json_content
+                    .get("instructions")
+                    .ok_or_else(|| anyhow!("Missing 'instructions' in json response"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("instructions' is not a string"))?
+                    .to_string();
 
-        // Split once more to separate instructions from activities.
-        let (instructions_part, activities_text) = after_instructions
-            .split_once("Activities:")
-            .unwrap_or((after_instructions, ""));
+                let activities = json_content
+                    .get("activities")
+                    .ok_or_else(|| anyhow!("Missing 'activities' in json response"))?
+                    .as_array()
+                    .ok_or_else(|| anyhow!("'activities' is not an array'"))?
+                    .iter()
+                    .map(|act| {
+                        act.as_str()
+                            .map(|s| s.to_string())
+                            .ok_or(anyhow!("'activities' array element is not a string"))
+                    })
+                    .collect::<Result<_, _>>()?;
 
-        let instructions = instructions_part
-            .trim_end_matches(|c: char| c.is_whitespace() || c == '#')
-            .trim()
-            .to_string();
-        let activities_text = activities_text.trim();
+                (instructions, activities)
+            } else {
+                // If we can't get valid JSON, try string parsing
+                // Use split_once to get the content after "Instructions:".
+                let after_instructions = content
+                    .split_once("instructions:")
+                    .map(|(_, rest)| rest)
+                    .unwrap_or(&content);
 
-        // Regex to remove bullet markers or numbers with an optional dot.
-        let bullet_re = Regex::new(r"^[•\-\*\d]+\.?\s*").expect("Invalid regex");
+                // Split once more to separate instructions from activities.
+                let (instructions_part, activities_text) = after_instructions
+                    .split_once("activities:")
+                    .unwrap_or((after_instructions, ""));
 
-        // Process each line in the activities section.
-        let activities: Vec<String> = activities_text
-            .lines()
-            .map(|line| bullet_re.replace(line, "").to_string())
-            .map(|s| s.trim().to_string())
-            .filter(|line| !line.is_empty())
-            .collect();
+                let instructions = instructions_part
+                    .trim_end_matches(|c: char| c.is_whitespace() || c == '#')
+                    .trim()
+                    .to_string();
+                let activities_text = activities_text.trim();
+
+                // Regex to remove bullet markers or numbers with an optional dot.
+                let bullet_re = Regex::new(r"^[•\-\*\d]+\.?\s*").expect("Invalid regex");
+
+                // Process each line in the activities section.
+                let activities: Vec<String> = activities_text
+                    .lines()
+                    .map(|line| bullet_re.replace(line, "").to_string())
+                    .map(|s| s.trim().to_string())
+                    .filter(|line| !line.is_empty())
+                    .collect();
+
+                (instructions, activities)
+            };
 
         let extensions = ExtensionManager::get_all().unwrap_or_default();
         let extension_configs: Vec<_> = extensions
