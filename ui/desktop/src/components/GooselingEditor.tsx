@@ -6,6 +6,7 @@ import { ExtensionItem } from './settings/extensions/ExtensionItem';
 import { FullExtensionConfig } from '../extensions';
 import { ChevronRight } from './icons/ChevronRight';
 import Back from './icons/Back';
+import { Geese } from './icons/Geese';
 import Copy from './icons/Copy';
 
 interface GooselingEditorProps {
@@ -86,7 +87,22 @@ export default function GooselingEditor({
       .map((id) => {
         const extension = availableExtensions.find((e) => e.id === id);
         if (!extension) return null;
-        return { ...extension, enabled: true };
+
+        // Create a clean copy of the extension
+        const cleanExtension = { ...extension, enabled: true };
+
+        // If the extension has env_vars, preserve keys but clear values
+        if (cleanExtension.env_keys) {
+          cleanExtension.env_keys = Object.keys(cleanExtension.env_keys).reduce(
+            (acc, key) => {
+              acc[key] = '';
+              return acc;
+            },
+            {} as Record<string, string>
+          );
+        }
+
+        return cleanExtension;
       })
       .filter(Boolean) as FullExtensionConfig[],
   });
@@ -228,7 +244,7 @@ export default function GooselingEditor({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full p-3 border border-gray-200 rounded-lg"
-                placeholder="Customer Success"
+                placeholder="Agent Name"
               />
             </div>
 
@@ -249,7 +265,7 @@ export default function GooselingEditor({
             >
               <div>
                 <h3 className="font-medium">Activities</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
@@ -262,7 +278,7 @@ export default function GooselingEditor({
             >
               <div>
                 <h3 className="font-medium">Instructions</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
@@ -275,7 +291,7 @@ export default function GooselingEditor({
             >
               <div>
                 <h3 className="font-medium">Extensions</h3>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
@@ -324,15 +340,12 @@ export default function GooselingEditor({
     <div className="flex flex-col w-full h-screen bg-white p-4 max-w-2xl mx-auto">
       {/* Header with Icon */}
       <div className="flex flex-col items-center mb-6">
-        <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M15.5 19l-7-7 7-7" />
-          </svg>
+        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4">
+          <Geese className="w-5 h-5" />
         </div>
         <h1 className="text-2xl font-medium text-center">Create custom agent</h1>
-        <p className="text-gray-600 text-center mt-2">
-          Your custom agent can be shared with others, keeping context and activities linked to
-          their agent
+        <p className="text-gray-500 text-center mt-2 text-sm">
+          Your custom agent can be shared with others
         </p>
       </div>
 

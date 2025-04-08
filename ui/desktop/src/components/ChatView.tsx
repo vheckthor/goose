@@ -14,6 +14,7 @@ import Splash from './Splash';
 import { SearchView } from './conversation/SearchView';
 import { createGooseling } from '../gooseling';
 import { AgentHeader } from './AgentHeader';
+import LayingEggLoader from './LayingEggLoader';
 // import { configureGooselingExtensions } from '../utils/gooselingExtensions';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
@@ -325,10 +326,8 @@ export default function ChatView({
 
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
-      {/* Overlay when generating gooseling */}
-      {isGeneratingGooseling && (
-        <div className="fixed inset-0 bg-black/20 dark:bg-white/20 backdrop-blur-[1px] z-50 pointer-events-auto cursor-not-allowed" />
-      )}
+      {/* Loader when generating gooseling */}
+      {isGeneratingGooseling && <LayingEggLoader />}
       <div className="relative flex items-center h-[36px] w-full">
         <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
       </div>
