@@ -13,7 +13,6 @@ use tracing::{debug, instrument};
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
 use crate::config::Config;
 use crate::prompt_template;
-use crate::providers::base::Provider;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
 use mcp_client::transport::{SseTransport, StdioTransport, Transport};
 use mcp_core::{prompt::Prompt, Content, Tool, ToolCall, ToolError, ToolResult};
@@ -33,13 +32,12 @@ pub struct FrontendTool {
     pub tool: Tool,
 }
 
-/// Manages MCP clients and their interactions
+/// Manages Goose extensions / MCP clients and their interactions
 pub struct ExtensionManager {
     clients: HashMap<String, McpClientBox>,
     frontend_tools: HashMap<String, FrontendTool>,
     instructions: HashMap<String, String>,
     resource_capable_extensions: HashSet<String>,
-    provider: Arc<Box<dyn Provider>>,
     system_prompt_override: Option<String>,
     system_prompt_extensions: Vec<String>,
 }
@@ -100,14 +98,13 @@ pub fn get_parameter_names(tool: &Tool) -> Vec<String> {
 }
 
 impl ExtensionManager {
-    /// Create a new ExtensionManager with the specified provider
-    pub fn new(provider: Box<dyn Provider>) -> Self {
+    /// Create a new ExtensionManager instance
+    pub fn new() -> Self {
         Self {
             clients: HashMap::new(),
             frontend_tools: HashMap::new(),
             instructions: HashMap::new(),
             resource_capable_extensions: HashSet::new(),
-            provider: Arc::new(provider),
             system_prompt_override: None,
             system_prompt_extensions: Vec::new(),
         }
@@ -244,11 +241,6 @@ impl ExtensionManager {
     /// Override the system prompt with custom text
     pub fn set_system_prompt_override(&mut self, template: String) {
         self.system_prompt_override = Some(template);
-    }
-
-    /// Get a reference to the provider
-    pub fn provider(&self) -> Arc<Box<dyn Provider>> {
-        Arc::clone(&self.provider)
     }
 
     /// Get aggregated usage statistics

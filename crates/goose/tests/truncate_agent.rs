@@ -65,18 +65,18 @@ impl ProviderType {
         }
     }
 
-    fn create_provider(&self, model_config: ModelConfig) -> Result<Box<dyn Provider>> {
+    fn create_provider(&self, model_config: ModelConfig) -> Result<Arc<dyn Provider>> {
         Ok(match self {
-            ProviderType::Azure => Box::new(AzureProvider::from_env(model_config)?),
-            ProviderType::OpenAi => Box::new(OpenAiProvider::from_env(model_config)?),
-            ProviderType::Anthropic => Box::new(AnthropicProvider::from_env(model_config)?),
-            ProviderType::Bedrock => Box::new(BedrockProvider::from_env(model_config)?),
-            ProviderType::Databricks => Box::new(DatabricksProvider::from_env(model_config)?),
-            ProviderType::GcpVertexAI => Box::new(GcpVertexAIProvider::from_env(model_config)?),
-            ProviderType::Google => Box::new(GoogleProvider::from_env(model_config)?),
-            ProviderType::Groq => Box::new(GroqProvider::from_env(model_config)?),
-            ProviderType::Ollama => Box::new(OllamaProvider::from_env(model_config)?),
-            ProviderType::OpenRouter => Box::new(OpenRouterProvider::from_env(model_config)?),
+            ProviderType::Azure => Arc::new(AzureProvider::from_env(model_config)?),
+            ProviderType::OpenAi => Arc::new(OpenAiProvider::from_env(model_config)?),
+            ProviderType::Anthropic => Arc::new(AnthropicProvider::from_env(model_config)?),
+            ProviderType::Bedrock => Arc::new(BedrockProvider::from_env(model_config)?),
+            ProviderType::Databricks => Arc::new(DatabricksProvider::from_env(model_config)?),
+            ProviderType::GcpVertexAI => Arc::new(GcpVertexAIProvider::from_env(model_config)?),
+            ProviderType::Google => Arc::new(GoogleProvider::from_env(model_config)?),
+            ProviderType::Groq => Arc::new(GroqProvider::from_env(model_config)?),
+            ProviderType::Ollama => Arc::new(OllamaProvider::from_env(model_config)?),
+            ProviderType::OpenRouter => Arc::new(OpenRouterProvider::from_env(model_config)?),
         })
     }
 }

@@ -48,6 +48,7 @@ pub struct SessionConfig {
 
 /// Truncate implementation of an Agent
 pub struct Agent {
+    provider: Arc<dyn Provider>,
     ext_manager: Mutex<ExtensionManager>,
     token_counter: TokenCounter,
     confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
@@ -57,20 +58,26 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(provider: Box<dyn Provider>) -> Self {
+    pub fn new(provider: Arc<dyn Provider>) -> Self {
         let token_counter = TokenCounter::new(provider.get_model_config().tokenizer_name());
         // Create channels with buffer size 32 (adjust if needed)
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
         Self {
-            ext_manager: Mutex::new(ExtensionManager::new(provider)),
+            provider: provider,
+            ext_manager: Mutex::new(ExtensionManager::new()),
             token_counter,
             confirmation_tx: confirm_tx,
             confirmation_rx: Mutex::new(confirm_rx),
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
         }
+    }
+
+    /// Get a reference count clone to the provider
+    pub fn provider(&self) -> Arc<dyn Provider> {
+        Arc::clone(&self.provider)
     }
 
     /// Truncates the messages to fit within the model's context window
@@ -83,13 +90,7 @@ impl Agent {
         tools: &mut Vec<Tool>,
     ) -> anyhow::Result<()> {
         // Model's actual context limit
-        let context_limit = self
-            .ext_manager
-            .lock()
-            .await
-            .provider()
-            .get_model_config()
-            .context_limit();
+        let context_limit = self.provider.get_model_config().context_limit();
 
         // Our conservative estimate of the **target** context limit
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
@@ -261,7 +262,7 @@ impl Agent {
                 acc
             });
 
-        let config = ext_manager.provider().get_model_config();
+        let config = self.provider.get_model_config();
         let mut system_prompt = ext_manager.get_system_prompt().await;
         let mut toolshim_tools = vec![];
         if config.toolshim {
@@ -285,7 +286,7 @@ impl Agent {
         Ok(Box::pin(async_stream::try_stream! {
             let _reply_guard = reply_span.enter();
             loop {
-                match ext_manager.provider().complete(
+                match self.provider.complete(
                     &system_prompt,
                     &messages,
                     &tools,
@@ -407,7 +408,7 @@ impl Agent {
 
                                 // Only check read-only status for tools without annotation
                                 if !llm_detect_candidates.is_empty() && mode == "smart_approve" {
-                                    detected_read_only_tools = detect_read_only_tools(&ext_manager, llm_detect_candidates.clone()).await;
+                                    detected_read_only_tools = detect_read_only_tools(self.provider(), llm_detect_candidates.clone()).await;
                                 }
 
                                 // Handle pre-approved and read-only tools in parallel
@@ -613,11 +614,6 @@ impl Agent {
         let plan_prompt = ext_manager.get_planning_prompt(tools_info).await;
 
         Ok(plan_prompt)
-    }
-
-    pub async fn provider(&self) -> Arc<Box<dyn Provider>> {
-        let ext_manager = self.ext_manager.lock().await;
-        ext_manager.provider()
     }
 
     pub async fn handle_tool_result(&self, id: String, result: ToolResult<Vec<Content>>) {

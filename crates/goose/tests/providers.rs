@@ -77,7 +77,7 @@ lazy_static::lazy_static! {
 
 /// Generic test harness for any Provider implementation
 struct ProviderTester {
-    provider: Box<dyn Provider + Send + Sync>,
+    provider: Arc<dyn Provider>,
     name: String,
 }
 

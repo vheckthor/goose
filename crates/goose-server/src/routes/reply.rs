@@ -153,7 +153,7 @@ async fn handler(
         };
 
         // Get the provider first, before starting the reply stream
-        let provider = agent.provider().await;
+        let provider = agent.provider();
 
         let mut stream = match agent
             .reply(
@@ -294,7 +294,7 @@ async fn ask_handler(
     let agent = agent.as_ref().ok_or(StatusCode::NOT_FOUND)?;
 
     // Get the provider first, before starting the reply stream
-    let provider = agent.provider().await;
+    let provider = agent.provider();
 
     // Create a single message for the prompt
     let messages = vec![Message::user().with_text(request.prompt)];
