@@ -366,15 +366,21 @@ async fn ask_handler(
 }
 
 #[derive(Debug, Deserialize)]
-struct ToolConfirmationRequest {
+struct PermissionConfirmationRequest {
     id: String,
     confirmed: bool,
+    #[serde(default = "default_principal_type")]
+    principal_type: PrincipalType,
+}
+
+fn default_principal_type() -> PrincipalType {
+    PrincipalType::Tool
 }
 
 async fn confirm_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(request): Json<ToolConfirmationRequest>,
+    Json(request): Json<PermissionConfirmationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Verify secret key
     let secret_key = headers
@@ -394,12 +400,13 @@ async fn confirm_handler(
     } else {
         Permission::DenyOnce
     };
+
     agent
         .handle_confirmation(
             request.id.clone(),
             PermissionConfirmation {
-                principal_name: "tool_name_placeholder".to_string(),
-                principal_type: PrincipalType::Tool,
+                principal_name: "name_placeholder".to_string(),
+                principal_type: request.principal_type,
                 permission,
             },
         )

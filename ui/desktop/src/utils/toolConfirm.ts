@@ -11,6 +11,7 @@ export async function ConfirmToolRequest(requesyId: string, confirmed: boolean) 
       body: JSON.stringify({
         id: requesyId,
         confirmed,
+        principal_type: 'Tool',
       }),
     });
 

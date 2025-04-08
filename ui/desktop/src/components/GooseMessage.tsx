@@ -11,8 +11,11 @@ import {
   getToolResponses,
   getToolConfirmationContent,
   createToolErrorResponseMessage,
+  createEnableExtensionErrorResponseMessage,
+  getEnableExtensionConfirmationContent,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
+import ExtensionConfirmation from './ExtensionConfirmation';
 import MessageCopyLink from './MessageCopyLink';
 
 interface GooseMessageProps {
@@ -52,6 +55,9 @@ export default function GooseMessage({
   const toolConfirmationContent = getToolConfirmationContent(message);
   const hasToolConfirmation = toolConfirmationContent !== undefined;
 
+  const enableExtensionConfirmationContent = getEnableExtensionConfirmationContent(message);
+  const hasEnableExtensionConfirmation = enableExtensionConfirmationContent !== undefined;
+
   // Find tool responses that correspond to the tool requests in this message
   const toolResponsesMap = useMemo(() => {
     const responseMap = new Map();
@@ -80,6 +86,15 @@ export default function GooseMessage({
     if (messageIndex == messageHistoryIndex - 1 && hasToolConfirmation) {
       appendMessage(
         createToolErrorResponseMessage(toolConfirmationContent.id, 'The tool call is cancelled.')
+      );
+    }
+
+    if (messageIndex == messageHistoryIndex - 1 && hasEnableExtensionConfirmation) {
+      appendMessage(
+        createEnableExtensionErrorResponseMessage(
+          enableExtensionConfirmationContent.id,
+          'The extension enablement is cancelled.'
+        )
       );
     }
   }, []);
@@ -128,6 +143,15 @@ export default function GooseMessage({
             isClicked={messageIndex < messageHistoryIndex - 1}
             toolConfirmationId={toolConfirmationContent.id}
             toolName={toolConfirmationContent.toolName}
+          />
+        )}
+
+        {hasEnableExtensionConfirmation && (
+          <ExtensionConfirmation
+            isCancelledMessage={messageIndex == messageHistoryIndex - 1}
+            isClicked={messageIndex < messageHistoryIndex - 1}
+            extensionConfirmationId={enableExtensionConfirmationContent.id}
+            extensionName={enableExtensionConfirmationContent.extensionName}
           />
         )}
       </div>
