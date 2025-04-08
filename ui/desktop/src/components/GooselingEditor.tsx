@@ -6,6 +6,7 @@ import { ExtensionItem } from './settings/extensions/ExtensionItem';
 import { FullExtensionConfig } from '../extensions';
 import { ChevronRight } from './icons/ChevronRight';
 import Back from './icons/Back';
+import { Bars } from './icons/Bars';
 import { Geese } from './icons/Geese';
 import Copy from './icons/Copy';
 
@@ -114,47 +115,48 @@ export default function GooselingEditor({
     switch (activeSection) {
       case 'activities':
         return (
-          <div className="p-6">
-            <div className="flex items-center mb-6">
-              <button onClick={() => setActiveSection('none')} className="mr-4">
-                <Back className="w-6 h-6" />
-              </button>
-              <div>
-                <h2 className="text-2xl font-medium">Activities</h2>
-                <p className="text-gray-600">
-                  The top-line prompts and activities that will display within your goose home page.
-                </p>
-              </div>
+          <div className="p-6 pt-10">
+            <button onClick={() => setActiveSection('none')} className="mb-6">
+              <Back className="w-6 h-6" />
+            </button>
+            <div className="py-2">
+              <Bars className="w-6 h-6 text-gray-500" />
+            </div>
+            <div className="mb-8 mt-6">
+              <h2 className="text-2xl font-medium mb-2">Activities</h2>
+              <p className="text-gray-600">
+                The top-line prompts and activities that will display within your goose home page.
+              </p>
             </div>
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {activities.map((activity, index) => (
                   <div
                     key={index}
-                    className="inline-flex items-center bg-gray-100 rounded-full px-4 py-2"
+                    className="inline-flex items-center bg-white border-2 border-gray-300 rounded-full px-4 py-2 text-sm"
                   >
-                    <span className="mr-2">{activity}</span>
+                    <span>{activity}</span>
                     <button
                       onClick={() => handleRemoveActivity(activity)}
-                      className="text-gray-500 hover:text-gray-700"
+                      className="ml-2 text-gray-900 hover:text-gray-600 transition-colors"
                     >
                       ×
                     </button>
                   </div>
                 ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3 mt-6">
                 <input
                   type="text"
                   value={newActivity}
                   onChange={(e) => setNewActivity(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleAddActivity()}
-                  className="flex-1 p-2 border border-gray-200 rounded-lg"
+                  className="flex-1 px-4 py-3 bg-gray-50 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="Add new activity..."
                 />
                 <button
                   onClick={handleAddActivity}
-                  className="px-4 py-2 bg-black text-white rounded-lg"
+                  className="px-5 py-3 bg-black text-white rounded-xl hover:bg-gray-900 transition-colors"
                 >
                   Add activity
                 </button>
@@ -165,23 +167,24 @@ export default function GooselingEditor({
 
       case 'instructions':
         return (
-          <div className="p-6">
-            <div className="flex items-center mb-6">
-              <button onClick={() => setActiveSection('none')} className="mr-4">
-                <Back className="w-6 h-6" />
-              </button>
-              <div>
-                <h2 className="text-2xl font-medium">Instructions</h2>
-                <p className="text-gray-600">
-                  Hidden instructions that will be passed to the provider to help direct and add
-                  context to your responses.
-                </p>
-              </div>
+          <div className="p-6 pt-10">
+            <button onClick={() => setActiveSection('none')} className="mb-6">
+              <Back className="w-6 h-6" />
+            </button>
+            <div className="py-2">
+              <Bars className="w-6 h-6 text-gray-500" />
+            </div>
+            <div className="mb-8 mt-6">
+              <h2 className="text-2xl font-medium mb-2">Instructions</h2>
+              <p className="text-gray-600">
+                Hidden instructions that will be passed to the provider to help direct and add
+                context to your responses.
+              </p>
             </div>
             <textarea
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              className="w-full h-64 p-4 border border-gray-200 rounded-lg resize-none"
+              className="w-full h-96 p-4 bg-gray-50 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-black"
               placeholder="Enter instructions..."
             />
           </div>
@@ -189,18 +192,18 @@ export default function GooselingEditor({
 
       case 'extensions':
         return (
-          <div className="p-6">
-            <div className="flex items-center mb-6">
-              <button onClick={() => setActiveSection('none')} className="mr-4">
-                <Back className="w-6 h-6" />
-              </button>
-              <div>
-                <h2 className="text-2xl font-medium">Extensions</h2>
-                <p className="text-gray-600">
-                  Hidden instructions that will be passed to the provider to help direct and add
-                  context to your responses.
-                </p>
-              </div>
+          <div className="p-6 pt-10">
+            <button onClick={() => setActiveSection('none')} className="mb-6">
+              <Back className="w-6 h-6" />
+            </button>
+            <div className="py-2">
+              <Bars className="w-6 h-6 text-gray-500" />
+            </div>
+            <div className="mb-8 mt-6">
+              <h2 className="text-2xl font-medium mb-2">Extensions</h2>
+              <p className="text-gray-600">
+                Choose which extensions will be available to your agent.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               {availableExtensions.map((extension) => (
@@ -236,7 +239,7 @@ export default function GooselingEditor({
 
       default:
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 py-4">
             <div>
               <h2 className="text-lg font-medium mb-2">Agent</h2>
               <input
@@ -261,41 +264,41 @@ export default function GooselingEditor({
             {/* Section buttons */}
             <button
               onClick={() => setActiveSection('activities')}
-              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+              className="w-full flex items-start justify-between p-4 border border-gray-200 rounded-lg"
             >
-              <div>
+              <div className="text-left">
                 <h3 className="font-medium">Activities</h3>
                 <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 mt-1" />
             </button>
 
             <button
               onClick={() => setActiveSection('instructions')}
-              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+              className="w-full flex items-start justify-between p-4 border border-gray-200 rounded-lg"
             >
-              <div>
+              <div className="text-left">
                 <h3 className="font-medium">Instructions</h3>
                 <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 mt-1" />
             </button>
 
             <button
               onClick={() => setActiveSection('extensions')}
-              className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg"
+              className="w-full flex items-start justify-between p-4 border border-gray-200 rounded-lg"
             >
-              <div>
+              <div className="text-left">
                 <h3 className="font-medium">Extensions</h3>
                 <p className="text-gray-500 text-sm">
                   Starting activities present in the home panel on a fresh goose session
                 </p>
               </div>
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 mt-1" />
             </button>
 
             {/* Deep Link Display */}
@@ -337,20 +340,19 @@ export default function GooselingEditor({
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-white p-4 max-w-2xl mx-auto">
-      {/* Header with Icon */}
-      <div className="flex flex-col items-center mb-6">
-        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4">
-          <Geese className="w-5 h-5" />
+    <div className="flex flex-col w-full h-screen bg-white max-w-3xl mx-auto">
+      {activeSection === 'none' && (
+        <div className="flex flex-col items-center mb-6 px-6 pt-10">
+          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4">
+            <Geese className="w-5 h-5" />
+          </div>
+          <h1 className="text-2xl font-medium text-center">Create custom agent</h1>
+          <p className="text-gray-500 text-center mt-2 text-sm">
+            Your custom agent can be shared with others
+          </p>
         </div>
-        <h1 className="text-2xl font-medium text-center">Create custom agent</h1>
-        <p className="text-gray-500 text-center mt-2 text-sm">
-          Your custom agent can be shared with others
-        </p>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">{renderSectionContent()}</div>
+      )}
+      <div className="flex-1 overflow-y-auto px-6">{renderSectionContent()}</div>
     </div>
   );
 }
