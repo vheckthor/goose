@@ -237,7 +237,6 @@ impl Agent {
         (request_id, result)
     }
 
-
     pub async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
         match &extension {
             ExtensionConfig::Frontend {

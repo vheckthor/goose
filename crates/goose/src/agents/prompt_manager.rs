@@ -54,7 +54,7 @@ impl PromptManager {
                 false,
             ));
         }
-                
+
         context.insert("extensions", serde_json::to_value(extensions_info).unwrap());
 
         let current_date_time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
