@@ -46,7 +46,7 @@ impl PromptManager {
         let mut context: HashMap<&str, Value> = HashMap::new();
         let mut extensions_info = extensions_info.clone();
 
-        // Add frontend tools as a special extension if any exist
+        // Add frontend instructions to extensions_info to simplify json rendering
         if let Some(frontend_instructions) = frontend_instructions {
             extensions_info.push(ExtensionInfo::new(
                 "frontend",
@@ -54,7 +54,7 @@ impl PromptManager {
                 false,
             ));
         }
-        
+                
         context.insert("extensions", serde_json::to_value(extensions_info).unwrap());
 
         let current_date_time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
