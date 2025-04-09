@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
-use tracing::{error, warn};
+use anyhow::Result;
+use tracing::error;
 
 use crate::agents::agent::Agent;
 use crate::agents::agent_tool_processing::{
@@ -11,14 +11,38 @@ use crate::config::Config;
 use crate::message::{Message, ToolRequest};
 use crate::providers::errors::ProviderError;
 use crate::session;
-use crate::truncate::{truncate_messages, OldestFirstTruncation};
 
-use mcp_core::{tool::Tool};
+use mcp_core::tool::Tool;
 
-const MAX_TRUNCATION_ATTEMPTS: usize = 3;
-const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
-
-/// Process the response from the provider and handle tool requests
+/// Process the response from the provider and handle any tool requests.
+///
+/// This function:
+/// 1. Filters out frontend tool requests from the response
+/// 2. Categorizes tool requests (frontend, extension, standard)
+/// 3. Processes each category of tool requests according to the current goose_mode
+/// 4. Generates tool responses and updates the system state as needed
+///
+/// # Arguments
+///
+/// * `agent` - Reference to the Agent instance
+/// * `response` - The original response from the provider
+/// * `extension_manager` - Mutable reference to the extension manager
+/// * `config` - Reference to the global configuration
+/// * `tools` - Mutable reference to the tools vector
+/// * `system_prompt` - Reference to the current system prompt
+///
+/// # Returns
+///
+/// A tuple containing:
+/// * `filtered_response`: The provider's response with frontend tool requests filtered out
+/// * `message_tool_response`: A message containing all tool responses
+/// * `should_break`: A boolean indicating whether to break the reply loop:
+///   - `true` if there are no tool requests or all tool requests have been handled
+///   - `false` if there are more tool requests to process and the loop should continue
+///
+/// # Errors
+///
+/// Returns an error if tool processing fails.
 pub async fn process_provider_response(
     agent: &Agent,
     response: &Message,
@@ -92,62 +116,6 @@ pub async fn process_provider_response(
     }
 
     Ok((filtered_response, message_tool_response, false))
-}
-
-/// Handle truncation when context length is exceeded
-pub async fn handle_truncation_error(
-    agent: &Agent,
-    messages: &mut Vec<Message>,
-    truncation_attempt: &mut usize,
-    system_prompt: &str,
-    tools: &mut Vec<Tool>,
-) -> Result<bool> {
-    if *truncation_attempt >= MAX_TRUNCATION_ATTEMPTS {
-        return Ok(false);
-    }
-
-    *truncation_attempt += 1;
-    warn!(
-        "Context length exceeded. Truncation Attempt: {}/{}.",
-        truncation_attempt, MAX_TRUNCATION_ATTEMPTS
-    );
-
-    // Decay the estimate factor as we make more truncation attempts
-    let estimate_factor: f32 = ESTIMATE_FACTOR_DECAY.powi(*truncation_attempt as i32);
-
-    // In the actual implementation, this would call agent.truncate_messages
-    // For now, we'll just simulate truncation by removing the oldest messages
-
-    // Model's actual context limit (placeholder)
-    let context_limit = 8192;
-
-    // Our conservative estimate of the target context limit
-    let context_limit = (context_limit as f32 * estimate_factor) as usize;
-
-    // Take into account the system prompt and tools
-    let system_prompt_token_count = system_prompt.len() / 4; // Rough approximation
-    let tools_token_count = tools.len() * 100; // Rough approximation
-
-    let remaining_tokens = context_limit
-        .checked_sub(system_prompt_token_count)
-        .and_then(|remaining| remaining.checked_sub(tools_token_count))
-        .ok_or_else(|| anyhow!("System prompt and tools exceed estimated context limit"))?;
-
-    // Calculate token counts for messages (placeholder)
-    let mut token_counts: Vec<usize> = messages
-        .iter()
-        .map(|msg| msg.content.len() * 2) // Rough approximation
-        .collect();
-
-    // Truncate messages
-    truncate_messages(
-        messages,
-        &mut token_counts,
-        remaining_tokens,
-        &OldestFirstTruncation,
-    )?;
-
-    Ok(true)
 }
 
 /// Update session metrics after a response

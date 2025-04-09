@@ -4,9 +4,7 @@ use anyhow::Result;
 
 use crate::agents::agent::Agent;
 use crate::message::{Message, ToolRequest};
-use crate::permission::{
-    detect_read_only_tools, ToolPermissionStore,
-};
+use crate::permission::{detect_read_only_tools, ToolPermissionStore};
 use crate::providers::base::Provider;
 
 use mcp_core::{tool::Tool, ToolCall};
