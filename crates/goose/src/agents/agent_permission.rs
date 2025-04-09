@@ -4,14 +4,16 @@ use anyhow::Result;
 
 use crate::agents::agent::Agent;
 use crate::message::{Message, ToolRequest};
-use crate::permission::{detect_read_only_tools, ToolPermissionStore};
+use crate::permission::{
+    detect_read_only_tools, Permission, ToolPermissionStore,
+};
 use crate::providers::base::Provider;
 
-use mcp_core::{tool::Tool, ToolCall};
+use mcp_core::tool::ToolCall;
 
 /// Check permissions for tool requests and categorize them based on required confirmation
 pub async fn check_tool_permissions<'a>(
-    agent: &Agent,
+    _agent: &Agent,
     requests: &[&'a ToolRequest],
     tools_with_readonly_annotation: &[String],
     tools_without_annotation: &[String],
@@ -59,7 +61,7 @@ pub async fn check_tool_permissions<'a>(
 pub async fn handle_tool_confirmation(
     agent: &Agent,
     request: &ToolRequest,
-) -> Result<Option<Tool>> {
+) -> Result<Option<ToolCall>> {
     if let Ok(tool_call) = &request.tool_call {
         let confirmation = Message::user().with_tool_confirmation_request(
             request.id.clone(),
@@ -68,13 +70,22 @@ pub async fn handle_tool_confirmation(
             Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
         );
 
-        // In the actual implementation, this would yield the confirmation and wait for a response
-        // For now, we'll just return None to indicate no tool should be executed
+        // In a real implementation, we would yield the confirmation message here
+        // and wait for user input
 
-        // Wait for confirmation response through the channel
-        // This would be implemented in the Agent struct
+        // For now, we'll simulate the confirmation process by checking the agent's confirmation channel
+        let mut rx = agent.confirmation_rx.lock().await;
+        if let Some((req_id, confirmation_result)) = rx.recv().await {
+            if req_id == request.id {
+                let confirmed = confirmation_result.permission == Permission::AllowOnce
+                    || confirmation_result.permission == Permission::AlwaysAllow;
+                if confirmed {
+                    return Ok(Some(tool_call.clone()));
+                }
+            }
+        }
 
-        // Return None for now
+        // If we get here, either the confirmation was denied or there was an issue with the channel
         return Ok(None);
     }
 

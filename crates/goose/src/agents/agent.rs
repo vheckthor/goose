@@ -32,21 +32,18 @@ use crate::agents::agent_message::{
     create_error_response, process_provider_response, update_session_metrics,
 };
 
-const MAX_TRUNCATION_ATTEMPTS: usize = 3;
-const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
-
 /// The main goose Agent
 pub struct Agent {
     provider: Arc<dyn Provider>,
     extension_manager: Mutex<ExtensionManager>,
-    frontend_tools: HashMap<String, FrontendTool>,
-    frontend_instructions: Option<String>,
-    prompt_manager: PromptManager,
+    pub(crate) frontend_tools: HashMap<String, FrontendTool>,
+    pub(crate) frontend_instructions: Option<String>,
+    pub(crate) prompt_manager: PromptManager,
     token_counter: TokenCounter,
     confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
-    confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
+    pub(crate) confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
     tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
-    tool_result_rx: ToolResultReceiver,
+    pub(crate) tool_result_rx: ToolResultReceiver,
 }
 
 impl Agent {
@@ -234,7 +231,7 @@ impl Agent {
         let config = Config::global();
 
         // Setup tools and prompt
-        let (mut tools, toolshim_tools, system_prompt) = self
+        let (mut tools, toolshim_tools, mut system_prompt) = self
             .prepare_tools_and_prompt(&mut extension_manager)
             .await?;
 
@@ -274,7 +271,7 @@ impl Agent {
 
                         // Process the response and tool requests
                         let (filtered_response, message_tool_response, should_break) =
-                            process_provider_response(self, &response, &mut extension_manager, &config, &mut tools, &system_prompt).await?;
+                            process_provider_response(self, &response, &mut extension_manager, config, &mut tools, &mut system_prompt).await?;
 
                         // Yield the filtered response
                         yield filtered_response.clone();

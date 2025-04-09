@@ -9,7 +9,7 @@ use mcp_core::{tool::Tool, Content, ToolError};
 
 /// Handle the installation of an extension
 pub async fn handle_extension_installation(
-    agent: &Agent,
+    _agent: &Agent,
     request: &ToolRequest,
     extension_manager: &mut ExtensionManager,
 ) -> Result<(String, Result<Vec<Content>, ToolError>)> {
@@ -77,10 +77,12 @@ pub async fn update_after_extension_changes(
 ) -> Result<(String, Vec<Tool>)> {
     let extensions_info = extension_manager.get_extensions_info().await;
 
-    // In the actual implementation, this would call agent.prompt_manager.build_system_prompt
-    // For now, we'll just return a placeholder
-    let system_prompt = "Updated system prompt after extension changes".to_string();
+    // Build the updated system prompt using the agent's prompt manager
+    let system_prompt = agent
+        .prompt_manager
+        .build_system_prompt(extensions_info, agent.frontend_instructions.clone());
 
+    // Get the updated tools
     let tools = extension_manager.get_prefixed_tools().await?;
 
     Ok((system_prompt, tools))

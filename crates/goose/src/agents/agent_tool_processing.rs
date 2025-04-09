@@ -2,6 +2,9 @@ use anyhow::Result;
 use tracing::{debug, instrument};
 
 use crate::agents::agent::Agent;
+use crate::agents::agent_extension::{
+    handle_extension_installation, update_after_extension_changes,
+};
 use crate::agents::extension_manager::ExtensionManager;
 use crate::agents::platform_tools::{
     PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
@@ -13,13 +16,14 @@ use mcp_core::{tool::Tool, tool::ToolCall, Content, ToolError};
 
 /// Categorizes tool requests into different types: frontend, extension, and standard
 pub fn categorize_tool_requests<'a>(
+    agent: &Agent,
     tool_requests: &'a [&'a ToolRequest],
 ) -> (
     Vec<&'a ToolRequest>,
     Vec<&'a ToolRequest>,
     Vec<&'a ToolRequest>,
 ) {
-    let frontend_requests = Vec::new();
+    let mut frontend_requests = Vec::new();
     let mut extension_requests = Vec::new();
     let mut standard_requests = Vec::new();
 
@@ -29,9 +33,9 @@ pub fn categorize_tool_requests<'a>(
                 extension_requests.push(*request);
             } else if tool_call.name.starts_with("platform__enable_extension") {
                 extension_requests.push(*request);
+            } else if agent.is_frontend_tool(&tool_call.name) {
+                frontend_requests.push(*request);
             } else {
-                // This would need to check agent.is_frontend_tool in the actual implementation
-                // For now, we'll assume all other tools are standard
                 standard_requests.push(*request);
             }
         }
@@ -69,7 +73,7 @@ pub async fn process_extension_tools(
     agent: &Agent,
     extension_requests: &[&ToolRequest],
     extension_manager: &mut ExtensionManager,
-    system_prompt: &str,
+    system_prompt: &mut String,
     tools: &mut Vec<Tool>,
 ) -> Result<Message> {
     let mut message_tool_response = Message::user();
@@ -82,23 +86,18 @@ pub async fn process_extension_tools(
                 message_tool_response =
                     message_tool_response.with_tool_response(request.id.clone(), result);
             } else if tool_call.name.contains("enable_extension") {
-                // This would handle the confirmation flow in the actual implementation
-                // For now, we'll just call enable_extension directly
-                let extension_name = tool_call
-                    .arguments
-                    .get("extension_name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                let install_result = crate::agents::agent_extension::enable_extension(
-                    extension_manager,
-                    extension_name,
-                    request.id.clone(),
-                )
-                .await;
-
+                // Use handle_extension_installation instead of direct enable_extension
+                let install_result =
+                    handle_extension_installation(agent, request, extension_manager).await?;
                 install_results.push(install_result);
+
+                // Update system prompt and tools after extension changes
+                let (updated_system_prompt, updated_tools) =
+                    update_after_extension_changes(agent, extension_manager).await?;
+
+                // Update the system_prompt and tools references
+                *system_prompt = updated_system_prompt;
+                *tools = updated_tools;
             }
         }
     }
@@ -150,7 +149,7 @@ pub async fn process_standard_tools(
                     )]),
                 );
             }
-            // Note: The "approve" and "smart_approve" modes would be handled by the permission system
+            // Note: The "approve" and "smart_approve" modes are handled in process_provider_response
         }
     }
 

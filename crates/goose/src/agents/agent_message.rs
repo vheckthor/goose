@@ -1,9 +1,13 @@
 use anyhow::Result;
+use futures::future::join_all;
 use tracing::error;
 
 use crate::agents::agent::Agent;
+use crate::agents::agent_permission::{
+    check_tool_permissions, detect_safe_tools, handle_tool_confirmation,
+};
 use crate::agents::agent_tool_processing::{
-    categorize_tool_requests, process_extension_tools, process_frontend_tools,
+    categorize_tool_requests, create_tool_future, process_extension_tools, process_frontend_tools,
     process_standard_tools,
 };
 use crate::agents::extension_manager::ExtensionManager;
@@ -12,7 +16,7 @@ use crate::message::{Message, ToolRequest};
 use crate::providers::errors::ProviderError;
 use crate::session;
 
-use mcp_core::tool::Tool;
+use mcp_core::{tool::Tool, Content};
 
 /// Process the response from the provider and handle any tool requests.
 ///
@@ -49,7 +53,7 @@ pub async fn process_provider_response(
     extension_manager: &mut ExtensionManager,
     config: &Config,
     tools: &mut Vec<Tool>,
-    system_prompt: &str,
+    system_prompt: &mut String,
 ) -> Result<(Message, Message, bool)> {
     // Get the goose_mode from config
     let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
@@ -86,7 +90,7 @@ pub async fn process_provider_response(
 
     // Categorize tool requests
     let (frontend_requests, extension_requests, standard_requests) =
-        categorize_tool_requests(&tool_requests);
+        categorize_tool_requests(agent, &tool_requests);
 
     // Process frontend tools
     let mut message_tool_response = process_frontend_tools(agent, &frontend_requests).await?;
@@ -107,12 +111,105 @@ pub async fn process_provider_response(
     }
 
     // Process standard tools based on goose_mode
-    let standard_response =
-        process_standard_tools(agent, &standard_requests, extension_manager, &goose_mode).await?;
+    if goose_mode == "auto" || goose_mode == "chat" {
+        let standard_response =
+            process_standard_tools(agent, &standard_requests, extension_manager, &goose_mode)
+                .await?;
 
-    // Merge the responses
-    for content in standard_response.content {
-        message_tool_response.content.push(content);
+        // Merge the responses
+        for content in standard_response.content {
+            message_tool_response.content.push(content);
+        }
+    } else if goose_mode == "approve" || goose_mode == "smart_approve" {
+        // Handle approve and smart_approve modes using permission functions
+
+        // Get tools with annotations
+        let (tools_with_readonly_annotation, tools_without_annotation): (Vec<String>, Vec<String>) =
+            tools.iter().fold((vec![], vec![]), |mut acc, tool| {
+                match &tool.annotations {
+                    Some(annotations) => {
+                        if annotations.read_only_hint {
+                            acc.0.push(tool.name.clone());
+                        } else {
+                            acc.1.push(tool.name.clone());
+                        }
+                    }
+                    None => {
+                        acc.1.push(tool.name.clone());
+                    }
+                }
+                acc
+            });
+
+        // Check permissions for standard tools
+        let (approved_tools, needs_confirmation, llm_detect_candidates) = check_tool_permissions(
+            agent,
+            &standard_requests,
+            &tools_with_readonly_annotation,
+            &tools_without_annotation,
+        )
+        .await?;
+
+        let mut tool_futures = Vec::new();
+
+        // Process pre-approved tools
+        for (request_id, tool_call) in approved_tools {
+            let is_frontend_tool = agent.is_frontend_tool(&tool_call.name);
+            let tool_future =
+                create_tool_future(extension_manager, tool_call, is_frontend_tool, request_id);
+            tool_futures.push(tool_future);
+        }
+
+        // Use LLM to detect safe tools if in smart_approve mode
+        let mut detected_read_only_tools = Vec::new();
+        if goose_mode == "smart_approve" && !llm_detect_candidates.is_empty() {
+            detected_read_only_tools =
+                detect_safe_tools(agent.provider(), &llm_detect_candidates).await;
+        }
+
+        // Process tools that need confirmation
+        for request in needs_confirmation {
+            if let Ok(tool_call) = &request.tool_call {
+                let is_frontend_tool = agent.is_frontend_tool(&tool_call.name);
+
+                // Skip confirmation if the tool is detected as read-only
+                if detected_read_only_tools.contains(&tool_call.name) {
+                    let tool_future = create_tool_future(
+                        extension_manager,
+                        tool_call.clone(),
+                        is_frontend_tool,
+                        request.id.clone(),
+                    );
+                    tool_futures.push(tool_future);
+                } else {
+                    // Handle confirmation
+                    if let Ok(Some(tool)) = handle_tool_confirmation(agent, request).await {
+                        let tool_future = create_tool_future(
+                            extension_manager,
+                            tool,
+                            is_frontend_tool,
+                            request.id.clone(),
+                        );
+                        tool_futures.push(tool_future);
+                    } else {
+                        // User declined - add declined response
+                        message_tool_response = message_tool_response.with_tool_response(
+                            request.id.clone(),
+                            Ok(vec![Content::text(
+                                "The user has declined to run this tool. \
+                                DO NOT attempt to call this tool again. \
+                                If there are no alternative methods to proceed, clearly explain the situation and STOP.")]),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Wait for all tool calls to complete
+        let results = join_all(tool_futures).await;
+        for (request_id, output) in results {
+            message_tool_response = message_tool_response.with_tool_response(request_id, output);
+        }
     }
 
     Ok((filtered_response, message_tool_response, false))
