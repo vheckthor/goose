@@ -365,7 +365,7 @@ async fn ask_handler(
     }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct PermissionConfirmationRequest {
     id: String,
     confirmed: bool,
@@ -391,6 +391,10 @@ async fn confirm_handler(
     if secret_key != state.secret_key {
         return Err(StatusCode::UNAUTHORIZED);
     }
+    tracing::info!(
+        "Received confirmation request: {}",
+        serde_json::to_string_pretty(&request).unwrap()
+    );
 
     let agent = state.agent.clone();
     let agent = agent.read().await;

@@ -12,7 +12,8 @@ import {
   getToolConfirmationContent,
   createToolErrorResponseMessage,
   createEnableExtensionErrorResponseMessage,
-  getEnableExtensionConfirmationContent,
+  getEnableExtensionContent,
+  getEnableExtensionRequests,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
 import ExtensionConfirmation from './ExtensionConfirmation';
@@ -42,6 +43,10 @@ export default function GooseMessage({
 
   // Get tool requests from the message
   const toolRequests = getToolRequests(message);
+  // console.log('len toolRequests', toolRequests.length);
+
+  const enableExtensionRequests = getEnableExtensionRequests(message);
+  console.log('len enableExtensionRequests', enableExtensionRequests.length);
 
   // Extract URLs under a few conditions
   // 1. The message is purely text
@@ -55,8 +60,14 @@ export default function GooseMessage({
   const toolConfirmationContent = getToolConfirmationContent(message);
   const hasToolConfirmation = toolConfirmationContent !== undefined;
 
-  const enableExtensionConfirmationContent = getEnableExtensionConfirmationContent(message);
-  const hasEnableExtensionConfirmation = enableExtensionConfirmationContent !== undefined;
+  const enableExtensionContent = getEnableExtensionContent(message);
+  const hasEnableExtension = enableExtensionContent !== undefined;
+
+  console.log('hasToolConfirmation', hasToolConfirmation);
+  console.log('toolConfirmationContent', toolConfirmationContent);
+
+  console.log('hasEnableExtension', hasEnableExtension);
+  console.log('enableExtensionContent', enableExtensionContent);
 
   // Find tool responses that correspond to the tool requests in this message
   const toolResponsesMap = useMemo(() => {
@@ -89,10 +100,10 @@ export default function GooseMessage({
       );
     }
 
-    if (messageIndex == messageHistoryIndex - 1 && hasEnableExtensionConfirmation) {
+    if (messageIndex == messageHistoryIndex - 1 && hasEnableExtension) {
       appendMessage(
         createEnableExtensionErrorResponseMessage(
-          enableExtensionConfirmationContent.id,
+          enableExtensionContent.id,
           'The extension enablement is cancelled.'
         )
       );
@@ -146,12 +157,12 @@ export default function GooseMessage({
           />
         )}
 
-        {hasEnableExtensionConfirmation && (
+        {hasEnableExtension && (
           <ExtensionConfirmation
             isCancelledMessage={messageIndex == messageHistoryIndex - 1}
             isClicked={messageIndex < messageHistoryIndex - 1}
-            extensionConfirmationId={enableExtensionConfirmationContent.id}
-            extensionName={enableExtensionConfirmationContent.extensionName}
+            extensionConfirmationId={enableExtensionContent.id}
+            extensionName={enableExtensionContent.extensionName}
           />
         )}
       </div>

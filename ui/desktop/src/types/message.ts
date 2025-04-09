@@ -73,6 +73,7 @@ export interface ToolConfirmationRequestMessageContent {
 export interface EnableExtensionCall {
   name: string;
   arguments: Record<string, unknown>;
+  extensionName: string;
 }
 
 export interface EnableExtensionCallResult<T> {
@@ -102,6 +103,7 @@ export interface EnableExtensionRequestMessageContent {
   type: 'enableExtensionRequest';
   id: string;
   extensionCall: EnableExtensionCallResult<EnableExtensionCall>;
+  extensionName: string;
 }
 
 export interface EnableExtensionResponseMessageContent {
@@ -228,11 +230,13 @@ export function createEnableExtensionRequestMessage(
       {
         type: 'enableExtensionRequest',
         id,
+        extensionName: extensionName,
         extensionCall: {
           status: 'success',
           value: {
             name: extensionName,
             arguments: args,
+            extensionName: extensionName,
           },
         },
       },
@@ -328,12 +332,10 @@ export function getToolConfirmationContent(
   );
 }
 
-export function getEnableExtensionConfirmationContent(
-  message: Message
-): EnableExtensionConfirmationRequestMessageContent {
+export function getEnableExtensionContent(message: Message): EnableExtensionRequestMessageContent {
   return message.content.find(
-    (content): content is EnableExtensionConfirmationRequestMessageContent =>
-      content.type === 'enableExtensionConfirmationRequest'
+    (content): content is EnableExtensionRequestMessageContent =>
+      content.type === 'enableExtensionRequest'
   );
 }
 

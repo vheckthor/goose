@@ -341,9 +341,11 @@ export default function ChatView({
       const hasToolConfirmation = message.content.every(
         (c) => c.type === 'toolConfirmationRequest'
       );
+      const hasEnableExtension = message.content.every((c) => c.type === 'enableExtensionRequest');
 
+      console.log('hasEnableExtension', hasEnableExtension);
       // Keep the message if it has text content or tool confirmation or is not just tool responses
-      return hasTextContent || !hasOnlyToolResponses || hasToolConfirmation;
+      return hasTextContent || !hasOnlyToolResponses || hasToolConfirmation || hasEnableExtension;
     }
 
     return true;
@@ -355,6 +357,9 @@ export default function ChatView({
     }
 
     if (message.content.every((c) => c.type === 'toolConfirmationRequest')) {
+      return false;
+    }
+    if (message.content.every((c) => c.type === 'enableExtensionRequest')) {
       return false;
     }
     return true;

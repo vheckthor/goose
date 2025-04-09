@@ -134,6 +134,7 @@ impl TruncateAgent {
         extension_name: String,
         request_id: String,
     ) -> (String, Result<Vec<Content>, ToolError>) {
+        println!("ENABLE_EXTENSION: {:?}", extension_name);
         let config = match ExtensionManager::get_config_by_name(&extension_name) {
             Ok(Some(config)) => config,
             Ok(None) => {
@@ -281,7 +282,8 @@ impl Agent for TruncateAgent {
             "Searches for additional extensions available to help complete tasks.
             Use this tool when you're unable to find a specific feature or functionality you need to complete your task, or when standard approaches aren't working.
             These extensions might provide the exact tools needed to solve your problem.
-            If you find a relevant one, consider using your tools to enable it.".to_string(),
+            If you find a relevant one, consider using platform__enable_extension to enable it.
+            ".to_string(),
             json!({
                 "type": "object",
                 "required": [],
@@ -296,7 +298,7 @@ impl Agent for TruncateAgent {
             }),
         );
 
-        let enable_extension_tool = Tool::new(
+        let enable_extension = Tool::new(
             "platform__enable_extension".to_string(),
             "Enable extensions to help complete tasks.
             Enable an extension by providing the extension name.
@@ -310,6 +312,28 @@ impl Agent for TruncateAgent {
                 }
             }),
             Some(ToolAnnotations {
+                title: Some("Enable extension".to_string()),
+                read_only_hint: false,
+                destructive_hint: false,
+                idempotent_hint: false,
+                open_world_hint: false,
+            }),
+        );
+
+        let enable_extensions = Tool::new(
+            "platform__enable_extensions".to_string(),
+            "Enable multiple extensions to help complete tasks.
+            Enable extensions by providing a list of extension names.
+            "
+            .to_string(),
+            json!({
+                "type": "object",
+                "required": ["extensions"],
+                "properties": {
+                    "extensions": {"type": "array", "items": {"type": "string"}, "description": "The names of the extensions to enable"}
+                }
+            }),
+            Some(ToolAnnotations {
                 title: Some("Enable extensions".to_string()),
                 read_only_hint: false,
                 destructive_hint: false,
@@ -318,12 +342,15 @@ impl Agent for TruncateAgent {
             }),
         );
 
+        
+
         if capabilities.supports_resources() {
             tools.push(read_resource_tool);
             tools.push(list_resources_tool);
         }
         tools.push(search_available_extensions);
-        tools.push(enable_extension_tool);
+        tools.push(enable_extension);
+        tools.push(enable_extensions);
 
         let (tools_with_readonly_annotation, tools_without_annotation): (Vec<String>, Vec<String>) =
             tools.iter().fold((vec![], vec![]), |mut acc, tool| {
@@ -454,9 +481,11 @@ impl Agent for TruncateAgent {
                             .into_iter()
                             .partition(|req| {
                                 req.tool_call.as_ref()
-                                    .map(|call| call.name == "platform__enable_extension")
+                                    .map(|call| call.name == "platform__enable_extension" || call.name == "platform__enable_extensions")
                                     .unwrap_or(false)
                             });
+
+                        println!("non_enable_extension_requests: {:?}", non_enable_extension_requests);
 
                         let (search_extension_requests, _non_search_extension_requests): (Vec<&ToolRequest>, Vec<&ToolRequest>) = remaining_requests.clone()
                             .into_iter()
@@ -540,12 +569,25 @@ impl Agent for TruncateAgent {
                                     while let Some((req_id, extension_confirmation)) = rx.recv().await {
                                         if req_id == request.id {
                                             if extension_confirmation.permission == Permission::AllowOnce || extension_confirmation.permission == Permission::AlwaysAllow {
-                                                let extension_name = tool_call.arguments.get("extension_name")
-                                                    .and_then(|v| v.as_str())
-                                                    .unwrap_or("")
-                                                    .to_string();
-                                                let install_result = Self::enable_extension(&mut capabilities, extension_name, request.id.clone()).await;
-                                                install_results.push(install_result);
+                                                // Check if the tool call is for enabling multiple extensions
+                                                if let Some(extensions) = tool_call.arguments.get("extensions").and_then(|v| v.as_array()) {
+                                                    for extension_value in extensions {
+                                                        if let Some(extension_name) = extension_value.as_str() {
+                                                            println!("ENABLE_EXTENSION PLURAL: {:?}", extension_name);
+                                                            let install_result = Self::enable_extension(&mut capabilities, extension_name.to_string(), request.id.clone()).await;
+                                                            install_results.push(install_result);
+                                                        }
+                                                    }
+                                                } else {
+                                                    // Handle single extension enablement
+                                                    println!("ENABLE_EXTENSION: {:?}", tool_call.arguments);
+                                                    let extension_name = tool_call.arguments.get("extension_name")
+                                                        .and_then(|v| v.as_str())
+                                                        .unwrap_or("")
+                                                        .to_string();
+                                                    let install_result = Self::enable_extension(&mut capabilities, extension_name, request.id.clone()).await;
+                                                    install_results.push(install_result);
+                                                }
                                             }
                                             break;
                                         }
