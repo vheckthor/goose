@@ -1,4 +1,8 @@
 mod agent;
+mod agent_extension;
+mod agent_message;
+mod agent_permission;
+mod agent_tool_processing;
 pub mod extension;
 pub mod extension_manager;
 pub mod platform_tools;
