@@ -1,8 +1,8 @@
 use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::eval_suites::{
-    collect_baseline_metrics, metrics_hashmap_to_vec, EvalMetricValue, Evaluation,
-    ExtensionRequirements,
+    collect_baseline_metrics, metrics_hashmap_to_vec, EvalMetricValue,
+    Evaluation, ExtensionRequirements,
 };
 use crate::register_evaluation;
 use async_trait::async_trait;
@@ -108,6 +108,7 @@ impl Evaluation for FlappyBird {
         ExtensionRequirements {
             builtin: vec!["developer".to_string()],
             external: Vec::new(),
+            remote: Vec::new(),
         }
     }
 }

@@ -9,6 +9,8 @@ use std::fs;
 use std::future::Future;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 
 #[derive(Clone)]
 pub struct EvalRunner {
@@ -47,6 +49,7 @@ impl EvalRunner {
         let work_dir = BenchmarkWorkDir::new(work_dir_name, include_dir);
         Ok(work_dir)
     }
+
     pub async fn run<F, Fut>(&mut self, agent_generator: F) -> anyhow::Result<()>
     where
         F: Fn(ExtensionRequirements, String) -> Fut,
@@ -66,7 +69,8 @@ impl EvalRunner {
         work_dir.set_eval(&bench_eval.selector, run_id);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
-            let session_id = bench_eval.selector.clone();
+            let now_stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+            let session_id = format!("{}-{}", bench_eval.selector.clone(), now_stamp);
             let mut agent = agent_generator(eval.required_extensions(), session_id).await;
 
             let mut result = EvaluationResult::new(eval.name().to_string());

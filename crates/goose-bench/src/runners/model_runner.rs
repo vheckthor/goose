@@ -4,10 +4,10 @@ use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd, union_hashmaps};
 use anyhow::Context;
-use polars::prelude::*;
+use polars::{prelude::*, io::csv::QuoteStyle};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, read_to_string};
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead};
 use std::path::PathBuf;
 use std::process::Child;
 use std::thread;
@@ -215,12 +215,12 @@ impl ModelRunner {
             .collect();
         series_vec.push(Series::new("eval_name", eval_name_values));
 
-        let run_num_values: Vec<u64> = records
+        let run_num_values: Vec<i64> = records
             .iter()
             .map(|record| {
                 record
                     .get("run_num")
-                    .and_then(|v| v.parse::<u64>().ok())
+                    .and_then(|v| v.parse::<i64>().ok())
                     .unwrap_or(0)
             })
             .collect();
@@ -242,8 +242,22 @@ impl ModelRunner {
                 .map(|record| record.get(column).map(String::as_str).unwrap_or(""))
                 .collect();
 
-            // Try to convert to numeric if possible
-            if let Ok(float_values) = values
+            // Try to convert to appropriate type
+            if column == "total_tool_calls" || column == "total_tokens" || column.starts_with("tool_calls_") {
+                // Handle integer columns
+                if let Ok(int_values) = values
+                    .iter()
+                    .map(|&v| v.parse::<i64>())
+                    .collect::<Result<Vec<i64>, _>>()
+                {
+                    series_vec.push(Series::new(column, int_values));
+                } else {
+                    series_vec.push(Series::new(column, values));
+                }
+            } else if column.starts_with("Complete") || column.starts_with("Git") || column.ends_with("added") || column.ends_with("executed") {
+                // Handle boolean columns as strings to maintain consistency
+                series_vec.push(Series::new(column, values));
+            } else if let Ok(float_values) = values
                 .iter()
                 .map(|&v| v.parse::<f64>())
                 .collect::<Result<Vec<f64>, _>>()
@@ -263,174 +277,150 @@ impl ModelRunner {
             df.height()
         );
 
-        // Get the benchmark directory from the output_dir
-        let benchmark_dir = output_dir.parent().unwrap_or(output_dir);
+        // Important columns that should come first in the CSV
+        let important_columns = vec![
+            "provider",
+            "model_name",
+            "eval_suite",
+            "eval_name",
+            "run_num",
+            "total_tool_calls",
+            "prompt_execution_time_seconds",
+            "total_tokens",
+        ];
 
-        // Find all provider-model directories
-        let entries: Vec<(String, PathBuf)> = fs::read_dir(benchmark_dir)?
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let path = entry.path();
-                let dir_name = path.file_name()?.to_string_lossy().to_string();
+        // Get unique combinations of eval_suite and eval_name
+        let unique_evals = df
+            .clone()
+            .lazy()
+            .select([col("eval_suite"), col("eval_name")])
+            .unique(Some(vec!["eval_suite".to_string(), "eval_name".to_string()]), UniqueKeepStrategy::First)
+            .collect()?;
 
-                if path.is_dir() && dir_name.contains('-') && dir_name != "eval-results" {
-                    Some((dir_name, path))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        println!("unique_evals top rows are: {:?}", unique_evals.head(Some(5)));
 
-        // Process each model directory
-        for (dir_name, model_dir) in entries {
-            let parts: Vec<&str> = dir_name.split('-').collect();
-            if parts.len() < 2 {
-                println!("Skipping directory with invalid format: {}", dir_name);
+        for row_idx in 0..unique_evals.height() {
+            let suite_name = unique_evals
+                .column("eval_suite")?
+                .get(row_idx)
+                .unwrap()
+                .get_str()
+                .unwrap()
+                .to_string();
+            let eval_name = unique_evals
+                .column("eval_name")?
+                .get(row_idx)
+                .unwrap()
+                .get_str()
+                .unwrap()
+                .to_string();
+            println!("Processing evaluation: {}/{}", suite_name, eval_name);
+
+            // Filter DataFrame for current eval
+            let eval_df = df
+                .clone()
+                .lazy()
+                .filter(
+                    col("eval_suite")
+                        .eq(lit(suite_name.as_str()))
+                        .and(col("eval_name").eq(lit(eval_name.as_str())))
+                )
+                .collect()?;
+
+            if eval_df.height() == 0 {
+                println!("No rows found for evaluation: {}/{}", suite_name, eval_name);
                 continue;
             }
 
-            let provider = parts[0].to_string();
-            let model_name = parts[1..].join("-");
+            // Create the CSV file path
+            let sanitized_suite = Self::sanitize_filename(&suite_name);
+            let sanitized_eval = Self::sanitize_filename(&eval_name);
+            let file_path = output_dir.join(format!("{}_{}.csv", sanitized_suite, sanitized_eval));
 
-            // Find all run directories
-            let run_dirs: Vec<(usize, PathBuf)> = fs::read_dir(&model_dir)?
-                .filter_map(|entry| {
-                    let entry = entry.ok()?;
-                    let path = entry.path();
-                    if path.is_dir() {
-                        let name = path.file_name()?.to_string_lossy();
-                        if let Some(run_num) = name.strip_prefix("run-") {
-                            if let Ok(idx) = run_num.parse::<usize>() {
-                                return Some((idx, path));
-                            }
-                        }
-                    }
-                    None
-                })
+            println!("Writing to file: {}", file_path.display());
+
+            // Get all column names and sort them with important columns first
+            let mut columns: Vec<String> = eval_df
+                .get_column_names()
+                .iter()
+                .map(|&s| s.to_string())
                 .collect();
 
-            // Create a map to store data for each evaluation
-            let mut eval_data: HashMap<String, Vec<HashMap<String, String>>> = HashMap::new();
+            columns.sort_by(|a, b| {
+                let a_idx = important_columns.iter().position(|c| c == a);
+                let b_idx = important_columns.iter().position(|c| c == b);
 
-            // Process each run directory
-            for (run_idx, run_dir) in &run_dirs {
-                let summary_file = run_dir.join("run-results-summary.json");
-                if !summary_file.exists() {
-                    println!("Summary file not found: {}", summary_file.display());
-                    continue;
+                match (a_idx, b_idx) {
+                    (Some(a_i), Some(b_i)) => a_i.cmp(&b_i),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => a.cmp(b),
                 }
+            });
 
-                // Read and parse the summary file
-                let content = fs::read_to_string(&summary_file)?;
-                let result: BenchmarkResults = serde_json::from_str(&content)?;
+            // Create a new DataFrame with reordered columns
+            let mut ordered_df = eval_df.select(&columns)?;
 
-                // Process each suite and evaluation
-                for suite in &result.suites {
-                    for eval in &suite.evaluations {
-                        // Create a key for this evaluation
-                        let eval_key = format!("{}_{}", suite.name, eval.name);
-
-                        // Create a record for this run
-                        let mut record = HashMap::new();
-                        record.insert("provider".to_string(), provider.clone());
-                        record.insert("model_name".to_string(), model_name.clone());
-                        record.insert("eval_suite".to_string(), suite.name.clone());
-                        record.insert("eval_name".to_string(), eval.name.clone());
-                        record.insert("run_num".to_string(), run_idx.to_string());
-
-                        // Add metrics
-                        for (metric_name, value) in &eval.metrics {
-                            record.insert(metric_name.clone(), value.to_string());
+            // Check if file exists and merge with existing data if it does
+            if file_path.exists() {
+                println!("Found existing file, merging data...");
+                // Read existing CSV and cast boolean columns to strings
+                let mut existing_df = CsvReader::from_path(&file_path)?.has_header(true).finish()?;
+                
+                // Convert any boolean columns to strings
+                let column_names: Vec<String> = existing_df.get_column_names().iter().map(|&s| s.to_string()).collect();
+                for col_name in column_names {
+                    if let Ok(col) = existing_df.column(&col_name) {
+                        if matches!(col.dtype(), DataType::Boolean) {
+                            let str_values: Vec<String> = col
+                                .bool()?
+                                .into_iter()
+                                .map(|opt_val| opt_val.map(|v| v.to_string()).unwrap_or_default())
+                                .collect();
+                            existing_df.replace(&col_name, Series::new(&col_name, str_values))?;
                         }
-
-                        // Add to the eval_data map
-                        eval_data
-                            .entry(eval_key)
-                            .or_insert_with(Vec::new)
-                            .push(record);
                     }
                 }
+                
+                // Combine existing and new data, dropping duplicates
+                let concat_df = concat(
+                    &[existing_df.lazy(), ordered_df.lazy()],
+                    UnionArgs {
+                        parallel: true,
+                        ..Default::default()
+                    }
+                )?;
+                
+                ordered_df = concat_df
+                    .unique(
+                        Some(vec![
+                            "provider".to_string(),
+                            "model_name".to_string(),
+                            "eval_suite".to_string(),
+                            "eval_name".to_string(),
+                            "run_num".to_string()
+                        ]),
+                        UniqueKeepStrategy::First
+                    )
+                    .collect()?;
             }
 
-            // Write CSV files for each evaluation
-            for (eval_key, records) in eval_data {
-                if records.is_empty() {
-                    continue;
-                }
-
-                // Get the suite and eval names from the first record
-                let suite_name = records[0].get("eval_suite").unwrap().clone();
-                let eval_name = records[0].get("eval_name").unwrap().clone();
-
-                println!("Processing evaluation: {}/{}", suite_name, eval_name);
-
-                // Create the CSV file
-                let sanitized_suite = Self::sanitize_filename(&suite_name);
-                let sanitized_eval = Self::sanitize_filename(&eval_name);
-                let file_path =
-                    output_dir.join(format!("{}_{}.csv", sanitized_suite, sanitized_eval));
-
-                println!("Writing to file: {}", file_path.display());
-
-                // Write directly to the file using standard Rust file I/O
-                let file = std::fs::File::create(&file_path)?;
-                let mut writer = std::io::BufWriter::new(file);
-
-                // Get all column names
-                let mut columns = HashSet::new();
-                for record in &records {
-                    for key in record.keys() {
-                        columns.insert(key.clone());
-                    }
-                }
-
-                // Sort columns to ensure consistent order
-                let mut column_list: Vec<String> = columns.into_iter().collect();
-                column_list.sort();
-
-                // Ensure important columns come first
-                let important_columns = vec![
-                    "provider",
-                    "model_name",
-                    "eval_suite",
-                    "eval_name",
-                    "run_num",
-                    "total_tool_calls",
-                    "prompt_execution_time_seconds",
-                    "total_tokens",
-                ];
-
-                // Reorder columns to put important ones first
-                column_list.sort_by(|a, b| {
-                    let a_idx = important_columns.iter().position(|c| c == a);
-                    let b_idx = important_columns.iter().position(|c| c == b);
-
-                    match (a_idx, b_idx) {
-                        (Some(a_i), Some(b_i)) => a_i.cmp(&b_i),
-                        (Some(_), None) => std::cmp::Ordering::Less,
-                        (None, Some(_)) => std::cmp::Ordering::Greater,
-                        (None, None) => a.cmp(b),
-                    }
-                });
-
-                // Write CSV header
-                writeln!(writer, "{}", column_list.join(","))?;
-
-                // Write data rows
-                for record in records {
-                    let row: Vec<String> = column_list
-                        .iter()
-                        .map(|col| record.get(col).cloned().unwrap_or_default())
-                        .collect();
-
-                    writeln!(writer, "{}", row.join(","))?;
-                }
-
-                // Flush the writer to ensure all data is written
-                writer.flush()?;
-
-                println!("Successfully wrote file: {}", file_path.display());
+            // Write to CSV atomically using a temporary file
+            let temp_path: PathBuf = file_path.with_extension("csv.tmp");
+            {
+                let mut file = std::fs::File::create(&temp_path)?;
+                CsvWriter::new(&mut file)
+                    .include_header(true)
+                    .with_separator(b',')
+                    .with_quote_style(QuoteStyle::NonNumeric)
+                    .finish(&mut ordered_df)?;
+                file.sync_all()?;
             }
+
+            // Atomically rename temp file to final file
+            fs::rename(temp_path, file_path)?;
+
+            println!("Successfully wrote file with {} rows", ordered_df.height());
         }
 
         Ok(())
@@ -479,6 +469,7 @@ impl ModelRunner {
         CsvWriter::new(&mut file)
             .include_header(true)
             .with_separator(b',')
+            .with_quote_style(QuoteStyle::NonNumeric)
             .finish(&mut agg_df)?;
 
         Ok(())
