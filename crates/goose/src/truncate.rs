@@ -433,7 +433,7 @@ mod tests {
         )?;
 
         // Verify the conversation still makes sense
-        assert!(messages.len() >= 1);
+        assert!(!messages.is_empty());
         assert!(messages.last().unwrap().role == Role::User);
         assert!(token_counts.iter().sum::<usize>() <= context_limit);
 

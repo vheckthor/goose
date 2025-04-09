@@ -5,7 +5,7 @@ use crate::agents::extension_manager::ExtensionManager;
 use crate::config::ExtensionConfigManager;
 use crate::message::ToolRequest;
 
-use mcp_core::{tool::Tool, Content, ToolError, ToolResult};
+use mcp_core::{tool::Tool, Content, ToolError};
 
 /// Handle the installation of an extension
 pub async fn handle_extension_installation(

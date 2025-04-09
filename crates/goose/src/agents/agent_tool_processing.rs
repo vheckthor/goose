@@ -19,7 +19,7 @@ pub fn categorize_tool_requests<'a>(
     Vec<&'a ToolRequest>,
     Vec<&'a ToolRequest>,
 ) {
-    let mut frontend_requests = Vec::new();
+    let frontend_requests = Vec::new();
     let mut extension_requests = Vec::new();
     let mut standard_requests = Vec::new();
 
