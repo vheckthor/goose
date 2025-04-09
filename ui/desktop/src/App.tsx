@@ -25,7 +25,7 @@ import ConfigureProvidersView from './components/settings/providers/ConfigurePro
 import SessionsView from './components/sessions/SessionsView';
 import SharedSessionView from './components/sessions/SharedSessionView';
 import ProviderSettings from './components/settings_v2/providers/ProviderSettingsPage';
-import GooselingEditor from './components/GooselingEditor';
+import RecipeEditor from './components/RecipeEditor';
 import { useChat } from './hooks/useChat';
 import { addExtension as addExtensionDirect, FullExtensionConfig } from './extensions';
 
@@ -45,7 +45,7 @@ export type View =
   | 'settingsV2'
   | 'sessions'
   | 'sharedSession'
-  | 'gooselingEditor';
+  | 'recipeEditor';
 
 export type ViewConfig = {
   view: View;
@@ -62,9 +62,9 @@ const getInitialView = (): ViewConfig => {
   const viewFromUrl = urlParams.get('view');
   const windowConfig = window.electron.getConfig();
 
-  if (viewFromUrl === 'gooselingEditor' && windowConfig?.botConfig) {
+  if (viewFromUrl === 'recipeEditor' && windowConfig?.botConfig) {
     return {
-      view: 'gooselingEditor',
+      view: 'recipeEditor',
       viewOptions: {
         config: windowConfig.botConfig,
       },
@@ -127,7 +127,7 @@ export default function App() {
     }
   };
 
-  // Function to restore original extension states for new non-gooseling windows
+  // Function to restore original extension states for new non-recipe windows
   const restoreOriginalExtensionStates = () => {
     const backupStr = localStorage.getItem('user_settings_backup');
     if (backupStr) {
@@ -375,7 +375,7 @@ export default function App() {
       // Get the config from the electron window config
       const windowConfig = window.electron.getConfig();
 
-      if (viewFromUrl === 'gooselingEditor') {
+      if (viewFromUrl === 'recipeEditor') {
         const initialViewOptions = {
           botConfig: windowConfig?.botConfig,
           view: viewFromUrl,
@@ -393,7 +393,7 @@ export default function App() {
   // Add cleanup for session states when view changes
   useEffect(() => {
     console.log(`View changed to: ${view}`);
-    if (view !== 'chat' && view !== 'gooselingEditor') {
+    if (view !== 'chat' && view !== 'recipeEditor') {
       console.log('Not in chat view, clearing loading session state');
       setIsLoadingSession(false);
     }
@@ -462,16 +462,16 @@ export default function App() {
     const botConfig = window.appConfig.get('botConfig');
 
     // Handle bot config extensions first
-    if (botConfig?.extensions?.length > 0 && viewType != 'gooselingEditor') {
+    if (botConfig?.extensions?.length > 0 && viewType != 'recipeEditor') {
       console.log('Found extensions in bot config:', botConfig.extensions);
       enableBotConfigExtensions(botConfig.extensions);
     }
 
     // If we have a specific view type in the URL, use that and skip provider detection
     if (viewType) {
-      if (viewType === 'gooselingEditor' && botConfig) {
-        console.log('Setting view to gooselingEditor with config:', botConfig);
-        setView('gooselingEditor', { config: botConfig });
+      if (viewType === 'recipeEditor' && botConfig) {
+        console.log('Setting view to recipeEditor with config:', botConfig);
+        setView('recipeEditor', { config: botConfig });
       } else {
         setView(viewType as View);
       }
@@ -674,21 +674,21 @@ export default function App() {
               }}
             />
           )}
-          {view === 'gooselingEditor' && (
-            <GooselingEditor
+          {view === 'recipeEditor' && (
+            <RecipeEditor
               key={viewOptions?.config ? 'with-config' : 'no-config'}
               config={viewOptions?.config || window.electron.getConfig().botConfig}
               onClose={() => setView('chat')}
               setView={setView}
               onSave={(config) => {
-                console.log('Saving gooseling config:', config);
+                console.log('Saving recipe config:', config);
                 window.electron.createChatWindow(
                   undefined,
                   undefined,
                   undefined,
                   undefined,
                   config,
-                  'gooselingEditor',
+                  'recipeEditor',
                   { config }
                 );
                 setView('chat');

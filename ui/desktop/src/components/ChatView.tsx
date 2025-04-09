@@ -12,13 +12,13 @@ import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import UserMessage from './UserMessage';
 import Splash from './Splash';
 import { SearchView } from './conversation/SearchView';
-import { createGooseling } from '../gooseling';
+import { createRecipe } from '../recipe';
 import { AgentHeader } from './AgentHeader';
 import LayingEggLoader from './LayingEggLoader';
-// import { configureGooselingExtensions } from '../utils/gooselingExtensions';
+// import { configureRecipeExtensions } from '../utils/recipeExtensions';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
-import { Gooseling } from '../gooseling';
+import { Recipe } from '../recipe';
 import {
   Message,
   createUserMessage,
@@ -56,11 +56,11 @@ export default function ChatView({
   const [hasMessages, setHasMessages] = useState(false);
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
   const [showGame, setShowGame] = useState(false);
-  const [isGeneratingGooseling, setIsGeneratingGooseling] = useState(false);
+  const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
   // Get botConfig directly from appConfig
-  const botConfig = window.appConfig.get('botConfig') as Gooseling | null;
+  const botConfig = window.appConfig.get('botConfig') as Recipe | null;
 
   const {
     messages,
@@ -105,32 +105,32 @@ export default function ChatView({
   // Listen for make-agent-from-chat event
   useEffect(() => {
     const handleMakeAgent = async () => {
-      window.electron.logInfo('Making gooseling from chat...');
-      setIsGeneratingGooseling(true);
+      window.electron.logInfo('Making recipe from chat...');
+      setIsGeneratingRecipe(true);
 
       try {
-        // Create gooseling directly from chat messages
-        const createGooselingRequest = {
+        // Create recipe directly from chat messages
+        const createRecipeRequest = {
           messages: messages,
-          title: 'Custom Gooseling',
+          title: 'Custom Recipe',
           description: 'Created from chat session',
         };
 
-        const response = await createGooseling(createGooselingRequest);
+        const response = await createRecipe(createRecipeRequest);
 
         if (response.error) {
-          throw new Error(`Failed to create gooseling: ${response.error}`);
+          throw new Error(`Failed to create recipe: ${response.error}`);
         }
 
-        window.electron.logInfo('Created gooseling:');
-        window.electron.logInfo(JSON.stringify(response.gooseling, null, 2));
+        window.electron.logInfo('Created recipe:');
+        window.electron.logInfo(JSON.stringify(response.recipe, null, 2));
 
-        // Create a new window for the gooseling editor
-        console.log('Opening gooseling editor with config:', response.gooseling);
+        // Create a new window for the recipe editor
+        console.log('Opening recipe editor with config:', response.recipe);
 
-        // First, verify the gooseling data
-        if (!response.gooseling || !response.gooseling.title) {
-          throw new Error('Invalid gooseling data received');
+        // First, verify the recipe data
+        if (!response.recipe || !response.recipe.title) {
+          throw new Error('Invalid recipe data received');
         }
 
         window.electron.createChatWindow(
@@ -138,16 +138,16 @@ export default function ChatView({
           undefined, // dir
           undefined, // version
           undefined, // resumeSessionId
-          response.gooseling, // gooseling config
-          'gooselingEditor' // view type
+          response.recipe, // recipe config
+          'recipeEditor' // view type
         );
 
-        window.electron.logInfo('Opening gooseling editor window');
+        window.electron.logInfo('Opening recipe editor window');
       } catch (error) {
-        window.electron.logInfo('Failed to create gooseling:');
+        window.electron.logInfo('Failed to create recipe:');
         window.electron.logInfo(error.message);
       } finally {
-        setIsGeneratingGooseling(false);
+        setIsGeneratingRecipe(false);
       }
     };
 
@@ -329,8 +329,8 @@ export default function ChatView({
 
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
-      {/* Loader when generating gooseling */}
-      {isGeneratingGooseling && <LayingEggLoader />}
+      {/* Loader when generating recipe */}
+      {isGeneratingRecipe && <LayingEggLoader />}
       <div className="relative flex items-center h-[36px] w-full">
         <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
       </div>

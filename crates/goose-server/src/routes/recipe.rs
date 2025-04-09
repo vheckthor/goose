@@ -7,14 +7,14 @@ use axum::{
 use std::collections::HashMap;
 use goose::agents::extension::Envs;
 use goose::config::ExtensionConfig;
-use goose::gooselings::Gooseling;
+use goose::recipe::Recipe;
 use goose::message::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
-pub struct CreateGooselingRequest {
+pub struct CreateRecipeRequest {
     messages: Vec<Message>,
     // Required metadata
     title: String,
@@ -35,46 +35,46 @@ pub struct AuthorRequest {
 }
 
 #[derive(Debug, Serialize)]
-pub struct CreateGooselingResponse {
-    gooseling: Option<Gooseling>,
+pub struct CreateRecipeResponse {
+    recipe: Option<Recipe>,
     error: Option<String>,
 }
 
-/// Create a Gooseling configuration from the current state of an agent
-async fn create_gooseling(
+/// Create a Recipe configuration from the current state of an agent
+async fn create_recipe(
     State(state): State<AppState>,
-    Json(request): Json<CreateGooselingRequest>,
-) -> Result<Json<CreateGooselingResponse>, StatusCode> {
+    Json(request): Json<CreateRecipeRequest>,
+) -> Result<Json<CreateRecipeResponse>, StatusCode> {
     let agent = state.agent.read().await;
     let agent = agent.as_ref().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
     
-    // Create base gooseling from agent state and messages
-    let gooseling_result = agent.create_gooseling(request.messages).await;
+    // Create base recipe from agent state and messages
+    let recipe_result = agent.create_recipe(request.messages).await;
     
-    match gooseling_result {
-        Ok(mut gooseling) => {
+    match recipe_result {
+        Ok(mut recipe) => {
             // Update with user-provided metadata
-            gooseling.title = request.title;
-            gooseling.description = request.description;
+            recipe.title = request.title;
+            recipe.description = request.description;
             if request.activities.is_some() {
-                gooseling.activities = request.activities
+                recipe.activities = request.activities
             };
             
             // Add author if provided
             if let Some(author_req) = request.author {
-                gooseling.author = Some(goose::gooselings::Author {
+                recipe.author = Some(goose::recipe::Author {
                     contact: author_req.contact,
                     metadata: author_req.metadata,
                 });
             }
 
-            Ok(Json(CreateGooselingResponse { 
-                gooseling: Some(gooseling),
+            Ok(Json(CreateRecipeResponse { 
+                recipe: Some(recipe),
                 error: None
             }))
         },
-        Err(e) => Ok(Json(CreateGooselingResponse {
-            gooseling: None,
+        Err(e) => Ok(Json(CreateRecipeResponse {
+            recipe: None,
             error: Some(e.to_string())
         }))
     }
@@ -82,6 +82,6 @@ async fn create_gooseling(
 
 pub fn routes(state: AppState) -> Router {
     Router::new()
-        .route("/gooseling/create", post(create_gooseling))
+        .route("/recipe/create", post(create_recipe))
         .with_state(state)
 }

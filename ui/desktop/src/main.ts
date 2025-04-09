@@ -50,7 +50,7 @@ app.on('open-url', async (event, url) => {
 
   pendingDeepLink = url;
 
-  if (parsedUrl.hostname !== 'bot' && parsedUrl.hostname !== 'gooseling') {
+  if (parsedUrl.hostname !== 'bot' && parsedUrl.hostname !== 'recipe') {
     // For non URL types, reuse existing window if available
     const existingWindows = BrowserWindow.getAllWindows();
     if (existingWindows.length > 0) {
@@ -67,7 +67,7 @@ app.on('open-url', async (event, url) => {
     firstOpenWindow.webContents.send('add-extension', pendingDeepLink);
   } else if (parsedUrl.hostname === 'sessions') {
     firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
-  } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'gooseling') {
+  } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
     let botConfig = null;
     const configParam = parsedUrl.searchParams.get('config');
     if (configParam) {
@@ -78,8 +78,8 @@ app.on('open-url', async (event, url) => {
         console.error('Failed to parse bot config:', e);
       }
     }
-    // Always create a new window for bot URLs, with gooselingEditor view for gooseling
-    const viewType = parsedUrl.hostname === 'gooseling' ? 'gooselingEditor' : undefined;
+    // Always create a new window for bot URLs, with recipeEditor view for recipe
+    const viewType = parsedUrl.hostname === 'recipe' ? 'recipeEditor' : undefined;
     firstOpenWindow = await createChat(
       app,
       undefined,
@@ -166,8 +166,8 @@ const createChat = async (
   let working_dir = '';
   let goosedProcess = null;
 
-  if (viewType === 'gooselingEditor') {
-    // For gooselingEditor, get the port from existing windows' config
+  if (viewType === 'recipeEditor') {
+    // For recipeEditor, get the port from existing windows' config
     const existingWindows = BrowserWindow.getAllWindows();
     if (existingWindows.length > 0) {
       // Get the config from localStorage through an existing window
@@ -185,8 +185,8 @@ const createChat = async (
       }
     }
     if (port === 0) {
-      console.error('No existing Goose process found for gooselingEditor');
-      throw new Error('Cannot create gooselingEditor window: No existing Goose process found');
+      console.error('No existing Goose process found for recipeEditor');
+      throw new Error('Cannot create recipeEditor window: No existing Goose process found');
     }
   } else {
     // Apply current environment settings before creating chat
@@ -637,7 +637,7 @@ app.whenReady().then(async () => {
       // Log the botConfig for debugging
       console.log('Creating chat window with botConfig:', botConfig);
 
-      // Pass botConfig as part of viewOptions when viewType is gooselingEditor
+      // Pass botConfig as part of viewOptions when viewType is recipeEditor
       createChat(app, query, dir, version, resumeSessionId, botConfig, viewType);
     }
   );

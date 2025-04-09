@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Gooseling } from '../gooseling';
+import { Recipe } from '../recipe';
 import { Buffer } from 'buffer';
 import { type View } from '../App';
 import { ExtensionItem } from './settings/extensions/ExtensionItem';
@@ -10,27 +10,22 @@ import { Bars } from './icons/Bars';
 import { Geese } from './icons/Geese';
 import Copy from './icons/Copy';
 
-interface GooselingEditorProps {
-  config?: Gooseling;
+interface RecipeEditorProps {
+  config?: Recipe;
   onClose: () => void;
-  onSave?: (config: Gooseling) => void;
+  onSave?: (config: Recipe) => void;
   setView: (view: View, viewOptions?: Record<string, any>) => void;
 }
 
-// Function to generate a deep link from a gooseling
-function generateDeepLink(gooseling: Gooseling): string {
-  const configBase64 = Buffer.from(JSON.stringify(gooseling)).toString('base64');
+// Function to generate a deep link from a recipe
+function generateDeepLink(recipe: Recipe): string {
+  const configBase64 = Buffer.from(JSON.stringify(recipe)).toString('base64');
   return `goose://bot?config=${configBase64}`;
 }
 
-export default function GooselingEditor({
-  config,
-  onClose,
-  onSave,
-  setView,
-}: GooselingEditorProps) {
+export default function RecipeEditor({ config, onClose, onSave, setView }: RecipeEditorProps) {
   // State management
-  const [botConfig, setBotConfig] = useState<Gooseling | undefined>(config);
+  const [botConfig, setBotConfig] = useState<Recipe | undefined>(config);
   const [title, setTitle] = useState(config?.title || '');
   const [description, setDescription] = useState(config?.description || '');
   const [instructions, setInstructions] = useState(config?.instructions || '');
@@ -78,7 +73,7 @@ export default function GooselingEditor({
     setActivities((prev) => prev.filter((a) => a !== activity));
   };
 
-  const getCurrentConfig = (): Gooseling => ({
+  const getCurrentConfig = (): Recipe => ({
     ...botConfig,
     title,
     description,

@@ -2,7 +2,7 @@ import { Message } from '../types/message';
 import { getApiUrl } from '../config';
 import { FullExtensionConfig } from '../extensions';
 
-export interface Gooseling {
+export interface Recipe {
   title: string;
   description: string;
   instructions: string;
@@ -16,7 +16,7 @@ export interface Gooseling {
   context?: string[];
 }
 
-export interface CreateGooselingRequest {
+export interface CreateRecipeRequest {
   messages: Message[];
   title: string;
   description: string;
@@ -27,16 +27,14 @@ export interface CreateGooselingRequest {
   };
 }
 
-export interface CreateGooselingResponse {
-  gooseling: Gooseling | null;
+export interface CreateRecipeResponse {
+  recipe: Recipe | null;
   error: string | null;
 }
 
-export async function createGooseling(
-  request: CreateGooselingRequest
-): Promise<CreateGooselingResponse> {
-  const url = getApiUrl('/gooseling/create');
-  console.log('Creating gooseling at:', url);
+export async function createRecipe(request: CreateRecipeRequest): Promise<CreateRecipeResponse> {
+  const url = getApiUrl('/recipe/create');
+  console.log('Creating recipe at:', url);
   console.log('Request:', JSON.stringify(request, null, 2));
 
   const response = await fetch(url, {
@@ -49,12 +47,12 @@ export async function createGooseling(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Failed to create gooseling:', {
+    console.error('Failed to create recipe:', {
       status: response.status,
       statusText: response.statusText,
       error: errorText,
     });
-    throw new Error(`Failed to create gooseling: ${response.statusText} (${errorText})`);
+    throw new Error(`Failed to create recipe: ${response.statusText} (${errorText})`);
   }
 
   return response.json();
