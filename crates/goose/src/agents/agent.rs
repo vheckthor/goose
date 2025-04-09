@@ -237,7 +237,6 @@ impl Agent {
         (request_id, result)
     }
 
-    // Previously, the agent trait was implemented here but now they're methods in the Agent struct
 
     pub async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
         match &extension {
@@ -257,6 +256,11 @@ impl Agent {
                 // Store instructions if provided, using "frontend" as the key
                 if let Some(instructions) = instructions {
                     self.frontend_instructions = Some(instructions.clone());
+                } else {
+                    // Default frontend instructions if none provided
+                    self.frontend_instructions = Some(
+                        "The following tools are provided directly by the frontend and will be executed by the frontend when called.".to_string(),
+                    );
                 }
             }
             _ => {

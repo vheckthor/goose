@@ -1,4 +1,3 @@
-// agent/prompt_builder.rs
 use chrono::Utc;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -48,15 +47,14 @@ impl PromptManager {
         let mut extensions_info = extensions_info.clone();
 
         // Add frontend tools as a special extension if any exist
-        let frontend_instructions = frontend_instructions.unwrap_or(
-            "The following tools are provided directly by the frontend and will be executed by the frontend when called.".to_string()
-        );
-        extensions_info.push(ExtensionInfo::new(
-            "frontend",
-            &frontend_instructions,
-            false,
-        ));
-
+        if let Some(frontend_instructions) = frontend_instructions {
+            extensions_info.push(ExtensionInfo::new(
+                "frontend",
+                &frontend_instructions,
+                false,
+            ));
+        }
+        
         context.insert("extensions", serde_json::to_value(extensions_info).unwrap());
 
         let current_date_time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
