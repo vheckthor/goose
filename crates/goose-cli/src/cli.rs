@@ -114,6 +114,19 @@ pub enum BenchCommand {
         #[arg(short, long, help = "A serialized config file for the eval only.")]
         config: String,
     },
+
+    #[command(
+        name = "generate-csv",
+        about = "Generate CSV aggregations from existing benchmark results"
+    )]
+    GenerateCsv {
+        #[arg(
+            short,
+            long,
+            help = "Path to the benchmark directory containing run results"
+        )]
+        benchmark_dir: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -412,6 +425,9 @@ pub async fn cli() -> Result<()> {
                 BenchCommand::EvalModel { config } => ModelRunner::from(config)?.run()?,
                 BenchCommand::ExecEval { config } => {
                     EvalRunner::from(config)?.run(agent_generator).await?
+                }
+                BenchCommand::GenerateCsv { benchmark_dir } => {
+                    ModelRunner::generate_csv_from_benchmark_dir(&benchmark_dir)?
                 }
             }
             return Ok(());
