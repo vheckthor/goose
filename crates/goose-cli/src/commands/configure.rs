@@ -3,7 +3,8 @@ use console::style;
 use goose::agents::{extension::Envs, ExtensionConfig};
 use goose::config::extensions::name_to_key;
 use goose::config::{
-    Config, ConfigError, ExperimentManager, ExtensionEntry, ExtensionConfigManager, PermissionManager,
+    Config, ConfigError, ExperimentManager, ExtensionConfigManager, ExtensionEntry,
+    PermissionManager,
 };
 use goose::message::Message;
 use goose::providers::{create, providers};

@@ -11,6 +11,12 @@ pub struct PromptManager {
     system_prompt_extras: Vec<String>,
 }
 
+impl Default for PromptManager {
+    fn default() -> Self {
+        PromptManager::new()
+    }
+}
+
 impl PromptManager {
     pub fn new() -> Self {
         PromptManager {
