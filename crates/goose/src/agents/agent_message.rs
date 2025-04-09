@@ -16,7 +16,7 @@ use crate::message::{Message, ToolRequest};
 use crate::providers::errors::ProviderError;
 use crate::session;
 
-use mcp_core::{tool::Tool, Content};
+use mcp_core::{tool::Tool, tool::ToolCall, Content};
 
 /// Process the response from the provider and handle any tool requests.
 ///
@@ -43,6 +43,8 @@ use mcp_core::{tool::Tool, Content};
 /// * `should_break`: A boolean indicating whether to break the reply loop:
 ///   - `true` if there are no tool requests or all tool requests have been handled
 ///   - `false` if there are more tool requests to process and the loop should continue
+/// * `frontend_requests`: Frontend tool requests that need to be yielded
+/// * `confirmation_requests`: Confirmation requests that need to be yielded
 ///
 /// # Errors
 ///
@@ -54,7 +56,13 @@ pub async fn process_provider_response(
     config: &Config,
     tools: &mut Vec<Tool>,
     system_prompt: &mut String,
-) -> Result<(Message, Message, bool)> {
+) -> Result<(
+    Message,
+    Message,
+    bool,
+    Vec<(String, ToolCall)>,
+    Vec<(String, Message)>,
+)> {
     // Get the goose_mode from config
     let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
@@ -85,7 +93,7 @@ pub async fn process_provider_response(
         .collect();
 
     if tool_requests.is_empty() {
-        return Ok((filtered_response, Message::user(), true));
+        return Ok((filtered_response, Message::user(), true, vec![], vec![]));
     }
 
     // Categorize tool requests
@@ -93,7 +101,8 @@ pub async fn process_provider_response(
         categorize_tool_requests(agent, &tool_requests);
 
     // Process frontend tools
-    let mut message_tool_response = process_frontend_tools(agent, &frontend_requests).await?;
+    let (mut message_tool_response, frontend_tool_requests) =
+        process_frontend_tools(agent, &frontend_requests).await?;
 
     // Process extension tools
     let extension_response = process_extension_tools(
@@ -109,6 +118,9 @@ pub async fn process_provider_response(
     for content in extension_response.content {
         message_tool_response.content.push(content);
     }
+
+    // Collect confirmation requests
+    let mut confirmation_requests = Vec::new();
 
     // Process standard tools based on goose_mode
     if goose_mode == "auto" || goose_mode == "chat" {
@@ -183,7 +195,11 @@ pub async fn process_provider_response(
                     tool_futures.push(tool_future);
                 } else {
                     // Handle confirmation
-                    if let Ok(Some(tool)) = handle_tool_confirmation(agent, request).await {
+                    let (tool_opt, confirmation_opt) =
+                        handle_tool_confirmation(agent, request).await?;
+
+                    if let Some(tool) = tool_opt {
+                        // Tool was already approved
                         let tool_future = create_tool_future(
                             extension_manager,
                             tool,
@@ -191,6 +207,9 @@ pub async fn process_provider_response(
                             request.id.clone(),
                         );
                         tool_futures.push(tool_future);
+                    } else if let Some(confirmation) = confirmation_opt {
+                        // Need to request confirmation
+                        confirmation_requests.push(confirmation);
                     } else {
                         // User declined - add declined response
                         message_tool_response = message_tool_response.with_tool_response(
@@ -212,7 +231,13 @@ pub async fn process_provider_response(
         }
     }
 
-    Ok((filtered_response, message_tool_response, false))
+    Ok((
+        filtered_response,
+        message_tool_response,
+        false,
+        frontend_tool_requests,
+        confirmation_requests,
+    ))
 }
 
 /// Update session metrics after a response

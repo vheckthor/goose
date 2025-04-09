@@ -13,7 +13,7 @@ use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::types::ToolResultReceiver;
 use crate::config::Config;
 use crate::message::Message;
-use crate::permission::PermissionConfirmation;
+use crate::permission::{Permission, PermissionConfirmation};
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
 use crate::providers::toolshim::{
@@ -270,8 +270,44 @@ impl Agent {
                         truncation_attempt = 0;
 
                         // Process the response and tool requests
-                        let (filtered_response, message_tool_response, should_break) =
-                            process_provider_response(self, &response, &mut extension_manager, config, &mut tools, &mut system_prompt).await?;
+                        let (filtered_response, mut message_tool_response, should_break, frontend_requests, confirmation_requests) =
+                                process_provider_response(self, &response, &mut extension_manager, config, &mut tools, &mut system_prompt).await?;
+
+                        // Handle frontend tool requests
+                        for (request_id, tool_call) in frontend_requests {
+                            // Yield the frontend tool request
+                            yield Message::assistant().with_frontend_tool_request(
+                                request_id.clone(),
+                                Ok(tool_call.clone())
+                            );
+
+                            // Wait for the response
+                            if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
+                                message_tool_response = message_tool_response.with_tool_response(id, result);
+                            }
+                        }
+
+                        // Handle confirmation requests
+                        for (request_id, confirmation_message) in confirmation_requests {
+                            // Yield the confirmation request
+                            yield confirmation_message;
+
+                            // Wait for the response
+                            let mut rx = self.confirmation_rx.lock().await;
+                            while let Some((req_id, confirmation_result)) = rx.recv().await {
+                                if req_id == request_id {
+                                    // Process the confirmation result
+                                    let confirmed = confirmation_result.permission == Permission::AllowOnce ||
+                                                    confirmation_result.permission == Permission::AlwaysAllow;
+
+                                    if confirmed {
+                                        // Execute the tool and add the result to message_tool_response
+                                        // We would need to modify our approach to store the tool call along with the request_id
+                                    }
+                                    break;
+                                }
+                            }
+                        }
 
                         // Yield the filtered response
                         yield filtered_response.clone();

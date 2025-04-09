@@ -82,7 +82,7 @@ pub async fn handle_truncation_error(
     // Call our standalone truncate_messages function
     if let Err(err) = truncate_messages(
         &agent.provider(),
-        &agent.token_counter(),
+        agent.token_counter(),
         messages,
         estimate_factor,
         system_prompt,

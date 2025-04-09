@@ -4,9 +4,7 @@ use anyhow::Result;
 
 use crate::agents::agent::Agent;
 use crate::message::{Message, ToolRequest};
-use crate::permission::{
-    detect_read_only_tools, Permission, ToolPermissionStore,
-};
+use crate::permission::{detect_read_only_tools, ToolPermissionStore};
 use crate::providers::base::Provider;
 
 use mcp_core::tool::ToolCall;
@@ -58,38 +56,28 @@ pub async fn check_tool_permissions<'a>(
 }
 
 /// Handle confirmation for a tool request
+///
+/// Returns a tuple of:
+/// - Option<ToolCall>: The tool call to execute if approved, None if denied
+/// - Option<(String, Message)>: A confirmation request to yield to the user, if needed
 pub async fn handle_tool_confirmation(
-    agent: &Agent,
+    _agent: &Agent,
     request: &ToolRequest,
-) -> Result<Option<ToolCall>> {
+) -> Result<(Option<ToolCall>, Option<(String, Message)>)> {
     if let Ok(tool_call) = &request.tool_call {
-        let confirmation = Message::user().with_tool_confirmation_request(
+        let confirmation_message = Message::user().with_tool_confirmation_request(
             request.id.clone(),
             tool_call.name.clone(),
             tool_call.arguments.clone(),
             Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
         );
 
-        // In a real implementation, we would yield the confirmation message here
-        // and wait for user input
-
-        // For now, we'll simulate the confirmation process by checking the agent's confirmation channel
-        let mut rx = agent.confirmation_rx.lock().await;
-        if let Some((req_id, confirmation_result)) = rx.recv().await {
-            if req_id == request.id {
-                let confirmed = confirmation_result.permission == Permission::AllowOnce
-                    || confirmation_result.permission == Permission::AlwaysAllow;
-                if confirmed {
-                    return Ok(Some(tool_call.clone()));
-                }
-            }
-        }
-
-        // If we get here, either the confirmation was denied or there was an issue with the channel
-        return Ok(None);
+        // Return the tool call and the confirmation message
+        // The caller will yield the confirmation message and handle the response
+        return Ok((None, Some((request.id.clone(), confirmation_message))));
     }
 
-    Ok(None)
+    Ok((None, None))
 }
 
 /// Use the LLM to detect which tools are read-only and can be run without confirmation

@@ -9,7 +9,6 @@ use mcp_core::{tool::Tool, Content, ToolError};
 
 /// Handle the installation of an extension
 pub async fn handle_extension_installation(
-    _agent: &Agent,
     request: &ToolRequest,
     extension_manager: &mut ExtensionManager,
 ) -> Result<(String, Result<Vec<Content>, ToolError>)> {

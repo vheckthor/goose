@@ -14,6 +14,8 @@ use crate::message::{Message, ToolRequest};
 
 use mcp_core::{tool::Tool, tool::ToolCall, Content, ToolError};
 
+use super::platform_tools::PLATFORM_ENABLE_EXTENSION_TOOL_NAME;
+
 /// Categorizes tool requests into different types: frontend, extension, and standard
 pub fn categorize_tool_requests<'a>(
     agent: &Agent,
@@ -29,9 +31,9 @@ pub fn categorize_tool_requests<'a>(
 
     for request in tool_requests {
         if let Ok(tool_call) = &request.tool_call {
-            if tool_call.name == PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME {
-                extension_requests.push(*request);
-            } else if tool_call.name.starts_with("platform__enable_extension") {
+            if tool_call.name == PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME
+                || tool_call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME
+            {
                 extension_requests.push(*request);
             } else if agent.is_frontend_tool(&tool_call.name) {
                 frontend_requests.push(*request);
@@ -45,27 +47,27 @@ pub fn categorize_tool_requests<'a>(
 }
 
 /// Process frontend tool requests
+///
+/// Returns a tuple of:
+/// - The message with tool responses
+/// - A vector of frontend tool requests that need to be yielded to the user
 pub async fn process_frontend_tools(
     agent: &Agent,
     frontend_requests: &[&ToolRequest],
-) -> Result<Message> {
-    let mut message_tool_response = Message::user();
+) -> Result<(Message, Vec<(String, ToolCall)>)> {
+    let message_tool_response = Message::user();
+    let mut frontend_tool_requests = Vec::new();
 
     for request in frontend_requests {
         if let Ok(tool_call) = &request.tool_call {
             if agent.is_frontend_tool(&tool_call.name) {
-                // Send frontend tool request and wait for response
-                // In the actual implementation, this would yield the request and wait for a response
-                // For now, we'll just add a placeholder response
-                message_tool_response = message_tool_response.with_tool_response(
-                    request.id.clone(),
-                    Ok(vec![Content::text("Frontend tool response placeholder")]),
-                );
+                // Add this frontend tool request to the list to be yielded
+                frontend_tool_requests.push((request.id.clone(), tool_call.clone()));
             }
         }
     }
 
-    Ok(message_tool_response)
+    Ok((message_tool_response, frontend_tool_requests))
 }
 
 /// Process extension-related tool requests (search, enable)
@@ -86,9 +88,8 @@ pub async fn process_extension_tools(
                 message_tool_response =
                     message_tool_response.with_tool_response(request.id.clone(), result);
             } else if tool_call.name.contains("enable_extension") {
-                // Use handle_extension_installation instead of direct enable_extension
                 let install_result =
-                    handle_extension_installation(agent, request, extension_manager).await?;
+                    handle_extension_installation(request, extension_manager).await?;
                 install_results.push(install_result);
 
                 // Update system prompt and tools after extension changes
