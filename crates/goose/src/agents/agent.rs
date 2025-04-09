@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -6,49 +6,30 @@ use futures::stream::BoxStream;
 
 use serde_json::Value;
 use tokio::sync::{mpsc, Mutex};
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, instrument};
 
-use crate::agents::agent_context::truncate_messages;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::types::ToolResultReceiver;
-use crate::config::{Config, ExtensionConfigManager};
-use crate::message::{Message, MessageContent, ToolRequest};
-use crate::permission::{
-    detect_read_only_tools, Permission, PermissionConfirmation, ToolPermissionStore,
-};
+use crate::config::Config;
+use crate::message::Message;
+use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
 use crate::providers::toolshim::{
     augment_message_with_tool_calls, modify_system_prompt_for_tool_json, OllamaInterpreter,
 };
-use crate::session;
 use crate::token_counter::TokenCounter;
 
-use mcp_core::{
-    prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolError, ToolResult,
-};
+use mcp_core::{prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolResult};
 
-use crate::agents::platform_tools::{
-    self, PLATFORM_ENABLE_EXTENSION_TOOL_NAME, PLATFORM_LIST_RESOURCES_TOOL_NAME,
-    PLATFORM_READ_RESOURCE_TOOL_NAME, PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
-};
+use crate::agents::platform_tools::{self};
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::{FrontendTool, SessionConfig};
 
 use crate::agents::agent_context::handle_truncation_error;
-use crate::agents::agent_extension::{
-    enable_extension, handle_extension_installation, update_after_extension_changes,
-};
 use crate::agents::agent_message::{
     create_error_response, process_provider_response, update_session_metrics,
-};
-use crate::agents::agent_permission::{
-    check_tool_permissions, detect_safe_tools, handle_tool_confirmation,
-};
-use crate::agents::agent_tool_processing::{
-    categorize_tool_requests, create_tool_future, process_extension_tools, process_frontend_tools,
-    process_standard_tools,
 };
 
 const MAX_TRUNCATION_ATTEMPTS: usize = 3;
@@ -253,7 +234,7 @@ impl Agent {
         let config = Config::global();
 
         // Setup tools and prompt
-        let (mut tools, mut toolshim_tools, mut system_prompt) = self
+        let (mut tools, toolshim_tools, system_prompt) = self
             .prepare_tools_and_prompt(&mut extension_manager)
             .await?;
 

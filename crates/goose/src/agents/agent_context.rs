@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use tracing::{error, warn};
 
 use crate::agents::agent::Agent;
