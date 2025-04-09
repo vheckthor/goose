@@ -17,7 +17,7 @@ pub enum InputResult {
     GooseMode(String),
     Plan(PlanCommandOptions),
     EndPlan,
-    Gooseling(Option<String>),
+    Recipe(Option<String>),
 }
 
 #[derive(Debug)]
@@ -90,7 +90,7 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
     const CMD_MODE: &str = "/mode ";
     const CMD_PLAN: &str = "/plan";
     const CMD_ENDPLAN: &str = "/endplan";
-    const CMD_GOOSELING: &str = "/gooseling";
+    const CMD_RECIPE: &str = "/recipe";
 
     match input {
         "/exit" | "/quit" => Some(InputResult::Exit),
@@ -132,24 +132,24 @@ fn handle_slash_command(input: &str) -> Option<InputResult> {
         }
         s if s.starts_with(CMD_PLAN) => parse_plan_command(s[CMD_PLAN.len()..].trim().to_string()),
         s if s == CMD_ENDPLAN => Some(InputResult::EndPlan),
-        s if s.starts_with(CMD_GOOSELING) => parse_gooseling_command(s),
+        s if s.starts_with(CMD_RECIPE) => parse_recipe_command(s),
         _ => None,
     }
 }
 
-fn parse_gooseling_command(s: &str) -> Option<InputResult> {
-    const CMD_GOOSELING: &str = "/gooseling";
+fn parse_recipe_command(s: &str) -> Option<InputResult> {
+    const CMD_RECIPE: &str = "/recipe";
 
-    if s == CMD_GOOSELING {
+    if s == CMD_RECIPE {
         // No filepath provided, use default
-        return Some(InputResult::Gooseling(None));
+        return Some(InputResult::Recipe(None));
     }
 
     // Extract the filepath from the command
-    let filepath = s[CMD_GOOSELING.len()..].trim();
+    let filepath = s[CMD_RECIPE.len()..].trim();
 
     if filepath.is_empty() {
-        return Some(InputResult::Gooseling(None));
+        return Some(InputResult::Recipe(None));
     }
 
     // Validate that the filepath ends with .yaml
@@ -159,7 +159,7 @@ fn parse_gooseling_command(s: &str) -> Option<InputResult> {
     }
 
     // Return the filepath for validation in the handler
-    Some(InputResult::Gooseling(Some(filepath.to_string())))
+    Some(InputResult::Recipe(Some(filepath.to_string())))
 }
 
 fn parse_prompts_command(args: &str) -> Option<InputResult> {
@@ -239,8 +239,8 @@ fn print_help() {
                         The model is used based on $GOOSE_PLANNER_PROVIDER and $GOOSE_PLANNER_MODEL environment variables.
                         If no model is set, the default model is used.
 /endplan - Exit plan mode and return to 'normal' goose mode.
-/gooseling [filepath] - Generate a gooseling from the current conversation and save it to the specified filepath (must end with .yaml).
-                       If no filepath is provided, it will be saved to ./gooseling.yaml.
+/recipe [filepath] - Generate a recipe from the current conversation and save it to the specified filepath (must end with .yaml).
+                       If no filepath is provided, it will be saved to ./recipe.yaml.
 /? or /help - Display this help message
 
 Navigation:
@@ -453,25 +453,25 @@ mod tests {
     }
 
     #[test]
-    fn test_gooseling_command() {
-        // Test gooseling with no filepath
-        if let Some(InputResult::Gooseling(filepath)) = handle_slash_command("/gooseling") {
+    fn test_recipe_command() {
+        // Test recipe with no filepath
+        if let Some(InputResult::Recipe(filepath)) = handle_slash_command("/recipe") {
             assert!(filepath.is_none());
         } else {
-            panic!("Expected Gooseling");
+            panic!("Expected Recipe");
         }
 
-        // Test gooseling with filepath
-        if let Some(InputResult::Gooseling(filepath)) =
-            handle_slash_command("/gooseling /path/to/file.yaml")
+        // Test recipe with filepath
+        if let Some(InputResult::Recipe(filepath)) =
+            handle_slash_command("/recipe /path/to/file.yaml")
         {
             assert_eq!(filepath, Some("/path/to/file.yaml".to_string()));
         } else {
-            panic!("Expected Gooseling with filepath");
+            panic!("Expected recipe with filepath");
         }
 
-        // Test gooseling with invalid extension
-        let result = handle_slash_command("/gooseling /path/to/file.txt");
+        // Test recipe with invalid extension
+        let result = handle_slash_command("/recipe /path/to/file.txt");
         assert!(matches!(result, Some(InputResult::Retry)));
     }
 }

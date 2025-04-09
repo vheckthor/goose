@@ -1,8 +1,8 @@
 pub mod agent_version;
 pub mod bench;
 pub mod configure;
-pub mod gooseling;
 pub mod info;
 pub mod mcp;
+pub mod recipe;
 pub mod session;
 pub mod update;

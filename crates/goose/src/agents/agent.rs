@@ -9,9 +9,9 @@ use serde_json::Value;
 use std::sync::Arc;
 
 use super::extension::{ExtensionConfig, ExtensionResult};
-use crate::gooselings::Gooseling;
 use crate::message::Message;
 use crate::providers::base::Provider;
+use crate::recipe::Recipe;
 use crate::session;
 use mcp_core::prompt::Prompt;
 use mcp_core::protocol::GetPromptResult;
@@ -70,6 +70,6 @@ pub trait Agent: Send + Sync {
     /// Get a reference to the provider used by this agent
     async fn provider(&self) -> Arc<Box<dyn Provider>>;
 
-    /// Create a gooseling file
-    async fn create_gooseling(&self, messages: Vec<Message>) -> Result<Gooseling>;
+    /// Create a recipe file
+    async fn create_recipe(&self, messages: Vec<Message>) -> Result<Recipe>;
 }

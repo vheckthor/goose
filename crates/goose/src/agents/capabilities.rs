@@ -654,11 +654,11 @@ impl Capabilities {
             .map_err(|e| anyhow::anyhow!("Failed to get prompt: {}", e))
     }
 
-    pub async fn get_gooseling_prompt(&self) -> String {
+    pub async fn get_recipe_prompt(&self) -> String {
         let context: HashMap<&str, Value> = HashMap::new();
 
-        prompt_template::render_global_file("gooseling.md", &context)
-            .expect("should render gooseling prompt")
+        prompt_template::render_global_file("recipe.md", &context)
+            .expect("should render recipe prompt")
     }
 }
 

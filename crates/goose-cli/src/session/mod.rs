@@ -489,16 +489,16 @@ impl Session {
                         }
                     }
                 }
-                InputResult::Gooseling(filepath_opt) => {
-                    println!("{}", console::style("Generating gooseling").green());
+                InputResult::Recipe(filepath_opt) => {
+                    println!("{}", console::style("Generating Recipe").green());
 
                     output::show_thinking();
-                    let gooseling = self.agent.create_gooseling(self.messages.clone()).await;
+                    let recipe = self.agent.create_recipe(self.messages.clone()).await;
                     output::hide_thinking();
 
-                    if let Ok(gooseling) = gooseling {
+                    if let Ok(recipe) = recipe {
                         // Use provided filepath or default
-                        let filepath_str = filepath_opt.as_deref().unwrap_or("gooseling.yaml");
+                        let filepath_str = filepath_opt.as_deref().unwrap_or("recipe.yaml");
                         let path_buf = PathBuf::from(filepath_str);
 
                         // Create a variable to store the final path that will be accessible outside the closure
@@ -530,8 +530,8 @@ impl Session {
                             })?;
 
                             // Write YAML.
-                            serde_yaml::to_writer(file, &gooseling)
-                                .map_err(|e| format!("Failed to save gooseling: {:?}", e))?;
+                            serde_yaml::to_writer(file, &recipe)
+                                .map_err(|e| format!("Failed to save recipe: {:?}", e))?;
                             Ok(())
                         })();
 
@@ -539,7 +539,7 @@ impl Session {
                         match result {
                             Ok(_) => println!(
                                 "{}",
-                                console::style(format!("Saved gooseling to {}", path.display()))
+                                console::style(format!("Saved recipe to {}", path.display()))
                                     .green()
                             ),
                             Err(e) => {
@@ -550,8 +550,8 @@ impl Session {
                     } else {
                         println!(
                             "{}: {:?}",
-                            console::style("Failed to generate gooseling").red(),
-                            gooseling
+                            console::style("Failed to generate recipe").red(),
+                            recipe
                         );
                     }
 

@@ -6,12 +6,12 @@ use goose::config::{Config, ExtensionConfig};
 use crate::commands::agent_version::AgentCommand;
 use crate::commands::bench::{list_selectors, run_benchmark};
 use crate::commands::configure::handle_configure;
-use crate::commands::gooseling::{handle_deeplink, handle_validate};
 use crate::commands::info::handle_info;
 use crate::commands::mcp::run_server;
+use crate::commands::recipe::{handle_deeplink, handle_validate};
 use crate::commands::session::handle_session_list;
-use crate::gooseling::load_gooseling;
 use crate::logging::setup_logging;
+use crate::recipe::load_recipe;
 use crate::session;
 use crate::session::build_session;
 use std::io::Read;
@@ -74,20 +74,20 @@ enum SessionCommand {
 }
 
 #[derive(Subcommand)]
-enum GooselingCommand {
-    /// Validate a gooseling file
-    #[command(about = "Validate a gooseling file")]
+enum RecipeCommand {
+    /// Validate a recipe file
+    #[command(about = "Validate a recipe file")]
     Validate {
-        /// Path to the gooseling file to validate
-        #[arg(help = "Path to the gooseling file to validate")]
+        /// Path to the recipe file to validate
+        #[arg(help = "Path to the recipe file to validate")]
         file: String,
     },
 
-    /// Generate a deeplink for a gooseling file
-    #[command(about = "Generate a deeplink for a gooseling file")]
+    /// Generate a deeplink for a recipe file
+    #[command(about = "Generate a deeplink for a recipe file")]
     Deeplink {
-        /// Path to the gooseling file
-        #[arg(help = "Path to the gooseling file")]
+        /// Path to the recipe file
+        #[arg(help = "Path to the recipe file")]
         file: String,
     },
 }
@@ -170,7 +170,7 @@ enum Command {
             value_name = "FILE",
             help = "Path to instruction file containing commands. Use - for stdin.",
             conflicts_with = "input_text",
-            conflicts_with = "gooseling"
+            conflicts_with = "recipe"
         )]
         instructions: Option<String>,
 
@@ -182,21 +182,21 @@ enum Command {
             help = "Input text to provide to Goose directly",
             long_help = "Input text containing commands for Goose. Use this in lieu of the instructions argument.",
             conflicts_with = "instructions",
-            conflicts_with = "gooseling"
+            conflicts_with = "recipe"
         )]
         input_text: Option<String>,
 
-        /// Path to gooseling.yaml file
+        /// Path to recipe.yaml file
         #[arg(
-            short = 'a',
-            long = "gooseling",
+            short = 'r',
+            long = "recipe",
             value_name = "FILE",
-            help = "Path to gooseling.yaml file",
-            long_help = "Path to a gooseling.yaml file that defines a custom agent configuration",
+            help = "Path to recipe.yaml file",
+            long_help = "Path to a recipe.yaml file that defines a custom agent configuration",
             conflicts_with = "instructions",
             conflicts_with = "input_text"
         )]
-        gooseling: Option<String>,
+        recipe: Option<String>,
 
         /// Continue in interactive mode after processing input
         #[arg(
@@ -249,11 +249,11 @@ enum Command {
         builtins: Vec<String>,
     },
 
-    /// Gooseling utilities for validation and deeplinking
-    #[command(about = "Gooseling utilities for validation and deeplinking")]
-    Gooseling {
+    /// Recipe utilities for validation and deeplinking
+    #[command(about = "Recipe utilities for validation and deeplinking")]
+    Recipe {
         #[command(subcommand)]
-        command: GooselingCommand,
+        command: RecipeCommand,
     },
 
     /// List available agent versions
@@ -402,7 +402,7 @@ pub async fn cli() -> Result<()> {
         Some(Command::Run {
             instructions,
             input_text,
-            gooseling,
+            recipe,
             interactive,
             identifier,
             resume,
@@ -410,7 +410,7 @@ pub async fn cli() -> Result<()> {
             extensions,
             builtins,
         }) => {
-            let input_config = match (instructions, input_text, gooseling) {
+            let input_config = match (instructions, input_text, recipe) {
                 (Some(file), _, _) if file == "-" => {
                     let mut input = String::new();
                     std::io::stdin()
@@ -443,18 +443,18 @@ pub async fn cli() -> Result<()> {
                     additional_system_prompt: None,
                 },
                 (_, _, Some(file)) => {
-                    let gooseling = load_gooseling(&file, true).unwrap_or_else(|err| {
+                    let recipe = load_recipe(&file, true).unwrap_or_else(|err| {
                         eprintln!("{}: {}", console::style("Error").red().bold(), err);
                         std::process::exit(1);
                     });
                     InputConfig {
-                        contents: gooseling.prompt,
-                        extensions_override: gooseling.extensions,
-                        additional_system_prompt: Some(gooseling.instructions),
+                        contents: recipe.prompt,
+                        extensions_override: recipe.extensions,
+                        additional_system_prompt: Some(recipe.instructions),
                     }
                 }
                 (None, None, None) => {
-                    eprintln!("Error: Must provide either --instructions (-i), --text (-t), or --gooseling (-a). Use -i - for stdin.");
+                    eprintln!("Error: Must provide either --instructions (-i), --text (-t), or --recipe (-r). Use -i - for stdin.");
                     std::process::exit(1);
                 }
             };
@@ -497,12 +497,12 @@ pub async fn cli() -> Result<()> {
             crate::commands::update::update(canary, reconfigure)?;
             return Ok(());
         }
-        Some(Command::Gooseling { command }) => {
+        Some(Command::Recipe { command }) => {
             match command {
-                GooselingCommand::Validate { file } => {
+                RecipeCommand::Validate { file } => {
                     handle_validate(file)?;
                 }
-                GooselingCommand::Deeplink { file } => {
+                RecipeCommand::Deeplink { file } => {
                     handle_deeplink(file)?;
                 }
             }

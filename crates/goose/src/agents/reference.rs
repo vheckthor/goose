@@ -13,7 +13,7 @@ use super::extension::ToolInfo;
 use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
-use crate::gooselings::Gooseling;
+use crate::recipe::Recipe;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::token_counter::TokenCounter;
@@ -278,7 +278,7 @@ impl Agent for ReferenceAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, _messages: Vec<Message>) -> Result<Gooseling> {
+    async fn create_recipe(&self, _messages: Vec<Message>) -> Result<Recipe> {
         Err(anyhow::Error::msg("Not implemented"))
     }
 }

@@ -18,7 +18,7 @@ use super::Agent;
 use crate::agents::capabilities::Capabilities;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::config::Config;
-use crate::gooselings::Gooseling;
+use crate::recipe::Recipe;
 use crate::memory_condense::condense_messages;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
@@ -493,7 +493,7 @@ impl Agent for SummarizeAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, _messages: Vec<Message>) -> Result<Gooseling> {
+    async fn create_recipe(&self, _messages: Vec<Message>) -> Result<Recipe> {
         Err(anyhow::Error::msg("Not implemented"))
     }
 }

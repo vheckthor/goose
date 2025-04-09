@@ -19,14 +19,14 @@ use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::agents::ToolPermissionStore;
 use crate::config::Config;
 use crate::config::ExtensionManager;
-use crate::gooselings::Author;
-use crate::gooselings::Gooseling;
 use crate::message::{Message, ToolRequest};
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
 use crate::providers::toolshim::{
     augment_message_with_tool_calls, modify_system_prompt_for_tool_json, OllamaInterpreter,
 };
+use crate::recipe::Author;
+use crate::recipe::Recipe;
 use crate::register_agent;
 use crate::session;
 use crate::token_counter::TokenCounter;
@@ -549,15 +549,14 @@ impl Agent for TruncateAgent {
         capabilities.provider()
     }
 
-    async fn create_gooseling(&self, mut messages: Vec<Message>) -> Result<Gooseling> {
-        // get the gooseling prompt
+    async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {
         let mut capabilities = self.capabilities.lock().await;
         let system_prompt = capabilities.get_system_prompt().await;
-        let gooseling_prompt = capabilities.get_gooseling_prompt().await;
+        let recipe_prompt = capabilities.get_recipe_prompt().await;
         let provider = capabilities.provider();
         let tools = capabilities.get_prefixed_tools().await?;
 
-        messages.push(Message::user().with_text(gooseling_prompt));
+        messages.push(Message::user().with_text(recipe_prompt));
 
         let (result, _usage) = provider.complete(&system_prompt, &messages, &tools).await?;
 
@@ -643,17 +642,17 @@ impl Agent for TruncateAgent {
             metadata: None,
         };
 
-        let gooseling = Gooseling::builder()
-            .title("Custom gooseling from chat")
-            .description("a custom gooseling instance from this chat session")
+        let recipe = Recipe::builder()
+            .title("Custom recipe from chat")
+            .description("a custom recipe instance from this chat session")
             .instructions(instructions)
             .activities(activities)
             .extensions(extension_configs)
             .author(author)
             .build()
-            .expect("valid gooseling");
+            .expect("valid recipe");
 
-        Ok(gooseling)
+        Ok(recipe)
     }
 }
 
