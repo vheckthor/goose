@@ -163,27 +163,34 @@ impl Agent {
                         let mut message_tool_response = Message::user();
 
                         // First handle any frontend tool requests
-                        for request in &frontend_requests {
-                            if let Ok(tool_call) = request.tool_call.clone() {
-                                // Send frontend tool request and wait for response
-                                yield Message::assistant().with_frontend_tool_request(
-                                    request.id.clone(),
-                                    Ok(tool_call.clone())
-                                );
+                        if !frontend_requests.is_empty() {
+                            let (frontend_messages_to_yield, frontend_responses) = self.handle_frontend_requests(
+                                &frontend_requests
+                            ).await;
 
-                                if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
-                                    message_tool_response = message_tool_response.with_tool_response(id, result);
-                                }
+                            // Yield each message that needs to be yielded
+                            for message in frontend_messages_to_yield {
+                                yield message;
+                            }
+
+                            // Merge the tool responses
+                            for content in frontend_responses.content {
+                                message_tool_response.content.push(content);
                             }
                         }
 
                         // Handle enable extension requests if any
                         let mut extensions_enabled = false;
                         if !enable_extension_requests.is_empty() {
-                            let (extension_responses, enabled) = self.handle_enable_extension_requests(
+                            let (extension_messages_to_yield, extension_responses, enabled) = self.handle_enable_extension_requests(
                                 &enable_extension_requests,
                                 &mut extension_manager
                             ).await;
+
+                            // Yield each message that needs to be yielded
+                            for message in extension_messages_to_yield {
+                                yield message;
+                            }
 
                             // Merge the tool responses
                             for content in extension_responses.content {
@@ -207,13 +214,18 @@ impl Agent {
                         }
 
                         // Handle other tool requests based on goose_mode
-                        let other_responses = self.handle_regular_tool_requests(
+                        let (other_messages_to_yield, other_responses) = self.handle_regular_tool_requests(
                             &other_requests,
                             &goose_mode,
                             tools_with_readonly_annotation.clone(),
                             tools_without_annotation.clone(),
                             &extension_manager
                         ).await;
+
+                        // Yield each message that needs to be yielded
+                        for message in other_messages_to_yield {
+                            yield message;
+                        }
 
                         // Merge the tool responses
                         for content in other_responses.content {

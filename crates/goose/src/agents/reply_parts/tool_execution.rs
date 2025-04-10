@@ -14,35 +14,47 @@ use crate::agents::Agent;
 
 impl Agent {
     /// Handle frontend tool requests
-    /// Returns a Message with tool responses for the frontend tools
+    /// Returns a tuple containing:
+    /// - A vector of messages that need to be yielded to the client
+    /// - A Message with tool responses for the frontend tools
     pub(crate) async fn handle_frontend_requests(
         &self,
         frontend_requests: &[ToolRequest],
-    ) -> Message {
+    ) -> (Vec<Message>, Message) {
         let mut message_tool_response = Message::user();
+        let mut messages_to_yield = Vec::new();
 
         for request in frontend_requests {
             if let Ok(tool_call) = request.tool_call.clone() {
-                // Send frontend tool request and wait for response
-                yield_message_with_frontend_tool_request(request.id.clone(), tool_call.clone());
+                // Create a message to yield for the frontend tool request
+                let frontend_request_message = Message::assistant()
+                    .with_frontend_tool_request(request.id.clone(), Ok(tool_call.clone()));
 
+                // Add to messages that need to be yielded
+                messages_to_yield.push(frontend_request_message);
+
+                // Wait for response from frontend
                 if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
                     message_tool_response = message_tool_response.with_tool_response(id, result);
                 }
             }
         }
 
-        message_tool_response
+        (messages_to_yield, message_tool_response)
     }
 
     /// Handle enable extension requests
-    /// Returns a Message with tool responses and a boolean indicating if any extensions were enabled
+    /// Returns a tuple containing:
+    /// - A vector of messages that need to be yielded to the client
+    /// - A Message with tool responses
+    /// - A boolean indicating if any extensions were enabled
     pub(crate) async fn handle_enable_extension_requests(
         &self,
         enable_extension_requests: &[ToolRequest],
         extension_manager: &mut ExtensionManager,
-    ) -> (Message, bool) {
+    ) -> (Vec<Message>, Message, bool) {
         let mut message_tool_response = Message::user();
+        let mut messages_to_yield = Vec::new();
         let mut install_results = Vec::new();
         let mut any_enabled = false;
 
@@ -57,7 +69,9 @@ impl Agent {
                         .unwrap_or("")
                         .to_string(),
                 );
-                yield_message(confirmation);
+
+                // Add to messages that need to be yielded
+                messages_to_yield.push(confirmation);
 
                 let mut rx = self.confirmation_rx.lock().await;
                 while let Some((req_id, extension_confirmation)) = rx.recv().await {
@@ -91,11 +105,13 @@ impl Agent {
             message_tool_response = message_tool_response.with_tool_response(request_id, output);
         }
 
-        (message_tool_response, any_enabled)
+        (messages_to_yield, message_tool_response, any_enabled)
     }
 
     /// Handle regular tool requests based on permission mode
-    /// Returns a Message with tool responses
+    /// Returns a tuple containing:
+    /// - A vector of messages that need to be yielded to the client
+    /// - A Message with tool responses
     pub(crate) async fn handle_regular_tool_requests(
         &self,
         tool_requests: &[ToolRequest],
@@ -103,8 +119,9 @@ impl Agent {
         tools_with_readonly_annotation: HashSet<String>,
         tools_without_annotation: HashSet<String>,
         extension_manager: &ExtensionManager,
-    ) -> Message {
+    ) -> (Vec<Message>, Message) {
         let mut message_tool_response = Message::user();
+        let mut messages_to_yield = Vec::new();
 
         // If mode is chat, return a message indicating tools were skipped
         if mode == "chat" {
@@ -130,119 +147,120 @@ impl Agent {
                     )]),
                 );
             }
-            return message_tool_response;
+
+            // Return early for "chat" mode with no msgs to yield
+            return (messages_to_yield, message_tool_response);
         }
 
-        // For auto mode or approval modes
-        if mode == "auto" || mode == "approve" || mode == "smart_approve" {
-            let mut permission_manager = PermissionManager::default();
+        // For auto or approval mode, i.e. if mode == "auto" || "approve" || "smart_approve"
+        let mut permission_manager = PermissionManager::default();
 
-            // Skip the platform tools for permission checks
-            let filtered_requests: Vec<&ToolRequest> = tool_requests
-                .iter()
-                .filter(|req| {
-                    if let Ok(tool_call) = &req.tool_call {
-                        !tool_call.name.starts_with("platform__")
-                    } else {
-                        true // If there's an error (Err), don't skip the request
-                    }
-                })
-                .collect();
-
-            let permission_check_result = check_tool_permissions(
-                filtered_requests,
-                mode,
-                tools_with_readonly_annotation.clone(),
-                tools_without_annotation.clone(),
-                &mut permission_manager,
-                self.provider(),
-            )
-            .await;
-
-            // Handle pre-approved and read-only tools in parallel
-            let mut tool_futures = Vec::new();
-
-            // Process approved tools
-            for request in &permission_check_result.approved {
-                if let Ok(tool_call) = request.tool_call.clone() {
-                    let is_frontend_tool = self.is_frontend_tool(&tool_call.name);
-                    let tool_future = Self::create_tool_future(
-                        extension_manager,
-                        tool_call,
-                        is_frontend_tool,
-                        request.id.clone(),
-                    );
-                    tool_futures.push(tool_future);
+        // Skip the platform tools for permission checks
+        let filtered_requests: Vec<&ToolRequest> = tool_requests
+            .iter()
+            .filter(|req| {
+                if let Ok(tool_call) = &req.tool_call {
+                    !tool_call.name.starts_with("platform__")
+                } else {
+                    true // If there's an error (Err), don't skip the request
                 }
+            })
+            .collect();
+
+        let permission_check_result = check_tool_permissions(
+            filtered_requests,
+            mode,
+            tools_with_readonly_annotation.clone(),
+            tools_without_annotation.clone(),
+            &mut permission_manager,
+            self.provider(),
+        )
+        .await;
+
+        // Handle pre-approved and read-only tools in parallel
+        let mut tool_futures = Vec::new();
+
+        // Process approved tools
+        for request in &permission_check_result.approved {
+            if let Ok(tool_call) = request.tool_call.clone() {
+                let is_frontend_tool = self.is_frontend_tool(&tool_call.name);
+                let tool_future = Self::create_tool_future(
+                    extension_manager,
+                    tool_call,
+                    is_frontend_tool,
+                    request.id.clone(),
+                );
+                tool_futures.push(tool_future);
             }
+        }
 
-            // Process denied tools
-            let denied_content_text = Content::text(
-                "The user has declined to run this tool. \
-                DO NOT attempt to call this tool again. \
-                If there are no alternative methods to proceed, clearly explain the situation and STOP."
-            );
+        // Process denied tools
+        let denied_content_text = Content::text(
+            "The user has declined to run this tool. \
+            DO NOT attempt to call this tool again. \
+            If there are no alternative methods to proceed, clearly explain the situation and STOP."
+        );
 
-            for request in &permission_check_result.denied {
-                message_tool_response = message_tool_response
-                    .with_tool_response(request.id.clone(), Ok(vec![denied_content_text.clone()]));
-            }
+        for request in &permission_check_result.denied {
+            message_tool_response = message_tool_response
+                .with_tool_response(request.id.clone(), Ok(vec![denied_content_text.clone()]));
+        }
 
-            // Process tools that need approval
-            for request in &permission_check_result.needs_approval {
-                if let Ok(tool_call) = request.tool_call.clone() {
-                    let is_frontend_tool = self.is_frontend_tool(&tool_call.name);
-                    let confirmation = Message::user().with_tool_confirmation_request(
-                        request.id.clone(),
-                        tool_call.name.clone(),
-                        tool_call.arguments.clone(),
-                        Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
-                    );
-                    yield_message(confirmation);
+        // Process tools that need approval
+        for request in &permission_check_result.needs_approval {
+            if let Ok(tool_call) = request.tool_call.clone() {
+                let is_frontend_tool = self.is_frontend_tool(&tool_call.name);
+                let confirmation = Message::user().with_tool_confirmation_request(
+                    request.id.clone(),
+                    tool_call.name.clone(),
+                    tool_call.arguments.clone(),
+                    Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
+                );
 
-                    // Wait for confirmation response through the channel
-                    let mut rx = self.confirmation_rx.lock().await;
-                    while let Some((req_id, tool_confirmation)) = rx.recv().await {
-                        if req_id == request.id {
-                            let confirmed = tool_confirmation.permission == Permission::AllowOnce
-                                || tool_confirmation.permission == Permission::AlwaysAllow;
-                            if confirmed {
-                                // Add this tool call to the futures collection
-                                let tool_future = Self::create_tool_future(
-                                    extension_manager,
-                                    tool_call.clone(),
-                                    is_frontend_tool,
-                                    request.id.clone(),
-                                );
-                                tool_futures.push(tool_future);
-                                if tool_confirmation.permission == Permission::AlwaysAllow {
-                                    permission_manager.update_user_permission(
-                                        &tool_call.name,
-                                        PermissionLevel::AlwaysAllow,
-                                    );
-                                }
-                            } else {
-                                // User declined - add declined response
-                                message_tool_response = message_tool_response.with_tool_response(
-                                    request.id.clone(),
-                                    Ok(vec![denied_content_text.clone()]),
+                // Add to messages that need to be yielded
+                messages_to_yield.push(confirmation);
+
+                // Wait for confirmation response through the channel
+                let mut rx = self.confirmation_rx.lock().await;
+                while let Some((req_id, tool_confirmation)) = rx.recv().await {
+                    if req_id == request.id {
+                        let confirmed = tool_confirmation.permission == Permission::AllowOnce
+                            || tool_confirmation.permission == Permission::AlwaysAllow;
+                        if confirmed {
+                            // Add this tool call to the futures collection
+                            let tool_future = Self::create_tool_future(
+                                extension_manager,
+                                tool_call.clone(),
+                                is_frontend_tool,
+                                request.id.clone(),
+                            );
+                            tool_futures.push(tool_future);
+                            if tool_confirmation.permission == Permission::AlwaysAllow {
+                                permission_manager.update_user_permission(
+                                    &tool_call.name,
+                                    PermissionLevel::AlwaysAllow,
                                 );
                             }
-                            break; // Exit the loop once the matching `req_id` is found
+                        } else {
+                            // User declined - add declined response
+                            message_tool_response = message_tool_response.with_tool_response(
+                                request.id.clone(),
+                                Ok(vec![denied_content_text.clone()]),
+                            );
                         }
+                        break; // Exit the loop once the matching `req_id` is found
                     }
                 }
             }
-
-            // Wait for all tool calls to complete
-            let results = future::join_all(tool_futures).await;
-            for (request_id, output) in results {
-                message_tool_response =
-                    message_tool_response.with_tool_response(request_id, output);
-            }
         }
 
-        message_tool_response
+        // Wait for all tool calls to complete
+        let results = future::join_all(tool_futures).await;
+        for (request_id, output) in results {
+            message_tool_response = message_tool_response.with_tool_response(request_id, output);
+        }
+
+        (messages_to_yield, message_tool_response)
     }
 
     /// Handle search extension requests
@@ -362,16 +380,4 @@ impl Agent {
 
         (request_id, result)
     }
-}
-
-// Helper function for yielding messages in async_stream context
-// This is a placeholder that will be replaced in the main reply method
-fn yield_message(_message: Message) {
-    // This is just a placeholder - the actual yield happens in the async_stream macro
-}
-
-// Helper function for yielding frontend tool requests
-// This is a placeholder that will be replaced in the main reply method
-fn yield_message_with_frontend_tool_request(_id: String, _tool_call: ToolCall) {
-    // This is just a placeholder - the actual yield happens in the async_stream macro
 }
