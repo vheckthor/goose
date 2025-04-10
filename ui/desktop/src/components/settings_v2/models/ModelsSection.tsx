@@ -40,7 +40,7 @@ export default function ModelsSection({ setView }: ModelsSectionProps) {
     } catch (error) {
       console.error('Error loading model data:', error);
     }
-  }, [read, getProviders]);
+  }, []);
 
   useEffect(() => {
     // Initial load
@@ -55,7 +55,7 @@ export default function ModelsSection({ setView }: ModelsSectionProps) {
     return () => {
       clearInterval(interval);
     };
-  }, [loadModelData]);
+  }, []);
 
   return (
     <section id="models" className="px-8">
