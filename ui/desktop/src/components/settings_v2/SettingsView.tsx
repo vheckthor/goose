@@ -23,7 +23,7 @@ export default function SettingsView({
 }) {
   return (
     <div className="h-screen w-full animate-[fadein_200ms_ease-in_forwards]">
-      <div className="relative flex items-center h-[36px] w-full bg-bgSubtle"></div>
+      <MoreMenuLayout showMenu={false} />
 
       <ScrollArea className="h-full w-full">
         <div className="flex flex-col pb-24">

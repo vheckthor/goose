@@ -1,22 +1,27 @@
 import MoreMenu from './MoreMenu';
-import React from 'react';
-import { View, ViewOptions } from '../../App';
+import type { View } from '../../App';
 
 export default function MoreMenuLayout({
+  hasMessages,
+  showMenu = true,
   setView,
   setIsGoosehintsModalOpen,
 }: {
-  setView: (view: View, viewOptions?: ViewOptions) => void;
-  setIsGoosehintsModalOpen: (isOpen: boolean) => void;
+  hasMessages?: boolean;
+  showMenu?: boolean;
+  setView?: (view: View, viewOptions?: Record<any, any>) => void;
+  setIsGoosehintsModalOpen?: (isOpen: boolean) => void;
 }) {
   return (
-    <div className="relative flex items-center h-[36px] w-full bg-bgSubtle border-b border-borderSubtle">
-      <div className="flex-1"></div>
-      <div className="flex items-center h-full">
-        <div className="flex items-center justify-center h-full px-2 mr-2">
+    <div
+      className="relative flex items-center h-14 border-b w-full"
+      style={{ WebkitAppRegion: 'drag' }}
+    >
+      {showMenu && (
+        <div className="flex items-center justify-end h-full w-full">
           <MoreMenu setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
         </div>
-      </div>
+      )}
     </div>
   );
 }
