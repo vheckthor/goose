@@ -158,7 +158,7 @@ pub struct PermissionCheckResult {
 }
 
 pub async fn check_tool_permissions(
-    remaining_requests: Vec<&&ToolRequest>,
+    remaining_requests: Vec<&ToolRequest>,
     mode: &str,
     tools_with_readonly_annotation: HashSet<String>,
     tools_without_annotation: HashSet<String>,
@@ -170,7 +170,7 @@ pub async fn check_tool_permissions(
     let mut denied = vec![];
     let mut llm_detect_candidates = vec![];
 
-    for &&request in &remaining_requests {
+    for request in remaining_requests {
         if let Ok(tool_call) = request.tool_call.clone() {
             // 1. Check user-defined permission
             if let Some(level) = permission_manager.get_user_permission(&tool_call.name) {
