@@ -8,7 +8,7 @@ use super::super::agent::Agent;
 impl Agent {
     /// Update system prompt and tools after installing extensions
     /// Returns the new system prompt and tool list
-    pub async fn update_system_prompt_and_tools_after_install(
+    pub(crate) async fn update_system_prompt_and_tools_after_install(
         &self,
         extension_manager: &mut ExtensionManager,
     ) -> Result<(String, Vec<Tool>)> {

@@ -1,9 +1,35 @@
+use std::collections::HashSet;
+
+use mcp_core::Tool;
+
 use crate::agents::platform_tools::PLATFORM_ENABLE_EXTENSION_TOOL_NAME;
 use crate::agents::platform_tools::PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME;
 use crate::agents::Agent;
 use crate::message::{Message, MessageContent, ToolRequest};
 
 impl Agent {
+    /// Categorize tools based on their annotations
+    /// Returns:
+    /// - read_only_tools: Tools with read-only annotations
+    /// - non_read_tools: Tools without read-only annotations
+    pub(crate) fn categorize_tools_by_annotation(
+        tools: &[Tool],
+    ) -> (HashSet<String>, HashSet<String>) {
+        tools
+            .iter()
+            .fold((HashSet::new(), HashSet::new()), |mut acc, tool| {
+                match &tool.annotations {
+                    Some(annotations) if annotations.read_only_hint => {
+                        acc.0.insert(tool.name.clone());
+                    }
+                    _ => {
+                        acc.1.insert(tool.name.clone());
+                    }
+                }
+                acc
+            })
+    }
+
     /// Categorize tool requests from the response into different types
     /// Returns:
     /// - frontend_requests: Tool requests that should be handled by the frontend
@@ -11,7 +37,7 @@ impl Agent {
     /// - search_extension_requests: Requests to search for extensions
     /// - other_requests: All other tool requests
     /// - filtered_message: The original message with tool requests removed
-    pub fn categorize_tool_requests(
+    pub(crate) fn categorize_tool_requests(
         &self,
         response: &Message,
     ) -> (

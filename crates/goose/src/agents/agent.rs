@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -18,14 +18,11 @@ use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
 use crate::recipe::{Author, Recipe};
-use crate::session;
 use crate::token_counter::TokenCounter;
 
-use mcp_core::{prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolResult};
-
-use crate::agents::platform_tools::{self};
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::SessionConfig;
+use mcp_core::{prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolResult};
 
 use super::types::FrontendTool;
 
@@ -105,43 +102,19 @@ impl Agent {
         let mut messages = messages.to_vec();
         let reply_span = tracing::Span::current();
         let mut extension_manager = self.extension_manager.lock().await;
-        let mut tools = extension_manager.get_prefixed_tools().await?;
         let mut truncation_attempt: usize = 0;
 
         // Load settings from config
         let config = Config::global();
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
-        // we add in the 2 resource tools if any extensions support resources
-        // TODO: make sure there is no collision with another extension's tool name
-        if extension_manager.supports_resources() {
-            tools.push(platform_tools::read_resource_tool());
-            tools.push(platform_tools::list_resources_tool());
-        }
-        tools.push(platform_tools::search_available_extensions_tool());
-        tools.push(platform_tools::enable_extension_tool());
+        // Setup tools and prompt
+        let (mut tools, toolshim_tools, mut system_prompt) = self
+            .prepare_tools_and_prompt(&mut extension_manager)
+            .await?;
 
-        let (tools_with_readonly_annotation, tools_without_annotation): (
-            HashSet<String>,
-            HashSet<String>,
-        ) = tools
-            .iter()
-            .fold((HashSet::new(), HashSet::new()), |mut acc, tool| {
-                match &tool.annotations {
-                    Some(annotations) if annotations.read_only_hint => {
-                        acc.0.insert(tool.name.clone());
-                    }
-                    _ => {
-                        acc.1.insert(tool.name.clone());
-                    }
-                }
-                acc
-            });
-
-        let extensions_info = extension_manager.get_extensions_info().await;
-        let mut system_prompt = self
-            .prompt_manager
-            .build_system_prompt(extensions_info, self.frontend_instructions.clone());
+        let (tools_with_readonly_annotation, tools_without_annotation) =
+            Self::categorize_tools_by_annotation(&tools);
 
         // Set the user_message field in the span instead of creating a new event
         if let Some(content) = messages
@@ -159,21 +132,12 @@ impl Agent {
                     &system_prompt,
                     &messages,
                     &tools,
+                    &toolshim_tools,
                 ).await {
                     Ok((response, usage)) => {
-                        // record usage for the session in the session file
-                        if let Some(session) = session.clone() {
-                            // TODO: track session_id in langfuse tracing
-                            let session_file = session::get_path(session.id);
-                            let mut metadata = session::read_metadata(&session_file)?;
-                            metadata.working_dir = session.working_dir;
-                            metadata.total_tokens = usage.usage.total_tokens;
-                            metadata.input_tokens = usage.usage.input_tokens;
-                            metadata.output_tokens = usage.usage.output_tokens;
-                            // The message count is the number of messages in the session + 1 for the response
-                            // The message count does not include the tool response till next iteration
-                            metadata.message_count = messages.len() + 1;
-                            session::update_metadata(&session_file, &metadata).await?;
+                        // Update session metrics
+                        if let Some(session_config) = session.clone() {
+                            Self::update_session_metrics(session_config, &usage, messages.len()).await?;
                         }
 
                         // Reset truncation attempt
@@ -554,5 +518,3 @@ impl Agent {
         Ok(recipe)
     }
 }
-
-// The reply_parts module is defined in the agents directory

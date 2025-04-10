@@ -15,7 +15,10 @@ use crate::agents::Agent;
 impl Agent {
     /// Handle frontend tool requests
     /// Returns a Message with tool responses for the frontend tools
-    pub async fn handle_frontend_requests(&self, frontend_requests: &[ToolRequest]) -> Message {
+    pub(crate) async fn handle_frontend_requests(
+        &self,
+        frontend_requests: &[ToolRequest],
+    ) -> Message {
         let mut message_tool_response = Message::user();
 
         for request in frontend_requests {
@@ -34,7 +37,7 @@ impl Agent {
 
     /// Handle enable extension requests
     /// Returns a Message with tool responses and a boolean indicating if any extensions were enabled
-    pub async fn handle_enable_extension_requests(
+    pub(crate) async fn handle_enable_extension_requests(
         &self,
         enable_extension_requests: &[ToolRequest],
         extension_manager: &mut ExtensionManager,
@@ -93,7 +96,7 @@ impl Agent {
 
     /// Handle regular tool requests based on permission mode
     /// Returns a Message with tool responses
-    pub async fn handle_regular_tool_requests(
+    pub(crate) async fn handle_regular_tool_requests(
         &self,
         tool_requests: &[ToolRequest],
         mode: &str,
@@ -244,7 +247,7 @@ impl Agent {
 
     /// Handle search extension requests
     /// Returns a Message with tool responses
-    pub async fn handle_search_extension_requests(
+    pub(crate) async fn handle_search_extension_requests(
         &self,
         search_requests: &[ToolRequest],
         extension_manager: &ExtensionManager,
@@ -276,7 +279,7 @@ impl Agent {
 
     /// Create a future that will execute a tool call
     #[instrument(skip(tool_call, extension_manager, request_id), fields(input, output))]
-    pub async fn create_tool_future(
+    pub(crate) async fn create_tool_future(
         extension_manager: &ExtensionManager,
         tool_call: ToolCall,
         is_frontend_tool: bool,
@@ -318,7 +321,7 @@ impl Agent {
     }
 
     /// Enable an extension
-    pub async fn enable_extension(
+    pub(crate) async fn enable_extension(
         extension_manager: &mut ExtensionManager,
         extension_name: String,
         request_id: String,

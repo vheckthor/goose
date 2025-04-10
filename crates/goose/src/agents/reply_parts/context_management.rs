@@ -14,7 +14,7 @@ impl Agent {
     /// Handle context truncation logic when context length is exceeded
     /// Returns Some(Message) if an error message should be sent to the user
     /// Returns None if truncation was successful and the loop should continue
-    pub async fn handle_context_truncation(
+    pub(crate) async fn handle_context_truncation(
         &self,
         messages: &mut Vec<Message>,
         truncation_attempt: &mut usize,
@@ -54,7 +54,7 @@ impl Agent {
 
     /// Truncates the messages to fit within the model's context window
     /// Ensures the last message is a user message and removes tool call-response pairs
-    pub async fn truncate_messages(
+    pub(crate) async fn truncate_messages(
         &self,
         messages: &mut Vec<Message>,
         estimate_factor: f32,
