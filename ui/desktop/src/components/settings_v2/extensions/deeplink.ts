@@ -8,6 +8,7 @@ import { DEFAULT_EXTENSION_TIMEOUT, nameToKey } from './utils';
  */
 function getStdioConfig(
   cmd: string,
+  args: string[],
   parsedUrl: URL,
   name: string,
   description: string,
@@ -24,7 +25,6 @@ function getStdioConfig(
   }
 
   // Check for security risk with npx -c command
-  const args = parsedUrl.searchParams.getAll('arg');
   if (cmd === 'npx' && args.includes('-c')) {
     toastService.handleError(
       'Security Risk',
@@ -99,6 +99,7 @@ export async function addExtensionFromDeepLink(
 
   for (const field of requiredFields) {
     const value = parsedUrl.searchParams.get(field);
+    // name = 'Slack'
     if (!value || value.trim() === '') {
       toastService.handleError(
         'Missing Field',
@@ -112,13 +113,14 @@ export async function addExtensionFromDeepLink(
   const parsedTimeout = parsedUrl.searchParams.get('timeout');
   const timeout = parsedTimeout ? parseInt(parsedTimeout, 10) : DEFAULT_EXTENSION_TIMEOUT;
   const description = parsedUrl.searchParams.get('description');
+  const args = parsedUrl.searchParams.getAll('arg');
 
   const cmd = parsedUrl.searchParams.get('cmd');
   const remoteUrl = parsedUrl.searchParams.get('url');
 
   const config = remoteUrl
     ? getSseConfig(remoteUrl, name, description, timeout)
-    : getStdioConfig(cmd!, parsedUrl, name, description, timeout);
+    : getStdioConfig(cmd!, args, parsedUrl, name, description, timeout);
 
   // Check if extension requires env vars and go to settings if so
   if (config.envs && Object.keys(config.envs).length > 0) {
