@@ -12,38 +12,22 @@ use tracing::{debug, error, instrument};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::types::ToolResultReceiver;
-use crate::config::permission::PermissionLevel;
-use crate::config::{Config, ExtensionConfigManager, PermissionManager};
-use crate::message::{Message, MessageContent, ToolRequest};
-use crate::permission::permission_judge::check_tool_permissions;
-use crate::permission::{Permission, PermissionConfirmation};
+use crate::config::{Config, ExtensionConfigManager};
+use crate::message::Message;
+use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
-use crate::providers::toolshim::{
-    augment_message_with_tool_calls, modify_system_prompt_for_tool_json, OllamaInterpreter,
-};
 use crate::recipe::{Author, Recipe};
 use crate::session;
 use crate::token_counter::TokenCounter;
-use crate::truncate::{truncate_messages, OldestFirstTruncation};
 
-use mcp_core::{
-    prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolError, ToolResult,
-};
+use mcp_core::{prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolResult};
 
-use crate::agents::platform_tools::{
-    self, PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
-    PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
-};
+use crate::agents::platform_tools::{self};
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::SessionConfig;
 
-use super::platform_tools::PLATFORM_ENABLE_EXTENSION_TOOL_NAME;
-use super::reply_parts::*;
 use super::types::FrontendTool;
-
-const MAX_TRUNCATION_ATTEMPTS: usize = 3;
-const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 
 /// The main goose Agent
 pub struct Agent {

@@ -413,10 +413,10 @@ mod tests {
         };
 
         // Store ToolRequests in a Vec
-        let tool_requests = vec![&tool_request_1, &tool_request_2];
+        let tool_requests = vec![tool_request_1, tool_request_2];
 
         // Create a Vec of references to ToolRequests
-        let remaining_requests: Vec<&&ToolRequest> = tool_requests.iter().collect();
+        let remaining_requests: Vec<&ToolRequest> = tool_requests.iter().collect();
 
         // Call the function under test
         let result = check_tool_permissions(

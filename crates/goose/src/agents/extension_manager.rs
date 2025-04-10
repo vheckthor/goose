@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::debug;
 
 use super::extension::{ExtensionConfig, ExtensionError, ExtensionInfo, ExtensionResult, ToolInfo};
 use crate::config::ExtensionConfigManager;
@@ -498,13 +497,11 @@ impl ExtensionManager {
 
         let client_guard = client.lock().await;
 
-        let result = client_guard
+        client_guard
             .call_tool(tool_name, tool_call.clone().arguments)
             .await
             .map(|result| result.content)
-            .map_err(|e| ToolError::ExecutionError(e.to_string()));
-
-        result
+            .map_err(|e| ToolError::ExecutionError(e.to_string()))
     }
 
     pub async fn list_prompts_from_extension(

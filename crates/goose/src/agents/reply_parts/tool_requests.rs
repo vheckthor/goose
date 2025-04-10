@@ -38,13 +38,7 @@ impl Agent {
         let filtered_content = response
             .content
             .iter()
-            .filter(|c| {
-                if let MessageContent::ToolRequest(_) = c {
-                    false
-                } else {
-                    true
-                }
-            })
+            .filter(|c| !matches!(c, MessageContent::ToolRequest(_)))
             .cloned()
             .collect();
 
