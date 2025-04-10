@@ -331,8 +331,8 @@ impl Agent {
             tools.push(platform_tools::read_resource_tool());
             tools.push(platform_tools::list_resources_tool());
         }
-        tools.push(platform_tools::search_available_extensions_tool());
-        tools.push(platform_tools::enable_extension_tool());
+        // tools.push(platform_tools::search_available_extensions_tool());
+        // tools.push(platform_tools::enable_extension_tool());
 
         let (tools_with_readonly_annotation, tools_without_annotation): (
             HashSet<String>,
