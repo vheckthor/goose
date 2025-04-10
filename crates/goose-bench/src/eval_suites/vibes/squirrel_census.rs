@@ -148,7 +148,7 @@ After writing the script, run it using python3 and show the results. Do not ask 
             "ran_script".to_string(),
             EvalMetricValue::Boolean(ran_script),
         ));
-        
+
         metrics.push((
             "score".to_string(),
             EvalMetricValue::Float((correct_results as u8) as f64 / 1.0),

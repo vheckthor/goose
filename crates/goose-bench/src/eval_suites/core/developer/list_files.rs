@@ -70,13 +70,11 @@ impl Evaluation for DeveloperListFiles {
             EvalMetricValue::Boolean(valid_tool_call),
         ));
 
-
         metrics.push((
             "score".to_string(),
             EvalMetricValue::Float((valid_tool_call as u8) as f64 / 1.0),
         ));
 
-        
         Ok(metrics)
     }
 

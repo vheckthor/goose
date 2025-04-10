@@ -108,7 +108,12 @@ impl Evaluation for GooseWiki {
             }
         }
 
-        metrics.push(("score".to_string(), EvalMetricValue::Float(((valid_implementation as u8) + (valid_tool_call as u8)) as f64/2.0)));
+        metrics.push((
+            "score".to_string(),
+            EvalMetricValue::Float(
+                ((valid_implementation as u8) + (valid_tool_call as u8)) as f64 / 2.0,
+            ),
+        ));
 
         Ok(metrics)
     }
