@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getApiUrl } from '../config';
-import BottomMenu from './BottomMenu';
 import FlappyGoose from './FlappyGoose';
 import GooseMessage from './GooseMessage';
-import Input from './Input';
+import ChatBar from './ChatBar';
 import { type View, ViewOptions } from '../App';
 import LoadingGoose from './LoadingGoose';
 import MoreMenuLayout from './more_menu/MoreMenuLayout';
@@ -438,14 +437,15 @@ export default function ChatView({
 
         <div className="relative p-4 pt-0 z-10 animate-[fadein_400ms_ease-in_forwards]">
           {isLoading && <LoadingGoose />}
-          <Input
+          <ChatBar
             handleSubmit={handleSubmit}
             isLoading={isLoading}
             onStop={onStopGoose}
             commandHistory={commandHistory}
             initialValue={_input}
+            setView={setView}
+            hasMessages={hasMessages}
           />
-          <BottomMenu hasMessages={hasMessages} setView={setView} />
         </div>
       </Card>
 
