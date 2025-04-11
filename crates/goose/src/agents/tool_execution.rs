@@ -13,30 +13,22 @@ use crate::message::{Message, ToolRequest};
 use crate::permission::Permission;
 use mcp_core::{Content, ToolError};
 
+// Type alias to reduce complexity
+pub(crate) type ToolFuture<'a> =
+    Pin<Box<dyn Future<Output = (String, Result<Vec<Content>, ToolError>)> + Send + 'a>>;
+pub(crate) type ToolFuturesVec<'a> = Arc<Mutex<Vec<ToolFuture<'a>>>>;
+
 use crate::agents::Agent;
 
 impl Agent {
     pub(crate) fn handle_approval_tool_requests<'a>(
         &'a self,
         tool_requests: &'a [ToolRequest],
-        tool_futures: Arc<
-            Mutex<
-                Vec<
-                    Pin<
-                        Box<
-                            dyn Future<Output = (String, Result<Vec<mcp_core::Content>, ToolError>)>
-                                + Send
-                                + 'a,
-                        >,
-                    >,
-                >,
-            >,
-        >,
+        tool_futures: ToolFuturesVec<'a>,
         permission_manager: &'a mut PermissionManager,
         message_tool_response: Arc<Mutex<Message>>,
     ) -> BoxStream<'a, anyhow::Result<Message>> {
         try_stream! {
-
             for request in tool_requests {
                 if let Ok(tool_call) = request.tool_call.clone() {
                     let confirmation = Message::user().with_tool_confirmation_request(
@@ -77,9 +69,7 @@ impl Agent {
                         }
                     }
                 }
-
             }
-
         }
         .boxed()
     }

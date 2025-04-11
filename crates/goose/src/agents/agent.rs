@@ -1,6 +1,4 @@
 use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
@@ -33,6 +31,8 @@ use crate::agents::types::{FrontendTool, ToolResultReceiver};
 use mcp_core::{
     prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolError, ToolResult,
 };
+
+use super::tool_execution::ToolFuture;
 
 const MAX_TRUNCATION_ATTEMPTS: usize = 3;
 const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
@@ -444,7 +444,7 @@ impl Agent {
                                                             self.provider()).await;
 
                             // Handle pre-approved and read-only tools in parallel
-                            let mut tool_futures: Vec<Pin<Box<dyn Future<Output = (String, Result<Vec<mcp_core::Content>, ToolError>)> + Send>>> = Vec::new();
+                            let mut tool_futures: Vec<ToolFuture> = Vec::new();
                             let mut install_results = Vec::new();
 
                             let denied_content_text = Content::text(
