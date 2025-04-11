@@ -11,7 +11,7 @@ export interface GooseMode {
 export const all_goose_modes: GooseMode[] = [
   {
     key: 'auto',
-    label: 'Completely Autonomous',
+    label: 'Autonomous',
     description: 'Full file modification capabilities, edit, create, and delete files freely.',
   },
   {

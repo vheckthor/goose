@@ -432,11 +432,11 @@ export default function ChatView({
                 </div>
               </div>
             )}
-            <div className="block h-16" />
+            <div className="block h-8" />
           </ScrollArea>
         )}
 
-        <div className="relative">
+        <div className="relative p-4 pt-0 z-10 animate-[fadein_400ms_ease-in_forwards]">
           {isLoading && <LoadingGoose />}
           <Input
             handleSubmit={handleSubmit}

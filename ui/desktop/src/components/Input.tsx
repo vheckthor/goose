@@ -1,8 +1,10 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import Stop from './ui/Stop';
-import { Attach, Send } from './icons';
-import { debounce } from 'lodash';
+import type { View } from '../App';
+import { Attach, ChevronDown, Send, Document, ChevronUp } from './icons';
+import ModelsBottomBar from './settings_v2/models/bottom_bar/ModelsBottomBar';
+import { BottomMenuModeSelection } from './BottomMenuModeSelection';
 
 interface InputProps {
   handleSubmit: (e: React.FormEvent) => void;
@@ -10,6 +12,8 @@ interface InputProps {
   onStop?: () => void;
   commandHistory?: string[];
   initialValue?: string;
+  setView: (view: View) => void;
+  hasMessages?: boolean;
 }
 
 export default function Input({
@@ -18,15 +22,17 @@ export default function Input({
   onStop,
   commandHistory = [],
   initialValue = '',
+  setView,
+  hasMessages = false,
 }: InputProps) {
-  const [_value, setValue] = useState(initialValue);
-  const [displayValue, setDisplayValue] = useState(initialValue); // For immediate visual feedback
+  const [value, setValue] = useState(initialValue);
+  const [isFocused, setIsFocused] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Update internal value when initialValue changes
   useEffect(() => {
     if (initialValue) {
       setValue(initialValue);
-      setDisplayValue(initialValue);
     }
   }, [initialValue]);
 
@@ -42,54 +48,32 @@ export default function Input({
     }
   }, []);
 
+  const useAutosizeTextArea = (textAreaRef: HTMLTextAreaElement | null, value: string) => {
+    useEffect(() => {
+      if (textAreaRef) {
+        textAreaRef.style.height = '0px'; // Reset height
+        const scrollHeight = textAreaRef.scrollHeight;
+        textAreaRef.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+      }
+    }, [textAreaRef, value]);
+  };
+
   const minHeight = '1rem';
   const maxHeight = 10 * 24;
 
-  // Debounced function to update actual value
-  const debouncedSetValue = useCallback((val: string) => {
-    debounce((value: string) => {
-      setValue(value);
-    }, 150)(val);
-  }, []);
-
-  // Debounced autosize function
-  const debouncedAutosize = useCallback(
-    (textArea: HTMLTextAreaElement) => {
-      debounce((element: HTMLTextAreaElement) => {
-        element.style.height = '0px'; // Reset height
-        const scrollHeight = element.scrollHeight;
-        element.style.height = Math.min(scrollHeight, maxHeight) + 'px';
-      }, 150)(textArea);
-    },
-    [maxHeight]
-  );
-
-  useEffect(() => {
-    if (textAreaRef.current) {
-      debouncedAutosize(textAreaRef.current);
-    }
-  }, [debouncedAutosize, displayValue]);
+  useAutosizeTextArea(textAreaRef.current, value);
 
   const handleChange = (evt: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = evt.target.value;
-    setDisplayValue(val); // Update display immediately
-    debouncedSetValue(val); // Debounce the actual state update
+    setValue(val);
   };
 
-  // Cleanup debounced functions on unmount
-  useEffect(() => {
-    return () => {
-      debouncedSetValue.cancel?.();
-      debouncedAutosize.cancel?.();
-    };
-  }, [debouncedSetValue, debouncedAutosize]);
-
   // Handlers for composition events, which are crucial for proper IME behavior
-  const handleCompositionStart = () => {
+  const handleCompositionStart = (evt: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(true);
   };
 
-  const handleCompositionEnd = () => {
+  const handleCompositionEnd = (evt: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
   };
 
@@ -98,7 +82,7 @@ export default function Input({
 
     // Save current input if we're just starting to navigate history
     if (historyIndex === -1) {
-      setSavedInput(displayValue);
+      setSavedInput(value);
     }
 
     // Calculate new history index
@@ -115,7 +99,7 @@ export default function Input({
       }
     }
 
-    if (newIndex === historyIndex) {
+    if (newIndex == historyIndex) {
       return;
     }
 
@@ -123,10 +107,8 @@ export default function Input({
     setHistoryIndex(newIndex);
     if (newIndex === -1) {
       // Restore saved input when going past the end of history
-      setDisplayValue(savedInput);
       setValue(savedInput);
     } else {
-      setDisplayValue(commandHistory[newIndex] || '');
       setValue(commandHistory[newIndex] || '');
     }
   };
@@ -145,9 +127,7 @@ export default function Input({
         return;
       }
       if (evt.altKey) {
-        const newValue = displayValue + '\n';
-        setDisplayValue(newValue);
-        setValue(newValue);
+        setValue(value + '\n');
         return;
       }
 
@@ -156,9 +136,8 @@ export default function Input({
       evt.preventDefault();
 
       // Only submit if not loading and has content
-      if (!isLoading && displayValue.trim()) {
-        handleSubmit(new CustomEvent('submit', { detail: { value: displayValue } }));
-        setDisplayValue('');
+      if (!isLoading && value.trim()) {
+        handleSubmit(new CustomEvent('submit', { detail: { value } }));
         setValue('');
         setHistoryIndex(-1);
         setSavedInput('');
@@ -168,9 +147,8 @@ export default function Input({
 
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (displayValue.trim() && !isLoading) {
-      handleSubmit(new CustomEvent('submit', { detail: { value: displayValue } }));
-      setDisplayValue('');
+    if (value.trim() && !isLoading) {
+      handleSubmit(new CustomEvent('submit', { detail: { value } }));
       setValue('');
       setHistoryIndex(-1);
       setSavedInput('');
@@ -181,9 +159,10 @@ export default function Input({
     const path = await window.electron.selectFileOrDirectory();
     if (path) {
       // Append the path to existing text, with a space if there's existing text
-      const newValue = displayValue.trim() ? `${displayValue.trim()} ${path}` : path;
-      setDisplayValue(newValue);
-      setValue(newValue);
+      setValue((prev) => {
+        const currentText = prev.trim();
+        return currentText ? `${currentText} ${path}` : path;
+      });
       textAreaRef.current?.focus();
     }
   };
@@ -191,17 +170,23 @@ export default function Input({
   return (
     <form
       onSubmit={onFormSubmit}
-      className="flex relative h-auto px-[16px] pr-[68px] py-[1rem] border-t border-borderSubtle"
+      className={`flex relative h-auto border rounded-lg transition-colors ${
+        isFocused
+          ? 'border-borderProminent hover:border-borderProminent'
+          : 'border-borderSubtle hover:border-borderStandard'
+      } bg-bgApp z-10`}
     >
       <textarea
         autoFocus
         id="dynamic-textarea"
         placeholder="What can goose help with?   ⌘↑/⌘↓"
-        value={displayValue}
+        value={value}
         onChange={handleChange}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
         onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         ref={textAreaRef}
         rows={1}
         style={{
@@ -209,44 +194,50 @@ export default function Input({
           maxHeight: `${maxHeight}px`,
           overflowY: 'auto',
         }}
-        className="w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-base resize-none text-textStandard"
+        className="w-full pl-4 pr-[68px] outline-none border-none focus:ring-0 bg-transparent py-3 text-sm resize-none text-textStandard"
       />
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        onClick={handleFileSelect}
-        className="absolute right-[40px] top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard"
-      >
-        <Attach />
-      </Button>
-      {isLoading ? (
+
+      <div className="flex items-center justify-center h-full absolute right-2">
         <Button
           type="button"
           size="icon"
           variant="ghost"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onStop?.();
-          }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 [&_svg]:size-5 text-textSubtle hover:text-textStandard"
+          onClick={handleFileSelect}
+          className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
         >
-          <Stop size={24} />
+          <Attach />
         </Button>
-      ) : (
-        <Button
-          type="submit"
-          size="icon"
-          variant="ghost"
-          disabled={!displayValue.trim()}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard ${
-            !displayValue.trim() ? 'text-textSubtle cursor-not-allowed' : ''
-          }`}
-        >
-          <Send />
-        </Button>
-      )}
+
+        <div className="ml-1">
+          {isLoading ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onStop();
+              }}
+              className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderProminent hover:text-textStandard w-7 h-7 [&_svg]:size-4"
+            >
+              <Stop size={24} />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              disabled={!value.trim()}
+              className={`text-textProminentInverse rounded-full border border-borderSubtle bg-bgAppInverse hover:bg-bgStandardInverse w-7 h-7 [&_svg]:size-4 ${
+                !value.trim() ? 'text-textProminentInverse cursor-not-allowed' : ''
+              }`}
+            >
+              <Send />
+            </Button>
+          )}
+        </div>
+      </div>
     </form>
   );
 }

@@ -56,10 +56,10 @@ export default function BottomMenu({
   // Removed the envModelProvider code that was checking for environment variables
 
   return (
-    <div className="flex justify-between items-center text-textSubtle relative bg-bgSubtle border-t border-borderSubtle text-xs pl-4 h-[40px] pb-1 align-middle">
+    <div className="flex justify-between items-center transition-colors text-textSubtle relative text-xs mt-4 align-middle">
       {/* Directory Chooser - Always visible */}
       <span
-        className="cursor-pointer flex items-center [&>svg]:size-4"
+        className="hover:cursor-pointer hover:text-textStandard flex items-center [&>svg]:size-4"
         onClick={async () => {
           if (hasMessages) {
             window.electron.directoryChooser();
@@ -69,16 +69,19 @@ export default function BottomMenu({
         }}
       >
         <Document className="mr-1" />
-        Working in {window.appConfig.get('GOOSE_WORKING_DIR')}
-        <ChevronUp className="ml-1" />
+        <div className="w-max-[200px] truncate [direction:rtl]">
+          Working in {window.appConfig.get('GOOSE_WORKING_DIR')}
+        </div>
       </span>
 
-      {/* Goose Mode Selector Dropdown */}
-      <BottomMenuModeSelection setView={setView} />
-
       {/* Right-side section with ToolCount and Model Selector together */}
-      <div className="flex items-center mr-4 space-x-1">
-        {/* Model Selector Dropdown */}
+      <div className="flex items-center">
+        {/* Goose Mode Selector Dropdown */}
+        <BottomMenuModeSelection setView={setView} />
+
+        {/* Separator */}
+        <div className="w-[1px] h-4 bg-borderSubtle mx-2" />
+
         {settingsV2Enabled ? (
           <ModelsBottomBar dropdownRef={dropdownRef} setView={setView} />
         ) : (
@@ -149,6 +152,13 @@ export default function BottomMenu({
             )}
           </div>
         )}
+
+        {/* Separator */}
+        <div className="w-[1px] h-4 bg-borderSubtle mx-2" />
+
+        {/* Tool count */}
+        <ToolCount />
+        {/* Model Selector Dropdown */}
       </div>
     </div>
   );
