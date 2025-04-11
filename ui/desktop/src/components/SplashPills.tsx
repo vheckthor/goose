@@ -1,12 +1,19 @@
 import React from 'react';
 
-function SplashPill({ content, append, className = '', longForm = '' }) {
+interface SplashPillProps {
+  content: string;
+  append: (text: string) => Promise<void>;
+  className?: string;
+  longForm?: string;
+}
+
+function SplashPill({ content, append, className = '', longForm = '' }: SplashPillProps) {
   return (
     <div
       className={`px-4 py-2 text-sm text-center text-textSubtle dark:text-textStandard cursor-pointer border border-borderSubtle hover:bg-bgSubtle rounded-full transition-all duration-150 ${className}`}
-      onClick={async () => {
+      onClick={() => {
         // Use the longForm text if provided, otherwise use the content
-        await append(longForm || content);
+        append(longForm || content);
       }}
     >
       <div className="line-clamp-2">{content}</div>
@@ -14,7 +21,12 @@ function SplashPill({ content, append, className = '', longForm = '' }) {
   );
 }
 
-export default function SplashPills({ append, activities = null }) {
+interface SplashPillsProps {
+  append: (text: string) => Promise<void>;
+  activities: string[] | null;
+}
+
+export default function SplashPills({ append, activities = null }: SplashPillsProps) {
   // If custom activities are provided, use those instead of the default ones
   const pills = activities || [
     'What can you do?',

@@ -1,90 +1,76 @@
-import { addExtension } from '../extensions';
-import { DEFAULT_EXTENSION_TIMEOUT } from '../extensions';
-import { FullExtensionConfig } from '../extensions';
+import { addExtension, DEFAULT_EXTENSION_TIMEOUT, type FullExtensionConfig } from '../extensions';
 
-interface BaseExtensionArgs {
-  name: string;
-  description?: string;
-  env_keys?: string[];
-  timeout?: number;
-}
-
-interface SseExtensionArgs extends BaseExtensionArgs {
-  type: 'sse';
-  uri: string;
-}
-
-interface StdioExtensionArgs extends BaseExtensionArgs {
-  type: 'stdio';
-  cmd: string;
-  args?: string[];
-}
-
-interface BuiltinExtensionArgs extends BaseExtensionArgs {
-  type: 'builtin';
-}
-
-type EnableExtensionArgs = SseExtensionArgs | StdioExtensionArgs | BuiltinExtensionArgs;
-
-export async function enable_extension(args: EnableExtensionArgs): Promise<string> {
+// The tool implementation
+export async function enable_extension(args: Record<string, unknown>): Promise<string> {
   try {
-    // Create base config
-    const baseConfig = {
-      id: `ext_${Date.now()}`,
-      name: args.name,
-      description: args.description || args.name,
-      enabled: true,
-      timeout: args.timeout || DEFAULT_EXTENSION_TIMEOUT,
-      env_keys: args.env_keys || [],
-    };
-
-    // Create type-specific config
-    let config: FullExtensionConfig;
-
-    switch (args.type) {
-      case 'sse': {
-        const sseArgs = args as SseExtensionArgs;
-        config = {
-          ...baseConfig,
-          type: 'sse',
-          uri: sseArgs.uri,
-        };
-        break;
-      }
-      case 'stdio': {
-        const stdioArgs = args as StdioExtensionArgs;
-        config = {
-          ...baseConfig,
-          type: 'stdio',
-          cmd: stdioArgs.cmd,
-          args: stdioArgs.args || [],
-        };
-        break;
-      }
-      case 'builtin': {
-        config = {
-          ...baseConfig,
-          type: 'builtin',
-        };
-        break;
-      }
-      default: {
-        // This should never happen since we've handled all possible types
-        throw new Error(`Unsupported extension type: ${(args as EnableExtensionArgs).type}`);
-      }
+    const extension_name = args.extension_name as string;
+    if (!extension_name) {
+      throw new Error('extension_name is required');
     }
 
-    // Add the extension
-    const response = await addExtension(config);
+    // Get config by name and enable it
+    const config: FullExtensionConfig = {
+      id: `ext_${Date.now()}`,
+      name: extension_name,
+      description: extension_name,
+      enabled: true,
+      timeout: DEFAULT_EXTENSION_TIMEOUT,
+      env_keys: [],
+      type: 'builtin'
+    };
 
+    const response = await addExtension(config);
     if (!response.ok) {
       const data = await response.json();
       throw new Error(data.message || 'Failed to enable extension');
     }
 
-    return `Successfully enabled ${args.name} extension`;
+    return `Successfully enabled ${extension_name} extension`;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to enable extension: ${message}`);
   }
 }
+
+// Export all tools
+export const tools = {
+  enable_extension: {
+    name: 'enable_extension',
+    description: 'Enable extension',
+    function: enable_extension,
+    schema: {
+      type: 'object',
+      required: ['extension_name'],
+      properties: {
+        extension_name: {
+          type: 'string',
+          description: 'Name of the extension to install',
+        }
+      },
+    },
+  },
+};
+
+// Frontend extension configuration type
+interface FrontendConfig {
+  name: string;
+  type: 'frontend';
+  tools: Array<{
+    name: string;
+    description: string;
+    schema: {
+      type: string;
+      required: string[];
+      properties: Record<string, unknown>;
+    };
+  }>;
+  instructions: string;
+}
+
+// Frontend configuration
+export const FRONTEND_CONFIG: FrontendConfig = {
+  name: 'frontendtools',
+  type: 'frontend',
+  tools: [tools.enable_extension],
+  instructions: 'Frontend tools that are invoked by the frontend',
+};

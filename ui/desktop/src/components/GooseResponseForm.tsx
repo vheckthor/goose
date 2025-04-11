@@ -23,7 +23,7 @@ interface DynamicForm {
 interface GooseResponseFormProps {
   message: string;
   metadata: string[] | null;
-  append: (value: string) => void;
+  append: (value: string) => Promise<void>;
 }
 
 export default function GooseResponseForm({
@@ -104,20 +104,20 @@ export default function GooseResponseForm({
     setSelectedOption(index);
   };
 
-  const handleAccept = () => {
-    append('Yes - go ahead.');
+  const handleAccept = async () => {
+    await append('Yes - go ahead.');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (selectedOption !== null && options[selectedOption]) {
-      append(`Yes - continue with: ${options[selectedOption].optionTitle}`);
+      await append(`Yes - continue with: ${options[selectedOption].optionTitle}`);
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (dynamicForm) {
-      append(JSON.stringify(formValues));
+      await append(JSON.stringify(formValues));
     }
   };
 
@@ -132,9 +132,14 @@ export default function GooseResponseForm({
     return null;
   }
 
-  function isForm(f: DynamicForm) {
-    return (
-      f && f.title && f.description && f.fields && Array.isArray(f.fields) && f.fields.length > 0
+  function isForm(f: DynamicForm | null): f is DynamicForm {
+    return Boolean(
+      f && 
+      f.title && 
+      f.description && 
+      f.fields && 
+      Array.isArray(f.fields) && 
+      f.fields.length > 0
     );
   }
 

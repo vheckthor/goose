@@ -48,6 +48,12 @@ export interface ToolConfirmationRequest {
   prompt?: string;
 }
 
+export interface FrontendToolRequestMessageContent {
+  type: 'frontendToolRequest';
+  id: string;
+  toolCall: ToolCallResult<ToolCall>;
+}
+
 export interface ToolRequestMessageContent {
   type: 'toolRequest';
   id: string;
@@ -73,6 +79,7 @@ export type MessageContent =
   | ImageContent
   | ToolRequestMessageContent
   | ToolResponseMessageContent
+  | FrontendToolRequestMessageContent
   | ToolConfirmationRequestMessageContent;
 
 export interface Message {
@@ -181,6 +188,12 @@ export function getToolRequests(message: Message): ToolRequestMessageContent[] {
   );
 }
 
+export function getFrontendToolRequests(message: Message): FrontendToolRequestMessageContent[] {
+  return message.content.filter(
+    (content): content is FrontendToolRequestMessageContent => content.type === 'frontendToolRequest'
+  );
+}
+
 export function getToolResponses(message: Message): ToolResponseMessageContent[] {
   return message.content.filter(
     (content): content is ToolResponseMessageContent => content.type === 'toolResponse'
@@ -190,7 +203,7 @@ export function getToolResponses(message: Message): ToolResponseMessageContent[]
 export function getToolConfirmationContent(
   message: Message
 ): ToolConfirmationRequestMessageContent {
-  return message.content.find(
+   return message.content.find(
     (content): content is ToolConfirmationRequestMessageContent =>
       content.type === 'toolConfirmationRequest'
   );

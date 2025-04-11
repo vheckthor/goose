@@ -5,7 +5,7 @@ import { Attach, Send } from './icons';
 import { debounce } from 'lodash';
 
 interface InputProps {
-  handleSubmit: (e: React.FormEvent) => void;
+  handleSubmit: (e: CustomEvent<{ value: string }>) => void;
   isLoading?: boolean;
   onStop?: () => void;
   commandHistory?: string[];
@@ -45,24 +45,25 @@ export default function Input({
   const minHeight = '1rem';
   const maxHeight = 10 * 24;
 
-  // Debounced function to update actual value
-  const debouncedSetValue = useCallback((val: string) => {
-    debounce((value: string) => {
-      setValue(value);
-    }, 150)(val);
+  // Create debounced functions outside of useCallback
+  const debouncedSetValueFn = debounce((value: string) => {
+    setValue(value);
+  }, 150);
+
+  const debouncedAutosizeFn = debounce((element: HTMLTextAreaElement, maxH: number) => {
+    element.style.height = '0px'; // Reset height
+    const scrollHeight = element.scrollHeight;
+    element.style.height = Math.min(scrollHeight, maxH) + 'px';
+  }, 150);
+
+  // Memoize the functions that use the debounced functions
+  const debouncedSetValue = useCallback((value: string) => {
+    debouncedSetValueFn(value);
   }, []);
 
-  // Debounced autosize function
-  const debouncedAutosize = useCallback(
-    (textArea: HTMLTextAreaElement) => {
-      debounce((element: HTMLTextAreaElement) => {
-        element.style.height = '0px'; // Reset height
-        const scrollHeight = element.scrollHeight;
-        element.style.height = Math.min(scrollHeight, maxHeight) + 'px';
-      }, 150)(textArea);
-    },
-    [maxHeight]
-  );
+  const debouncedAutosize = useCallback((element: HTMLTextAreaElement) => {
+    debouncedAutosizeFn(element, maxHeight);
+  }, [maxHeight]);
 
   useEffect(() => {
     if (textAreaRef.current) {
@@ -79,10 +80,10 @@ export default function Input({
   // Cleanup debounced functions on unmount
   useEffect(() => {
     return () => {
-      debouncedSetValue.cancel?.();
-      debouncedAutosize.cancel?.();
+      debouncedSetValueFn.cancel();
+      debouncedAutosizeFn.cancel();
     };
-  }, [debouncedSetValue, debouncedAutosize]);
+  }, []);
 
   // Handlers for composition events, which are crucial for proper IME behavior
   const handleCompositionStart = () => {

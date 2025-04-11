@@ -24,14 +24,14 @@ import {
   ToolRequestMessageContent,
   ToolResponseMessageContent,
   ToolConfirmationRequestMessageContent,
-  getTextContent,
+  FrontendToolRequestMessageContent,
+  getTextContent
 } from '../types/message';
+import { executeFrontendTool } from '../utils/frontendTools';
 
 export interface ChatType {
   id: string;
   title: string;
-  // messages up to this index are presumed to be "history" from a resumed session, this is used to track older tool confirmation requests
-  // anything before this index should not render any buttons, but anything after should
   messageHistoryIndex: number;
   messages: Message[];
 }
@@ -42,6 +42,13 @@ interface GeneratedBotConfig {
   description: string;
   instructions: string;
   activities: string[];
+}
+
+type DeepLinkBotConfig = BotConfig & {
+  id: string;
+  name: string;
+  description: string;
+  [key: string]: string | string[] | null;
 }
 
 // Helper function to determine if a message is a user message
@@ -67,8 +74,6 @@ export default function ChatView({
   setView: (view: View, viewOptions?: ViewOptions) => void;
   setIsGoosehintsModalOpen: (isOpen: boolean) => void;
 }) {
-  // Disabled askAi calls to save costs
-  // const [messageMetadata, setMessageMetadata] = useState<Record<string, string[]>>({});
   const [hasMessages, setHasMessages] = useState(false);
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
   const [showGame, setShowGame] = useState(false);
@@ -98,25 +103,17 @@ export default function ChatView({
     onFinish: async (_message, _reason) => {
       window.electron.stopPowerSaveBlocker();
 
-      // Disabled askAi calls to save costs
-      // const messageText = getTextContent(message);
-      // const fetchResponses = await askAi(messageText);
-      // setMessageMetadata((prev) => ({ ...prev, [message.id || '']: fetchResponses }));
-
       const timeSinceLastInteraction = Date.now() - lastInteractionTime;
       window.electron.logInfo('last interaction:' + lastInteractionTime);
       if (timeSinceLastInteraction > 60000) {
-        // 60000ms = 1 minute
         window.electron.showNotification({
           title: 'Goose finished the task.',
           body: 'Click here to expand.',
         });
       }
     },
-    onToolCall: (toolCall: string) => {
-      // Handle tool calls if needed
+    _onToolCall: (toolCall: Record<string, unknown>) => {
       console.log('Tool call received:', toolCall);
-      // Implement tool call handling logic here
     },
   });
 
@@ -125,15 +122,13 @@ export default function ChatView({
     const handleMakeAgent = async () => {
       window.electron.logInfo('Making agent from chat...');
 
-      // Log all messages for now
       window.electron.logInfo('Current messages:');
       chat.messages.forEach((message, index) => {
         const role = isUserMessage(message) ? 'user' : 'assistant';
-        const content = isUserMessage(message) ? message.text : getTextContent(message);
+        const content = getTextContent(message);
         window.electron.logInfo(`Message ${index} (${role}): ${content}`);
       });
 
-      // Inject a question into the chat to generate instructions
       const instructionsPrompt =
         'Based on our conversation so far, could you create:\n' +
         "1. A concise set of instructions (1-2 paragraphs) that describe what you've been helping with. Pay special attention if any output styles or formats are requested (and make it clear), and note any non standard tools used or required.\n" +
@@ -143,17 +138,12 @@ export default function ChatView({
         'Instructions:\nUsing web searches we find pictures of fruit, and always check what language to reply in.' +
         'Activities:\nShow pics of apples, say a random fruit, share a fruit fact';
 
-      // Set waiting state to true before adding the prompt
       setWaitingForAgentResponse(true);
-
-      // Add the prompt as a user message
       append(createUserMessage(instructionsPrompt));
-
       window.electron.logInfo('Injected instructions prompt into chat');
     };
 
     window.addEventListener('make-agent-from-chat', handleMakeAgent);
-
     return () => {
       window.removeEventListener('make-agent-from-chat', handleMakeAgent);
     };
@@ -161,39 +151,29 @@ export default function ChatView({
 
   // Listen for new messages and process agent response
   useEffect(() => {
-    // Only process if we're waiting for an agent response
     if (!waitingForAgentResponse || messages.length === 0) {
       return;
     }
 
-    // Get the last message
     const lastMessage = messages[messages.length - 1];
-
-    // Check if it's an assistant message (response to our prompt)
     if (lastMessage.role === 'assistant') {
-      // Extract the content
       const content = getTextContent(lastMessage);
-
-      // Process the agent's response
       if (content) {
         window.electron.logInfo('Received agent response:');
         window.electron.logInfo(content);
 
-        // Parse the response to extract instructions and activities
         const instructionsMatch = content.match(/Instructions:(.*?)(?=Activities:|$)/s);
         const activitiesMatch = content.match(/Activities:(.*?)$/s);
 
         const instructions = instructionsMatch ? instructionsMatch[1].trim() : '';
         const activitiesText = activitiesMatch ? activitiesMatch[1].trim() : '';
 
-        // Parse activities into an array
         const activities = activitiesText
           .split(/\n+/)
           .map((line) => line.replace(/^[•\-*\d]+\.?\s*/, '').trim())
           .filter((activity) => activity.length > 0);
 
-        // Create a bot config object
-        const generatedConfig = {
+        const generatedConfig: GeneratedBotConfig = {
           id: `bot-${Date.now()}`,
           name: 'Custom Bot',
           description: 'Bot created from chat',
@@ -204,35 +184,23 @@ export default function ChatView({
         window.electron.logInfo('Extracted bot config:');
         window.electron.logInfo(JSON.stringify(generatedConfig, null, 2));
 
-        // Store the generated bot config
         setGeneratedBotConfig(generatedConfig);
-
-        // Show the modal with the generated bot config
         setshowShareableBotModal(true);
-
         window.electron.logInfo('Generated bot config for agent creation');
-
-        // Reset waiting state
         setWaitingForAgentResponse(false);
       }
     }
   }, [messages, waitingForAgentResponse, setshowShareableBotModal, setGeneratedBotConfig]);
 
-  // Leaving these in for easy debugging of different message states
-
-  // One message with a tool call and no text content
-  // const messages = [{"role":"assistant","created":1742484893,"content":[{"type":"toolRequest","id":"call_udVcu3crnFdx2k5FzlAjk5dI","toolCall":{"status":"success","value":{"name":"developer__text_editor","arguments":{"command":"write","file_text":"Hello, this is a test file.\nLet's see if this works properly.","path":"/Users/alexhancock/Development/testfile.txt"}}}}]}];
-
-  // One message with text content and tool calls
-  // const messages = [{"role":"assistant","created":1742484388,"content":[{"type":"text","text":"Sure, let's break this down into two steps:\n\n1. **Write content to a `.txt` file.**\n2. **Read the content from the `.txt` file.**\n\nLet's start by writing some example content to a `.txt` file. I'll create a file named `example.txt` and write a sample sentence into it. Then I'll read the content back. \n\n### Sample Content\nWe'll write the following content into the `example.txt` file:\n\n```\nHello World! This is an example text file.\n```\n\nLet's proceed with this task."},{"type":"toolRequest","id":"call_CmvAsxMxiWVKZvONZvnz4QCE","toolCall":{"status":"success","value":{"name":"developer__text_editor","arguments":{"command":"write","file_text":"Hello World! This is an example text file.","path":"/Users/alexhancock/Development/example.txt"}}}}]}];
-
-  // Update chat messages when they change and save to sessionStorage
   useEffect(() => {
-    setChat((prevChat) => {
-      const updatedChat = { ...prevChat, messages };
-      return updatedChat;
+    setChat({
+      ...chat,
+      messages,
+      id: chat.id,
+      title: chat.title,
+      messageHistoryIndex: chat.messageHistoryIndex
     });
-  }, [messages, setChat]);
+  }, [messages, setChat, chat]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -240,11 +208,9 @@ export default function ChatView({
     }
   }, [messages]);
 
-  // Handle submit
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: CustomEvent<{ value: string }>) => {
     window.electron.startPowerSaveBlocker();
-    const customEvent = e as CustomEvent;
-    const content = customEvent.detail?.value || '';
+    const content = e.detail.value || '';
     if (content.trim()) {
       setLastInteractionTime(Date.now());
       append(createUserMessage(content));
@@ -258,50 +224,35 @@ export default function ChatView({
     console.log('Error:', error);
   }
 
-  const onStopGoose = () => {
+  const onStopGoose = async () => {
     stop();
     setLastInteractionTime(Date.now());
     window.electron.stopPowerSaveBlocker();
 
-    // Handle stopping the message stream
     const lastMessage = messages[messages.length - 1];
-
-    // check if the last user message has any tool response(s)
     const isToolResponse = lastMessage.content.some(
-      (content): content is ToolResponseMessageContent => content.type == 'toolResponse'
+      (content): content is ToolResponseMessageContent => content.type === 'toolResponse'
     );
 
-    // isUserMessage also checks if the message is a toolConfirmationRequest
-    // check if the last message is a real user's message
     if (lastMessage && isUserMessage(lastMessage) && !isToolResponse) {
-      // Get the text content from the last message before removing it
       const textContent = lastMessage.content.find((c) => c.type === 'text')?.text || '';
-
-      // Set the text back to the input field
       _setInput(textContent);
 
-      // Remove the last user message if it's the most recent one
       if (messages.length > 1) {
         setMessages(messages.slice(0, -1));
       } else {
         setMessages([]);
       }
-      // Interruption occured after a tool has completed, but no assistant reply
-      // handle his if we want to popup a message too the user
-      // } else if (lastMessage && isUserMessage(lastMessage) && isToolResponse) {
     } else if (!isUserMessage(lastMessage)) {
-      // the last message was an assistant message
-      // check if we have any tool requests or tool confirmation requests
       const toolRequests: [string, ToolCallResult<ToolCall>][] = lastMessage.content
         .filter(
-          (content): content is ToolRequestMessageContent | ToolConfirmationRequestMessageContent =>
-            content.type === 'toolRequest' || content.type === 'toolConfirmationRequest'
+          (content): content is ToolRequestMessageContent | ToolConfirmationRequestMessageContent | FrontendToolRequestMessageContent =>
+            content.type === 'toolRequest' || content.type === 'toolConfirmationRequest' || content.type === 'frontendToolRequest'
         )
         .map((content) => {
-          if (content.type === 'toolRequest') {
+          if (content.type === 'toolRequest' || content.type === 'frontendToolRequest') {
             return [content.id, content.toolCall];
           } else {
-            // extract tool call from confirmation
             const toolCall: ToolCallResult<ToolCall> = {
               status: 'success',
               value: {
@@ -314,9 +265,6 @@ export default function ChatView({
         });
 
       if (toolRequests.length !== 0) {
-        // This means we were interrupted during a tool request
-        // Create tool responses for all interrupted tool requests
-
         let responseMessage: Message = {
           role: 'user',
           created: Date.now(),
@@ -325,33 +273,42 @@ export default function ChatView({
 
         const notification = 'Interrupted by the user to make a correction';
 
-        // generate a response saying it was interrupted for each tool request
-        for (const [reqId, _] of toolRequests) {
-          const toolResponse: ToolResponseMessageContent = {
-            type: 'toolResponse',
-            id: reqId,
-            toolResult: {
-              status: 'error',
-              error: notification,
-            },
-          };
-
-          responseMessage.content.push(toolResponse);
+        for (const [reqId, toolCall] of toolRequests) {
+          if (toolCall.status === 'success' && toolCall.value && 'name' in toolCall.value) {
+            try {
+              await executeFrontendTool(reqId, toolCall);
+            } catch (error) {
+              const toolResponse: ToolResponseMessageContent = {
+                type: 'toolResponse',
+                id: reqId,
+                toolResult: {
+                  status: 'error',
+                  error: notification,
+                },
+              };
+              responseMessage.content.push(toolResponse);
+            }
+          } else {
+            const toolResponse: ToolResponseMessageContent = {
+              type: 'toolResponse',
+              id: reqId,
+              toolResult: {
+                status: 'error',
+                error: notification,
+              },
+            };
+            responseMessage.content.push(toolResponse);
+          }
         }
 
-        // Use an immutable update to add the response message to the messages array
         setMessages([...messages, responseMessage]);
       }
     }
   };
 
-  // Filter out standalone tool response messages for rendering
-  // They will be shown as part of the tool invocation in the assistant message
   const filteredMessages = messages.filter((message) => {
-    // Keep all assistant messages and user messages that aren't just tool responses
     if (message.role === 'assistant') return true;
 
-    // For user messages, check if they're only tool responses
     if (message.role === 'user') {
       const hasOnlyToolResponses = message.content.every((c) => c.type === 'toolResponse');
       const hasTextContent = message.content.some((c) => c.type === 'text');
@@ -359,7 +316,6 @@ export default function ChatView({
         (c) => c.type === 'toolConfirmationRequest'
       );
 
-      // Keep the message if it has text content or tool confirmation or is not just tool responses
       return hasTextContent || !hasOnlyToolResponses || hasToolConfirmation;
     }
 
@@ -389,7 +345,7 @@ export default function ChatView({
       <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
         {messages.length === 0 ? (
           <Splash
-            append={(text) => append(createUserMessage(text))}
+            append={async (text: string) => append(createUserMessage(text))}
             activities={botConfig?.activities || null}
           />
         ) : (
@@ -404,9 +360,9 @@ export default function ChatView({
                       messageHistoryIndex={chat?.messageHistoryIndex}
                       message={message}
                       messages={messages}
-                      // metadata={messageMetadata[message.id || '']}
-                      append={(text) => append(createUserMessage(text))}
-                      appendMessage={(newMessage) => {
+                      metadata={null}
+                      append={async (text: string) => append(createUserMessage(text))}
+                      appendMessage={(newMessage: Message) => {
                         const updatedMessages = [...messages, newMessage];
                         setMessages(updatedMessages);
                       }}
@@ -423,7 +379,6 @@ export default function ChatView({
                 <div
                   className="px-3 py-2 mt-2 text-center whitespace-nowrap cursor-pointer text-textStandard border border-borderSubtle hover:bg-bgSubtle rounded-full inline-block transition-all duration-150"
                   onClick={async () => {
-                    // Find the last user message
                     const lastUserMessage = messages.reduceRight(
                       (found, m) => found || (m.role === 'user' ? m : null),
                       null as Message | null
@@ -456,15 +411,10 @@ export default function ChatView({
 
       {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
 
-      {/* Deep Link Modal */}
       {showShareableBotModal && generatedBotConfig && (
         <DeepLinkModal
-          botConfig={generatedBotConfig}
+          botConfig={generatedBotConfig as DeepLinkBotConfig}
           onClose={() => {
-            setshowShareableBotModal(false);
-            setGeneratedBotConfig(null);
-          }}
-          onOpen={() => {
             setshowShareableBotModal(false);
             setGeneratedBotConfig(null);
           }}

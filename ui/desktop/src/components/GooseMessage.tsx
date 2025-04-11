@@ -8,6 +8,7 @@ import {
   Message,
   getTextContent,
   getToolRequests,
+  getFrontendToolRequests,
   getToolResponses,
   getToolConfirmationContent,
   createToolErrorResponseMessage,
@@ -19,8 +20,8 @@ interface GooseMessageProps {
   messageHistoryIndex: number;
   message: Message;
   messages: Message[];
-  metadata?: string[];
-  append: (value: string) => void;
+  metadata: string[] | null;
+  append: (value: string) => Promise<void>;
   appendMessage: (message: Message) => void;
 }
 

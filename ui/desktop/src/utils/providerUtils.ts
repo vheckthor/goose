@@ -15,6 +15,7 @@ import type { ExtensionConfig, FixedExtensionEntry } from '../components/ConfigC
 // TODO: remove when removing migration logic
 import { toastService } from '../toasts';
 import { ExtensionQuery, addExtension as apiAddExtension } from '../api';
+import { FRONTEND_CONFIG } from '../tools/enable_extension';
 
 interface AppConfig {
   GOOSE_PROVIDER?: string;
@@ -165,7 +166,50 @@ export const initializeSystem = async (
   try {
     console.log('initializing agent with provider', provider, 'model', model);
     await initializeAgent({ provider, model });
-
+    
+    // Add frontend tools as extension
+    try {
+      const addFrontendTools = async () => {
+        const extensionConfig = {
+          type: 'frontend' as const,
+          name: FRONTEND_CONFIG.name,
+          tools: [{
+            name: 'enable_extension',
+            description: 'Enable extension',
+            inputSchema: {
+              type: 'object',
+              required: ['extension_name'],
+              properties: {
+                extension_name: {
+                  type: 'string',
+                  description: 'Name of the extension to install',
+                }
+              },
+            }
+          }],
+          instructions: 'Frontend tools that are invoked by the frontend'
+        };
+        
+        if (options?.addExtension) {
+          await options.addExtension(FRONTEND_CONFIG.name, extensionConfig, true);
+        } else {
+          await apiAddExtension({
+            body: {
+              name: FRONTEND_CONFIG.name,
+              config: extensionConfig,
+              enabled: true
+            },
+            throwOnError: true
+          });
+        }
+      };
+      
+      await addFrontendTools();
+      console.log('Frontend tools extension added successfully');
+    } catch (error) {
+      console.error('Failed to add frontend tools extension:', error);
+    }
+    
     // This will go away after the release of settings v2 as this is now handled in config.yaml
     if (!settingsV2Enabled) {
       // Sync the model state with React
@@ -174,8 +218,11 @@ export const initializeSystem = async (
     }
 
     // Get botConfig directly here
-    const botConfig = window.appConfig?.get?.('botConfig');
-    const botPrompt = botConfig?.instructions;
+    interface BotConfig {
+      instructions?: string;
+    }
+    const botConfig = (window.appConfig?.get?.('botConfig') || {}) as BotConfig;
+    const botPrompt = botConfig.instructions;
 
     // Extend the system prompt with desktop-specific information
     const response = await fetch(getApiUrl('/agent/prompt'), {
@@ -239,6 +286,10 @@ export const initializeSystem = async (
           .filter((e) => e.enabled)
           .map((extensionEntry) => {
             const extensionConfig = extractExtensionConfig(extensionEntry);
+            if (!options?.addExtension) {
+              console.warn('addExtension not provided');
+              return Promise.resolve();
+            }
             return addToAgentOnStartup({ addToConfig: options.addExtension, extensionConfig });
           })
       );

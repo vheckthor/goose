@@ -2,7 +2,12 @@ import React from 'react';
 import SplashPills from './SplashPills';
 import GooseLogo from './GooseLogo';
 
-export default function Splash({ append, activities = null }) {
+interface SplashProps {
+  append: (text: string) => void;
+  activities: string[] | null;
+}
+
+export default function Splash({ append, activities = null }: SplashProps) {
   return (
     <div className="h-full flex flex-col pb-12">
       <div className="p-8">

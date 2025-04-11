@@ -3,5 +3,6 @@
  */
 export interface BotConfig {
   instructions: string;
-  activities: string[] | null;
+  activities: string[] | undefined;
+  [key: string]: string | string[] | undefined;
 }
