@@ -28,6 +28,7 @@ import {
   ToolConfirmationRequestMessageContent,
   ExtensionRequestMessageContent,
 } from '../types/message';
+import ChatInput from './ChatInput';
 
 export interface ChatType {
   id: string;
@@ -361,9 +362,7 @@ export default function ChatView({
     <div className="flex flex-col w-full h-screen items-center justify-center">
       {/* Loader when generating recipe */}
       {isGeneratingRecipe && <LayingEggLoader />}
-      <div className="relative flex items-center h-[36px] w-full">
-        <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
-      </div>
+      <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
 
       <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
         {recipeConfig?.title && messages.length > 0 && (
@@ -437,14 +436,12 @@ export default function ChatView({
 
         <div className="relative p-4 pt-0 z-10 animate-[fadein_400ms_ease-in_forwards]">
           {isLoading && <LoadingGoose />}
-          <ChatBar
+          <ChatInput
             handleSubmit={handleSubmit}
             isLoading={isLoading}
             onStop={onStopGoose}
             commandHistory={commandHistory}
             initialValue={_input}
-            setView={setView}
-            hasMessages={hasMessages}
           />
         </div>
       </Card>
