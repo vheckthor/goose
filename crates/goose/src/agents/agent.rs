@@ -352,6 +352,7 @@ impl Agent {
                         // Reset truncation attempt
                         truncation_attempt = 0;
 
+                        // categorize the type of requests we need to handle
                         let (frontend_requests,
                             enable_extension_requests,
                             search_extension_requests,
@@ -379,7 +380,9 @@ impl Agent {
                             message_tool_response.clone()
                         );
 
-                        // we have a stream of frontend tools to handle, yield each back to the caller
+                        // we have a stream of frontend tools to handle, inside the stream
+                        // execution is yeield back to this reply loop, and is of the same Message
+                        // type, so we can yield that back up to be handled
                         while let Some(msg) = frontend_tool_stream.try_next().await? {
                             yield msg;
                         }
@@ -433,7 +436,10 @@ impl Agent {
                             message_tool_response.clone()
                         );
 
-                        // we have a stream of enable_extension_requests to handle, yield each back to the caller
+                        // we have a stream of enable_extension_requests to handle
+                        // execution is yeield back to this reply loop, and is of the same Message
+                        // type, so we can yield the Message back up to be handled and grab and
+                        // confirmations or denials
                         while let Some(msg) = enable_extension_stream.try_next().await? {
                             yield msg;
                         }
@@ -481,6 +487,10 @@ impl Agent {
                             message_tool_response.clone()
                         );
 
+                        // we have a stream of tool_approval_requests to handle
+                        // execution is yeield back to this reply loop, and is of the same Message
+                        // type, so we can yield the Message back up to be handled and grab and
+                        // confirmations or denials
                         while let Some(msg) = tool_approval_stream.try_next().await? {
                             yield msg;
                         }
