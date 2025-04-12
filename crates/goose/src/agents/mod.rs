@@ -1,4 +1,5 @@
 mod agent;
+mod categorize;
 pub mod extension;
 pub mod extension_manager;
 pub mod platform_tools;

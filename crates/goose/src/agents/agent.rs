@@ -6,9 +6,8 @@ use futures::stream::BoxStream;
 use futures::TryStreamExt;
 
 use crate::config::{Config, ExtensionConfigManager, PermissionManager};
-use crate::message::{Message, MessageContent, ToolRequest};
-use crate::permission::permission_judge::check_tool_permissions;
-use crate::permission::{Permission, PermissionConfirmation};
+use crate::message::Message;
+use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
 use crate::providers::errors::ProviderError;
 use crate::recipe::{Author, Recipe};
@@ -22,8 +21,8 @@ use tracing::{debug, error, instrument, warn};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
-    PLATFORM_ENABLE_EXTENSION_TOOL_NAME, PLATFORM_LIST_RESOURCES_TOOL_NAME,
-    PLATFORM_READ_RESOURCE_TOOL_NAME, PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
+    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
+    PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::SessionConfig;
@@ -191,7 +190,7 @@ impl Agent {
         )
     }
 
-    async fn enable_extension(
+    pub(crate) async fn enable_extension(
         &self,
         extension_name: String,
         request_id: String,
@@ -352,31 +351,21 @@ impl Agent {
                         // Reset truncation attempt
                         truncation_attempt = 0;
 
-                        // Yield the assistant's response, but filter out frontend tool requests that we'll process separately
-                        let filtered_response = Message {
-                            role: response.role.clone(),
-                            created: response.created,
-                            content: response.content.iter().filter(|c| {
-                                if let MessageContent::ToolRequest(req) = c {
-                                    // Only filter out frontend tool requests
-                                    if let Ok(tool_call) = &req.tool_call {
-                                        return !self.is_frontend_tool(&tool_call.name);
-                                    }
-                                }
-                                true
-                            }).cloned().collect(),
-                        };
+                        let (frontend_requests,
+                            enable_extension_requests,
+                            search_extension_requests,
+                            other_requests,
+                            filtered_response) =
+                            self.categorize_tool_requests(&response);
+
+                        // Yield the assistant's response with frontend tool requests filtered out
                         yield filtered_response.clone();
 
                         tokio::task::yield_now().await;
 
-                        // First collect any tool requests
-                        let tool_requests: Vec<&ToolRequest> = response.content
-                            .iter()
-                            .filter_map(|content| content.as_tool_request())
-                            .collect();
+                        let all_tool_requests = frontend_requests.len() + enable_extension_requests.len() + search_extension_requests.len() + other_requests.len();
 
-                        if tool_requests.is_empty() {
+                        if all_tool_requests == 0 {
                             break;
                         }
 
@@ -384,33 +373,33 @@ impl Agent {
                         let message_tool_response = Arc::new(Mutex::new(Message::user()));
 
                         // First handle any frontend tool requests
-                        let mut remaining_requests = Vec::new();
-                        for request in &tool_requests {
-                            if let Ok(tool_call) = request.tool_call.clone() {
-                                if self.is_frontend_tool(&tool_call.name) {
-                                    // Send frontend tool request and wait for response
-                                    yield Message::assistant().with_frontend_tool_request(
-                                        request.id.clone(),
-                                        Ok(tool_call.clone())
-                                    );
+                        let mut frontend_tool_stream = self.handle_frontend_tool_requests(
+                            &frontend_requests,
+                            message_tool_response.clone()
+                        );
 
-                                    if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
-                                        let mut response = message_tool_response.lock().await;
-                                        *response = response.clone().with_tool_response(id, result);
-                                    }
-                                } else {
-                                    remaining_requests.push(request);
-                                }
-                            } else {
-                                remaining_requests.push(request);
-                            }
+                        // we have a stream of frontend tools to handle, yield each back to the caller
+                        while let Some(msg) = frontend_tool_stream.try_next().await? {
+                            yield msg;
                         }
+
+
+                        // TODO: determine if we should we process front-end tools at all if we're
+                        // in "chat" mode? originally the front-end tools were processed, and then
+                        // chat mode was checked
 
                         // Clone goose_mode once before the match to avoid move issues
                         let mode = goose_mode.clone();
+
+                        // TODO: move into function
+                        // Skip all tool calls in chat mode
                         if mode.as_str() == "chat" {
-                            // Skip all tool calls in chat mode
-                            for request in remaining_requests {
+                            let merged_requests = [
+                                enable_extension_requests,
+                                search_extension_requests,
+                                other_requests].concat();
+
+                            for request in merged_requests {
                                 let mut response = message_tool_response.lock().await;
                                 *response = response.clone().with_tool_response(
                                     request.id.clone(),
@@ -426,132 +415,115 @@ impl Agent {
                                     )]),
                                 );
                             }
-                        } else {
-                            // Split tool requests into enable_extension and others
-                            let (enable_extension_requests, non_enable_extension_requests): (Vec<&ToolRequest>, Vec<&ToolRequest>) = remaining_requests.clone()
-                                .into_iter()
-                                .partition(|req| {
-                                    req.tool_call.as_ref()
-                                        .map(|call| call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME)
-                                        .unwrap_or(false)
-                                });
-                            let mut permission_manager = PermissionManager::default();
-                            let permission_check_result = check_tool_permissions(non_enable_extension_requests,
-                                                            &mode,
-                                                            tools_with_readonly_annotation.clone(),
-                                                            tools_without_annotation.clone(),
-                                                            &mut permission_manager,
-                                                            self.provider()).await;
+                            break;
+                        }
 
-                            // Handle pre-approved and read-only tools in parallel
-                            let mut tool_futures: Vec<ToolFuture> = Vec::new();
-                            let mut install_results = Vec::new();
+                        // otherwise start handling various requests
+                        let mut permission_manager = PermissionManager::default();
 
-                            let denied_content_text = Content::text(
-                                "The user has declined to run this tool. \
-                                DO NOT attempt to call this tool again. \
-                                If there are no alternative methods to proceed, clearly explain the situation and STOP.");
-                            // Handle install extension requests
-                            for request in &enable_extension_requests {
-                                if let Ok(tool_call) = request.tool_call.clone() {
-                                    let confirmation = Message::user().with_enable_extension_request(
-                                        request.id.clone(),
-                                        tool_call.arguments.get("extension_name")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("")
-                                            .to_string()
-                                    );
-                                    yield confirmation;
+                        // Handle pre-approved and read-only tools in parallel
+                        let mut tool_futures: Vec<ToolFuture> = Vec::new();
+                        let mut install_results: Vec<(String, Result<Vec<Content>, ToolError>)> = Vec::new();
+                        let install_results_arc = Arc::new(Mutex::new(install_results));
 
-                                    let mut rx = self.confirmation_rx.lock().await;
-                                    while let Some((req_id, extension_confirmation)) = rx.recv().await {
-                                        let extension_name = tool_call.arguments.get("extension_name")
-                                            .and_then(|v| v.as_str())
-                                            .unwrap_or("")
-                                            .to_string();
-                                        if req_id == request.id {
-                                            if extension_confirmation.permission == Permission::AllowOnce || extension_confirmation.permission == Permission::AlwaysAllow {
-                                                let install_result = self.enable_extension(extension_name, request.id.clone()).await;
-                                                install_results.push(install_result);
-                                            } else {
-                                                // User declined - add declined response
-                                                let mut response = message_tool_response.lock().await;
-                                                *response = response.clone().with_tool_response(
-                                                    request.id.clone(),
-                                                    Ok(vec![denied_content_text.clone()]),
-                                                );
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
+                        let mut enable_extension_stream = self.handle_enable_extension_requests(
+                            &enable_extension_requests,
+                            install_results_arc.clone(),
+                            message_tool_response.clone()
+                        );
+
+                        // we have a stream of enable_extension_requests to handle, yield each back to the caller
+                        while let Some(msg) = enable_extension_stream.try_next().await? {
+                            yield msg;
+                        }
+
+                        self.handle_search_extension_requests(&search_extension_requests, message_tool_response.clone()).await;
+
+                        // TODO: handle other_requests
+                        let (approved, denied, needs_approval);
+                        (approved, denied, needs_approval) = self.categorize_regular_tool_requests(
+                            &other_requests,
+                            &goose_mode,
+                            tools_with_readonly_annotation.clone(),
+                            tools_without_annotation.clone()
+                        ).await;
+
+                        // Skip the confirmation for approved tools
+                        for request in &approved {
+                            if let Ok(tool_call) = request.tool_call.clone() {
+                                let tool_future = self.dispatch_tool_call(tool_call, request.id.clone());
+                                 tool_futures.push(Box::pin(tool_future));
                             }
+                        }
 
-                            // Skip the confirmation for approved tools
-                            for request in &permission_check_result.approved {
-                                if let Ok(tool_call) = request.tool_call.clone() {
-                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone());
-                                     tool_futures.push(Box::pin(tool_future));
-                                }
-                            }
+                        //TODO: this is defined twice
+                        let denied_content_text = Content::text(
+                            "The user has declined to run this tool. \
+                            DO NOT attempt to call this tool again. \
+                            If there are no alternative methods to proceed, clearly explain the situation and STOP.");
 
-                            for request in &permission_check_result.denied {
-                                let mut response = message_tool_response.lock().await;
-                                *response = response.clone().with_tool_response(
-                                    request.id.clone(),
-                                    Ok(vec![denied_content_text.clone()]),
-                                );
-                            }
-
-                            // we need interior mutability in handle_approval_tool_requests
-                            let tool_futures_arc = Arc::new(Mutex::new(tool_futures));
-
-                            // Process read-only tools
-                            let mut tool_approval_stream = self.handle_approval_tool_requests(
-                                &permission_check_result.needs_approval,
-                                tool_futures_arc.clone(),
-                                &mut permission_manager,
-                                message_tool_response.clone()
+                        for request in &denied {
+                            let mut response = message_tool_response.lock().await;
+                            *response = response.clone().with_tool_response(
+                                request.id.clone(),
+                                Ok(vec![denied_content_text.clone()]),
                             );
+                        }
 
-                            while let Some(msg) = tool_approval_stream.try_next().await? {
-                                yield msg;
-                            }
+                        // we need interior mutability in handle_approval_tool_requests
+                        let tool_futures_arc = Arc::new(Mutex::new(tool_futures));
 
-                            tool_futures = {
-                                // Lock the mutex asynchronously.
-                                let mut futures_lock = tool_futures_arc.lock().await;
-                                // Drain the vector and collect into a new Vec.
-                                futures_lock.drain(..).collect::<Vec<_>>()
-                            };
+                        let mut tool_approval_stream = self.handle_approval_tool_requests(
+                            needs_approval.clone(),
+                            tool_futures_arc.clone(),
+                            &mut permission_manager,
+                            message_tool_response.clone()
+                        );
 
+                        while let Some(msg) = tool_approval_stream.try_next().await? {
+                            yield msg;
+                        }
 
-                            // Wait for all tool calls to complete
-                            let results = futures::future::join_all(tool_futures).await;
-                            for (request_id, output) in results {
-                                let mut response = message_tool_response.lock().await;
-                                *response = response.clone().with_tool_response(
-                                    request_id,
-                                    output,
-                                );
-                            }
+                        tool_futures = {
+                            // Lock the mutex asynchronously.
+                            let mut futures_lock = tool_futures_arc.lock().await;
+                            // Drain the vector and collect into a new Vec.
+                            futures_lock.drain(..).collect::<Vec<_>>()
+                        };
 
-                            // Check if any install results had errors before processing them
-                            let all_install_successful = !install_results.iter().any(|(_, result)| result.is_err());
-                            for (request_id, output) in install_results {
-                                let mut response = message_tool_response.lock().await;
-                                *response = response.clone().with_tool_response(
-                                    request_id,
-                                    output
-                                );
-                            }
+                        install_results = {
+                            // Lock the mutex asynchronously.
+                            let mut results_lock = install_results_arc.lock().await;
+                            // Drain the vector and collect into a new Vec.
+                            results_lock.drain(..).collect::<Vec<_>>()
+                        };
 
-                            // Update system prompt and tools if installations were successful
-                            if all_install_successful {
-                                (tools, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt().await?;
-                            }
-                    }
-                         let final_message = message_tool_response.lock().await.clone();
+                        // Wait for all tool calls to complete
+                        let results = futures::future::join_all(tool_futures).await;
+                        for (request_id, output) in results {
+                            let mut response = message_tool_response.lock().await;
+                            *response = response.clone().with_tool_response(
+                                request_id,
+                                output,
+                            );
+                        }
+
+                        // Check if any install results had errors before processing them
+                        let all_install_successful = !install_results.iter().any(|(_, result)| result.is_err());
+                        for (request_id, output) in install_results {
+                            let mut response = message_tool_response.lock().await;
+                            *response = response.clone().with_tool_response(
+                                request_id,
+                                output
+                            );
+                        }
+
+                        // Update system prompt and tools if installations were successful
+                        if all_install_successful {
+                            (tools, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt().await?;
+                        }
+
+                        let final_message = message_tool_response.lock().await.clone();
 
                         yield final_message.clone();
 
