@@ -222,48 +222,51 @@ export default function Input({
             maxHeight: `${maxHeight}px`,
             overflowY: 'auto',
           }}
-          className="w-full outline-none border-none focus:ring-0 bg-transparent p-0 text-base resize-none text-textStandard"
+          className="w-full pl-4 pr-[68px] outline-none border-none focus:ring-0 bg-transparent pt-3 pb-1.5 text-sm resize-none text-textStandard"
         />
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={handleFileSelect}
-          className="absolute right-[40px] top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard"
-        >
-          <Attach />
-        </Button>
-        {isLoading ? (
+      </form>
+
+      <div className="flex items-center justify-between transition-colors text-textSubtle relative text-xs p-2 pr-3 border-t border-borderSubtle gap-2">
+        <BottomMenu hasMessages={hasMessages} setView={setView} />
+
+        <div className="gap-1 flex items-center">
           <Button
             type="button"
             size="icon"
             variant="ghost"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onStop?.();
-            }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 [&_svg]:size-5 text-textSubtle hover:text-textStandard"
+            onClick={handleFileSelect}
+            className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
           >
-            <Stop size={24} />
+            <Attach />
           </Button>
-        ) : (
-          <Button
-            type="submit"
-            size="icon"
-            variant="ghost"
-            disabled={!displayValue.trim()}
-            className={`absolute right-2 top-1/2 -translate-y-1/2 text-textSubtle hover:text-textStandard ${
-              !displayValue.trim() ? 'text-textSubtle cursor-not-allowed' : ''
-            }`}
-          >
-            <Send />
-          </Button>
-        )}
-      </form>
-
-      <div className="flex justify-end items-center justify-between transition-colors text-textSubtle relative text-xs p-2 border-t border-borderSubtle">
-        <BottomMenu hasMessages={hasMessages} setView={setView} />
+          {isLoading ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onStop?.();
+              }}
+              className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
+            >
+              <Stop size={24} />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              disabled={!displayValue.trim()}
+              className={`bg-bgAppInverse text-white rounded-full hover:cursor w-7 h-7 [&_svg]:size-4 ${
+                !displayValue.trim() ? 'text-white cursor-not-allowed' : ''
+              }`}
+            >
+              <Send />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

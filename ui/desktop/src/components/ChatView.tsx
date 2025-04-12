@@ -442,6 +442,8 @@ export default function ChatView({
             onStop={onStopGoose}
             commandHistory={commandHistory}
             initialValue={_input}
+            setView={setView}
+            hasMessages={hasMessages}
           />
         </div>
       </Card>

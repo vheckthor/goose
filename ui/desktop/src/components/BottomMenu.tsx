@@ -56,9 +56,9 @@ export default function BottomMenu({
   // Removed the envModelProvider code that was checking for environment variables
 
   return (
-    <div className="flex justify-between items-center transition-colors text-textSubtle relative text-xs mt-4 align-middle">
+    <div className="flex justify-between items-center transition-colors text-textSubtle relative text-xs align-middle">
       {/* Directory Chooser - Always visible */}
-      <span
+      {/* <span
         className="hover:cursor-pointer hover:text-textStandard flex items-center [&>svg]:size-4"
         onClick={async () => {
           if (hasMessages) {
@@ -72,10 +72,10 @@ export default function BottomMenu({
         <div className="w-max-[200px] truncate [direction:rtl]">
           Working in {window.appConfig.get('GOOSE_WORKING_DIR')}
         </div>
-      </span>
+      </span> */}
 
       {/* Right-side section with ToolCount and Model Selector together */}
-      <div className="flex items-center">
+      <div className="flex items-center pl-2">
         {/* Goose Mode Selector Dropdown */}
         <BottomMenuModeSelection setView={setView} />
 
@@ -152,13 +152,6 @@ export default function BottomMenu({
             )}
           </div>
         )}
-
-        {/* Separator */}
-        <div className="w-[1px] h-4 bg-borderSubtle mx-2" />
-
-        {/* Tool count */}
-        <ToolCount />
-        {/* Model Selector Dropdown */}
       </div>
     </div>
   );

@@ -15,13 +15,13 @@ export default function MoreMenuLayout({
 }) {
   return (
     <div
-      className="relative flex items-center h-14 border-b w-full"
+      className="relative flex items-center h-14 border-b border-borderSubtle w-full"
       style={{ WebkitAppRegion: 'drag' }}
     >
       {showMenu && (
-        <div className="flex items-center justify-between w-full h-full">
-          <div
-            className="hover:cursor-pointer hover:text-textStandard flex items-center [&>svg]:size-4"
+        <div className="flex items-center justify-between w-full h-full pl-[86px] pr-4">
+          <button
+            className="z-[100] no-drag hover:cursor-pointer border border-subtle hover:border-borderStandard rounded-lg p-2 pr-3 text-textSubtle hover:text-textStandard text-sm flex items-center [&>svg]:size-4 "
             onClick={async () => {
               if (hasMessages) {
                 window.electron.directoryChooser();
@@ -31,13 +31,12 @@ export default function MoreMenuLayout({
             }}
           >
             <Document className="mr-1" />
-            <div className="w-max-[200px] truncate [direction:rtl]">
-              Working in {window.appConfig.get('GOOSE_WORKING_DIR')}
+            <div className="max-w-[200px] truncate [direction:rtl]">
+              {window.appConfig.get('GOOSE_WORKING_DIR')}
             </div>
-          </div>
-          <div className="flex items-center justify-end h-full w-full">
-            <MoreMenu setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
-          </div>
+          </button>
+
+          <MoreMenu setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
         </div>
       )}
     </div>

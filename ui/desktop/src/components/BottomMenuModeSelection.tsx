@@ -123,12 +123,7 @@ export const BottomMenuModeSelection = ({ setView }: BottomMenuModeSelectionProp
         className="flex items-center hover:cursor-pointer hover:text-textStandard transition-colors"
         onClick={() => setIsGooseModeMenuOpen(!isGooseModeMenuOpen)}
       >
-        Mode: {getValueByKey(gooseMode)}
-        {/* {isGooseModeMenuOpen ? (
-          <ChevronDown className="w-4 h-4 ml-1" />
-        ) : (
-          <ChevronUp className="w-4 h-4 ml-1" />
-        )} */}
+        {getValueByKey(gooseMode)}
       </div>
 
       {/* Dropdown Menu */}
