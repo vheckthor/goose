@@ -12,10 +12,12 @@ import {
   getToolConfirmationContent,
   createToolErrorResponseMessage,
   getEnableExtensionContent,
+  getFrontendToolRequestContent,
 } from '../types/message';
 import ToolCallConfirmation from './ToolCallConfirmation';
 import MessageCopyLink from './MessageCopyLink';
 import ExtensionConfirmation from './ExtensionConfirmation';
+import FrontendToolRequest from './FrontendToolRequest';
 
 interface GooseMessageProps {
   messageHistoryIndex: number;
@@ -56,6 +58,9 @@ export default function GooseMessage({
 
   const enableExtensionContent = getEnableExtensionContent(message);
   const hasEnableExtension = enableExtensionContent !== undefined;
+
+  const frontendToolRequestContent = getFrontendToolRequestContent(message);
+  const hasFrontendToolRequest = frontendToolRequestContent !== undefined;
 
   // Find tool responses that correspond to the tool requests in this message
   const toolResponsesMap = useMemo(() => {
@@ -163,6 +168,14 @@ export default function GooseMessage({
             isClicked={messageIndex < messageHistoryIndex - 1}
             extensionConfirmationId={enableExtensionContent.id}
             extensionName={enableExtensionContent.extensionName}
+          />
+        )}
+
+        {hasFrontendToolRequest && (
+          <FrontendToolRequest
+            isCancelledMessage={messageIndex == messageHistoryIndex - 1}
+            isClicked={messageIndex < messageHistoryIndex - 1}
+            frontendToolRequest={frontendToolRequestContent}
           />
         )}
       </div>

@@ -65,7 +65,7 @@ pub struct EnableExtensionRequest {
     pub id: String,
     pub extension_name: String,
 }
-
+  
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ThinkingContent {
     pub thinking: String,

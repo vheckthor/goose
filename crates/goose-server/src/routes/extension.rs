@@ -272,17 +272,42 @@ async fn add_extension(
             name,
             tools,
             instructions,
-        } => ExtensionConfig::Frontend {
-            name,
-            tools,
-            instructions,
-            bundled: None,
+        } => {
+            tracing::info!("matched FRONTEND EXTENSION: {:?}", name);
+            ExtensionConfig::Frontend {
+                name,
+                tools,
+                instructions,
+                bundled: None,
+            }
         },
     };
+    // TODO: figure out why frontend function call to enable_extension::enable_extension.addExtension is not working
+    // 5:55:25 PM [vite] page reload src/tools/enable_extension.ts
+    // 17:55:25.762 › goosed stdout for port 58114 and dir /Users/wendytang/Development/goose:   2025-04-12T00:55:25.762661Z  INFO goosed::routes::reply: Received tool result request: {
+    //   "id": "toolu_bdrk_01KKQeCgHpt25HFrrCbCnMaN",
+    //   "result": {
+    //     "error": "Error executing tool: Failed to enable extension: Failed to fetch",
+    //     "status": "error"
+    //   }
+    // }
+    //     at crates/goose-server/src/routes/reply.rs:441
+    
+    //   2025-04-12T00:55:25.762691Z ERROR goosed::routes::reply: Failed to parse tool result request: invalid value: map, expected map with a single key
+    //     at crates/goose-server/src/routes/reply.rs:450
+    
+    //   2025-04-12T00:55:25.762703Z ERROR goosed::routes::reply: Raw request was: {
+    //   "id": "toolu_bdrk_01KKQeCgHpt25HFrrCbCnMaN",
+    //   "result": {
+    //     "error": "Error executing tool: Failed to enable extension: Failed to fetch",
+    //     "status": "error"
+    //   }
+    // }
 
     // Acquire a lock on the agent and attempt to add the extension.
     let mut agent = state.agent.write().await;
     let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    tracing::info!("ADDING EXTENSION: {:?}", extension_config);
     let response = agent.add_extension(extension_config).await;
 
     // Respond with the result.

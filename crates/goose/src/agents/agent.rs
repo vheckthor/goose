@@ -318,6 +318,9 @@ impl Agent {
         let (mut tools, mut toolshim_tools, mut system_prompt) =
             self.prepare_tools_and_prompt().await?;
 
+        tracing::info!("TOOLS!: {:?}", tools);
+        tracing::info!("frontend tools: {:?}", self.frontend_tools);
+
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
         let (tools_with_readonly_annotation, tools_without_annotation) =
@@ -387,12 +390,14 @@ impl Agent {
                             if let Ok(tool_call) = request.tool_call.clone() {
                                 if self.is_frontend_tool(&tool_call.name) {
                                     // Send frontend tool request and wait for response
+                                    tracing::info!("successful frontend tool call: {:?}", tool_call);
                                     yield Message::assistant().with_frontend_tool_request(
                                         request.id.clone(),
                                         Ok(tool_call.clone())
                                     );
 
                                     if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
+                                        tracing::info!("received frontend tool result: {:?}", result);
                                         message_tool_response = message_tool_response.with_tool_response(id, result);
                                     }
                                 } else {

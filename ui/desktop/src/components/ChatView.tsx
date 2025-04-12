@@ -336,10 +336,10 @@ export default function ChatView({
       const hasToolConfirmation = message.content.every(
         (c) => c.type === 'toolConfirmationRequest'
       );
-
       const hasEnableExtension = message.content.every((c) => c.type === 'enableExtensionRequest');
+      const hasFrontendToolRequest = message.content.every((c) => c.type === 'frontendToolRequest');
       // Keep the message if it has text content or tool confirmation or is not just tool responses
-      return hasTextContent || !hasOnlyToolResponses || hasToolConfirmation || hasEnableExtension;
+      return hasTextContent || !hasOnlyToolResponses || hasToolConfirmation || hasEnableExtension || hasFrontendToolRequest;
     }
 
     return true;

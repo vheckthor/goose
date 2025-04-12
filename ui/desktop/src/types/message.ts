@@ -3,6 +3,8 @@
  * for direct serialization between client and server
  */
 
+import FrontendToolRequest from "../components/FrontendToolRequest";
+
 export type Role = 'user' | 'assistant';
 
 export interface TextContent {
@@ -99,13 +101,20 @@ export interface EnableExtensionRequestMessageContent {
   extensionName: string;
 }
 
+export interface FrontendToolRequestMessageContent {
+  type: 'frontendToolRequest';
+  id: string;
+  toolCall: ToolCallResult<ToolCall>;
+}
+
 export type MessageContent =
   | TextContent
   | ImageContent
   | ToolRequestMessageContent
   | ToolResponseMessageContent
   | ToolConfirmationRequestMessageContent
-  | EnableExtensionRequestMessageContent;
+  | EnableExtensionRequestMessageContent
+  | FrontendToolRequestMessageContent;
 
 export interface Message {
   id?: string;
@@ -241,6 +250,13 @@ export function getEnableExtensionContent(message: Message): EnableExtensionRequ
   return message.content.find(
     (content): content is EnableExtensionRequestMessageContent =>
       content.type === 'enableExtensionRequest'
+  );
+}
+
+export function getFrontendToolRequestContent(message: Message): FrontendToolRequestMessageContent {
+  return message.content.find(
+    (content): content is FrontendToolRequestMessageContent =>
+      content.type === 'frontendToolRequest'
   );
 }
 
