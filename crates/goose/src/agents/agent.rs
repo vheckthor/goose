@@ -31,6 +31,7 @@ use mcp_core::{
     prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolError, ToolResult,
 };
 
+use super::tool_execution::ExtensionInstallResult;
 use super::tool_execution::ToolFuture;
 
 const MAX_TRUNCATION_ATTEMPTS: usize = 3;
@@ -423,7 +424,7 @@ impl Agent {
 
                         // Handle pre-approved and read-only tools in parallel
                         let mut tool_futures: Vec<ToolFuture> = Vec::new();
-                        let mut install_results: Vec<(String, Result<Vec<Content>, ToolError>)> = Vec::new();
+                        let mut install_results: Vec<ExtensionInstallResult> = Vec::new();
                         let install_results_arc = Arc::new(Mutex::new(install_results));
 
                         let mut enable_extension_stream = self.handle_enable_extension_requests(

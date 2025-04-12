@@ -23,6 +23,9 @@ use mcp_core::{Content, ToolError};
 pub(crate) type ToolFuture<'a> =
     Pin<Box<dyn Future<Output = (String, Result<Vec<Content>, ToolError>)> + Send + 'a>>;
 pub(crate) type ToolFuturesVec<'a> = Arc<Mutex<Vec<ToolFuture<'a>>>>;
+// Type alias for extension installation results
+pub(crate) type ExtensionInstallResult = (String, Result<Vec<Content>, ToolError>);
+pub(crate) type ExtensionInstallResults = Arc<Mutex<Vec<ExtensionInstallResult>>>;
 
 use crate::agents::Agent;
 
@@ -112,7 +115,7 @@ impl Agent {
     pub(crate) fn handle_enable_extension_requests<'a>(
         &'a self,
         tool_requests: &'a [ToolRequest],
-        install_results: Arc<Mutex<Vec<(String, Result<Vec<Content>, ToolError>)>>>,
+        install_results: ExtensionInstallResults,
         message_tool_response: Arc<Mutex<Message>>,
     ) -> BoxStream<'a, anyhow::Result<Message>> {
         let denied_content_text = Content::text(
