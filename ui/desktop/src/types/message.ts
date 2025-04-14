@@ -214,9 +214,12 @@ export function getTextContent(message: Message): string {
     .join('\n');
 }
 
-export function getToolRequests(message: Message): ToolRequestMessageContent[] {
+export function getToolRequests(
+  message: Message
+): (ToolRequestMessageContent | FrontendToolRequestMessageContent)[] {
   return message.content.filter(
-    (content): content is ToolRequestMessageContent => content.type === 'toolRequest'
+    (content): content is ToolRequestMessageContent | FrontendToolRequestMessageContent =>
+      content.type === 'toolRequest' || content.type === 'frontendToolRequest'
   );
 }
 
