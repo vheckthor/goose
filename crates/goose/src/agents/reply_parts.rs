@@ -32,7 +32,7 @@ impl Agent {
 
         // Add platform tools
         tools.push(platform_tools::search_available_extensions_tool());
-        tools.push(platform_tools::enable_extension_tool());
+        // tools.push(platform_tools::enable_extension_tool());
 
         // Add frontend tools
         for frontend_tool in self.frontend_tools.values() {

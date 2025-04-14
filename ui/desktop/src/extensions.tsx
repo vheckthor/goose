@@ -63,28 +63,41 @@ export async function addExtension(
 ): Promise<Response> {
   try {
     console.log('Adding extension:', extension);
-    // Create the config based on the extension type
-    const config = {
-      type: extension.type,
-      ...(extension.type === 'stdio' && {
+
+    // Create config parts separately based on extension type
+    let typeSpecificConfig = {};
+
+    if (extension.type === 'stdio') {
+      typeSpecificConfig = {
         name: sanitizeName(extension.name),
         cmd: await replaceWithShims(extension.cmd),
         args: extension.args || [],
-      }),
-      ...(extension.type === 'sse' && {
+      };
+    } else if (extension.type === 'sse') {
+      typeSpecificConfig = {
         name: sanitizeName(extension.name),
         uri: extension.uri,
-      }),
-      ...(extension.type === 'builtin' && {
+      };
+    } else if (extension.type === 'builtin') {
+      typeSpecificConfig = {
         name: sanitizeName(extension.name),
-      }),
+      };
+    }
+
+    // Combine with common properties
+    const config = {
+      type: extension.type,
+      ...typeSpecificConfig,
       env_keys: extension.env_keys,
       timeout: extension.timeout,
     };
 
+    console.log('extension.tsx addExtension.config', config);
+
     let toastId;
     if (!silent) toastId = toastLoading({ title: extension.name, msg: 'Adding extension...' });
 
+    console.log('extension.tsx fetch /extensions/add API');
     const response = await fetch(getApiUrl('/extensions/add'), {
       method: 'POST',
       headers: {
@@ -93,6 +106,7 @@ export async function addExtension(
       },
       body: JSON.stringify(config),
     });
+    console.log('extension.tsx fetch /extensions/add API response', response);
 
     const responseText = await response.text();
 

@@ -1,8 +1,8 @@
 import { addExtension, DEFAULT_EXTENSION_TIMEOUT, type FullExtensionConfig } from '../extensions';
 
-
 // The tool implementation
 export async function enable_extension(args: Record<string, unknown>): Promise<string> {
+  console.log('enable_extension.enable_extension', args);
   try {
     const extension_name = args.extension_name as string;
     if (!extension_name) {
@@ -17,9 +17,8 @@ export async function enable_extension(args: Record<string, unknown>): Promise<s
       enabled: true,
       timeout: DEFAULT_EXTENSION_TIMEOUT,
       env_keys: [],
-      type: 'builtin'
+      type: 'builtin',
     };
-
 
     const response = await addExtension(config);
     if (!response.ok) {
@@ -27,14 +26,12 @@ export async function enable_extension(args: Record<string, unknown>): Promise<s
       throw new Error(data.message || 'Failed to enable extension');
     }
 
-
     return `Successfully enabled ${extension_name} extension`;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(`Failed to enable extension: ${message}`);
   }
 }
-
 
 // Export all tools
 export const tools = {
@@ -49,12 +46,11 @@ export const tools = {
         extension_name: {
           type: 'string',
           description: 'Name of the extension to install',
-        }
+        },
       },
     },
   },
 };
-
 
 // Frontend extension configuration type
 interface FrontendConfig {
@@ -71,7 +67,6 @@ interface FrontendConfig {
   }>;
   instructions: string;
 }
-
 
 // Frontend configuration
 export const FRONTEND_CONFIG: FrontendConfig = {

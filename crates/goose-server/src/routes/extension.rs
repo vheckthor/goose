@@ -10,7 +10,9 @@ use goose::{
     config::Config,
 };
 use http::{HeaderMap, StatusCode};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use tracing;
 
 /// Enum representing the different types of extension configuration requests.
@@ -74,7 +76,38 @@ struct ExtensionResponse {
     message: Option<String>,
 }
 
-/// Handler for adding a new extension configuration.
+// Create a message channel for extension operations
+pub struct ExtensionRequest {
+    config: ExtensionConfig,
+    response_tx: oneshot::Sender<Result<(), String>>,
+}
+
+// Initialize a static channel 
+static EXTENSION_CHANNEL: Lazy<(mpsc::Sender<ExtensionRequest>, Mutex<mpsc::Receiver<ExtensionRequest>>)> = 
+    Lazy::new(|| {
+        let (tx, rx) = mpsc::channel(32);
+        (tx, Mutex::new(rx))
+    });
+
+// Start a background task that processes extension operations
+pub fn start_extension_processor(state: AppState) {
+    tokio::spawn(async move {
+        let mut rx_lock = EXTENSION_CHANNEL.1.lock().await;
+        while let Some(req) = rx_lock.recv().await {
+            // Process the extension request without blocking the agent
+            let mut agent = state.agent.write().await;
+            let agent_ref = agent.as_mut();
+            if let Some(agent) = agent_ref {
+                let result = agent.add_extension(req.config).await;
+                let _ = req.response_tx.send(result.map_err(|e| e.to_string()));
+            } else {
+                let _ = req.response_tx.send(Err("Agent not initialized".to_string()));
+            }
+        }
+    });
+}
+
+// Modify the add_extension handler to use the channel instead of directly locking
 async fn add_extension(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -262,11 +295,14 @@ async fn add_extension(
             name,
             display_name,
             timeout,
-        } => ExtensionConfig::Builtin {
-            name,
-            display_name,
-            timeout,
-            bundled: None,
+        } => {
+            tracing::info!("matched BUILTIN EXTENSION: {:?}", name);
+            ExtensionConfig::Builtin {
+                name,
+                display_name,
+                timeout,
+                bundled: None,
+            }
         },
         ExtensionConfigRequest::Frontend {
             name,
@@ -282,46 +318,31 @@ async fn add_extension(
             }
         },
     };
-    // TODO: figure out why frontend function call to enable_extension::enable_extension.addExtension is not working
-    // 5:55:25 PM [vite] page reload src/tools/enable_extension.ts
-    // 17:55:25.762 › goosed stdout for port 58114 and dir /Users/wendytang/Development/goose:   2025-04-12T00:55:25.762661Z  INFO goosed::routes::reply: Received tool result request: {
-    //   "id": "toolu_bdrk_01KKQeCgHpt25HFrrCbCnMaN",
-    //   "result": {
-    //     "error": "Error executing tool: Failed to enable extension: Failed to fetch",
-    //     "status": "error"
-    //   }
-    // }
-    //     at crates/goose-server/src/routes/reply.rs:441
-    
-    //   2025-04-12T00:55:25.762691Z ERROR goosed::routes::reply: Failed to parse tool result request: invalid value: map, expected map with a single key
-    //     at crates/goose-server/src/routes/reply.rs:450
-    
-    //   2025-04-12T00:55:25.762703Z ERROR goosed::routes::reply: Raw request was: {
-    //   "id": "toolu_bdrk_01KKQeCgHpt25HFrrCbCnMaN",
-    //   "result": {
-    //     "error": "Error executing tool: Failed to enable extension: Failed to fetch",
-    //     "status": "error"
-    //   }
-    // }
 
-    // Acquire a lock on the agent and attempt to add the extension.
-    let mut agent = state.agent.write().await;
-    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
-    tracing::info!("ADDING EXTENSION: {:?}", extension_config);
-    let response = agent.add_extension(extension_config).await;
-
-    // Respond with the result.
+    // Create a channel for the response
+    let (tx, rx) = oneshot::channel();
+    
+    // Send the request through the channel
+    EXTENSION_CHANNEL.0.send(ExtensionRequest {
+        config: extension_config,
+        response_tx: tx,
+    }).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Wait for the response
+    let response = rx.await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Return the result
     match response {
         Ok(_) => Ok(Json(ExtensionResponse {
             error: false,
             message: None,
         })),
         Err(e) => {
-            eprintln!("Failed to add extension configuration: {:?}", e);
+            eprintln!("Failed to add extension configuration: {}", e);
             Ok(Json(ExtensionResponse {
                 error: true,
                 message: Some(format!(
-                    "Failed to add extension configuration, error: {:?}",
+                    "Failed to add extension configuration, error: {}",
                     e
                 )),
             }))
