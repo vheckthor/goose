@@ -122,6 +122,28 @@ impl DatabricksProvider {
             image_format: ImageFormat::OpenAi,
         })
     }
+    
+    /// Dumps the system prompt and tools in JSON format to a file called prompt.txt
+    pub fn dump_prompt_to_file(&self, system: &str, tools: &[Tool]) -> Result<()> {
+        use std::fs::File;
+        use std::io::Write;
+        
+        // Format tools to JSON using the Databricks formatter
+        let tools_json = super::formats::databricks::format_tools(tools)?;
+        let pretty_tools_json = serde_json::to_string_pretty(&tools_json)?;
+        
+        // Create the output content
+        let output = format!("# System Prompt\n\n{}\n\n# Tools (JSON Format)\n\n{}", 
+                            system, 
+                            pretty_tools_json);
+        
+        // Write to prompt.txt file
+        let mut file = File::create("prompt.txt")?;
+        file.write_all(output.as_bytes())?;
+        
+        println!("Successfully wrote system prompt and tools to prompt.txt");
+        Ok(())
+    }
 
     async fn ensure_auth_header(&self) -> Result<String> {
         match &self.auth {
@@ -250,6 +272,11 @@ impl Provider for DatabricksProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
+        // Dump the system prompt and tools to a file before sending the request
+        if let Err(e) = self.dump_prompt_to_file(system, tools) {
+            tracing::warn!("Failed to dump prompt to file: {}", e);
+        }
+        
         let mut payload = create_request(&self.model, system, messages, tools, &self.image_format)?;
         // Remove the model key which is part of the url with databricks
         payload
