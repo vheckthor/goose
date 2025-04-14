@@ -7,9 +7,17 @@ import Back from './icons/Back';
 import { Bars } from './icons/Bars';
 import { Geese } from './icons/Geese';
 import Copy from './icons/Copy';
+<<<<<<< HEAD
 import Check from './icons/Check';
 import { useConfig } from '../components/ConfigContext';
+||||||| parent of 2020cd26f (fix: update extensions page on recipe)
+import { useConfig } from '../components/ConfigContext';
+=======
+import { useConfig } from './ConfigContext';
+>>>>>>> 2020cd26f (fix: update extensions page on recipe)
 import { settingsV2Enabled } from '../flags';
+import ExtensionsSection from './settings_v2/extensions/ExtensionsSection';
+import { FixedExtensionEntry } from './ConfigContext';
 
 interface RecipeEditorProps {
   config?: Recipe;
@@ -47,7 +55,13 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
         try {
           const extensions = await getExtensions(false); // force refresh to get latest
           console.log('extensions {}', extensions);
-          setAvailableExtensions(extensions || []);
+          // Set all extensions to disabled by default in recipe editor
+          const disabledExtensions =
+            extensions?.map((ext) => ({
+              ...ext,
+              enabled: false,
+            })) || [];
+          setAvailableExtensions(disabledExtensions);
         } catch (error) {
           console.error('Failed to load extensions:', error);
         }
@@ -55,7 +69,11 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
         const userSettingsStr = localStorage.getItem('user_settings');
         if (userSettingsStr) {
           const userSettings = JSON.parse(userSettingsStr);
-          setAvailableExtensions(userSettings.extensions || []);
+          const disabledExtensions = (userSettings.extensions || []).map((ext) => ({
+            ...ext,
+            enabled: false,
+          }));
+          setAvailableExtensions(disabledExtensions);
         }
       }
     };
@@ -64,11 +82,13 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
     // eslint-disable-next-line
   }, []);
 
-  const handleExtensionToggle = (id: string) => {
-    console.log('Toggling extension:', id);
+  const handleExtensionToggle = (extension: FixedExtensionEntry) => {
+    console.log('Toggling extension:', extension.name);
     setSelectedExtensions((prev) => {
-      const isSelected = prev.includes(id);
-      const newState = isSelected ? prev.filter((extId) => extId !== id) : [...prev, id];
+      const isSelected = prev.includes(extension.name);
+      const newState = isSelected
+        ? prev.filter((extId) => extId !== extension.name)
+        : [...prev, extension.name];
       return newState;
     });
   };
@@ -258,43 +278,15 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
             </div>
             <div className="mb-8 mt-6">
               <h2 className="text-2xl font-medium mb-2 text-textProminent">Extensions</h2>
-              <p className="text-textSubtle">
-                Choose which extensions will be available to your agent.
-              </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              {availableExtensions.map((extension) => (
-                <button
-                  key={extension.name}
-                  className="p-4 border border-borderSubtle rounded-lg flex justify-between items-center w-full text-left hover:bg-bgSubtle bg-bgApp"
-                  onClick={() => handleExtensionToggle(extension.name)}
-                >
-                  <div>
-                    <h3 className="font-medium text-textProminent">{extension.name}</h3>
-                    <p className="text-sm text-textSubtle">
-                      {extension.description || 'No description available'}
-                    </p>
-                  </div>
-                  <div className="relative inline-block w-10 align-middle select-none">
-                    <div
-                      className={`w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                        selectedExtensions.includes(extension.name)
-                          ? 'bg-bgAppInverse'
-                          : 'bg-borderSubtle'
-                      }`}
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-full bg-bgApp border-2 transform transition-transform duration-200 ease-in-out ${
-                          selectedExtensions.includes(extension.name)
-                            ? 'translate-x-4 border-bgAppInverse'
-                            : 'translate-x-0 border-borderSubtle'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <ExtensionsSection
+              hideButtons={true} // Hide "Add custom" and "Browse" buttons
+              hideHeader={true} // Hide the section header since we have our own
+              disableConfiguration={true} // Hide configuration
+              customToggle={async (extension: FixedExtensionEntry) => {
+                handleExtensionToggle(extension);
+              }}
+            />
           </div>
         );
 

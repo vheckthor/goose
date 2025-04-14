@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Switch } from '../../../ui/switch';
 import { Gear } from '../../../icons/Gear';
 import { FixedExtensionEntry } from '../../../ConfigContext';
@@ -7,44 +7,24 @@ import { getSubtitle, getFriendlyTitle } from './ExtensionList';
 interface ExtensionItemProps {
   extension: FixedExtensionEntry;
   onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void>;
-  onConfigure: (extension: FixedExtensionEntry) => void;
+  onConfigure?: (extension: FixedExtensionEntry) => void;
+  disableConfiguration?: boolean;
 }
 
-export default function ExtensionItem({ extension, onToggle, onConfigure }: ExtensionItemProps) {
-  // Add local state to track the visual toggle state
-  const [visuallyEnabled, setVisuallyEnabled] = useState(extension.enabled);
-  // Track if we're in the process of toggling
-  const [isToggling, setIsToggling] = useState(false);
-
+export default function ExtensionItem({
+  extension,
+  onToggle,
+  onConfigure,
+  disableConfiguration,
+}: ExtensionItemProps) {
   const handleToggle = async (ext: FixedExtensionEntry) => {
-    // Prevent multiple toggles while one is in progress
-    if (isToggling) return;
-
-    setIsToggling(true);
-
-    // Immediately update visual state
-    const newState = !ext.enabled;
-    setVisuallyEnabled(newState);
-
     try {
-      // Call the actual toggle function that performs the async operation
+      console.log('ExtensionItem - Toggling:', ext.name, 'Current enabled:', ext.enabled);
       await onToggle(ext);
-      // Success case is handled by the useEffect below when extension.enabled changes
     } catch (error) {
-      // If there was an error, revert the visual state
-      console.log('Toggle failed, reverting visual state');
-      setVisuallyEnabled(!newState);
-    } finally {
-      setIsToggling(false);
+      console.error('Toggle failed:', error);
     }
   };
-
-  // Update visual state when the actual extension state changes
-  useEffect(() => {
-    if (!isToggling) {
-      setVisuallyEnabled(extension.enabled);
-    }
-  }, [extension.enabled, isToggling]);
 
   const renderSubtitle = () => {
     const { description, command } = getSubtitle(extension);
@@ -58,7 +38,6 @@ export default function ExtensionItem({ extension, onToggle, onConfigure }: Exte
   };
 
   // Bundled extensions and builtins are not editable
-  // Over time we can take the first part of the conditional away as people have bundled: true in their config.yaml entries
   const editable = !(extension.type === 'builtin' || extension.bundled);
 
   return (
@@ -75,7 +54,7 @@ export default function ExtensionItem({ extension, onToggle, onConfigure }: Exte
         className="flex items-center justify-end gap-2 w-max-[10%]"
         onClick={(e) => e.stopPropagation()}
       >
-        {editable && (
+        {!disableConfiguration && editable && onConfigure && (
           <button
             className="text-textSubtle hover:text-textStandard"
             onClick={() => onConfigure(extension)}
@@ -84,7 +63,7 @@ export default function ExtensionItem({ extension, onToggle, onConfigure }: Exte
           </button>
         )}
         <Switch
-          checked={(isToggling && visuallyEnabled) || extension.enabled}
+          checked={extension.enabled}
           onCheckedChange={() => handleToggle(extension)}
           variant="mono"
         />
