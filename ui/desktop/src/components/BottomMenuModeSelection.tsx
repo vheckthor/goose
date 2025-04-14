@@ -128,7 +128,7 @@ export const BottomMenuModeSelection = ({ setView }: BottomMenuModeSelectionProp
 
       {/* Dropdown Menu */}
       {isGooseModeMenuOpen && (
-        <div className="absolute bottom-[24px] pl-4 pt-2 right-0 w-[240px] bg-bgApp rounded-lg border border-borderSubtle">
+        <div className="absolute bottom-[24px] left-0 w-[240px] bg-bgApp rounded-lg border border-borderSubtle">
           <div>
             {all_goose_modes.map((mode) => (
               <ModeSelectionItem

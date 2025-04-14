@@ -21,7 +21,7 @@ export default function MoreMenuLayout({
       {showMenu && (
         <div className="flex items-center justify-between w-full h-full pl-[86px] pr-4">
           <button
-            className="z-[100] no-drag hover:cursor-pointer border border-subtle hover:border-borderStandard rounded-lg p-2 pr-3 text-textSubtle hover:text-textStandard text-sm flex items-center [&>svg]:size-4 "
+            className="z-[100] no-drag hover:cursor-pointer border border-subtle hover:border-borderStandard rounded-lg p-2 pr-3 text-textSubtle hover:text-textStandard text-sm flex items-center transition-colors [&>svg]:size-4 "
             onClick={async () => {
               if (hasMessages) {
                 window.electron.directoryChooser();
