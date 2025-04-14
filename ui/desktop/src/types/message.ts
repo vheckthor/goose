@@ -54,6 +54,12 @@ export interface ToolRequestMessageContent {
   toolCall: ToolCallResult<ToolCall>;
 }
 
+export interface FrontendToolRequestMessageContent {
+  type: 'frontendToolRequest';
+  id: string;
+  toolCall: ToolCallResult<ToolCall>;
+}
+
 export interface ToolResponseMessageContent {
   type: 'toolResponse';
   id: string;
@@ -105,7 +111,8 @@ export type MessageContent =
   | ToolRequestMessageContent
   | ToolResponseMessageContent
   | ToolConfirmationRequestMessageContent
-  | EnableExtensionRequestMessageContent;
+  | EnableExtensionRequestMessageContent
+  | FrontendToolRequestMessageContent;
 
 export interface Message {
   id?: string;
