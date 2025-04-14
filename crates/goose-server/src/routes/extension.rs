@@ -304,6 +304,186 @@ async fn add_extension(
     }
 }
 
+/// Handler for adding a new extension configuration to the current session only.
+/// This is similar to add_extension but does not update config.yaml
+async fn add_session_extension(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    raw: axum::extract::Json<serde_json::Value>,
+) -> Result<Json<ExtensionResponse>, StatusCode> {
+    // Log the raw request for debugging
+    tracing::info!(
+        "Received session extension request: {}",
+        serde_json::to_string_pretty(&raw.0).unwrap()
+    );
+
+    // Try to parse into our enum
+    let request: ExtensionConfigRequest = match serde_json::from_value(raw.0.clone()) {
+        Ok(req) => req,
+        Err(e) => {
+            tracing::error!("Failed to parse extension request: {}", e);
+            tracing::error!(
+                "Raw request was: {}",
+                serde_json::to_string_pretty(&raw.0).unwrap()
+            );
+            return Err(StatusCode::UNPROCESSABLE_ENTITY);
+        }
+    };
+
+    // Verify the presence and validity of the secret key.
+    let secret_key = headers
+        .get("X-Secret-Key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if secret_key != state.secret_key {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Load the configuration
+    let config = Config::global();
+
+    // Initialize a vector to collect any missing keys.
+    let mut missing_keys = Vec::new();
+
+    // Construct ExtensionConfig with Envs populated from keyring based on provided env_keys.
+    let extension_config: ExtensionConfig = match request {
+        ExtensionConfigRequest::Sse {
+            name,
+            uri,
+            env_keys,
+            timeout,
+        } => {
+            let mut env_map = HashMap::new();
+            for key in env_keys {
+                match config.get_secret(&key) {
+                    Ok(value) => {
+                        env_map.insert(key, value);
+                    }
+                    Err(_) => {
+                        missing_keys.push(key);
+                    }
+                }
+            }
+
+            if !missing_keys.is_empty() {
+                return Ok(Json(ExtensionResponse {
+                    error: true,
+                    message: Some(format!(
+                        "Missing secrets for keys: {}",
+                        missing_keys.join(", ")
+                    )),
+                }));
+            }
+
+            ExtensionConfig::Sse {
+                name,
+                uri,
+                envs: Envs::new(env_map),
+                description: None,
+                timeout,
+                bundled: None,
+            }
+        }
+        ExtensionConfigRequest::Stdio {
+            name,
+            cmd,
+            args,
+            env_keys,
+            timeout,
+        } => {
+            // Check allowlist for Stdio extensions
+            if !is_command_allowed(&cmd, &args) {
+                return Ok(Json(ExtensionResponse {
+                    error: true,
+                    message: Some(format!(
+                        "Extension '{}' is not in the allowed extensions list. Command: '{} {}'. If you require access please ask your administrator to update the allowlist.",                        
+                        args.join(" "),
+                        cmd, args.join(" ")
+                    )),
+                }));
+            }
+
+            let mut env_map = HashMap::new();
+            for key in env_keys {
+                match config.get_secret(&key) {
+                    Ok(value) => {
+                        env_map.insert(key, value);
+                    }
+                    Err(_) => {
+                        missing_keys.push(key);
+                    }
+                }
+            }
+
+            if !missing_keys.is_empty() {
+                return Ok(Json(ExtensionResponse {
+                    error: true,
+                    message: Some(format!(
+                        "Missing secrets for keys: {}",
+                        missing_keys.join(", ")
+                    )),
+                }));
+            }
+
+            ExtensionConfig::Stdio {
+                name,
+                cmd,
+                args,
+                description: None,
+                envs: Envs::new(env_map),
+                timeout,
+                bundled: None,
+            }
+        }
+        ExtensionConfigRequest::Builtin {
+            name,
+            display_name,
+            timeout,
+        } => ExtensionConfig::Builtin {
+            name,
+            display_name,
+            timeout,
+            bundled: None,
+        },
+        ExtensionConfigRequest::Frontend {
+            name,
+            tools,
+            instructions,
+        } => ExtensionConfig::Frontend {
+            name,
+            tools,
+            instructions,
+            bundled: None,
+        },
+    };
+
+    tracing::info!("Acquiring agent lock to add extension");
+
+    // Acquire a lock on the agent and attempt to add the extension.
+    let mut agent = state.agent.write().await;
+    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    let response = agent.add_extension(extension_config).await;
+    tracing::info!("Agent lock released");
+    // Respond with the result.
+    match response {
+        Ok(_) => Ok(Json(ExtensionResponse {
+            error: false,
+            message: None,
+        })),
+        Err(e) => {
+            eprintln!("Failed to add extension configuration: {:?}", e);
+            Ok(Json(ExtensionResponse {
+                error: true,
+                message: Some(format!(
+                    "Failed to add extension configuration, error: {:?}",
+                    e
+                )),
+            }))
+        }
+    }
+}
+
 /// Handler for removing an extension by name
 async fn remove_extension(
     State(state): State<AppState>,
@@ -335,6 +515,7 @@ async fn remove_extension(
 pub fn routes(state: AppState) -> Router {
     Router::new()
         .route("/extensions/add", post(add_extension))
+        .route("/extensions/add_session", post(add_session_extension))
         .route("/extensions/remove", post(remove_extension))
         .with_state(state)
 }
