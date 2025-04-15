@@ -23,7 +23,7 @@ export function useFrontendTools() {
       console.log('Tool execution result:', result);
 
       // Send result back to server
-      console.log('Sending successful result back to server:', {
+      console.log('Sending result back to server:', {
         id: request.id,
         result: { Ok: result },
       });
