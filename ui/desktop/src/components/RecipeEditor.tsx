@@ -37,9 +37,16 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
   const [instructions, setInstructions] = useState(config?.instructions || '');
   const [activities, setActivities] = useState<string[]>(config?.activities || []);
   const [availableExtensions, setAvailableExtensions] = useState<FullExtensionConfig[]>([]);
-  const [selectedExtensions, setSelectedExtensions] = useState<string[]>(
-    config?.extensions?.map((e) => e.id) || []
-  );
+  // Initialize selected extensions from config or localStorage
+  const [selectedExtensions, setSelectedExtensions] = useState<string[]>(() => {
+    // First try to get from localStorage
+    const stored = localStorage.getItem('recipe_editor_extensions');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    // Fall back to config if available, using extension names
+    return config?.extensions?.map((e) => e.name) || [];
+  });
   const [newActivity, setNewActivity] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -48,47 +55,37 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
     'none' | 'activities' | 'instructions' | 'extensions'
   >('none');
 
-  // Load extensions
+  // Load extensions when switching to extensions section
   useEffect(() => {
-    const loadExtensions = async () => {
-      if (settingsV2Enabled) {
+    if (activeSection === 'extensions') {
+      const loadExtensions = async () => {
         try {
           const extensions = await getExtensions(false); // force refresh to get latest
-          console.log('extensions {}', extensions);
-          // Set all extensions to disabled by default in recipe editor
-          const disabledExtensions =
-            extensions?.map((ext) => ({
-              ...ext,
-              enabled: false,
-            })) || [];
-          setAvailableExtensions(disabledExtensions);
+          console.log('Loading extensions for recipe editor');
+          // Always set all extensions to disabled initially, then apply selected state
+          const initializedExtensions = extensions?.map((ext) => ({
+            ...ext,
+            // Only enable if it's in the selectedExtensions array
+            enabled: selectedExtensions.includes(ext.name),
+          })) || [];
+          setAvailableExtensions(initializedExtensions);
         } catch (error) {
           console.error('Failed to load extensions:', error);
         }
-      } else {
-        const userSettingsStr = localStorage.getItem('user_settings');
-        if (userSettingsStr) {
-          const userSettings = JSON.parse(userSettingsStr);
-          const disabledExtensions = (userSettings.extensions || []).map((ext) => ({
-            ...ext,
-            enabled: false,
-          }));
-          setAvailableExtensions(disabledExtensions);
-        }
-      }
-    };
-    loadExtensions();
-    // Intentionally omitting getExtensions from deps to avoid refresh loops
-    // eslint-disable-next-line
-  }, []);
+      };
+      loadExtensions();
+    }
+  }, [activeSection, getExtensions, selectedExtensions]);
 
   const handleExtensionToggle = (extension: FixedExtensionEntry) => {
     console.log('Toggling extension:', extension.name);
     setSelectedExtensions((prev) => {
       const isSelected = prev.includes(extension.name);
       const newState = isSelected
-        ? prev.filter((extId) => extId !== extension.name)
+        ? prev.filter((extName) => extName !== extension.name)
         : [...prev, extension.name];
+      // Persist to localStorage
+      localStorage.setItem('recipe_editor_extensions', JSON.stringify(newState));
       return newState;
     });
   };
@@ -159,6 +156,8 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
   const handleOpenAgent = () => {
     if (validateForm()) {
       const updatedConfig = getCurrentConfig();
+      // Clear stored extensions when submitting
+      localStorage.removeItem('recipe_editor_extensions');
       window.electron.createChatWindow(
         undefined,
         undefined,
@@ -284,6 +283,8 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
               hideButtons={true} // Hide "Add custom" and "Browse" buttons
               hideHeader={true} // Hide the section header since we have our own
               disableConfiguration={true} // Hide configuration
+              selectedExtensions={selectedExtensions}
+              availableExtensions={availableExtensions}
               customToggle={async (extension: FixedExtensionEntry) => {
                 handleExtensionToggle(extension);
               }}
@@ -397,7 +398,10 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
                 Open agent
               </button>
               <button
-                onClick={() => window.close()}
+                onClick={() => {
+                  localStorage.removeItem('recipe_editor_extensions');
+                  window.close();
+                }}
                 className="w-full p-3 text-textSubtle rounded-lg hover:bg-bgSubtle"
               >
                 Cancel
