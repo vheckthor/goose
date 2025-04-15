@@ -44,9 +44,9 @@ const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 pub struct Agent {
     pub(super) provider: Arc<dyn Provider>,
     pub(super) extension_manager: Mutex<ExtensionManager>,
-    pub(super) frontend_tools: HashMap<String, FrontendTool>,
-    pub(super) frontend_instructions: Option<String>,
-    pub(super) prompt_manager: PromptManager,
+    pub(super) frontend_tools: Mutex<HashMap<String, FrontendTool>>,
+    pub(super) frontend_instructions: Mutex<Option<String>>,
+    pub(super) prompt_manager: Mutex<PromptManager>,
     pub(super) token_counter: TokenCounter,
     pub(super) confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
     pub(super) confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
@@ -64,9 +64,9 @@ impl Agent {
         Self {
             provider,
             extension_manager: Mutex::new(ExtensionManager::new()),
-            frontend_tools: HashMap::new(),
-            frontend_instructions: None,
-            prompt_manager: PromptManager::new(),
+            frontend_tools: Mutex::new(HashMap::new()),
+            frontend_instructions: Mutex::new(None),
+            prompt_manager: Mutex::new(PromptManager::new()),
             token_counter,
             confirmation_tx: confirm_tx,
             confirmation_rx: Mutex::new(confirm_rx),
@@ -81,17 +81,17 @@ impl Agent {
     }
 
     /// Check if a tool is a frontend tool
-    pub fn is_frontend_tool(&self, name: &str) -> bool {
-        self.frontend_tools.contains_key(name)
+    pub async fn is_frontend_tool(&self, name: &str) -> bool {
+        self.frontend_tools.lock().await.contains_key(name)
     }
 
     /// Get a reference to a frontend tool
-    pub fn get_frontend_tool(&self, name: &str) -> Option<&FrontendTool> {
-        self.frontend_tools.get(name)
+    pub async fn get_frontend_tool(&self, name: &str) -> Option<FrontendTool> {
+        self.frontend_tools.lock().await.get(name).cloned()
     }
 
     /// Get all tools from all clients with proper prefixing
-    pub async fn get_prefixed_tools(&mut self) -> ExtensionResult<Vec<Tool>> {
+    pub async fn get_prefixed_tools(&self) -> ExtensionResult<Vec<Tool>> {
         let mut tools = self
             .extension_manager
             .lock()
@@ -100,7 +100,8 @@ impl Agent {
             .await?;
 
         // Add frontend tools directly - they don't need prefixing since they're already uniquely named
-        for frontend_tool in self.frontend_tools.values() {
+        let frontend_tools = self.frontend_tools.lock().await;
+        for frontend_tool in frontend_tools.values() {
             tools.push(frontend_tool.tool.clone());
         }
 
@@ -126,7 +127,7 @@ impl Agent {
                 .await
         } else if tool_call.name == PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME {
             extension_manager.search_available_extensions().await
-        } else if self.is_frontend_tool(&tool_call.name) {
+        } else if self.is_frontend_tool(&tool_call.name).await {
             // For frontend tools, return an error indicating we need frontend execution
             Err(ToolError::ExecutionError(
                 "Frontend tool execution required".to_string(),
@@ -236,7 +237,7 @@ impl Agent {
         (request_id, result)
     }
 
-    pub async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
+    pub async fn add_extension(&self, extension: ExtensionConfig) -> ExtensionResult<()> {
         match &extension {
             ExtensionConfig::Frontend {
                 name: _,
@@ -245,19 +246,21 @@ impl Agent {
                 bundled: _,
             } => {
                 // For frontend tools, just store them in the frontend_tools map
+                let mut frontend_tools = self.frontend_tools.lock().await;
                 for tool in tools {
                     let frontend_tool = FrontendTool {
                         name: tool.name.clone(),
                         tool: tool.clone(),
                     };
-                    self.frontend_tools.insert(tool.name.clone(), frontend_tool);
+                    frontend_tools.insert(tool.name.clone(), frontend_tool);
                 }
                 // Store instructions if provided, using "frontend" as the key
+                let mut frontend_instructions = self.frontend_instructions.lock().await;
                 if let Some(instructions) = instructions {
-                    self.frontend_instructions = Some(instructions.clone());
+                    *frontend_instructions = Some(instructions.clone());
                 } else {
                     // Default frontend instructions if none provided
-                    self.frontend_instructions = Some(
+                    *frontend_instructions = Some(
                         "The following tools are provided directly by the frontend and will be executed by the frontend when called.".to_string(),
                     );
                 }
@@ -280,7 +283,7 @@ impl Agent {
 
         // Add platform tools
         prefixed_tools.push(platform_tools::search_available_extensions_tool());
-        prefixed_tools.push(platform_tools::enable_extension_tool());
+        // prefixed_tools.push(platform_tools::enable_extension_tool());
 
         // Add resource tools if supported
         if extension_manager.supports_resources() {
@@ -291,7 +294,7 @@ impl Agent {
         prefixed_tools
     }
 
-    pub async fn remove_extension(&mut self, name: &str) {
+    pub async fn remove_extension(&self, name: &str) {
         let mut extension_manager = self.extension_manager.lock().await;
         extension_manager
             .remove_extension(name)
@@ -371,7 +374,7 @@ impl Agent {
                         let (frontend_requests,
                             remaining_requests,
                             filtered_response) =
-                            self.categorize_tool_requests(&response);
+                            self.categorize_tool_requests(&response).await;
 
 
                         // Yield the assistant's response with frontend tool requests filtered out
@@ -538,13 +541,15 @@ impl Agent {
     }
 
     /// Extend the system prompt with one line of additional instruction
-    pub async fn extend_system_prompt(&mut self, instruction: String) {
-        self.prompt_manager.add_system_prompt_extra(instruction);
+    pub async fn extend_system_prompt(&self, instruction: String) {
+        let mut prompt_manager = self.prompt_manager.lock().await;
+        prompt_manager.add_system_prompt_extra(instruction);
     }
 
     /// Override the system prompt with a custom template
-    pub async fn override_system_prompt(&mut self, template: String) {
-        self.prompt_manager.set_system_prompt_override(template);
+    pub async fn override_system_prompt(&self, template: String) {
+        let mut prompt_manager = self.prompt_manager.lock().await;
+        prompt_manager.set_system_prompt_override(template);
     }
 
     pub async fn list_extension_prompts(&self) -> HashMap<String, Vec<Prompt>> {
@@ -605,14 +610,14 @@ impl Agent {
     }
 
     pub async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {
-        let extension_manager = self.extension_manager.lock().await;
+        let mut extension_manager = self.extension_manager.lock().await;
         let extensions_info = extension_manager.get_extensions_info().await;
-        let system_prompt = self
-            .prompt_manager
-            .build_system_prompt(extensions_info, self.frontend_instructions.clone());
-
-        let recipe_prompt = self.prompt_manager.get_recipe_prompt().await;
+        let frontend_instructions = self.frontend_instructions.lock().await.clone();
+        let mut prompt_manager = self.prompt_manager.lock().await;
+        let system_prompt = prompt_manager.build_system_prompt(extensions_info, frontend_instructions);
+        let recipe_prompt = prompt_manager.get_recipe_prompt().await;
         let tools = extension_manager.get_prefixed_tools().await?;
+        drop(prompt_manager);
 
         messages.push(Message::user().with_text(recipe_prompt));
 

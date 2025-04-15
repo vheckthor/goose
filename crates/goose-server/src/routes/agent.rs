@@ -95,13 +95,9 @@ async fn extend_prompt(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let mut agent = state.agent.write().await;
-    if let Some(ref mut agent) = *agent {
-        agent.extend_system_prompt(payload.extension).await;
-        Ok(Json(ExtendPromptResponse { success: true }))
-    } else {
-        Err(StatusCode::NOT_FOUND)
-    }
+    let agent = state.agent.clone();
+    agent.extend_system_prompt(payload.extension).await;
+    Ok(Json(ExtendPromptResponse { success: true }))
 }
 
 #[axum::debug_handler]
@@ -140,8 +136,7 @@ async fn create_agent(
     let version = String::from("goose");
     let new_agent = Agent::new(provider);
 
-    let mut agent = state.agent.write().await;
-    *agent = Some(new_agent);
+    let state = state.with_agent(new_agent).await;
 
     Ok(Json(CreateAgentResponse { version }))
 }
@@ -198,8 +193,7 @@ async fn get_tools(
 
     let config = Config::global();
     let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
-    let mut agent = state.agent.write().await;
-    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    let agent = state.agent.clone();
     let permission_manager = PermissionManager::default();
 
     let mut tools: Vec<ToolInfo> = agent

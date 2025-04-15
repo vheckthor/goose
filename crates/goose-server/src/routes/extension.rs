@@ -280,9 +280,8 @@ async fn add_extension(
         },
     };
 
-    // Acquire a lock on the agent and attempt to add the extension.
-    let mut agent = state.agent.write().await;
-    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    // Get a reference to the agent
+    let agent = state.agent.clone();
     let response = agent.add_extension(extension_config).await;
 
     // Respond with the result.
@@ -320,9 +319,8 @@ async fn remove_extension(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // Acquire a lock on the agent and attempt to remove the extension
-    let mut agent = state.agent.write().await;
-    let agent = agent.as_mut().ok_or(StatusCode::PRECONDITION_REQUIRED)?;
+    // Get a reference to the agent
+    let agent = state.agent.clone();
     agent.remove_extension(&name).await;
 
     Ok(Json(ExtensionResponse {

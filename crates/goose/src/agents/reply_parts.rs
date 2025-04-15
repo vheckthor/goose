@@ -22,16 +22,21 @@ impl Agent {
         let mut tools = self.list_tools().await;
 
         // Add frontend tools
-        for frontend_tool in self.frontend_tools.values() {
+        let frontend_tools = self.frontend_tools.lock().await;
+        for frontend_tool in frontend_tools.values() {
             tools.push(frontend_tool.tool.clone());
         }
+        drop(frontend_tools);
 
         // Prepare system prompt
         let extension_manager = self.extension_manager.lock().await;
         let extensions_info = extension_manager.get_extensions_info().await;
+        let frontend_instructions = self.frontend_instructions.lock().await.clone();
         let mut system_prompt = self
             .prompt_manager
-            .build_system_prompt(extensions_info, self.frontend_instructions.clone());
+            .lock()
+            .await
+            .build_system_prompt(extensions_info, frontend_instructions);
 
         // Handle toolshim if enabled
         let mut toolshim_tools = vec![];
@@ -104,10 +109,15 @@ impl Agent {
     /// - frontend_requests: Tool requests that should be handled by the frontend
     /// - other_requests: All other tool requests (including requests to enable extensions)
     /// - filtered_message: The original message with frontend tool requests removed
-    pub(crate) fn categorize_tool_requests(
+    pub(crate) async fn categorize_tool_requests(
         &self,
         response: &Message,
     ) -> (Vec<ToolRequest>, Vec<ToolRequest>, Message) {
+        // Get frontend tool names first
+        let frontend_tools = self.frontend_tools.lock().await;
+        let frontend_tool_names: HashSet<String> = frontend_tools.keys().cloned().collect();
+        drop(frontend_tools);
+
         // First collect all tool requests
         let tool_requests: Vec<ToolRequest> = response
             .content
@@ -121,44 +131,37 @@ impl Agent {
             })
             .collect();
 
-        // Create a filtered message with frontend tool requests removed
-        let filtered_content = response
-            .content
-            .iter()
-            .filter(|c| {
-                if let MessageContent::ToolRequest(req) = c {
-                    // Only filter out frontend tool requests
+        // Create filtered message and categorize requests
+        let mut filtered_content = Vec::new();
+        let mut frontend_requests = Vec::new();
+        let mut other_requests = Vec::new();
+
+        // Process each content item
+        for content in &response.content {
+            match content {
+                MessageContent::ToolRequest(req) => {
                     if let Ok(tool_call) = &req.tool_call {
-                        return !self.is_frontend_tool(&tool_call.name);
+                        if frontend_tool_names.contains(&tool_call.name) {
+                            frontend_requests.push(req.clone());
+                        } else {
+                            other_requests.push(req.clone());
+                            filtered_content.push(content.clone());
+                        }
+                    } else {
+                        // If there's an error in the tool call, add it to other_requests
+                        other_requests.push(req.clone());
+                        filtered_content.push(content.clone());
                     }
                 }
-                true
-            })
-            .cloned()
-            .collect();
+                _ => filtered_content.push(content.clone()),
+            }
+        }
 
         let filtered_message = Message {
             role: response.role.clone(),
             created: response.created,
             content: filtered_content,
         };
-
-        // Categorize tool requests
-        let mut frontend_requests = Vec::new();
-        let mut other_requests = Vec::new();
-
-        for request in tool_requests {
-            if let Ok(tool_call) = &request.tool_call {
-                if self.is_frontend_tool(&tool_call.name) {
-                    frontend_requests.push(request);
-                } else {
-                    other_requests.push(request);
-                }
-            } else {
-                // If there's an error in the tool call, add it to other_requests
-                other_requests.push(request);
-            }
-        }
 
         (frontend_requests, other_requests, filtered_message)
     }

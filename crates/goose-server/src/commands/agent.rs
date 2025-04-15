@@ -3,6 +3,7 @@ use crate::state;
 use anyhow::Result;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
+use std::sync::Arc;
 
 pub async fn run() -> Result<()> {
     // Initialize logging
@@ -15,8 +16,12 @@ pub async fn run() -> Result<()> {
     let secret_key =
         std::env::var("GOOSE_SERVER__SECRET_KEY").unwrap_or_else(|_| "test".to_string());
 
-    // Create app state - agent will start as None
-    let state = state::AppState::new(secret_key.clone()).await?;
+    // Create initial agent with default provider
+    let provider = Arc::new(goose::providers::databricks::DatabricksProvider::default());
+    let agent = goose::agents::Agent::new(provider);
+
+    // Create app state with agent
+    let state = state::AppState::new(secret_key.clone(), agent).await?;
 
     // Create router with CORS support
     let cors = CorsLayer::new()
