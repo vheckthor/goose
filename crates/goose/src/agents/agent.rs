@@ -96,7 +96,7 @@ impl Agent {
             .extension_manager
             .lock()
             .await
-            .get_prefixed_tools()
+            .get_prefixed_tools(None)
             .await?;
 
         // Add frontend tools directly - they don't need prefixing since they're already uniquely named
@@ -278,7 +278,7 @@ impl Agent {
     pub async fn list_tools(&self) -> Vec<Tool> {
         let extension_manager = self.extension_manager.lock().await;
         let mut prefixed_tools = extension_manager
-            .get_prefixed_tools()
+            .get_prefixed_tools(None)
             .await
             .unwrap_or_default();
 
@@ -586,7 +586,7 @@ impl Agent {
 
     pub async fn get_plan_prompt(&self) -> anyhow::Result<String> {
         let extension_manager = self.extension_manager.lock().await;
-        let tools = extension_manager.get_prefixed_tools().await?;
+        let tools = extension_manager.get_prefixed_tools(None).await?;
         let tools_info = tools
             .into_iter()
             .map(|tool| {
@@ -617,7 +617,7 @@ impl Agent {
         let mut prompt_manager = self.prompt_manager.lock().await;
         let system_prompt = prompt_manager.build_system_prompt(extensions_info, frontend_instructions);
         let recipe_prompt = prompt_manager.get_recipe_prompt().await;
-        let tools = extension_manager.get_prefixed_tools().await?;
+        let tools = extension_manager.get_prefixed_tools(None).await?;
         drop(prompt_manager);
 
         messages.push(Message::user().with_text(recipe_prompt));
