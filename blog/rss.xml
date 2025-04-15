@@ -73,6 +73,64 @@
 ]]></content:encoded>
         </item>
         <item>
+            <title><![CDATA[A Visual Guide To MCP Ecosystem]]></title>
+            <link>https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp</link>
+            <guid>https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp</guid>
+            <pubDate>Thu, 10 Apr 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Visual breakdown of MCP: How your AI agent, tools, and models work together.]]></description>
+            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/mcpblog-40894789122bda594a8576ebcb67a2d8.png" width="2240" height="1260" class="img_ev3q"></p>
+<p>You ever open a GitHub repo or blog post, read the first sentence, and immediately feel like you’ve stumbled into a PhD dissertation?</p>
+<p>Yeah. Same.</p>
+<p>MCP (Model Context Protocol) sounds complicated, but it’s really not. Think of this as your go to cheat sheet, no whitepapers, no academic jargon, just plain English and a few good visuals.</p>
+<p>Let's break this down together.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-is-mcp-in-plain-english">What Is MCP in Plain English?<a href="https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp#what-is-mcp-in-plain-english" class="hash-link" aria-label="Direct link to What Is MCP in Plain English?" title="Direct link to What Is MCP in Plain English?">​</a></h2>
+<p>MCP is like a universal translator between your AI agent, like Goose, and external tools, files, databases, APIs, you name it.</p>
+<p>It gives your agent a way to ask questions, run tools, store/retrieve context, and keep track of everything it knows.</p>
+<p>Instead of cramming everything into one prompt like “here’s 10k tokens worth of context, good luck,” MCP helps the model pull what it needs, when it needs it.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="who-are-the-players">Who Are The Players?<a href="https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp#who-are-the-players" class="hash-link" aria-label="Direct link to Who Are The Players?" title="Direct link to Who Are The Players?">​</a></h2>
+<p><img decoding="async" loading="lazy" alt="players" src="https://block.github.io/goose/assets/images/players-e2b075360b81c342d61ed84bc51c1e97.png" width="2320" height="818" class="img_ev3q"></p>
+<ul>
+<li>
+<p><strong>User</strong> – You, the person with the big ideas and messy problems</p>
+</li>
+<li>
+<p><strong>Agent</strong> – The AI agent, Goose, living in your CLI, IDE, or desktop application</p>
+</li>
+<li>
+<p><strong>LLM</strong> – The model that does the reasoning (like Claude, GPT-4, etc.)</p>
+</li>
+<li>
+<p><strong>MCP Servers (Extensions)</strong> – Goose's toolbox: built-in and custom extensions that give goose the ability to execute tasks</p>
+</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="how-do-they-communicate">How Do They Communicate?<a href="https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp#how-do-they-communicate" class="hash-link" aria-label="Direct link to How Do They Communicate?" title="Direct link to How Do They Communicate?">​</a></h2>
+<p>Lets take a look at how all the players work together:</p>
+<p><img decoding="async" loading="lazy" alt="Visual guide" src="https://block.github.io/goose/assets/images/visualguide-9b44af19be52631e84712cad31849bee.png" width="1056" height="1516" class="img_ev3q">
+In this flow, the user kicks things off by giving Goose a prompt. Goose gets the prompt ready, along with its available tools and any relevant context, and hands it off to the LLM. The LLM decides which tools it needs to complete the task. Goose then routes those tool calls to the right MCP servers, and they execute the tasks. As steps of the task are being completed, informs you, the user, of what it's done and can also loop with the LLM as needed.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="heres-an-analogy">Here's An Analogy<a href="https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp#heres-an-analogy" class="hash-link" aria-label="Direct link to Here's An Analogy" title="Direct link to Here's An Analogy">​</a></h2>
+<p>Let’s make this even clearer with a James Bond analogy. Sometimes a story makes it all click.</p>
+<p><img decoding="async" loading="lazy" alt="james bond" src="https://block.github.io/goose/assets/images/james-89c46143c593bee36832667ded97233c.png" width="1266" height="844" class="img_ev3q"></p>
+<p>If you’ve ever seen a James Bond movie, you know the scene,
+Bond walks into Q’s lab before the mission.
+Q opens up the suitcase of gadgets, exploding pens, invisible cars, grappling watches, you name it.</p>
+<p>Goose is <em>like</em> Q in this situation.
+The suitcase is already packed with tools, built-in and custom extensions (MCP servers).</p>
+<p>Before the LLM (Bond) starts the mission, Goose gives it the full briefing:</p>
+<blockquote>
+<p><em>"Here’s your target (the prompt). Here’s your gadget suitcase (the extensions you can use). Good luck."</em></p>
+</blockquote>
+<p>The MCP servers?</p>
+<p>That’s the hidden team in the back actually building the gadgets and handing them over when Bond needs them in the field.</p>
+<p>The LLM (Bond) picks the right gadgets for the mission, Goose routes the request to the right MCP server, MCP makes sure they work, and the whole operation runs smoothly.</p>
+<p>Without Goose handing over the gadget suitcase, the model would just show up in the field with nothing but a tuxedo and a smile, and we don't want to know how that ends.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="your-turn">Your Turn<a href="https://block.github.io/goose/blog/2025/04/10/visual-guide-mcp#your-turn" class="hash-link" aria-label="Direct link to Your Turn" title="Direct link to Your Turn">​</a></h2>
+<p>Now that you’ve got the basics down, and you understand how the MCP ecosystem works, it’s time to try it yourself.</p>
+<p>The <a href="https://block.github.io/goose/docs/quickstart">Quickstart Guide</a> walks you through connecting your first MCP server.</p>
+<p>And when you’re ready to explore more, head over to the <a href="https://block.github.io/goose/docs/category/tutorials">tutorials section</a> in the docs — it has step-by-step guides and short video demos to show you how to connect to a variety of MCP servers.</p>
+<p>And don't forget to <a href="https://discord.gg/block-opensource" target="_blank" rel="noopener noreferrer">join the community</a> to see what others are building, ask questions, or to simply connect.</p>
+]]></content:encoded>
+        </item>
+        <item>
             <title><![CDATA[How to Vibe Code Responsibly (with Goose)]]></title>
             <link>https://block.github.io/goose/blog/2025/04/08/vibe-code-responsibly</link>
             <guid>https://block.github.io/goose/blog/2025/04/08/vibe-code-responsibly</guid>
@@ -1240,57 +1298,6 @@ If you’d like to try out the toolshim, check out our <a href="https://block.gi
 <p>Pretty powerful, right?!</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="get-started-with-ai-agents">Get Started with AI Agents<a href="https://block.github.io/goose/blog/2025/02/17/agentic-ai-mcp#get-started-with-ai-agents" class="hash-link" aria-label="Direct link to Get Started with AI Agents" title="Direct link to Get Started with AI Agents">​</a></h2>
 <p>Hopefully this has provided clear insight into what are AI agents, how they work, and what they can enable for you. <a href="https://block.github.io/goose/docs/getting-started/installation">Goose</a> is free and open source and you can add as many <a href="https://block.github.io/goose/docs/getting-started/using-extensions#adding-extensions">extensions</a> as you desire. This is a great way to get started with AI agents and see how they can automate tasks in your workflow to make you more efficient.</p>
-]]></content:encoded>
-        </item>
-        <item>
-            <title><![CDATA[Introducing codename goose]]></title>
-            <link>https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose</link>
-            <guid>https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose</guid>
-            <pubDate>Tue, 28 Jan 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[codename goose is your open source AI agent, automating engineering tasks and improving productivity.]]></description>
-            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="Introducing codename goose" src="https://block.github.io/goose/assets/images/introducing-codename-goose-89cac25816e0ea215dd47d4b9768c8ab.png" width="2240" height="1260" class="img_ev3q"></p>
-<p>We are thrilled to announce <strong>codename goose</strong>, your on-machine, open source AI agent built to automate your tasks.</p>
-<p>Powered by your choice of <a href="https://block.github.io/goose/docs/getting-started/providers">large language models (LLMs)</a>, a user-friendly desktop interface and CLI, and <a href="https://block.github.io/goose/docs/getting-started/using-extensions">extensions</a> that integrate with your existing tools and applications, Goose is designed to enhance your productivity and workflow.</p>
-<p>You can think of Goose as an assistant that is ready to take your instructions, and do the work for you.</p>
-<p>While Goose's first use cases are engineering focused, the community has been exploring other non-engineering use cases for Goose as well. And it goes without saying, Goose is <a href="https://github.com/block/goose" target="_blank" rel="noopener noreferrer">open source</a> 🎉.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="how-goose-works">How Goose Works<a href="https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose#how-goose-works" class="hash-link" aria-label="Direct link to How Goose Works" title="Direct link to How Goose Works">​</a></h2>
-<p>Goose operates as an intelligent, autonomous agent capable of handling complex tasks through a well-orchestrated coordination of its core features:</p>
-<ul>
-<li>
-<p><strong>Using Extensions</strong>: <a href="https://block.github.io/goose/docs/getting-started/using-extensions">Extensions</a> are key to Goose’s adaptability, providing you the ability to connect with applications and tools that you already use. Whether it’s connecting to GitHub, accessing Google Drive or integrating with JetBrains IDEs, the possibilities are extensive. Some of these extensions have been curated in the <a href="https://block.github.io/goose/v1/extensions" target="_blank" rel="noopener noreferrer">extensions</a> directory. Goose extensions are built on the <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank" rel="noopener noreferrer">Model Context Protocol (MCP)</a> - enabling you to build or bring your own custom integrations to Goose.</p>
-</li>
-<li>
-<p><strong>LLM Providers</strong>: Goose is compatible with a wide range of <a href="https://block.github.io/goose/docs/getting-started/providers">LLM providers</a>, allowing you to choose and integrate your preferred model.</p>
-</li>
-<li>
-<p><strong>CLI and Desktop Support</strong>: You can run Goose as a desktop app or through the command-line interface (CLI) using the same configurations across both.</p>
-</li>
-</ul>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="goose-in-action">Goose in Action<a href="https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose#goose-in-action" class="hash-link" aria-label="Direct link to Goose in Action" title="Direct link to Goose in Action">​</a></h2>
-<p>Goose is able to handle a wide range of tasks, from simple to complex, across various engineering domains. Here are some examples of tasks that Goose has helped people with:</p>
-<ul>
-<li>Conduct code migrations such as Ember to React, Ruby to Kotlin, Prefect-1 to Prefect-2 etc.</li>
-<li>Dive into a new project in an unfamiliar coding language</li>
-<li>Transition a code-base from field-based injection to constructor-based injection in a dependency injection framework.</li>
-<li>Conduct performance benchmarks for a build command using a build automation tool</li>
-<li>Increasing code coverage above a specific threshold</li>
-<li>Scaffolding an API for data retention</li>
-<li>Creating Datadog monitors</li>
-<li>Removing or adding feature flags etc.</li>
-<li>Generating unit tests for a feature</li>
-</ul>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="getting-started">Getting Started<a href="https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose#getting-started" class="hash-link" aria-label="Direct link to Getting Started" title="Direct link to Getting Started">​</a></h2>
-<p>You can get started using Goose right away! Check out our <a href="https://block.github.io/goose/docs/quickstart">Quickstart</a>.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="join-the-goose-community">Join the Goose Community<a href="https://block.github.io/goose/blog/2025/01/28/introducing-codename-goose#join-the-goose-community" class="hash-link" aria-label="Direct link to Join the Goose Community" title="Direct link to Join the Goose Community">​</a></h2>
-<p>Excited for upcoming features and events? Be sure to connect with us!</p>
-<ul>
-<li><a href="https://github.com/block/goose" target="_blank" rel="noopener noreferrer">GitHub</a></li>
-<li><a href="https://discord.gg/block-opensource" target="_blank" rel="noopener noreferrer">Discord</a></li>
-<li><a href="https://www.youtube.com/@blockopensource" target="_blank" rel="noopener noreferrer">YouTube</a></li>
-<li><a href="https://www.linkedin.com/company/block-opensource" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
-<li><a href="https://x.com/blockopensource" target="_blank" rel="noopener noreferrer">X</a></li>
-<li><a href="https://bsky.app/profile/opensource.block.xyz" target="_blank" rel="noopener noreferrer">BlueSky</a></li>
-</ul>
 ]]></content:encoded>
         </item>
     </channel>
