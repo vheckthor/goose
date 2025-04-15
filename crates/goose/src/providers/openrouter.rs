@@ -30,6 +30,7 @@ pub struct OpenRouterProvider {
     host: String,
     api_key: String,
     model: ModelConfig,
+    model_specific_hints: Option<String>,
 }
 
 impl Default for OpenRouterProvider {
@@ -51,11 +52,18 @@ impl OpenRouterProvider {
             .timeout(Duration::from_secs(600))
             .build()?;
 
+        // Add model-specific hints for certain models
+        let model_specific_hints = if model.model_name == "openai/gpt-4.1" {
+            Some("CRITIAL: You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. TIP: If you are not sure about contents or structure pertaining to the user's request, use your tools as needed to gather the relevant information: do NOT guess or make up an answer.".to_string())        } else {
+            None
+        };
+
         Ok(Self {
             client,
             host,
             api_key,
             model,
+            model_specific_hints,
         })
     }
 
@@ -255,8 +263,16 @@ impl Provider for OpenRouterProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
+        // Add model-specific hints to the system prompt if available
+        let enhanced_system = if let Some(hints) = &self.model_specific_hints {
+            format!("{}\n\n# IMPORTANT:\n\n{}", system, hints)
+        } else {
+            system.to_string()
+        };
+
         // Create the base payload
-        let payload = create_request_based_on_model(&self.model, system, messages, tools)?;
+        let payload =
+            create_request_based_on_model(&self.model, &enhanced_system, messages, tools)?;
 
         // Make request
         let response = self.post(payload.clone()).await?;

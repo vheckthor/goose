@@ -35,6 +35,7 @@ pub struct OpenAiProvider {
     project: Option<String>,
     model: ModelConfig,
     custom_headers: Option<HashMap<String, String>>,
+    model_specific_hints: Option<String>,
 }
 
 impl Default for OpenAiProvider {
@@ -65,6 +66,13 @@ impl OpenAiProvider {
             .timeout(Duration::from_secs(timeout_secs))
             .build()?;
 
+        // Add model-specific hints for certain models
+        let model_specific_hints = if model.model_name == "gpt-4.1" {
+            Some("CRITIAL: You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. TIP: If you are not sure about contents or structure pertaining to the user's request, use your tools as needed to gather the relevant information: do NOT guess or make up an answer.".to_string())
+        } else {
+            None
+        };
+
         Ok(Self {
             client,
             host,
@@ -74,6 +82,7 @@ impl OpenAiProvider {
             project,
             model,
             custom_headers,
+            model_specific_hints,
         })
     }
 
@@ -150,7 +159,20 @@ impl Provider for OpenAiProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        let payload = create_request(&self.model, system, messages, tools, &ImageFormat::OpenAi)?;
+        // Add model-specific hints to the system prompt if available
+        let enhanced_system = if let Some(hints) = &self.model_specific_hints {
+            format!("{}\n\n# IMPORTANT:\n\n{}", system, hints)
+        } else {
+            system.to_string()
+        };
+
+        let payload = create_request(
+            &self.model,
+            &enhanced_system,
+            messages,
+            tools,
+            &ImageFormat::OpenAi,
+        )?;
 
         // Make request
         let response = self.post(payload.clone()).await?;

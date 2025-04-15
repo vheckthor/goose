@@ -68,6 +68,7 @@ pub struct DatabricksProvider {
     auth: DatabricksAuth,
     model: ModelConfig,
     image_format: ImageFormat,
+    model_specific_hints: Option<String>,
 }
 
 impl Default for DatabricksProvider {
@@ -102,6 +103,13 @@ impl DatabricksProvider {
             .timeout(Duration::from_secs(600))
             .build()?;
 
+        // Add model-specific hints for certain models
+        let model_specific_hints = if model.model_name.contains("gpt-4-1") {
+            Some("CRITIAL: You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. TIP: If you are not sure about contents or structure pertaining to the user's request, use your tools as needed to gather the relevant information: do NOT guess or make up an answer.".to_string())
+        } else {
+            None
+        };
+
         // If we find a databricks token we prefer that
         if let Ok(api_key) = config.get_secret("DATABRICKS_TOKEN") {
             return Ok(Self {
@@ -110,6 +118,7 @@ impl DatabricksProvider {
                 auth: DatabricksAuth::token(api_key),
                 model,
                 image_format: ImageFormat::OpenAi,
+                model_specific_hints,
             });
         }
 
@@ -120,6 +129,7 @@ impl DatabricksProvider {
             host,
             model,
             image_format: ImageFormat::OpenAi,
+            model_specific_hints,
         })
     }
 
@@ -250,7 +260,20 @@ impl Provider for DatabricksProvider {
         messages: &[Message],
         tools: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        let mut payload = create_request(&self.model, system, messages, tools, &self.image_format)?;
+        // Add model-specific hints to the system prompt if available
+        let enhanced_system = if let Some(hints) = &self.model_specific_hints {
+            format!("{}\n\n# IMPORTANT:\n\n{}", system, hints)
+        } else {
+            system.to_string()
+        };
+
+        let mut payload = create_request(
+            &self.model,
+            &enhanced_system,
+            messages,
+            tools,
+            &self.image_format,
+        )?;
         // Remove the model key which is part of the url with databricks
         payload
             .as_object_mut()
