@@ -266,7 +266,10 @@ impl Agent {
                 }
             }
             _ => {
-                tracing::debug!("Adding extension, getting extension manager lock: {:?}", extension);
+                tracing::debug!(
+                    "Adding extension, getting extension manager lock: {:?}",
+                    extension
+                );
                 let mut extension_manager = self.extension_manager.lock().await;
                 let _ = extension_manager.add_extension(extension).await;
             }
@@ -613,11 +616,12 @@ impl Agent {
     }
 
     pub async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {
-        let mut extension_manager = self.extension_manager.lock().await;
+        let extension_manager = self.extension_manager.lock().await;
         let extensions_info = extension_manager.get_extensions_info().await;
         let frontend_instructions = self.frontend_instructions.lock().await.clone();
-        let mut prompt_manager = self.prompt_manager.lock().await;
-        let system_prompt = prompt_manager.build_system_prompt(extensions_info, frontend_instructions);
+        let prompt_manager = self.prompt_manager.lock().await;
+        let system_prompt =
+            prompt_manager.build_system_prompt(extensions_info, frontend_instructions);
         let recipe_prompt = prompt_manager.get_recipe_prompt().await;
         let tools = extension_manager.get_prefixed_tools(None).await?;
         drop(prompt_manager);

@@ -1,9 +1,9 @@
 use crate::configuration;
 use crate::state;
 use anyhow::Result;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
-use std::sync::Arc;
 
 pub async fn run() -> Result<()> {
     // Initialize logging

@@ -131,7 +131,6 @@ async fn handler(
 
     // Spawn task to handle streaming
     tokio::spawn(async move {
-
         // Get the provider first, before starting the reply stream
         let provider = agent.provider();
 

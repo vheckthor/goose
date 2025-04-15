@@ -34,7 +34,8 @@ impl Agent {
         let mut system_prompt = self
             .prompt_manager
             .lock()
-            .await.build_system_prompt(extensions_info, frontend_instructions);
+            .await
+            .build_system_prompt(extensions_info, frontend_instructions);
 
         // Handle toolshim if enabled
         let mut toolshim_tools = vec![];
@@ -126,7 +127,7 @@ impl Agent {
 
         // Create a filtered message with frontend tool requests removed
         let mut filtered_content = Vec::new();
-    
+
         // Process each content item one by one
         for content in &response.content {
             let should_include = match content {
@@ -136,10 +137,10 @@ impl Agent {
                     } else {
                         true
                     }
-                },
-                _ => true
+                }
+                _ => true,
             };
-            
+
             if should_include {
                 filtered_content.push(content.clone());
             }
