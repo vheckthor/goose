@@ -83,7 +83,7 @@
 <p>Yeah. Same.</p>
 <p>MCP (Model Context Protocol) sounds complicated, but it’s really not. Think of this as your go to cheat sheet, no whitepapers, no academic jargon, just plain English and a few good visuals.</p>
 <p>Let's break this down together.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-is-mcp-in-plain-english">What Is MCP in plain English?<a href="https://block.github.io/goose/pr-preview/pr-2147/blog/2025/04/10/visual-guide-mcp#what-is-mcp-in-plain-english" class="hash-link" aria-label="Direct link to What Is MCP in plain English?" title="Direct link to What Is MCP in plain English?">​</a></h2>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-is-mcp-in-plain-english">What Is MCP in Plain English?<a href="https://block.github.io/goose/pr-preview/pr-2147/blog/2025/04/10/visual-guide-mcp#what-is-mcp-in-plain-english" class="hash-link" aria-label="Direct link to What Is MCP in Plain English?" title="Direct link to What Is MCP in Plain English?">​</a></h2>
 <p>MCP is like a universal translator between your AI agent, like Goose, and external tools, files, databases, APIs, you name it.</p>
 <p>It gives your agent a way to, ask questions, run tools, store/retrieve context, and keep track of everything it knows.</p>
 <p>Instead of cramming everything into one prompt like “here’s 10k tokens worth of context, good luck,” MCP helps the model pull what it needs, when it needs it.</p>
