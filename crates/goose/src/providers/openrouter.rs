@@ -54,7 +54,8 @@ impl OpenRouterProvider {
 
         // Add model-specific hints for certain models
         let model_specific_hints = if model.model_name == "openai/gpt-4.1" {
-            Some("CRITIAL: You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. TIP: If you are not sure about contents or structure pertaining to the user's request, use your tools as needed to gather the relevant information: do NOT guess or make up an answer.".to_string())        } else {
+            Some("CRITIAL: You are an agent - please keep going until the user's query is completely resolved, before ending your turn and yielding back to the user. Only terminate your turn when you are sure that the problem is solved. TIP: If you are not sure about contents or structure pertaining to the user's request, use your tools as needed to gather the relevant information: do NOT guess or make up an answer.".to_string())
+        } else {
             None
         };
 
