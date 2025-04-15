@@ -79,7 +79,7 @@ export default function ExtensionConfirmation({
             <span className="ml-2 text-textStandard">
               {isClicked
                 ? 'Extension enablement is not available'
-                : `${snakeToTitleCase(extensionName.includes('__') ? (extensionName.split('__').pop() || extensionName) : extensionName)} is ${status}`}{' '}
+                : `${snakeToTitleCase(extensionName.includes('__') ? extensionName.split('__').pop() || extensionName : extensionName)} is ${status}`}{' '}
             </span>
           </div>
         </div>
@@ -91,7 +91,8 @@ export default function ExtensionConfirmation({
             }
             onClick={() => handleButtonClick(true)}
           >
-            {extensionAction.toUpperCase()} EXTENSION
+            {extensionAction.charAt(0).toUpperCase() + extensionAction.slice(1).toLowerCase()}{' '}
+            extension
           </button>
           <button
             className={

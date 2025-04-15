@@ -145,11 +145,15 @@ impl MessageContent {
         })
     }
 
-    pub fn extension_request<S: Into<String>>(id: S, extension_name: String, tool_name: String) -> Self {
+    pub fn extension_request<S: Into<String>>(
+        id: S,
+        extension_name: String,
+        tool_name: String,
+    ) -> Self {
         MessageContent::ExtensionRequest(ExtensionRequest {
             id: id.into(),
             extension_name,
-            tool_name
+            tool_name,
         })
     }
 
@@ -367,7 +371,11 @@ impl Message {
         extension_name: String,
         tool_name: String,
     ) -> Self {
-        self.with_content(MessageContent::extension_request(id, extension_name, tool_name))
+        self.with_content(MessageContent::extension_request(
+            id,
+            extension_name,
+            tool_name,
+        ))
     }
 
     pub fn with_frontend_tool_request<S: Into<String>>(
