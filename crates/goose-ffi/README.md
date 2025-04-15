@@ -9,6 +9,7 @@ The Goose FFI library provides C-compatible bindings for the Goose AI agent fram
 - Create and manage Goose agents from any language with C FFI support
 - Configure and use the Databricks AI provider for now but is extensible to other providers as needed
 - Send messages to agents and receive responses
+- Register custom tools that can be invoked by the AI agent
 
 ## Building
 
@@ -41,7 +42,7 @@ The `examples/goose_agent.py` demonstrates using the FFI library from Python wit
 3. Setting up C-compatible structures
 4. Creating an object-oriented API for easier use
 
-Note: Tool callback functionality shown in earlier versions is not currently available and will be implemented in a future release.
+The example demonstrates how to use tool callbacks to enable the agent to invoke functions in your application.
 
 To run the Python example:
 
@@ -58,11 +59,38 @@ python goose_agent.py
 You need to have Python 3.6+ installed with the `ctypes` module (included in standard library).
 
 
-```
-> Tell me about the Eiffel Tower
+### Tool Agent Examples
+
+The library includes examples demonstrating how to implement and register tools that can be invoked by the AI agent:
+
+- `examples/tool_agent.c` - C example showing how to implement a calculator tool
+- `examples/tool_agent.py` - Python equivalent with the same calculator functionality
+
+To build and run the C tool agent example:
+
+```bash
+cd examples
+make run-tool-agent
 ```
 
-The agent will respond with information about the Eiffel Tower.
+To run the Python tool agent example:
+
+```bash
+cd examples
+make run-python-tool-agent
+```
+
+Example interaction:
+
+```
+> Calculate 5 + 3
+Agent: The sum of 5 and 3 is 8.
+
+> What is 10 divided by 2?
+Agent: 10 divided by 2 equals 5.
+```
+
+The agent will use the calculator tool to perform the requested operations.
 
 ## Using from Other Languages
 
@@ -109,9 +137,45 @@ DATABRICKS_HOST=...            # Databricks host URL (e.g., "https://your-worksp
 
 These environment variables will be used automatically if you don't provide the corresponding parameters when creating an agent.
 
+## Tool Callbacks
+
+The FFI library supports registering custom tools that can be invoked by the AI agent. This enables the agent to perform actions in your application based on user requests.
+
+### Creating a Tool
+
+To create a tool:
+
+1. Define the tool's parameters using the `ToolParamDef` structure
+2. Create a tool schema using `goose_create_tool_schema`
+3. Register the tool with the agent using `goose_agent_register_tool_callback`
+4. Implement a callback function to handle tool invocations
+
+The callback function has the following signature:
+
+```c
+char* tool_callback(size_t param_count, const goose_ToolParam* params, void* user_data);
+```
+
+- `param_count`: Number of parameters passed to the tool
+- `params`: Array of parameter name-value pairs
+- `user_data`: User-provided data pointer passed during registration
+- Return value: JSON-formatted string with the tool's result (must be allocated with malloc or equivalent)
+
+### Tool Parameter Types
+
+Tools can have parameters of the following types:
+
+- String (ToolParamType.String = 0)
+- Number (ToolParamType.Number = 1)
+- Boolean (ToolParamType.Boolean = 2)
+- Array (ToolParamType.Array = 3)
+- Object (ToolParamType.Object = 4)
+
+Parameters can be marked as required or optional.
+
 ## Thread Safety
 
-The FFI library is designed to be thread-safe. Each agent instance is independent, and tools callbacks are handled in a thread-safe manner. However, the same agent instance should not be used from multiple threads simultaneously without external synchronization.
+The FFI library is designed to be thread-safe. Each agent instance is independent, and tool callbacks are handled in a thread-safe manner. However, the same agent instance should not be used from multiple threads simultaneously without external synchronization.
 
 ## Error Handling
 
