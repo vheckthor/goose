@@ -278,6 +278,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
             </div>
             <div className="mb-8 mt-6">
               <h2 className="text-2xl font-medium mb-2 text-textProminent">Extensions</h2>
+              <p className="text-textSubtle">Select extensions to bundle in the recipe</p>
             </div>
             <ExtensionsSection
               hideButtons={true} // Hide "Add custom" and "Browse" buttons
@@ -292,7 +293,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
 
       default:
         return (
-          <div className="space-y-4 py-4">
+          <div className="space-y-2 py-2">
             <div>
               <h2 className="text-lg font-medium mb-2 text-textProminent">Agent</h2>
               <input
@@ -307,7 +308,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
                 className={`w-full p-3 border rounded-lg bg-bgApp text-textStandard ${
                   errors.title ? 'border-red-500' : 'border-borderSubtle'
                 }`}
-                placeholder="Agent Name (required)"
+                placeholder="Agent Recipe Name (required)"
               />
               {errors.title && <div className="text-red-500 text-sm mt-1">{errors.title}</div>}
             </div>
@@ -340,7 +341,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
               <div className="text-left">
                 <h3 className="font-medium text-textProminent">Activities</h3>
                 <p className="text-textSubtle text-sm">
-                  Starting activities present in the home panel on a fresh goose session
+                  Starting activities present in the home panel on a fresh session
                 </p>
               </div>
               <ChevronRight className="w-5 h-5 mt-1 text-iconSubtle" />
@@ -352,9 +353,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
             >
               <div className="text-left">
                 <h3 className="font-medium text-textProminent">Instructions</h3>
-                <p className="text-textSubtle text-sm">
-                  Starting activities present in the home panel on a fresh goose session
-                </p>
+                <p className="text-textSubtle text-sm">Recipe instructions sent to the model</p>
               </div>
               <ChevronRight className="w-5 h-5 mt-1 text-iconSubtle" />
             </button>
@@ -366,7 +365,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
               <div className="text-left">
                 <h3 className="font-medium text-textProminent">Extensions</h3>
                 <p className="text-textSubtle text-sm">
-                  Starting activities present in the home panel on a fresh goose session
+                  Extensions to be enabled by default with this recipe
                 </p>
               </div>
               <ChevronRight className="w-5 h-5 mt-1 text-iconSubtle" />
@@ -389,7 +388,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col space-y-2 pt-4">
+            <div className="flex flex-col space-y-2 pt-1">
               <button
                 onClick={handleOpenAgent}
                 className="w-full p-3 bg-bgAppInverse text-textProminentInverse rounded-lg hover:bg-bgStandardInverse disabled:opacity-50 disabled:cursor-not-allowed"
@@ -417,10 +416,11 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
             <Geese className="w-12 h-12 text-iconProminent" />
           </div>
           <h1 className="text-2xl font-medium text-center text-textProminent">
-            Create custom agent
+            Create an agent recipe
           </h1>
           <p className="text-textSubtle text-center mt-2 text-sm">
-            Your custom agent can be shared with others
+            Your custom agent recipe can be shared with others. Fill in the sections below to
+            create!
           </p>
         </div>
       )}
