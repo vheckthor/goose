@@ -1,0 +1,175 @@
+<tools>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>developer__shell</name>
+      <description>Execute a command in the shell.
+
+This will return the output and error concatenated into a single string, as
+you would see from running on the command line. There will also be an indication
+of if the command succeeded or failed.
+
+Avoid commands that produce a large amount of output, and consider piping those outputs to files.
+If you need to run a long lived command, background it - e.g. `uvicorn main:app &` so that
+this tool does not run indefinitely.
+
+**Important**: Each shell command runs in its own process. Things like directory changes or
+sourcing files do not persist between tool calls. So you may need to repeat them each time by
+stringing together commands, e.g. `cd example && ls` or `source env/bin/activate && pip install numpy`
+
+**Important**: Use ripgrep - `rg` - when you need to locate a file or a code reference, other solutions
+may show ignored or hidden files. For example *do not* use `find` or `ls -r`
+  - List files by name: `rg --files | rg &lt;filename&gt;`
+  - List files that contain a regex: `rg '&lt;regex&gt;'`</description>
+      <parameters>
+        <type>object</type>
+        <required>command</required>
+        <properties>
+          <command>
+            <type>string</type>
+          </command>
+        </properties>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>developer__text_editor</name>
+      <description>Perform text editing operations on files.
+
+The `command` parameter specifies the operation to perform. Allowed options are:
+- `view`: View the content of a file.
+- `write`: Create or overwrite a file with the given content
+- `str_replace`: Replace a string in a file with a new string.
+- `undo_edit`: Undo the last edit made to a file.
+
+To use the write command, you must specify `file_text` which will become the new content of the file. Be careful with
+existing files! This is a full overwrite, so you must include everything - not just sections you are modifying.
+
+To use the str_replace command, you must specify both `old_str` and `new_str` - the `old_str` needs to exactly match one
+unique section of the original file, including any whitespace. Make sure to include enough context that the match is not
+ambiguous. The entire original string will be replaced with `new_str`.</description>
+      <parameters>
+        <type>object</type>
+        <required>command</required>
+        <required>path</required>
+        <properties>
+          <command>
+            <type>string</type>
+            <enum>view</enum>
+            <enum>write</enum>
+            <enum>str_replace</enum>
+            <enum>undo_edit</enum>
+          </command>
+          <file_text>
+            <type>string</type>
+          </file_text>
+          <new_str>
+            <type>string</type>
+          </new_str>
+          <old_str>
+            <type>string</type>
+          </old_str>
+          <path>
+            <type>string</type>
+            <description>Absolute path to file or directory, e.g. `/repo/file.py` or `/repo`.</description>
+          </path>
+        </properties>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>developer__list_windows</name>
+      <description>List all available window titles that can be used with screen_capture.
+Returns a list of window titles that can be used with the window_title parameter
+of the screen_capture tool.</description>
+      <parameters>
+        <type>object</type>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>developer__screen_capture</name>
+      <description>Capture a screenshot of a specified display or window.
+You can capture either:
+1. A full display (monitor) using the display parameter
+2. A specific window by its title using the window_title parameter
+
+Only one of display or window_title should be specified.</description>
+      <parameters>
+        <type>object</type>
+        <properties>
+          <display>
+            <type>integer</type>
+            <default>0</default>
+            <description>The display number to capture (0 is main display)</description>
+          </display>
+          <window_title>
+            <type>string</type>
+            <default>null</default>
+            <description>Optional: the exact title of the window to capture. use the list_windows tool to find the available windows.</description>
+          </window_title>
+        </properties>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>developer__image_processor</name>
+      <description>Process an image file from disk. The image will be:
+1. Resized if larger than max width while maintaining aspect ratio
+2. Converted to PNG format
+3. Returned as base64 encoded data
+
+This allows processing image files for use in the conversation.</description>
+      <parameters>
+        <type>object</type>
+        <required>path</required>
+        <properties>
+          <path>
+            <type>string</type>
+            <description>Absolute path to the image file to process</description>
+          </path>
+        </properties>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>platform__search_available_extensions</name>
+      <description>Searches for additional extensions available to help complete tasks.
+        Use this tool when you're unable to find a specific feature or functionality you need to complete your task, or when standard approaches aren't working.
+        These extensions might provide the exact tools needed to solve your problem.
+        If you find a relevant one, consider using your tools to enable it.</description>
+      <parameters>
+        <type>object</type>
+      </parameters>
+    </function>
+  </tool>
+  <tool>
+    <type>function</type>
+    <function>
+      <name>platform__enable_extension</name>
+      <description>Enable extensions to help complete tasks.
+            Enable an extension by providing the extension name.
+            </description>
+      <parameters>
+        <type>object</type>
+        <required>extension_name</required>
+        <properties>
+          <extension_name>
+            <type>string</type>
+            <description>The name of the extension to enable</description>
+          </extension_name>
+        </properties>
+      </parameters>
+    </function>
+  </tool>
+</tools>
