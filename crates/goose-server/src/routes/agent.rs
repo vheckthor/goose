@@ -136,7 +136,7 @@ async fn create_agent(
     let version = String::from("goose");
     let new_agent = Agent::new(provider);
 
-    let state = state.with_agent(new_agent).await;
+    state.with_agent(new_agent).await;
 
     Ok(Json(CreateAgentResponse { version }))
 }
@@ -197,7 +197,7 @@ async fn get_tools(
     let permission_manager = PermissionManager::default();
 
     let mut tools: Vec<ToolInfo> = agent
-        .list_tools()
+        .list_tools(None)
         .await
         .into_iter()
         .filter(|tool| {

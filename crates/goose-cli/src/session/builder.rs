@@ -50,7 +50,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent
-    let mut agent = Agent::new(provider);
+    let agent = Agent::new(provider);
 
     // Handle session file resolution and resuming
     let session_file = if session_config.resume {

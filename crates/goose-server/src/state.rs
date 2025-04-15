@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use goose::agents::Agent;
 use serde_json::Value;
 use std::collections::HashMap;
