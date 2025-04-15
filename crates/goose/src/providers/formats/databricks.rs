@@ -191,25 +191,35 @@ pub fn format_messages(messages: &[Message], image_format: &ImageFormat) -> Vec<
                         }
                     }));
                 }
-                MessageContent::FrontendToolRequest(req) => {
-                    // Frontend tool requests are converted to text messages
-                    if let Ok(tool_call) = &req.tool_call {
-                        content_array.push(json!({
-                            "type": "text",
-                            "text": format!(
-                                "Frontend tool request: {} ({})",
-                                tool_call.name,
-                                serde_json::to_string_pretty(&tool_call.arguments).unwrap()
-                            )
-                        }));
-                    } else {
-                        content_array.push(json!({
-                            "type": "text",
-                            "text": format!(
-                                "Frontend tool request error: {}",
-                                req.tool_call.as_ref().unwrap_err()
-                            )
-                        }));
+                MessageContent::FrontendToolRequest(request) => {
+                    has_tool_calls = true;
+                    match &request.tool_call {
+                        Ok(tool_call) => {
+                            let sanitized_name = sanitize_function_name(&tool_call.name);
+
+                            // Get mutable access to the "tool_calls" field in the converted object
+                            // If "tool_calls" doesn't exist, insert an empty JSON array
+                            let tool_calls = converted
+                                .as_object_mut()
+                                .unwrap()
+                                .entry("tool_calls")
+                                .or_insert(json!([]));
+
+                            tool_calls.as_array_mut().unwrap().push(json!({
+                                "id": request.id,
+                                "type": "function",
+                                "function": {
+                                    "name": sanitized_name,
+                                    "arguments": tool_call.arguments.to_string(),
+                                }
+                            }));
+                        }
+                        Err(e) => {
+                            content_array.push(json!({
+                                "type": "text",
+                                "text": format!("Error: {}", e)
+                            }));
+                        }
                     }
                 }
             }
