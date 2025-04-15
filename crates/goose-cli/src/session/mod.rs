@@ -620,7 +620,7 @@ impl Session {
                                     principal_type: PrincipalType::Tool,
                                     permission,
                                 },).await;
-                            } else if let Some(MessageContent::EnableExtensionRequest(enable_extension_request)) = message.content.first() {
+                            } else if let Some(MessageContent::ExtensionRequest(enable_extension_request)) = message.content.first() {
                                 output::hide_thinking();
 
                                 let prompt = "Goose would like to install the following extension, do you approve?".to_string();
