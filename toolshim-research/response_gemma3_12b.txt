@@ -1,9 +1,0 @@
-Okay, here's the list of files in the `/Users/micn/Documents/code/goose` directory:
-
-```tool_code
-developer__shell
-```
-
-```tool_code
-ls -l
-```

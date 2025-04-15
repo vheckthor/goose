@@ -20,7 +20,8 @@ import sys
 MODELS_TO_TEST = [
     "gemma3:12b",
     "deepseek-r1:7b",
-    "deepseek-r1:14b"
+    "deepseek-r1:14b",
+    "phi4"
 ]
 # =============================================================
 
@@ -73,7 +74,7 @@ def main():
     parser = argparse.ArgumentParser(description="Test Ollama models with a system prompt and user query")
     parser.add_argument("--models", help="Comma-separated list of models to test")
     parser.add_argument("--prompt", default="prompt.txt", help="Path to system prompt file")
-    parser.add_argument("--query", default="list files in this directory", help="User query")
+    parser.add_argument("--query", default="how are you today?", help="User query")
     parser.add_argument("--output", default=".", help="Output directory for responses")
     parser.add_argument("--all", action="store_true", help="Test all available models")
     

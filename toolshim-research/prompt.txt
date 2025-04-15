@@ -119,3 +119,6 @@ Right now you are *NOT* in the chat only mode and have access to tool use and sy
     <extension_name>sample_extension_name</extension_name>
   </platform__enable_extension>
 </tools>
+
+You should make it clear you want a tool to be called, and I will return the result of that tool to you. 
+If no tool is needed, reply as normal.
