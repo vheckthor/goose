@@ -126,32 +126,11 @@ async fn handler(
         .session_id
         .unwrap_or_else(session::generate_session_id);
 
-    // Get a lock on the shared agent
+    // Get a reference to the agent
     let agent = state.agent.clone();
 
     // Spawn task to handle streaming
     tokio::spawn(async move {
-        let agent = agent.read().await;
-        let agent = match agent.as_ref() {
-            Some(agent) => agent,
-            None => {
-                let _ = stream_event(
-                    MessageEvent::Error {
-                        error: "No agent configured".to_string(),
-                    },
-                    &tx,
-                )
-                .await;
-                let _ = stream_event(
-                    MessageEvent::Finish {
-                        reason: "error".to_string(),
-                    },
-                    &tx,
-                )
-                .await;
-                return;
-            }
-        };
 
         // Get the provider first, before starting the reply stream
         let provider = agent.provider();
@@ -291,8 +270,6 @@ async fn ask_handler(
         .unwrap_or_else(session::generate_session_id);
 
     let agent = state.agent.clone();
-    let agent = agent.write().await;
-    let agent = agent.as_ref().ok_or(StatusCode::NOT_FOUND)?;
 
     // Get the provider first, before starting the reply stream
     let provider = agent.provider();
@@ -404,8 +381,6 @@ pub async fn confirm_permission(
     }
 
     let agent = state.agent.clone();
-    let agent = agent.read().await;
-    let agent = agent.as_ref().ok_or(StatusCode::NOT_FOUND)?;
 
     let permission = match request.action.as_str() {
         "always_allow" => Permission::AlwaysAllow,
@@ -466,8 +441,7 @@ async fn submit_tool_result(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let agent = state.agent.read().await;
-    let agent = agent.as_ref().ok_or(StatusCode::NOT_FOUND)?;
+    let agent = state.agent.clone();
     agent.handle_tool_result(payload.id, payload.result).await;
     Ok(Json(json!({"status": "ok"})))
 }

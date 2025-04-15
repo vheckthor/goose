@@ -37,14 +37,7 @@ async fn create_recipe(
     State(state): State<AppState>,
     Json(request): Json<CreateRecipeRequest>,
 ) -> Result<Json<CreateRecipeResponse>, (StatusCode, Json<CreateRecipeResponse>)> {
-    let agent = state.agent.read().await;
-    let agent = agent.as_ref().ok_or_else(|| {
-        let error_response = CreateRecipeResponse {
-            recipe: None,
-            error: Some("Agent not initialized".to_string()),
-        };
-        (StatusCode::PRECONDITION_REQUIRED, Json(error_response))
-    })?;
+    let agent = state.agent.clone();
 
     // Create base recipe from agent state and messages
     let recipe_result = agent.create_recipe(request.messages).await;
