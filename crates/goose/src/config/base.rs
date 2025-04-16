@@ -61,6 +61,7 @@ impl From<keyring::Error> for ConfigError {
 /// - YAML-based configuration file storage
 /// - Hot reloading of configuration changes
 /// - Secure secret storage in system keyring
+/// - Memory-only mode (no persistence to disk)
 ///
 /// Configuration values are loaded with the following precedence:
 /// 1. Environment variables (exact key match)
@@ -71,6 +72,10 @@ impl From<keyring::Error> for ConfigError {
 /// 2. System keyring (which can be disabled with GOOSE_DISABLE_KEYRING)
 /// 3. If the keyring is disabled, secrets are stored in a secrets file
 ///    (~/.config/goose/secrets.yaml by default)
+///
+/// To run in memory-only mode (no file persistence), set the GOOSE_NO_CONFIG
+/// environment variable. In this mode, Goose will not read from or write to a
+/// configuration file.
 ///
 /// # Examples
 ///
@@ -99,7 +104,7 @@ impl From<keyring::Error> for ConfigError {
 ///
 /// For Goose-specific configuration, consider prefixing with "goose_" to avoid conflicts.
 pub struct Config {
-    config_path: PathBuf,
+    config_path: Option<PathBuf>,
     secrets: SecretStorage,
 }
 
@@ -113,6 +118,16 @@ static GLOBAL_CONFIG: OnceCell<Config> = OnceCell::new();
 
 impl Default for Config {
     fn default() -> Self {
+        // Check if memory-only mode is requested
+        if env::var("GOOSE_NO_CONFIG").is_ok() {
+            return Config {
+                config_path: None,
+                secrets: SecretStorage::Keyring {
+                    service: KEYRING_SERVICE.to_string(),
+                },
+            };
+        }
+
         // choose_app_strategy().config_dir()
         // - macOS/Linux: ~/.config/goose/
         // - Windows:     ~\AppData\Roaming\Block\goose\config\
@@ -122,7 +137,7 @@ impl Default for Config {
 
         std::fs::create_dir_all(&config_dir).expect("Failed to create config directory");
 
-        let config_path = config_dir.join("config.yaml");
+        let config_path = Some(config_dir.join("config.yaml"));
 
         let secrets = match env::var("GOOSE_DISABLE_KEYRING") {
             Ok(_) => SecretStorage::File {
@@ -154,7 +169,19 @@ impl Config {
     /// to manage multiple configuration files.
     pub fn new<P: AsRef<Path>>(config_path: P, service: &str) -> Result<Self, ConfigError> {
         Ok(Config {
-            config_path: config_path.as_ref().to_path_buf(),
+            config_path: Some(config_path.as_ref().to_path_buf()),
+            secrets: SecretStorage::Keyring {
+                service: service.to_string(),
+            },
+        })
+    }
+
+    /// Create a new memory-only configuration
+    ///
+    /// Creates a configuration that doesn't read from or write to disk.
+    pub fn new_memory_only(service: &str) -> Result<Self, ConfigError> {
+        Ok(Config {
+            config_path: None,
             secrets: SecretStorage::Keyring {
                 service: service.to_string(),
             },
@@ -170,7 +197,7 @@ impl Config {
         secrets_path: P2,
     ) -> Result<Self, ConfigError> {
         Ok(Config {
-            config_path: config_path.as_ref().to_path_buf(),
+            config_path: Some(config_path.as_ref().to_path_buf()),
             secrets: SecretStorage::File {
                 path: secrets_path.as_ref().to_path_buf(),
             },
@@ -179,48 +206,64 @@ impl Config {
 
     /// Check if this config already exists
     pub fn exists(&self) -> bool {
-        self.config_path.exists()
+        self.config_path.as_ref().is_some_and(|p| p.exists())
     }
 
-    /// Check if this config already exists
+    /// Clear this config if it exists
     pub fn clear(&self) -> Result<(), ConfigError> {
-        Ok(std::fs::remove_file(&self.config_path)?)
+        if let Some(path) = &self.config_path {
+            Ok(std::fs::remove_file(path)?)
+        } else {
+            // No file to clear in memory-only mode
+            Ok(())
+        }
     }
 
     /// Get the path to the configuration file
     pub fn path(&self) -> String {
-        self.config_path.to_string_lossy().to_string()
+        self.config_path.as_ref().map_or_else(
+            || "memory-only".to_string(),
+            |p| p.to_string_lossy().to_string(),
+        )
     }
 
-    // Load current values from the config file
+    // Load current values from the config file or return empty map for memory-only mode
     pub fn load_values(&self) -> Result<HashMap<String, Value>, ConfigError> {
-        if self.config_path.exists() {
-            let file_content = std::fs::read_to_string(&self.config_path)?;
-            // Parse YAML into JSON Value for consistent internal representation
-            let yaml_value: serde_yaml::Value = serde_yaml::from_str(&file_content)?;
-            let json_value: Value = serde_json::to_value(yaml_value)?;
+        if let Some(path) = &self.config_path {
+            if path.exists() {
+                let file_content = std::fs::read_to_string(path)?;
+                // Parse YAML into JSON Value for consistent internal representation
+                let yaml_value: serde_yaml::Value = serde_yaml::from_str(&file_content)?;
+                let json_value: Value = serde_json::to_value(yaml_value)?;
 
-            match json_value {
-                Value::Object(map) => Ok(map.into_iter().collect()),
-                _ => Ok(HashMap::new()),
+                match json_value {
+                    Value::Object(map) => Ok(map.into_iter().collect()),
+                    _ => Ok(HashMap::new()),
+                }
+            } else {
+                Ok(HashMap::new())
             }
         } else {
+            // Memory-only mode, return empty map
             Ok(HashMap::new())
         }
     }
 
-    // Save current values to the config file
+    // Save current values to the config file (or skip saving if in memory-only mode)
     pub fn save_values(&self, values: HashMap<String, Value>) -> Result<(), ConfigError> {
-        // Convert to YAML for storage
-        let yaml_value = serde_yaml::to_string(&values)?;
+        if let Some(path) = &self.config_path {
+            // Convert to YAML for storage
+            let yaml_value = serde_yaml::to_string(&values)?;
 
-        // Ensure the directory exists
-        if let Some(parent) = self.config_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| ConfigError::DirectoryError(e.to_string()))?;
+            // Ensure the directory exists
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| ConfigError::DirectoryError(e.to_string()))?;
+            }
+
+            std::fs::write(path, yaml_value)?;
         }
-
-        std::fs::write(&self.config_path, yaml_value)?;
+        // For memory-only mode, we just skip saving
         Ok(())
     }
 
