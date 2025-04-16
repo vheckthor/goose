@@ -22,7 +22,8 @@ use tracing::{debug, error, instrument, warn};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
-    PLATFORM_DISABLE_EXTENSION_TOOL_NAME, PLATFORM_ENABLE_EXTENSION_TOOL_NAME, PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
+    PLATFORM_DISABLE_EXTENSION_TOOL_NAME, PLATFORM_ENABLE_EXTENSION_TOOL_NAME,
+    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
     PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
@@ -229,10 +230,10 @@ impl Agent {
                     .add_extension(config)
                     .await
                     .map(|_| {
-                vec![Content::text(format!(
-                    "The extension '{}' has been installed successfully",
-                    extension_name
-                ))]
+                        vec![Content::text(format!(
+                            "The extension '{}' has been installed successfully",
+                            extension_name
+                        ))]
                     })
                     .map_err(|e| ToolError::ExecutionError(e.to_string()));
 

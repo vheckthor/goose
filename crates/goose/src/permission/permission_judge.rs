@@ -159,7 +159,9 @@ pub async fn detect_read_only_tools(
 /// Gets the boolean value whether the message is enable extension related and
 /// the cconfirmation message based on the tool call
 pub fn get_confirmation_message(request_id: &str, tool_call: ToolCall) -> (PrincipalType, Message) {
-    if tool_call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME || tool_call.name == PLATFORM_DISABLE_EXTENSION_TOOL_NAME {
+    if tool_call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME
+        || tool_call.name == PLATFORM_DISABLE_EXTENSION_TOOL_NAME
+    {
         (
             PrincipalType::Extension,
             Message::user().with_extension_request(
@@ -209,7 +211,9 @@ pub async fn check_tool_permissions(
     for request in candidate_requests {
         if let Ok(tool_call) = request.tool_call.clone() {
             // Always ask approval for enable extension tool.
-            if tool_call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME || tool_call.name == PLATFORM_DISABLE_EXTENSION_TOOL_NAME {
+            if tool_call.name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME
+                || tool_call.name == PLATFORM_DISABLE_EXTENSION_TOOL_NAME
+            {
                 // Insert at the front of the list so that enable extension can be run before other tools.
                 needs_approval.insert(0, request.clone());
                 continue;

@@ -3,8 +3,8 @@ use console::style;
 use goose::agents::extension::ToolInfo;
 use goose::agents::extension_manager::get_parameter_names;
 use goose::agents::platform_tools::{
-    PLATFORM_ENABLE_EXTENSION_TOOL_NAME, PLATFORM_DISABLE_EXTENSION_TOOL_NAME, PLATFORM_LIST_RESOURCES_TOOL_NAME,
-    PLATFORM_READ_RESOURCE_TOOL_NAME,
+    PLATFORM_DISABLE_EXTENSION_TOOL_NAME, PLATFORM_ENABLE_EXTENSION_TOOL_NAME,
+    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
 };
 use goose::agents::Agent;
 use goose::agents::{extension::Envs, ExtensionConfig};
