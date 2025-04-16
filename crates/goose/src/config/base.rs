@@ -118,35 +118,44 @@ static GLOBAL_CONFIG: OnceCell<Config> = OnceCell::new();
 
 impl Default for Config {
     fn default() -> Self {
-        // Check if memory-only mode is requested
-        if env::var("GOOSE_NO_CONFIG").is_ok() {
-            return Config {
-                config_path: None,
-                secrets: SecretStorage::Keyring {
-                    service: KEYRING_SERVICE.to_string(),
-                },
-            };
+        let is_no_config = env::var("GOOSE_NO_CONFIG").is_ok();
+        let is_keyring_disabled = env::var("GOOSE_DISABLE_KEYRING").is_ok();
+        
+        // Validate that both environment variables are not set at the same time
+        if is_no_config && is_keyring_disabled {
+            panic!("Cannot set both GOOSE_NO_CONFIG and GOOSE_DISABLE_KEYRING environment variables at the same time");
         }
+        
+        let config_path = if is_no_config {
+            None
+        } else {
+            // choose_app_strategy().config_dir()
+            // - macOS/Linux: ~/.config/goose/
+            // - Windows:     ~\AppData\Roaming\Block\goose\config\
+            let config_dir = choose_app_strategy(APP_STRATEGY.clone())
+                .expect("goose requires a home dir")
+                .config_dir();
 
-        // choose_app_strategy().config_dir()
-        // - macOS/Linux: ~/.config/goose/
-        // - Windows:     ~\AppData\Roaming\Block\goose\config\
-        let config_dir = choose_app_strategy(APP_STRATEGY.clone())
-            .expect("goose requires a home dir")
-            .config_dir();
-
-        std::fs::create_dir_all(&config_dir).expect("Failed to create config directory");
-
-        let config_path = Some(config_dir.join("config.yaml"));
-
-        let secrets = match env::var("GOOSE_DISABLE_KEYRING") {
-            Ok(_) => SecretStorage::File {
-                path: config_dir.join("secrets.yaml"),
-            },
-            Err(_) => SecretStorage::Keyring {
-                service: KEYRING_SERVICE.to_string(),
-            },
+            std::fs::create_dir_all(&config_dir).expect("Failed to create config directory");
+            
+            Some(config_dir.join("config.yaml"))
         };
+        
+        let secrets = if is_keyring_disabled {
+            // Only GOOSE_DISABLE_KEYRING can be set at this point
+            let config_dir = choose_app_strategy(APP_STRATEGY.clone())
+                .expect("goose requires a home dir")
+                .config_dir();
+            SecretStorage::File {
+                path: config_dir.join("secrets.yaml"),
+            }
+        } else {
+            // Use keyring
+            SecretStorage::Keyring {
+                service: KEYRING_SERVICE.to_string(),
+            }
+        };
+
         Config {
             config_path,
             secrets,

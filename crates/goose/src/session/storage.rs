@@ -4,6 +4,7 @@ use anyhow::Result;
 use chrono::Local;
 use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::{self, File};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -99,6 +100,11 @@ impl Default for SessionMetadata {
 // The single app name used for all Goose applications
 const APP_NAME: &str = "goose";
 
+/// Check if session persistence is disabled
+pub fn are_sessions_disabled() -> bool {
+    env::var("GOOSE_NO_SESSIONS").is_ok()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Identifier {
     Name(String),
@@ -106,6 +112,11 @@ pub enum Identifier {
 }
 
 pub fn get_path(id: Identifier) -> PathBuf {
+    // If sessions are disabled, return a dummy path that will effectively be ignored
+    if are_sessions_disabled() {
+        return PathBuf::from("/dev/null");
+    }
+
     match id {
         Identifier::Name(name) => {
             let session_dir = ensure_session_dir().expect("Failed to create session directory");
@@ -136,7 +147,17 @@ pub fn ensure_session_dir() -> Result<PathBuf> {
 }
 
 /// Get the path to the most recently modified session file
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, returns an error to indicate
+/// that no sessions are available.
 pub fn get_most_recent_session() -> Result<PathBuf> {
+    // If sessions are disabled, return an error
+    if are_sessions_disabled() {
+        return Err(anyhow::anyhow!(
+            "Sessions are disabled by GOOSE_NO_SESSIONS"
+        ));
+    }
+
     let session_dir = ensure_session_dir()?;
     let mut entries = fs::read_dir(&session_dir)?
         .filter_map(|entry| entry.ok())
@@ -163,7 +184,14 @@ pub fn get_most_recent_session() -> Result<PathBuf> {
 }
 
 /// List all available session files
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, returns an empty list.
 pub fn list_sessions() -> Result<Vec<(String, PathBuf)>> {
+    // If sessions are disabled, return an empty list
+    if are_sessions_disabled() {
+        return Ok(Vec::new());
+    }
+
     let session_dir = ensure_session_dir()?;
     let entries = fs::read_dir(&session_dir)?
         .filter_map(|entry| {
@@ -191,7 +219,14 @@ pub fn generate_session_id() -> String {
 ///
 /// Creates the file if it doesn't exist, reads and deserializes all messages if it does.
 /// The first line of the file is expected to be metadata, and the rest are messages.
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, returns an empty vector (no messages).
 pub fn read_messages(session_file: &Path) -> Result<Vec<Message>> {
+    // Return empty vector if sessions are disabled
+    if are_sessions_disabled() {
+        return Ok(Vec::new());
+    }
+
     let file = fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -226,7 +261,13 @@ pub fn read_messages(session_file: &Path) -> Result<Vec<Message>> {
 /// Read session metadata from a session file
 ///
 /// Returns default empty metadata if the file doesn't exist or has no metadata.
+/// If GOOSE_NO_SESSIONS environment variable is set, returns default metadata without accessing the file.
 pub fn read_metadata(session_file: &Path) -> Result<SessionMetadata> {
+    // Return default metadata if sessions are disabled
+    if are_sessions_disabled() {
+        return Ok(SessionMetadata::default());
+    }
+
     if !session_file.exists() {
         return Ok(SessionMetadata::default());
     }
@@ -255,11 +296,18 @@ pub fn read_metadata(session_file: &Path) -> Result<SessionMetadata> {
 ///
 /// Overwrites the file with metadata as the first line, followed by all messages in JSONL format.
 /// If a provider is supplied, it will automatically generate a description when appropriate.
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, this is a no-op and immediately returns success.
 pub async fn persist_messages(
     session_file: &Path,
     messages: &[Message],
     provider: Option<Arc<dyn Provider>>,
 ) -> Result<()> {
+    // Skip persisting if sessions are disabled
+    if are_sessions_disabled() {
+        return Ok(());
+    }
+
     // Count user messages
     let user_message_count = messages
         .iter()
@@ -310,11 +358,17 @@ pub fn save_messages_with_metadata(
 ///
 /// This function is called when appropriate to generate a short description
 /// of the session based on the conversation history.
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, this is a no-op and immediately returns success.
 pub async fn generate_description(
     session_file: &Path,
     messages: &[Message],
     provider: Arc<dyn Provider>,
 ) -> Result<()> {
+    // Skip generating description if sessions are disabled
+    if are_sessions_disabled() {
+        return Ok(());
+    }
     // Create a special message asking for a 3-word description
     let mut description_prompt = "Based on the conversation so far, provide a concise description of this session in 4 words or less. This will be used for finding the session later in a UI with limited space - reply *ONLY* with the description".to_string();
 
@@ -357,7 +411,14 @@ pub async fn generate_description(
 }
 
 /// Update only the metadata in a session file, preserving all messages
+///
+/// If GOOSE_NO_SESSIONS environment variable is set, this is a no-op and immediately returns success.
 pub async fn update_metadata(session_file: &Path, metadata: &SessionMetadata) -> Result<()> {
+    // Skip if sessions are disabled
+    if are_sessions_disabled() {
+        return Ok(());
+    }
+
     // Read all messages from the file
     let messages = read_messages(session_file)?;
 
