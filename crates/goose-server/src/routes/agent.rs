@@ -107,7 +107,7 @@ async fn extend_prompt(
 
 #[axum::debug_handler]
 async fn create_agent(
-    State(mut state): State<AppState>,
+    State(state): State<AppState>,
     headers: HeaderMap,
     Json(payload): Json<CreateAgentRequest>,
 ) -> Result<Json<CreateAgentResponse>, StatusCode> {

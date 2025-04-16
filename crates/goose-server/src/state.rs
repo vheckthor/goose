@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 #[allow(dead_code)]
 #[derive(Clone)]
 pub struct AppState {
-    pub agent: Option<Arc<Agent>>,
+    pub agent: Arc<Mutex<Option<Arc<Agent>>>>,
     pub secret_key: String,
     pub config: Arc<Mutex<HashMap<String, Value>>>,
 }
@@ -16,18 +16,20 @@ pub struct AppState {
 impl AppState {
     pub async fn new(secret_key: String) -> Self {
         Self {
-            agent: None,
+            agent: Arc::new(Mutex::new(None)),
             secret_key,
             config: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub async fn set_agent(&mut self, agent: Agent) {
-        self.agent = Some(Arc::new(agent));
+    pub async fn set_agent(&self, agent: Agent) {
+        let mut agent_guard = self.agent.lock().await;
+        *agent_guard = Some(Arc::new(agent));
     }
 
     pub async fn get_agent(&self) -> Result<Arc<Agent>, anyhow::Error> {
-        self.agent
+        let agent_guard = self.agent.lock().await;
+        agent_guard
             .clone()
             .ok_or_else(|| anyhow::anyhow!("Agent needs to be created first."))
     }

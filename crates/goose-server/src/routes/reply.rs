@@ -542,12 +542,10 @@ mod tests {
                 model_config: mock_model_config,
             });
             let agent = Agent::new(mock_provider);
-            let state = AppState {
-                config: Arc::new(Mutex::new(HashMap::new())),
-                agent: Arc::new(Mutex::new(Some(Arc::new(agent)))),
-                secret_key: "test-secret".to_string(),
-            };
-
+            
+            let mut state = AppState::new("test-secret".to_string()).await;
+            state.set_agent(agent).await;
+            
             // Build router
             let app = routes(state);
 
