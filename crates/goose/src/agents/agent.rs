@@ -22,7 +22,7 @@ use tracing::{debug, error, instrument, warn};
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
-    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
+    PLATFORM_DISABLE_EXTENSION_TOOL_NAME, PLATFORM_ENABLE_EXTENSION_TOOL_NAME, PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
     PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
@@ -194,10 +194,11 @@ impl Agent {
         )
     }
 
-    pub(super) async fn enable_extension(
+    pub(super) async fn handle_extension_request(
         &self,
         extension_name: String,
         request_id: String,
+        tool_name: String,
     ) -> (String, Result<Vec<Content>, ToolError>) {
         let mut extension_manager = self.extension_manager.lock().await;
         let config = match ExtensionConfigManager::get_config_by_name(&extension_name) {
@@ -222,18 +223,44 @@ impl Agent {
             }
         };
 
-        let result = extension_manager
-            .add_extension(config)
-            .await
-            .map(|_| {
+        match tool_name {
+            ref name if name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME => {
+                let result = extension_manager
+                    .add_extension(config)
+                    .await
+                    .map(|_| {
                 vec![Content::text(format!(
                     "The extension '{}' has been installed successfully",
                     extension_name
                 ))]
-            })
-            .map_err(|e| ToolError::ExecutionError(e.to_string()));
+                    })
+                    .map_err(|e| ToolError::ExecutionError(e.to_string()));
 
-        (request_id, result)
+                (request_id, result)
+            }
+            ref name if name == PLATFORM_DISABLE_EXTENSION_TOOL_NAME => {
+                let result = extension_manager
+                    .remove_extension(&extension_name)
+                    .await
+                    .map(|_| {
+                        vec![Content::text(format!(
+                            "The extension '{}' has been removed successfully",
+                            extension_name
+                        ))]
+                    })
+                    .map_err(|e| ToolError::ExecutionError(e.to_string()));
+                (request_id, result)
+            }
+            _ => {
+                return (
+                    request_id,
+                    Err(ToolError::ExecutionError(format!(
+                        "Invalid tool name: {}",
+                        tool_name
+                    ))),
+                )
+            }
+        }
     }
 
     pub async fn add_extension(&mut self, extension: ExtensionConfig) -> ExtensionResult<()> {
@@ -282,6 +309,7 @@ impl Agent {
             // Add platform tools
             prefixed_tools.push(platform_tools::search_available_extensions_tool());
             prefixed_tools.push(platform_tools::enable_extension_tool());
+            prefixed_tools.push(platform_tools::disable_extension_tool());
 
             // Add resource tools if supported
             if extension_manager.supports_resources() {

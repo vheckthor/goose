@@ -621,10 +621,10 @@ impl Session {
                                     principal_type: PrincipalType::Tool,
                                     permission,
                                 },).await;
-                            } else if let Some(MessageContent::ExtensionRequest(enable_extension_request)) = message.content.first() {
+                            } else if let Some(MessageContent::ExtensionRequest(extension_request)) = message.content.first() {
                                 output::hide_thinking();
 
-                                let extension_action = if enable_extension_request.tool_name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME {
+                                let extension_action = if extension_request.tool_name == PLATFORM_ENABLE_EXTENSION_TOOL_NAME {
                                     "enable"
                                 } else {
                                     "disable"
@@ -640,7 +640,7 @@ impl Session {
                                 } else {
                                     Permission::DenyOnce
                                 };
-                                self.agent.handle_confirmation(enable_extension_request.id.clone(), PermissionConfirmation {
+                                self.agent.handle_confirmation(extension_request.id.clone(), PermissionConfirmation {
                                     principal_type: PrincipalType::Extension,
                                     permission,
                                 },).await;
