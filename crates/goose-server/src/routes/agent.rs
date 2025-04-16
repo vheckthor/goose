@@ -13,8 +13,8 @@ use goose::{
     config::permission::PermissionLevel,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::env;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Serialize)]
 struct VersionsResponse {
@@ -80,8 +80,9 @@ async fn get_versions() -> Json<VersionsResponse> {
     })
 }
 
+// TODO: move this one out of /agent route
 async fn extend_prompt(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>, // TODO: this should be Arc<AppState>
     headers: HeaderMap,
     Json(payload): Json<ExtendPromptRequest>,
 ) -> Result<Json<ExtendPromptResponse>, StatusCode> {
@@ -107,7 +108,7 @@ async fn extend_prompt(
 
 #[axum::debug_handler]
 async fn create_agent(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(payload): Json<CreateAgentRequest>,
 ) -> Result<Json<CreateAgentResponse>, StatusCode> {
@@ -121,27 +122,9 @@ async fn create_agent(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // Set the environment variable for the model if provided
-    if let Some(model) = &payload.model {
-        let env_var_key = format!("{}_MODEL", payload.provider.to_uppercase());
-        env::set_var(env_var_key.clone(), model);
-        println!("Set environment variable: {}={}", env_var_key, model);
-    }
-
-    let config = Config::global();
-    let model = payload.model.unwrap_or_else(|| {
-        config
-            .get_param("GOOSE_MODEL")
-            .expect("Did not find a model on payload or in env")
-    });
-    let model_config = ModelConfig::new(model);
-    let provider =
-        providers::create(&payload.provider, model_config).expect("Failed to create provider");
-
     let version = String::from("goose");
-    let new_agent = Agent::new(provider);
+    // Actually, we're not doing anything here anymore
 
-    state.set_agent(new_agent).await;
     tracing::info!("Agent created with provider: {}", payload.provider);
 
     Ok(Json(CreateAgentResponse { version }))
@@ -184,7 +167,7 @@ async fn list_providers() -> Json<Vec<ProviderList>> {
     )
 )]
 async fn get_tools(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Query(query): Query<GetToolsQuery>,
 ) -> Result<Json<Vec<ToolInfo>>, StatusCode> {
@@ -243,7 +226,7 @@ async fn get_tools(
     Ok(Json(tools))
 }
 
-pub fn routes(state: AppState) -> Router {
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/agent/versions", get(get_versions))
         .route("/agent/providers", get(list_providers))

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 use std::sync::OnceLock;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::state::AppState;
 use axum::{extract::State, routing::post, Json, Router};
@@ -76,7 +76,7 @@ struct ExtensionResponse {
 
 /// Handler for adding a new extension configuration.
 async fn add_extension(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     raw: axum::extract::Json<serde_json::Value>,
 ) -> Result<Json<ExtensionResponse>, StatusCode> {
@@ -308,7 +308,7 @@ async fn add_extension(
 
 /// Handler for removing an extension by name
 async fn remove_extension(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(name): Json<String>,
 ) -> Result<Json<ExtensionResponse>, StatusCode> {
@@ -336,7 +336,7 @@ async fn remove_extension(
 }
 
 /// Registers the extension management routes with the Axum router.
-pub fn routes(state: AppState) -> Router {
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/extensions/add", post(add_extension))
         .route("/extensions/remove", post(remove_extension))

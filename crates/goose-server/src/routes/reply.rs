@@ -25,6 +25,7 @@ use std::{
     convert::Infallible,
     path::PathBuf,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
@@ -100,7 +101,7 @@ async fn stream_event(
 }
 
 async fn handler(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<ChatRequest>,
 ) -> Result<SseResponse, StatusCode> {
@@ -266,7 +267,7 @@ struct AskResponse {
 
 // Simple ask an AI for a response, non streaming
 async fn ask_handler(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<AskRequest>,
 ) -> Result<Json<AskResponse>, StatusCode> {
@@ -387,7 +388,7 @@ fn default_principal_type() -> PrincipalType {
     )
 )]
 pub async fn confirm_permission(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<PermissionConfirmationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -432,7 +433,7 @@ struct ToolResultRequest {
 }
 
 async fn submit_tool_result(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     raw: axum::extract::Json<serde_json::Value>,
 ) -> Result<Json<Value>, StatusCode> {
@@ -474,7 +475,7 @@ async fn submit_tool_result(
 }
 
 // Configure routes for this module
-pub fn routes(state: AppState) -> Router {
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/reply", post(handler))
         .route("/ask", post(ask_handler))
@@ -540,9 +541,7 @@ mod tests {
                 model_config: mock_model_config,
             });
             let agent = Agent::new(mock_provider);
-
-            let state = AppState::new("test-secret".to_string()).await;
-            state.set_agent(agent).await;
+            let state = AppState::new(Arc::new(agent), "test-secret".to_string()).await;
 
             // Build router
             let app = routes(state);

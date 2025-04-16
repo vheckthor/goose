@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 use goose::message::Message;
 use goose::recipe::Recipe;
@@ -34,7 +36,7 @@ pub struct CreateRecipeResponse {
 
 /// Create a Recipe configuration from the current state of an agent
 async fn create_recipe(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     Json(request): Json<CreateRecipeRequest>,
 ) -> Result<Json<CreateRecipeResponse>, (StatusCode, Json<CreateRecipeResponse>)> {
     let error_response = CreateRecipeResponse {
@@ -82,7 +84,7 @@ async fn create_recipe(
     }
 }
 
-pub fn routes(state: AppState) -> Router {
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/recipe/create", post(create_recipe))
         .with_state(state)
