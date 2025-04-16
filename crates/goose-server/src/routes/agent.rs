@@ -95,7 +95,7 @@ async fn extend_prompt(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let agent = state.agent.clone();
+    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
     agent.extend_system_prompt(payload.extension).await;
     Ok(Json(ExtendPromptResponse { success: true }))
 }
@@ -193,7 +193,7 @@ async fn get_tools(
 
     let config = Config::global();
     let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
-    let agent = state.agent.clone();
+    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
     let permission_manager = PermissionManager::default();
 
     let mut tools: Vec<ToolInfo> = agent

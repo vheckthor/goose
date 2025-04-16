@@ -281,7 +281,7 @@ async fn add_extension(
     };
 
     // Get a reference to the agent
-    let agent = state.agent.clone();
+    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
     let response = agent.add_extension(extension_config).await;
 
     // Respond with the result.
@@ -320,7 +320,7 @@ async fn remove_extension(
     }
 
     // Get a reference to the agent
-    let agent = state.agent.clone();
+    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
     agent.remove_extension(&name).await;
 
     Ok(Json(ExtensionResponse {
