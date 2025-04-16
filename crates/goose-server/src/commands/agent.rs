@@ -16,7 +16,7 @@ pub async fn run() -> Result<()> {
         std::env::var("GOOSE_SERVER__SECRET_KEY").unwrap_or_else(|_| "test".to_string());
 
     // Create app state with agent
-    let state = state::AppState::new(secret_key.clone()).await?;
+    let state = state::AppState::new(secret_key.clone()).await;
 
     // Create router with CORS support
     let cors = CorsLayer::new()

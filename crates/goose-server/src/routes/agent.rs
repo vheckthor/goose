@@ -99,7 +99,7 @@ async fn extend_prompt(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
     agent.extend_system_prompt(payload.extension.clone()).await;
     tracing::info!("Extended system prompt with: {}", payload.extension);
     Ok(Json(ExtendPromptResponse { success: true }))
@@ -202,7 +202,7 @@ async fn get_tools(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
     let permission_manager = PermissionManager::default();
 
     let mut tools: Vec<ToolInfo> = agent

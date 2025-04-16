@@ -1,4 +1,3 @@
-use anyhow::Result;
 use goose::agents::Agent;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,19 +14,21 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(secret_key: String) -> Result<Self> {
-        Ok(Self {
+    pub async fn new(secret_key: String) -> Self {
+        Self {
             agent: None,
             secret_key,
             config: Arc::new(Mutex::new(HashMap::new())),
-        })
+        }
     }
 
     pub async fn set_agent(&mut self, agent: Agent) {
         self.agent = Some(Arc::new(agent));
     }
 
-    pub async fn get_agent(&self) -> Option<Arc<Agent>> {
-        self.agent.clone()
+    pub async fn get_agent(&self) -> Result<Arc<Agent>, anyhow::Error> {
+        self.agent
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("Agent needs to be created first."))
     }
 }

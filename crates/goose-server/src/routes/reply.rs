@@ -126,14 +126,30 @@ async fn handler(
         .session_id
         .unwrap_or_else(session::generate_session_id);
 
-    // Get a reference to the agent
-    let agent = state
-        .get_agent()
-        .await
-        .ok_or(StatusCode::FAILED_DEPENDENCY)?;
-
     // Spawn task to handle streaming
     tokio::spawn(async move {
+        let agent = state.get_agent().await;
+        let agent = match agent {
+            Ok(agent) => agent,
+            Err(_) => {
+                let _ = stream_event(
+                    MessageEvent::Error {
+                        error: "No agent configured".to_string(),
+                    },
+                    &tx,
+                )
+                .await;
+                let _ = stream_event(
+                    MessageEvent::Finish {
+                        reason: "error".to_string(),
+                    },
+                    &tx,
+                )
+                .await;
+                return;
+            }
+        };
+
         // Get the provider first, before starting the reply stream
         let provider = agent.provider();
 
@@ -274,7 +290,7 @@ async fn ask_handler(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
 
     // Get the provider first, before starting the reply stream
     let provider = agent.provider();
@@ -388,7 +404,7 @@ pub async fn confirm_permission(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
 
     let permission = match request.action.as_str() {
         "always_allow" => Permission::AlwaysAllow,
@@ -452,7 +468,7 @@ async fn submit_tool_result(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
     agent.handle_tool_result(payload.id, payload.result).await;
     Ok(Json(json!({"status": "ok"})))
 }

@@ -284,7 +284,7 @@ async fn add_extension(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
     let response = agent.add_extension(extension_config).await;
 
     // Respond with the result.
@@ -326,7 +326,7 @@ async fn remove_extension(
     let agent = state
         .get_agent()
         .await
-        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
     agent.remove_extension(&name).await;
 
     Ok(Json(ExtensionResponse {

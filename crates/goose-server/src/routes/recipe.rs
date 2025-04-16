@@ -44,7 +44,7 @@ async fn create_recipe(
     let agent = state
         .get_agent()
         .await
-        .ok_or((StatusCode::PRECONDITION_FAILED, Json(error_response)))?;
+        .map_err(|_| (StatusCode::PRECONDITION_FAILED, Json(error_response)))?;
 
     // Create base recipe from agent state and messages
     let recipe_result = agent.create_recipe(request.messages).await;
