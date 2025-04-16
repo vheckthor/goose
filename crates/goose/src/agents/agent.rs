@@ -252,15 +252,13 @@ impl Agent {
                     .map_err(|e| ToolError::ExecutionError(e.to_string()));
                 (request_id, result)
             }
-            _ => {
-                return (
-                    request_id,
-                    Err(ToolError::ExecutionError(format!(
-                        "Invalid tool name: {}",
-                        tool_name
-                    ))),
-                )
-            }
+            _ => (
+                request_id,
+                Err(ToolError::ExecutionError(format!(
+                    "Invalid tool name: {}",
+                    tool_name
+                ))),
+            ),
         }
     }
 
