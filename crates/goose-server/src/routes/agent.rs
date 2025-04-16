@@ -95,8 +95,13 @@ async fn extend_prompt(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
-    agent.extend_system_prompt(payload.extension).await;
+    tracing::info!("Getting agent from state");
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::PRECONDITION_FAILED)?;
+    agent.extend_system_prompt(payload.extension.clone()).await;
+    tracing::info!("Extended system prompt with: {}", payload.extension);
     Ok(Json(ExtendPromptResponse { success: true }))
 }
 
@@ -136,7 +141,8 @@ async fn create_agent(
     let version = String::from("goose");
     let new_agent = Agent::new(provider);
 
-    state.with_agent(new_agent).await;
+    state.set_agent(new_agent).await;
+    tracing::info!("Agent created with provider: {}", payload.provider);
 
     Ok(Json(CreateAgentResponse { version }))
 }
@@ -193,7 +199,10 @@ async fn get_tools(
 
     let config = Config::global();
     let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::PRECONDITION_FAILED)?;
     let permission_manager = PermissionManager::default();
 
     let mut tools: Vec<ToolInfo> = agent

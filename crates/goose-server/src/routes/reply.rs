@@ -127,7 +127,10 @@ async fn handler(
         .unwrap_or_else(session::generate_session_id);
 
     // Get a reference to the agent
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::FAILED_DEPENDENCY)?;
 
     // Spawn task to handle streaming
     tokio::spawn(async move {
@@ -268,7 +271,10 @@ async fn ask_handler(
         .session_id
         .unwrap_or_else(session::generate_session_id);
 
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::PRECONDITION_FAILED)?;
 
     // Get the provider first, before starting the reply stream
     let provider = agent.provider();
@@ -379,7 +385,10 @@ pub async fn confirm_permission(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::PRECONDITION_FAILED)?;
 
     let permission = match request.action.as_str() {
         "always_allow" => Permission::AlwaysAllow,
@@ -440,7 +449,10 @@ async fn submit_tool_result(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let agent = state.agent.ok_or(StatusCode::PRECONDITION_FAILED)?;
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or(StatusCode::PRECONDITION_FAILED)?;
     agent.handle_tool_result(payload.id, payload.result).await;
     Ok(Json(json!({"status": "ok"})))
 }
@@ -502,7 +514,7 @@ mod tests {
         use axum::{body::Body, http::Request};
         use std::collections::HashMap;
         use std::sync::Arc;
-        use tokio::sync::{Mutex, RwLock};
+        use tokio::sync::Mutex;
         use tower::ServiceExt;
 
         // This test requires tokio runtime
@@ -516,7 +528,7 @@ mod tests {
             let agent = Agent::new(mock_provider);
             let state = AppState {
                 config: Arc::new(Mutex::new(HashMap::new())),
-                agent: Arc::new(RwLock::new(Some(agent))),
+                agent: Arc::new(Mutex::new(Some(Arc::new(agent)))),
                 secret_key: "test-secret".to_string(),
             };
 

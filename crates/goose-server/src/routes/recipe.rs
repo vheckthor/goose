@@ -37,14 +37,15 @@ async fn create_recipe(
     State(state): State<AppState>,
     Json(request): Json<CreateRecipeRequest>,
 ) -> Result<Json<CreateRecipeResponse>, (StatusCode, Json<CreateRecipeResponse>)> {
-    let agent = state.agent.ok_or_else(|| {
-        let error_response = CreateRecipeResponse {
-            recipe: None,
-            error: Some("Missing agent".to_string()),
-        };
-        (StatusCode::PRECONDITION_FAILED, Json(error_response))
-    })?;
-    
+    let error_response = CreateRecipeResponse {
+        recipe: None,
+        error: Some("Missing agent".to_string()),
+    };
+    let agent = state
+        .get_agent()
+        .await
+        .ok_or((StatusCode::PRECONDITION_FAILED, Json(error_response)))?;
+
     // Create base recipe from agent state and messages
     let recipe_result = agent.create_recipe(request.messages).await;
 
