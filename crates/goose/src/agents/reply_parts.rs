@@ -39,7 +39,8 @@ impl Agent {
 
         // Handle toolshim if enabled
         let mut toolshim_tools = vec![];
-        if self.provider.get_model_config().toolshim {
+        let provider = self.provider.lock().await;
+        if provider.get_model_config().toolshim {
             // If tool interpretation is enabled, modify the system prompt
             system_prompt = modify_system_prompt_for_tool_json(&system_prompt, &tools);
             // Make a copy of tools before emptying
@@ -47,6 +48,7 @@ impl Agent {
             // Empty the tools vector for provider completion
             tools = vec![];
         }
+        drop(provider);
 
         Ok((tools, toolshim_tools, system_prompt))
     }

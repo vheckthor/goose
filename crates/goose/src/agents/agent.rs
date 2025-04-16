@@ -42,7 +42,7 @@ const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 
 /// The main goose Agent
 pub struct Agent {
-    pub(super) provider: Arc<dyn Provider>,
+    pub(super) provider: Mutex<Arc<dyn Provider>>,
     pub(super) extension_manager: Mutex<ExtensionManager>,
     pub(super) frontend_tools: Mutex<HashMap<String, FrontendTool>>,
     pub(super) frontend_instructions: Mutex<Option<String>>,
@@ -62,7 +62,7 @@ impl Agent {
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
         Self {
-            provider,
+            provider: Mutex::new(provider),
             extension_manager: Mutex::new(ExtensionManager::new()),
             frontend_tools: Mutex::new(HashMap::new()),
             frontend_instructions: Mutex::new(None),
@@ -76,8 +76,8 @@ impl Agent {
     }
 
     /// Get a reference count clone to the provider
-    pub fn provider(&self) -> Arc<dyn Provider> {
-        Arc::clone(&self.provider)
+    pub async fn provider(&self) -> Arc<dyn Provider> {
+        Arc::clone(&*self.provider.lock().await)
     }
 
     /// Check if a tool is a frontend tool
@@ -156,7 +156,8 @@ impl Agent {
         tools: &mut Vec<Tool>,
     ) -> anyhow::Result<()> {
         // Model's actual context limit
-        let context_limit = self.provider.get_model_config().context_limit();
+        let provider = self.provider.lock().await;
+        let context_limit = provider.get_model_config().context_limit();
 
         // Our conservative estimate of the **target** context limit
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
@@ -361,7 +362,7 @@ impl Agent {
             let _ = reply_span.enter();
             loop {
                 match Self::generate_response_from_provider(
-                    self.provider(),
+                    self.provider().await,
                     &system_prompt,
                     &messages,
                     &tools,
@@ -430,7 +431,7 @@ impl Agent {
                                                             tools_with_readonly_annotation.clone(),
                                                             tools_without_annotation.clone(),
                                                             &mut permission_manager,
-                                                            self.provider()).await;
+                                                            self.provider().await).await;
 
 
                             // Handle pre-approved and read-only tools in parallel
@@ -630,6 +631,8 @@ impl Agent {
 
         let (result, _usage) = self
             .provider
+            .lock()
+            .await
             .complete(&system_prompt, &messages, &tools)
             .await?;
 

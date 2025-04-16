@@ -152,7 +152,7 @@ async fn handler(
         };
 
         // Get the provider first, before starting the reply stream
-        let provider = agent.provider();
+        let provider = agent.provider().await;
 
         let mut stream = match agent
             .reply(
@@ -209,7 +209,7 @@ async fn handler(
                             // Store messages and generate description in background
                             let session_path = session_path.clone();
                             let messages = all_messages.clone();
-                            let provider = provider.clone();
+                            let provider = Arc::clone(&provider);
                             tokio::spawn(async move {
                                 if let Err(e) = session::persist_messages(&session_path, &messages, Some(provider)).await {
                                     tracing::error!("Failed to store session history: {:?}", e);
@@ -294,7 +294,7 @@ async fn ask_handler(
         .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
 
     // Get the provider first, before starting the reply stream
-    let provider = agent.provider();
+    let provider = agent.provider().await;
 
     // Create a single message for the prompt
     let messages = vec![Message::user().with_text(request.prompt)];
@@ -353,7 +353,7 @@ async fn ask_handler(
     // Store messages and generate description in background
     let session_path = session_path.clone();
     let messages = all_messages.clone();
-    let provider = provider.clone();
+    let provider = Arc::clone(&provider);
     tokio::spawn(async move {
         if let Err(e) = session::persist_messages(&session_path, &messages, Some(provider)).await {
             tracing::error!("Failed to store session history: {:?}", e);
