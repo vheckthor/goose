@@ -1,4 +1,3 @@
-import React from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import BackButton from '../ui/BackButton';
 import type { View } from '../../App';
@@ -44,7 +43,7 @@ export default function SettingsView({
                 showEnvVars={viewOptions.showEnvVars}
               />
               {/* Goose Modes */}
-              <ModeSection />
+              <ModeSection setView={setView} />
               {/*Session sharing*/}
               <SessionSharingSection />
             </div>
