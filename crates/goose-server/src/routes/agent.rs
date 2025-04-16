@@ -7,13 +7,11 @@ use axum::{
 };
 use goose::config::Config;
 use goose::config::PermissionManager;
-use goose::{agents::Agent, model::ModelConfig, providers};
 use goose::{
     agents::{extension::ToolInfo, extension_manager::get_parameter_names},
     config::permission::PermissionLevel,
 };
 use serde::{Deserialize, Serialize};
-use std::env;
 use std::{collections::HashMap, sync::Arc};
 
 #[derive(Serialize)]

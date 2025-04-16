@@ -4,7 +4,6 @@ use crate::configuration;
 use crate::state;
 use anyhow::Result;
 use goose::agents::Agent;
-use goose::config::Config;
 use goose::model::ModelConfig;
 use goose::providers;
 use tower_http::cors::{Any, CorsLayer};

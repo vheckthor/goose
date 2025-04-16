@@ -1,6 +1,5 @@
 use goose::agents::Agent;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// Shared reference to an Agent that can be cloned cheaply
 /// without cloning the underlying Agent object
