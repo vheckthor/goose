@@ -528,9 +528,7 @@ mod tests {
     mod integration_tests {
         use super::*;
         use axum::{body::Body, http::Request};
-        use std::collections::HashMap;
         use std::sync::Arc;
-        use tokio::sync::Mutex;
         use tower::ServiceExt;
 
         // This test requires tokio runtime
@@ -542,10 +540,10 @@ mod tests {
                 model_config: mock_model_config,
             });
             let agent = Agent::new(mock_provider);
-            
-            let mut state = AppState::new("test-secret".to_string()).await;
+
+            let state = AppState::new("test-secret".to_string()).await;
             state.set_agent(agent).await;
-            
+
             // Build router
             let app = routes(state);
 

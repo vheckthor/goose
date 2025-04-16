@@ -1,16 +1,22 @@
 use goose::agents::Agent;
-use serde_json::Value;
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Shared reference to an Agent that can be cloned cheaply
+/// without cloning the underlying Agent object
+pub type AgentRef = Arc<Agent>;
+
+/// Thread-safe container for an optional Agent reference
+/// Outer Arc: Allows multiple route handlers to access the same Mutex
+/// - Mutex provides exclusive access for updates
+/// - Option allows for the case where no agent exists yet
+pub type SharedAgentStore = Arc<Mutex<Option<AgentRef>>>;
+
 /// Shared application state
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct AppState {
-    pub agent: Arc<Mutex<Option<Arc<Agent>>>>,
+    agent: SharedAgentStore,
     pub secret_key: String,
-    pub config: Arc<Mutex<HashMap<String, Value>>>,
 }
 
 impl AppState {
@@ -18,7 +24,6 @@ impl AppState {
         Self {
             agent: Arc::new(Mutex::new(None)),
             secret_key,
-            config: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
