@@ -12,6 +12,19 @@ use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
 use serde_json;
 
+mod streaming;
+
+// Re-export streaming functions
+pub use streaming::{
+    StreamStatePtr,
+    goose_stream_new,
+    goose_stream_free,
+    goose_stream_next,
+    goose_stream_submit_tool_result,
+    goose_free_message,
+    goose_stream_send_message,
+};
+
 // Thread-safe global runtime
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
