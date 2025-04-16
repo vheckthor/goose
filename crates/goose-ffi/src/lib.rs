@@ -4,11 +4,13 @@ use std::sync::Arc;
 
 use futures::StreamExt;
 use goose::agents::Agent;
+use goose::agents::extension::ExtensionConfig;
 use goose::message::Message;
 use goose::model::ModelConfig;
 use goose::providers::databricks::DatabricksProvider;
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
+use serde_json;
 
 // Thread-safe global runtime
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
@@ -48,7 +50,15 @@ pub struct ProviderConfigFFI {
     pub host: *const c_char,
 }
 
-// Extension configuration will be implemented in a future commit
+/// Extension configuration used to initialize an extension for an agent
+///
+/// - name: Extension name
+/// - config_json: JSON configuration for the extension (null for default)
+#[repr(C)]
+pub struct ExtensionConfigFFI {
+    pub name: *const c_char,
+    pub config_json: *const c_char,
+}
 
 /// Message structure for agent interactions
 ///
@@ -101,6 +111,7 @@ pub extern "C" fn goose_free_async_result(result: *mut AsyncResult) {
 /// # Parameters
 ///
 /// - config: Provider configuration
+/// - extension_config: Extension configuration (can be NULL if no extension is needed)
 ///
 /// # Returns
 ///
@@ -111,8 +122,13 @@ pub extern "C" fn goose_free_async_result(result: *mut AsyncResult) {
 /// The config pointer must be valid or NULL. The resulting agent must be freed
 /// with goose_agent_free when no longer needed.
 #[no_mangle]
-pub extern "C" fn goose_agent_new(config: *const ProviderConfigFFI) -> AgentPtr {
+pub extern "C" fn goose_agent_new(
+    config: *const ProviderConfigFFI,
+    extension_config: *const ExtensionConfigFFI
+) -> AgentPtr {
     // Check for null pointer
+    println!("DEBUG: goose_agent_new called with config={:?}, extension_config={:?}", 
+             config, extension_config);
     if config.is_null() {
         eprintln!("Error: config pointer is null");
         return AgentPtr(ptr::null_mut());
@@ -180,7 +196,112 @@ pub extern "C" fn goose_agent_new(config: *const ProviderConfigFFI) -> AgentPtr 
     // Create Databricks provider with required parameters
     match DatabricksProvider::from_params(host, api_key, model_config) {
         Ok(provider) => {
-            let agent = Agent::new(Arc::new(provider));
+            let mut agent = Agent::new(Arc::new(provider));
+            
+    // Process extension configuration if provided
+            if !extension_config.is_null() {
+                println!("DEBUG: Extension config pointer is not null");
+                let ext_config = unsafe { &*extension_config };
+                
+                // Debug the extension config
+                if ext_config.name.is_null() {
+                    println!("DEBUG: Extension name is null");
+                } else {
+                    let name = unsafe {
+                        CStr::from_ptr(ext_config.name)
+                            .to_string_lossy()
+                            .to_string()
+                    };
+                    println!("DEBUG: Extension name: '{}'", name);
+                    
+                    let config_json = if !ext_config.config_json.is_null() {
+                        let config_str = unsafe {
+                            CStr::from_ptr(ext_config.config_json)
+                                .to_string_lossy()
+                                .to_string()
+                        };
+                        println!("DEBUG: Extension config JSON: '{}'", config_str);
+                        Some(config_str)
+                    } else {
+                        println!("DEBUG: Extension config JSON is null");
+                        None
+                    };
+
+                    // Try to parse the config JSON and create a frontend extension config
+                    if let Some(config_str) = &config_json {
+                        println!("DEBUG: Attempting to create frontend extension for '{}'", name);
+                        
+                        // Try to parse the config JSON
+                        match serde_json::from_str::<serde_json::Value>(config_str) {
+                            Ok(json_value) => {
+                                println!("DEBUG: Successfully parsed JSON for extension '{}'", name);
+                                println!("DEBUG: JSON content: {}", json_value);
+                                
+                                // Check if we have a "type" field to determine the extension type
+                                let ext_type = json_value.get("type")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("frontend"); // Default to frontend type
+                                
+                                println!("DEBUG: Extension type: {}", ext_type);
+                                
+                                if ext_type == "frontend" {
+                                    // For frontend extensions, we need to extract tools and instructions
+                                    let tools_value = json_value.get("tools");
+                                    let instructions = json_value.get("instructions")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("A frontend extension");
+                                    
+                                    if tools_value.is_some() {
+                                        // Create a new JSON object with the required structure
+                                        // The ExtensionConfig is likely using a tag-based enum serialization
+                                        // where the variant name is used as a field name
+                                        let ext_json = serde_json::json!({
+                                            "name": name,
+                                            "tools": tools_value,
+                                            "instructions": instructions,
+                                            "bundled": false,
+                                            "type": "frontend"
+                                        });
+                                        
+                                        println!("DEBUG: Created extension JSON: {}", ext_json);
+                                        
+                                        // Try to deserialize to ExtensionConfig
+                                        match serde_json::from_value::<ExtensionConfig>(ext_json.clone()) {
+                                            Ok(extension_config) => {
+                                                println!("DEBUG: Successfully created extension config for '{}'", name);
+                                                
+                                                // Use the agent's add_extension method
+                                                if let Err(e) = get_runtime().block_on(agent.add_extension(extension_config)) {
+                                                    eprintln!("Error adding extension {}: {:?}", name, e);
+                                                } else {
+                                                    println!("DEBUG: Successfully added extension '{}'", name);
+                                                }
+                                            },
+                                            Err(e) => {
+                                                eprintln!("Error creating extension config for {}: {}", name, e);
+                                                eprintln!("JSON was: {}", ext_json);
+                                            }
+                                        }
+                                    } else {
+                                        eprintln!("Error: 'tools' field is required for frontend extension {}", name);
+                                    }
+                                } else {
+                                    eprintln!("Error: Only 'frontend' extension type is supported, got '{}'", ext_type);
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("Error parsing extension config JSON for {}: {}", name, e);
+                                eprintln!("JSON was: {}", config_str);
+                            }
+                        }
+                    } else {
+                        eprintln!("Error: Config JSON is required for frontend extensions");
+                    }
+                }
+            } else {
+                println!("DEBUG: Extension config pointer is null");
+            }
+            
             AgentPtr(Box::into_raw(Box::new(agent)))
         },
         Err(e) => {
@@ -212,7 +333,7 @@ pub extern "C" fn goose_agent_free(agent_ptr: AgentPtr) {
     }
 }
 
-// The add_extension functionality will be implemented in a future commit
+// Extension functionality is handled during agent creation
 
 // Tool callback registration will be implemented in a future commit
 

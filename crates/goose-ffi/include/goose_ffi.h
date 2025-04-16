@@ -45,6 +45,17 @@ typedef struct goose_ProviderConfigFFI {
 } goose_ProviderConfigFFI;
 
 /*
+ Extension configuration used to initialize an extension for an agent
+
+ - name: Extension name
+ - config_json: JSON configuration for the extension (null for default)
+ */
+typedef struct goose_ExtensionConfigFFI {
+  const char *name;
+  const char *config_json;
+} goose_ExtensionConfigFFI;
+
+/*
  Free an async result structure
 
  This function frees the memory allocated for an AsyncResult structure,
@@ -63,6 +74,7 @@ void goose_free_async_result(struct goose_AsyncResult *result);
  # Parameters
 
  - config: Provider configuration
+ - extension_config: Extension configuration (can be NULL if no extension is needed)
 
  # Returns
 
@@ -73,7 +85,8 @@ void goose_free_async_result(struct goose_AsyncResult *result);
  The config pointer must be valid or NULL. The resulting agent must be freed
  with goose_agent_free when no longer needed.
  */
-struct goose_AgentPtr goose_agent_new(const struct goose_ProviderConfigFFI *config);
+struct goose_AgentPtr goose_agent_new(const struct goose_ProviderConfigFFI *config,
+                                      const struct goose_ExtensionConfigFFI *extension_config);
 
 /*
  Free an agent
