@@ -59,6 +59,7 @@ export async function activateExtension({
 }: ActivateExtensionProps): Promise<void> {
   try {
     // AddToAgent
+    await saveEnvVarsToKeyChain(extensionConfig);
     await addToAgent(extensionConfig, { silent: false });
   } catch (error) {
     console.error('Failed to add extension to agent:', error);
@@ -70,7 +71,6 @@ export async function activateExtension({
 
   // Then add to config
   try {
-    await saveEnvVarsToKeyChain(extensionConfig)
     await addToConfig(extensionConfig.name, extensionConfig, true);
   } catch (error) {
     console.error('Failed to add extension to config:', error);
@@ -145,6 +145,7 @@ export async function updateExtension({
   if (enabled) {
     try {
       // AddToAgent
+      await saveEnvVarsToKeyChain(extensionConfig);
       await addToAgent(extensionConfig);
     } catch (error) {
       console.error('[updateExtension]: Failed to add extension to agent during update:', error);
@@ -154,7 +155,6 @@ export async function updateExtension({
 
     // Then add to config
     try {
-      await saveEnvVarsToKeyChain(extensionConfig)
       await addToConfig(extensionConfig.name, extensionConfig, enabled);
     } catch (error) {
       console.error('[updateExtension]: Failed to update extension in config:', error);
@@ -288,11 +288,11 @@ export async function deleteExtension({ name, removeFromConfig }: DeleteExtensio
 }
 
 async function saveEnvVarsToKeyChain(extensionConfig: ExtensionConfig) {
-  if (extensionConfig.type == "sse" || extensionConfig.type == "stdio") {
+  if (extensionConfig.type == 'sse' || extensionConfig.type == 'stdio') {
     // add any env vars to the keychain
     for (const env_vars in extensionConfig.envs) {
       for (const [key, value] of Object.entries(env_vars)) {
-        await upsertConfig({body: {key: key, value: value, is_secret: true}})
+        await upsertConfig({ body: { key: key, value: value, is_secret: true } });
       }
     }
   }
