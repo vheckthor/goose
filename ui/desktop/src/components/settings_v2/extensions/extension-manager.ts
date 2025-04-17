@@ -1,6 +1,7 @@
 import type { ExtensionConfig } from '../../../api/types.gen';
 import { toastService, ToastServiceOptions } from '../../../toasts';
 import { addToAgent, removeFromAgent } from './agent-api';
+import { upsertConfig } from '../../../api';
 
 interface ActivateExtensionProps {
   addToConfig: (name: string, extensionConfig: ExtensionConfig, enabled: boolean) => Promise<void>;
@@ -69,6 +70,7 @@ export async function activateExtension({
 
   // Then add to config
   try {
+    await saveEnvVarsToKeyChain(extensionConfig)
     await addToConfig(extensionConfig.name, extensionConfig, true);
   } catch (error) {
     console.error('Failed to add extension to config:', error);
@@ -152,6 +154,7 @@ export async function updateExtension({
 
     // Then add to config
     try {
+      await saveEnvVarsToKeyChain(extensionConfig)
       await addToConfig(extensionConfig.name, extensionConfig, enabled);
     } catch (error) {
       console.error('[updateExtension]: Failed to update extension in config:', error);
@@ -281,5 +284,16 @@ export async function deleteExtension({ name, removeFromConfig }: DeleteExtensio
   // If we had an error removing from agent but succeeded removing from config, still throw the original error
   if (agentRemoveError) {
     throw agentRemoveError;
+  }
+}
+
+async function saveEnvVarsToKeyChain(extensionConfig: ExtensionConfig) {
+  if (extensionConfig.type == "sse" || extensionConfig.type == "stdio") {
+    // add any env vars to the keychain
+    for (const env_vars in extensionConfig.envs) {
+      for (const [key, value] of Object.entries(env_vars)) {
+        await upsertConfig({body: {key: key, value: value, is_secret: true}})
+      }
+    }
   }
 }

@@ -32,8 +32,13 @@ export async function extensionApiCall(
   const extensionName = isActivating ? payload.name : payload;
   let toastId;
 
+  if (isActivating && payload as ExtensionConfig) {
+    // transform the extension config to be the same as before, but have env_keys instead of envs
+    // env_keys is a list of the environment variable key names
+    const apiConfig = transformExtensionConfig(payload)
+  }
   // Step 1: Show loading toast (only for activation of stdio)
-  if (isActivating && (payload as ExtensionConfig) && payload.type == 'stdio') {
+  if (isActivating && payload.type == 'stdio') {
     toastId = toastService.loading({
       title: extensionName,
       msg: `${action.verb} ${extensionName} extension...`,
@@ -178,4 +183,20 @@ export async function removeFromAgent(
 
 function sanitizeName(name: string) {
   return name.toLowerCase().replace(/-/g, '').replace(/_/g, '').replace(/\s/g, '');
+}
+
+function transformExtensionConfig(config: ExtensionConfig): any {
+  // Create a deep copy of the config to avoid modifying the original
+  const apiConfig: any = { ...config };
+
+  // Check if envs exist
+  if ('envs' in apiConfig && apiConfig.envs) {
+    // Copy the envs object to env_keys
+    apiConfig.env_keys = { ...apiConfig.envs };
+
+    // Remove the original envs property
+    delete apiConfig.envs;
+  }
+
+  return apiConfig;
 }
