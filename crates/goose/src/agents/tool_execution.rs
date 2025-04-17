@@ -109,6 +109,7 @@ impl Agent {
 
                         if let Some((id, result)) = self.tool_result_rx.lock().await.recv().await {
                             let mut response = message_tool_response.lock().await;
+                            tracing::debug!("Frontend tool result received in agent.rs: {:?}", result);
                             *response = response.clone().with_tool_response(id, result);
                         }
                     }

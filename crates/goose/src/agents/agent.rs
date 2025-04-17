@@ -361,14 +361,11 @@ impl Agent {
         // Load settings from config
         let config = Config::global();
 
-        // Setup tools and prompt
-        let (mut tools, mut toolshim_tools, mut system_prompt) =
-            self.prepare_tools_and_prompt().await?;
+        
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
-        let (tools_with_readonly_annotation, tools_without_annotation) =
-            Self::categorize_tools_by_annotation(&tools);
+
 
         if let Some(content) = messages
             .last()
@@ -381,6 +378,12 @@ impl Agent {
         Ok(Box::pin(async_stream::try_stream! {
             let _ = reply_span.enter();
             loop {
+                // Setup tools and prompt
+                let (mut tools, mut toolshim_tools, mut system_prompt) =
+                self.prepare_tools_and_prompt().await?;
+                let (tools_with_readonly_annotation, tools_without_annotation) =
+                Self::categorize_tools_by_annotation(&tools);
+
                 match Self::generate_response_from_provider(
                     self.provider().await?,
                     &system_prompt,

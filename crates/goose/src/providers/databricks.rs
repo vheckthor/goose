@@ -147,6 +147,8 @@ impl DatabricksProvider {
             ProviderError::RequestFailed(format!("Failed to construct endpoint URL: {e}"))
         })?;
 
+        tracing::debug!("paylaod: {:?}", payload);
+
         let auth_header = self.ensure_auth_header().await?;
         let response = self
             .client

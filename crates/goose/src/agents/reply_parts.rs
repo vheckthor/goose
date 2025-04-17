@@ -51,6 +51,8 @@ impl Agent {
         }
         drop(provider);
 
+        tracing::debug!("GOT TOOLS: {:?}", tools);
+
         Ok((tools, toolshim_tools, system_prompt))
     }
 
