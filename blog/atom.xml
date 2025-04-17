@@ -1247,7 +1247,7 @@ If you’d like to try out the toolshim, check out our <a href="https://block.gi
 <p>⚡️ <strong>Auto Mode (Default):</strong> Goose can modify, create, and delete files, as well as use extensions, without requiring approval. Best for users who want seamless automation.</p>
 </li>
 <li>
-<p>✅ <strong>Approve Mode:</strong> Goose asks for confirmation before making changes. With <a href="https://block.github.io/goose/docs/guides/goose-permissions#smart-approve">Smart Approve</a> enabled, it evaluates risk levels and prompts for high-risk actions while executing safe ones automatically.</p>
+<p>✅ <strong>Approve Mode:</strong> Goose asks for confirmation before making changes. With <a href="https://block.github.io/goose/docs/guides/goose-permissions#permission-modes">Smart Approve</a> enabled, it evaluates risk levels and prompts for high-risk actions while executing safe ones automatically.</p>
 </li>
 <li>
 <p>💬 <strong>Chat Mode:</strong> Goose operates in chat-only mode, without modifying files or using extensions. Ideal for users who want AI assistance without automation.</p>
