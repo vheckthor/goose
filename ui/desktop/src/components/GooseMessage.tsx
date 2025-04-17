@@ -162,7 +162,7 @@ export default function GooseMessage({
             isCancelledMessage={messageIndex == messageHistoryIndex - 1}
             isClicked={messageIndex < messageHistoryIndex - 1}
             extensionConfirmationId={extensionContent.id}
-            extensionName={extensionContent.extensionName}
+            extensionNames={extensionContent.extensionNames}
             toolName={extensionContent.toolName}
           />
         )}

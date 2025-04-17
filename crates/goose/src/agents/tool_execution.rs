@@ -58,14 +58,18 @@ impl Agent {
                         if req_id == request.id {
                             if confirmation.permission == Permission::AllowOnce || confirmation.permission == Permission::AlwaysAllow {
                                 if principal_type == PrincipalType::Extension {
-                                    let extension_name = tool_call.arguments.get("extension_name")
-                                                    .and_then(|v| v.as_str())
-                                                    .unwrap_or("")
-                                                    .to_string();
+                                    let extension_names = tool_call
+                                        .arguments
+                                        .get("extension_names")
+                                        .and_then(|v| v.as_array())
+                                        .and_then(|arr| arr.first())
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_string();
                                     let tool_name = tool_call.name.clone();
 
                                     let mut results = install_results.lock().await;
-                                    let install_result = self.handle_extension_request(extension_name, request.id.clone(), tool_name).await;
+                                    let install_result = self.handle_extension_request(vec![extension_names.clone()], request.id.clone(), tool_name).await;
                                     results.push(install_result);
                                 } else {
                                     // Add this tool call to the futures collection
