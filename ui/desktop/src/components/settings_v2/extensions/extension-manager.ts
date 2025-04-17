@@ -290,10 +290,8 @@ export async function deleteExtension({ name, removeFromConfig }: DeleteExtensio
 async function saveEnvVarsToKeyChain(extensionConfig: ExtensionConfig) {
   if (extensionConfig.type == 'sse' || extensionConfig.type == 'stdio') {
     // add any env vars to the keychain
-    for (const env_vars in extensionConfig.envs) {
-      for (const [key, value] of Object.entries(env_vars)) {
-        await upsertConfig({ body: { key: key, value: value, is_secret: true } });
-      }
+    for (const [key, value] of Object.entries(extensionConfig.envs)) {
+      await upsertConfig({ body: { key, value, is_secret: true } });
     }
   }
 }
