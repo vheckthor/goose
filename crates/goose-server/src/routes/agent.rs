@@ -11,8 +11,10 @@ use goose::{
     agents::{extension::ToolInfo, extension_manager::get_parameter_names},
     config::permission::PermissionLevel,
 };
+use goose::model::ModelConfig;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
+use std::env;
 
 #[derive(Serialize)]
 struct VersionsResponse {
@@ -121,9 +123,10 @@ async fn create_agent(
     }
 
     let version = String::from("goose");
-    // Actually, we're not doing anything here anymore
+    // Create agent without provider to be updated later
 
-    tracing::info!("Agent created with provider: {}", payload.provider);
+
+    tracing::info!("Agent created");
 
     Ok(Json(CreateAgentResponse { version }))
 }
@@ -224,6 +227,56 @@ async fn get_tools(
     Ok(Json(tools))
 }
 
+#[derive(Deserialize)]
+struct UpdateProviderRequest {
+    provider: String,
+    model: Option<String>,
+}
+
+async fn update_agent_provider(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateProviderRequest>,
+) -> Result<StatusCode, StatusCode> {
+    // Verify secret key
+    let secret_key = headers
+        .get("X-Secret-Key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if secret_key != state.secret_key {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let agent = state
+        .get_agent()
+        .await
+    .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
+
+    // Set the environment variable for the model if provided
+    if let Some(model) = &payload.model {
+        let env_var_key = format!("{}_MODEL", payload.provider.to_uppercase());
+        env::set_var(env_var_key.clone(), model);
+        println!("Set environment variable: {}={}", env_var_key, model);
+    }
+
+    let config = Config::global();
+    let model = payload.model.unwrap_or_else(|| {
+        config
+            .get_param("GOOSE_MODEL")
+            .expect("Did not find a model on payload or in env")
+    });
+    let model_config = ModelConfig::new(model);
+    
+    agent.update_provider(&payload.provider, model_config)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    tracing::info!("Updated agent provider to: {}", payload.provider);
+    
+    Ok(StatusCode::OK)
+}
+
 pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/agent/versions", get(get_versions))
@@ -231,5 +284,6 @@ pub fn routes(state: Arc<AppState>) -> Router {
         .route("/agent/prompt", post(extend_prompt))
         .route("/agent/tools", get(get_tools))
         .route("/agent", post(create_agent))
+        .route("/agent/update_provider", post(update_agent_provider))
         .with_state(state)
 }

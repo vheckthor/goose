@@ -4,8 +4,6 @@ use crate::configuration;
 use crate::state;
 use anyhow::Result;
 use goose::agents::Agent;
-use goose::model::ModelConfig;
-use goose::providers;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 
@@ -21,15 +19,15 @@ pub async fn run() -> Result<()> {
         std::env::var("GOOSE_SERVER__SECRET_KEY").unwrap_or_else(|_| "test".to_string());
 
     // TODO: Create agent using provider and model as args to CLI command or environment variables
-    let cli_provider_param = "databricks";
-    let cli_model_param = "goose-claude-3-5-sonnet";
+    // let cli_provider_param = "databricks";
+    // let cli_model_param = "goose-claude-3-5-sonnet";
 
-    // TODO: Set the environment variable for the model if provided
-    let model_config = ModelConfig::new(cli_model_param.to_string());
-    let provider =
-        providers::create(cli_provider_param, model_config).expect("Failed to create provider");
+    // // TODO: Set the environment variable for the model if provided
+    // let model_config = ModelConfig::new(cli_model_param.to_string());
+    // let provider =
+    //     providers::create(cli_provider_param, model_config).expect("Failed to create provider");
 
-    let new_agent = Agent::new(provider);
+    let new_agent = Agent::new();
 
     // Create app state with agent
     let state = state::AppState::new(Arc::new(new_agent), secret_key.clone()).await;

@@ -14,6 +14,7 @@ use crate::providers::errors::ProviderError;
 use crate::recipe::{Author, Recipe};
 use crate::token_counter::TokenCounter;
 use crate::truncate::{truncate_messages, OldestFirstTruncation};
+use crate::model::ModelConfig;
 use regex::Regex;
 use serde_json::Value;
 use tokio::sync::{mpsc, Mutex};
@@ -42,12 +43,12 @@ const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 
 /// The main goose Agent
 pub struct Agent {
-    pub(super) provider: Mutex<Arc<dyn Provider>>,
+    pub(super) provider: Mutex<Option<Arc<dyn Provider>>>,
     pub(super) extension_manager: Mutex<ExtensionManager>,
     pub(super) frontend_tools: Mutex<HashMap<String, FrontendTool>>,
     pub(super) frontend_instructions: Mutex<Option<String>>,
     pub(super) prompt_manager: Mutex<PromptManager>,
-    pub(super) token_counter: TokenCounter,
+    pub(super) token_counter: Mutex<Option<TokenCounter>>,
     pub(super) confirmation_tx: mpsc::Sender<(String, PermissionConfirmation)>,
     pub(super) confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
@@ -55,19 +56,19 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub fn new(provider: Arc<dyn Provider>) -> Self {
-        let token_counter = TokenCounter::new(provider.get_model_config().tokenizer_name());
+    pub fn new() -> Self {
+        // let token_counter = TokenCounter::new(provider.get_model_config().tokenizer_name());
         // Create channels with buffer size 32 (adjust if needed)
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
         Self {
-            provider: Mutex::new(provider),
+            provider: Mutex::new(None),
             extension_manager: Mutex::new(ExtensionManager::new()),
             frontend_tools: Mutex::new(HashMap::new()),
             frontend_instructions: Mutex::new(None),
             prompt_manager: Mutex::new(PromptManager::new()),
-            token_counter,
+            token_counter: Mutex::new(None),
             confirmation_tx: confirm_tx,
             confirmation_rx: Mutex::new(confirm_rx),
             tool_result_tx: tool_tx,
@@ -76,8 +77,11 @@ impl Agent {
     }
 
     /// Get a reference count clone to the provider
-    pub async fn provider(&self) -> Arc<dyn Provider> {
-        Arc::clone(&*self.provider.lock().await)
+    pub async fn provider(&self) -> Result<Arc<dyn Provider>, anyhow::Error> {
+        match &*self.provider.lock().await {
+            Some(provider) => Ok(Arc::clone(provider)),
+            None => Err(anyhow!("Provider not set")),
+        }
     }
 
     /// Check if a tool is a frontend tool
@@ -156,8 +160,8 @@ impl Agent {
         tools: &mut Vec<Tool>,
     ) -> anyhow::Result<()> {
         // Model's actual context limit
-        let provider = self.provider.lock().await;
-        let context_limit = provider.get_model_config().context_limit();
+        let provider: tokio::sync::MutexGuard<'_, Option<Arc<dyn Provider>>> = self.provider.lock().await;
+        let context_limit = provider.as_ref().unwrap().get_model_config().context_limit();
 
         // Our conservative estimate of the **target** context limit
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
@@ -165,8 +169,16 @@ impl Agent {
 
         // Take into account the system prompt, and our tools input and subtract that from the
         // remaining context limit
-        let system_prompt_token_count = self.token_counter.count_tokens(system_prompt);
-        let tools_token_count = self.token_counter.count_tokens_for_tools(tools.as_slice());
+        let token_counter_guard = self.token_counter.lock().await;
+        let (system_prompt_token_count, tools_token_count) = if let Some(counter) = &*token_counter_guard {
+            (
+                counter.count_tokens(system_prompt),
+                counter.count_tokens_for_tools(tools.as_slice())
+            )
+        } else {
+            (0, 0) // Default if no token counter
+        };
+        
 
         // Check if system prompt + tools exceed our context limit
         let remaining_tokens = context_limit
@@ -180,13 +192,18 @@ impl Agent {
 
         // Calculate current token count of each message, use count_chat_tokens to ensure we
         // capture the full content of the message, include ToolRequests and ToolResponses
-        let mut token_counts: Vec<usize> = messages
-            .iter()
-            .map(|msg| {
-                self.token_counter
-                    .count_chat_tokens("", std::slice::from_ref(msg), &[])
-            })
-            .collect();
+        let mut token_counts: Vec<usize> = if let Some(counter) = &*token_counter_guard {
+            messages
+                .iter()
+                .map(|msg| {
+                    counter.count_chat_tokens("", std::slice::from_ref(msg), &[])
+                })
+                .collect()
+        } else {
+            // If no token counter, use a default approach
+            vec![1; messages.len()] // Assign each message a default count of 1 token
+        };
+        drop(token_counter_guard);
 
         truncate_messages(
             messages,
@@ -362,7 +379,7 @@ impl Agent {
             let _ = reply_span.enter();
             loop {
                 match Self::generate_response_from_provider(
-                    self.provider().await,
+                    self.provider().await?,
                     &system_prompt,
                     &messages,
                     &tools,
@@ -431,7 +448,7 @@ impl Agent {
                                                             tools_with_readonly_annotation.clone(),
                                                             tools_without_annotation.clone(),
                                                             &mut permission_manager,
-                                                            self.provider().await).await;
+                                                            self.provider().await?).await;
 
 
                             // Handle pre-approved and read-only tools in parallel
@@ -553,6 +570,15 @@ impl Agent {
         prompt_manager.add_system_prompt_extra(instruction);
     }
 
+    /// Update the provider used by this agent
+    pub async fn update_provider(&self, provider_name: &str, model_config: ModelConfig) -> Result<()> {
+        let new_provider = crate::providers::create(provider_name, model_config)?;
+        let token_counter = TokenCounter::new(new_provider.get_model_config().tokenizer_name());
+        *self.token_counter.lock().await = Some(token_counter);
+        *self.provider.lock().await = Some(new_provider);
+        Ok(())
+    }
+
     /// Override the system prompt with a custom template
     pub async fn override_system_prompt(&self, template: String) {
         let mut prompt_manager = self.prompt_manager.lock().await;
@@ -633,6 +659,8 @@ impl Agent {
             .provider
             .lock()
             .await
+            .as_ref()
+            .unwrap()
             .complete(&system_prompt, &messages, &tools)
             .await?;
 
