@@ -257,6 +257,14 @@ impl Provider for DatabricksProvider {
             .expect("payload should have model key")
             .remove("model");
 
+        tracing::debug!(
+            "{}",
+            format!(
+                "Databricks payload: {:?}",
+                serde_json::to_string_pretty(&payload)
+            )
+        );
+
         let response = self.post(payload.clone()).await?;
 
         // Parse response

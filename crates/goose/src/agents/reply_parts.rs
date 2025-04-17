@@ -26,6 +26,7 @@ impl Agent {
         for frontend_tool in frontend_tools.values() {
             tools.push(frontend_tool.tool.clone());
         }
+        drop(frontend_tools);
 
         // Prepare system prompt
         let extension_manager = self.extension_manager.lock().await;
@@ -114,6 +115,11 @@ impl Agent {
         &self,
         response: &Message,
     ) -> (Vec<ToolRequest>, Vec<ToolRequest>, Message) {
+        // Get frontend tool names first
+        let frontend_tools = self.frontend_tools.lock().await;
+        let frontend_tool_names: HashSet<String> = frontend_tools.keys().cloned().collect();
+        drop(frontend_tools);
+
         // First collect all tool requests
         let tool_requests: Vec<ToolRequest> = response
             .content
@@ -127,24 +133,29 @@ impl Agent {
             })
             .collect();
 
-        // Create a filtered message with frontend tool requests removed
+        // Create filtered message and categorize requests
         let mut filtered_content = Vec::new();
+        let mut frontend_requests = Vec::new();
+        let mut other_requests = Vec::new();
 
-        // Process each content item one by one
+        // Process each content item
         for content in &response.content {
-            let should_include = match content {
+            match content {
                 MessageContent::ToolRequest(req) => {
                     if let Ok(tool_call) = &req.tool_call {
-                        !self.is_frontend_tool(&tool_call.name).await
+                        if frontend_tool_names.contains(&tool_call.name) {
+                            frontend_requests.push(req.clone());
+                        } else {
+                            other_requests.push(req.clone());
+                            filtered_content.push(content.clone());
+                        }
                     } else {
-                        true
+                        // If there's an error in the tool call, add it to other_requests
+                        other_requests.push(req.clone());
+                        filtered_content.push(content.clone());
                     }
                 }
-                _ => true,
-            };
-
-            if should_include {
-                filtered_content.push(content.clone());
+                _ => filtered_content.push(content.clone()),
             }
         }
 

@@ -7,14 +7,14 @@ use axum::{
 };
 use goose::config::Config;
 use goose::config::PermissionManager;
+use goose::model::ModelConfig;
 use goose::{
     agents::{extension::ToolInfo, extension_manager::get_parameter_names},
     config::permission::PermissionLevel,
 };
-use goose::model::ModelConfig;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
 use std::env;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Serialize)]
 struct VersionsResponse {
@@ -124,7 +124,6 @@ async fn create_agent(
 
     let version = String::from("goose");
     // Create agent without provider to be updated later
-
 
     tracing::info!("Agent created");
 
@@ -251,7 +250,7 @@ async fn update_agent_provider(
     let agent = state
         .get_agent()
         .await
-    .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
+        .map_err(|_| StatusCode::PRECONDITION_FAILED)?;
 
     // Set the environment variable for the model if provided
     if let Some(model) = &payload.model {
@@ -267,13 +266,14 @@ async fn update_agent_provider(
             .expect("Did not find a model on payload or in env")
     });
     let model_config = ModelConfig::new(model);
-    
-    agent.update_provider(&payload.provider, model_config)
+
+    agent
+        .update_provider(&payload.provider, model_config)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     tracing::info!("Updated agent provider to: {}", payload.provider);
-    
+
     Ok(StatusCode::OK)
 }
 

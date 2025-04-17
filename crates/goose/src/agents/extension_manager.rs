@@ -113,6 +113,10 @@ impl ExtensionManager {
     // TODO IMPORTANT need to ensure this times out if the extension command is broken!
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
         let sanitized_name = normalize(config.key().to_string());
+        tracing::debug!(
+            "ADDING EXTENSION in add_extension in extension_manager.rs: {}",
+            sanitized_name
+        );
         let mut client: Box<dyn McpClientTrait> = match &config {
             ExtensionConfig::Sse {
                 uri, envs, timeout, ..
@@ -201,6 +205,10 @@ impl ExtensionManager {
         self.clients
             .insert(sanitized_name.clone(), Arc::new(Mutex::new(client)));
 
+        tracing::debug!(
+            "SUCCESSFULLY ADDED EXTENSION in add_extension in extension_manager.rs: {}",
+            sanitized_name
+        );
         Ok(())
     }
 

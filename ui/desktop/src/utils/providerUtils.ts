@@ -15,6 +15,37 @@ import type { ExtensionConfig, FixedExtensionEntry } from '../components/ConfigC
 // TODO: remove when removing migration logic
 import { toastService } from '../toasts';
 import { ExtensionQuery, addExtension as apiAddExtension } from '../api';
+import { toolRegistry } from '../frontend-tools';
+
+// Frontend tools registration
+async function registerFrontendTools() {
+  try {
+    const frontendConfig = {
+      type: 'frontend',
+      name: 'desktop_frontend',
+      tools: toolRegistry.getToolDefinitions(),
+      instructions: 'Frontend tools for the desktop application',
+    };
+
+    const response = await fetch(getApiUrl('/extensions/add'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Secret-Key': getSecretKey(),
+      },
+      body: JSON.stringify(frontendConfig),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to register frontend tools: ${response.statusText}`);
+    }
+
+    console.log('Successfully registered frontend tools:', frontendConfig.tools);
+  } catch (error) {
+    console.error('Failed to register frontend tools:', error);
+    throw error;
+  }
+}
 
 interface AppConfig {
   GOOSE_PROVIDER?: string;
@@ -180,6 +211,8 @@ export const initializeSystem = async (
       console.error('Failed to initialize agent with provider:', update_response.statusText);
       throw new Error(`Failed to initialize agent: ${update_response.statusText}`);
     }
+
+    await registerFrontendTools();
     // This will go away after the release of settings v2 as this is now handled in config.yaml
     if (!settingsV2Enabled) {
       // Sync the model state with React

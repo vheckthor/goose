@@ -7,6 +7,7 @@ use futures::TryStreamExt;
 
 use crate::config::{Config, ExtensionConfigManager, PermissionManager};
 use crate::message::Message;
+use crate::model::ModelConfig;
 use crate::permission::permission_judge::check_tool_permissions;
 use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
@@ -14,7 +15,6 @@ use crate::providers::errors::ProviderError;
 use crate::recipe::{Author, Recipe};
 use crate::token_counter::TokenCounter;
 use crate::truncate::{truncate_messages, OldestFirstTruncation};
-use crate::model::ModelConfig;
 use regex::Regex;
 use serde_json::Value;
 use tokio::sync::{mpsc, Mutex};
@@ -160,8 +160,13 @@ impl Agent {
         tools: &mut Vec<Tool>,
     ) -> anyhow::Result<()> {
         // Model's actual context limit
-        let provider: tokio::sync::MutexGuard<'_, Option<Arc<dyn Provider>>> = self.provider.lock().await;
-        let context_limit = provider.as_ref().unwrap().get_model_config().context_limit();
+        let provider: tokio::sync::MutexGuard<'_, Option<Arc<dyn Provider>>> =
+            self.provider.lock().await;
+        let context_limit = provider
+            .as_ref()
+            .unwrap()
+            .get_model_config()
+            .context_limit();
 
         // Our conservative estimate of the **target** context limit
         // Our token count is an estimate since model providers often don't provide the tokenizer (eg. Claude)
@@ -170,15 +175,15 @@ impl Agent {
         // Take into account the system prompt, and our tools input and subtract that from the
         // remaining context limit
         let token_counter_guard = self.token_counter.lock().await;
-        let (system_prompt_token_count, tools_token_count) = if let Some(counter) = &*token_counter_guard {
-            (
-                counter.count_tokens(system_prompt),
-                counter.count_tokens_for_tools(tools.as_slice())
-            )
-        } else {
-            (0, 0) // Default if no token counter
-        };
-        
+        let (system_prompt_token_count, tools_token_count) =
+            if let Some(counter) = &*token_counter_guard {
+                (
+                    counter.count_tokens(system_prompt),
+                    counter.count_tokens_for_tools(tools.as_slice()),
+                )
+            } else {
+                (0, 0) // Default if no token counter
+            };
 
         // Check if system prompt + tools exceed our context limit
         let remaining_tokens = context_limit
@@ -195,9 +200,7 @@ impl Agent {
         let mut token_counts: Vec<usize> = if let Some(counter) = &*token_counter_guard {
             messages
                 .iter()
-                .map(|msg| {
-                    counter.count_chat_tokens("", std::slice::from_ref(msg), &[])
-                })
+                .map(|msg| counter.count_chat_tokens("", std::slice::from_ref(msg), &[]))
                 .collect()
         } else {
             // If no token counter, use a default approach
@@ -306,7 +309,7 @@ impl Agent {
         if extension_name.is_none() || extension_name.as_deref() == Some("platform") {
             // Add platform tools
             prefixed_tools.push(platform_tools::search_available_extensions_tool());
-            prefixed_tools.push(platform_tools::enable_extension_tool());
+            // prefixed_tools.push(platform_tools::enable_extension_tool());
 
             // Add resource tools if supported
             if extension_manager.supports_resources() {
@@ -571,7 +574,11 @@ impl Agent {
     }
 
     /// Update the provider used by this agent
-    pub async fn update_provider(&self, provider_name: &str, model_config: ModelConfig) -> Result<()> {
+    pub async fn update_provider(
+        &self,
+        provider_name: &str,
+        model_config: ModelConfig,
+    ) -> Result<()> {
         let new_provider = crate::providers::create(provider_name, model_config)?;
         let token_counter = TokenCounter::new(new_provider.get_model_config().tokenizer_name());
         *self.token_counter.lock().await = Some(token_counter);
@@ -643,7 +650,7 @@ impl Agent {
     }
 
     pub async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {
-        let extension_manager = self.extension_manager.lock().await;
+        let mut extension_manager = self.extension_manager.lock().await;
         let extensions_info = extension_manager.get_extensions_info().await;
         let frontend_instructions = self.frontend_instructions.lock().await.clone();
         let prompt_manager = self.prompt_manager.lock().await;

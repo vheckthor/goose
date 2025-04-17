@@ -36,6 +36,7 @@ axum-extra = "0.10.0"
 utoipa = { version = "4.1", features = ["axum_extras"] }
 dirs = "6.0.0"
 reqwest = { version = "0.12.9", features = ["json", "rustls-tls", "blocking"], default-features = false }
+async-trait = "0.1"
 
 [[bin]]
 name = "goosed"
@@ -47,4 +48,3 @@ path = "src/bin/generate_schema.rs"
 
 [dev-dependencies]
 tower = "0.5"
-async-trait = "0.1"
