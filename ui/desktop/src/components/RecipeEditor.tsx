@@ -143,14 +143,9 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
           // Create a clean copy of the extension configuration
           const cleanExtension = { ...extension };
           delete cleanExtension.enabled;
-
-          // If the extension has env_keys, preserve keys but clear values
-          if (cleanExtension.env_keys) {
-            cleanExtension.env_keys = Object.fromEntries(
-              Object.keys(cleanExtension.env_keys).map((key) => [key, ''])
-            );
-          }
-
+          // Remove legacy envs which could potentially include secrets
+          // env_keys will work but rely on the end user having setup those keys themselves
+          delete cleanExtension.envs;
           return cleanExtension;
         })
         .filter(Boolean) as FullExtensionConfig[],
