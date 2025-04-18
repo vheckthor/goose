@@ -466,6 +466,12 @@
                 "type": "string",
                 "nullable": true
               },
+              "env_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
               "envs": {
                 "$ref": "#/components/schemas/Envs"
               },
@@ -517,6 +523,12 @@
               "description": {
                 "type": "string",
                 "nullable": true
+              },
+              "env_keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               },
               "envs": {
                 "$ref": "#/components/schemas/Envs"

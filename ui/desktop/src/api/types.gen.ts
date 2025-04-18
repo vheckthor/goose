@@ -29,6 +29,7 @@ export type ExtensionConfig = {
      */
     bundled?: boolean | null;
     description?: string | null;
+    env_keys?: Array<string>;
     envs?: Envs;
     /**
      * The name used to identify this extension
@@ -45,6 +46,7 @@ export type ExtensionConfig = {
     bundled?: boolean | null;
     cmd: string;
     description?: string | null;
+    env_keys?: Array<string>;
     envs?: Envs;
     /**
      * The name used to identify this extension
