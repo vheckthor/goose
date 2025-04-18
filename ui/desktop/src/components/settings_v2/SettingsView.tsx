@@ -6,6 +6,7 @@ import ModelsSection from './models/ModelsSection';
 import { ModeSection } from './mode/ModeSection';
 import SessionSharingSection from './sessions/SessionSharingSection';
 import { ExtensionConfig } from '../../api';
+import MoreMenuLayout from '../more_menu/MoreMenuLayout';
 
 export type SettingsViewOptions = {
   deepLinkConfig?: ExtensionConfig;

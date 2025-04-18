@@ -224,48 +224,51 @@ export default function Input({
           }}
           className="w-full pl-4 pr-[68px] outline-none border-none focus:ring-0 bg-transparent pt-3 pb-1.5 text-sm resize-none text-textStandard"
         />
+
+        {isLoading ? (
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onStop?.();
+            }}
+            className="absolute right-3 top-2 text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
+          >
+            <Stop size={24} />
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="icon"
+            variant="ghost"
+            disabled={!displayValue.trim()}
+            className={`absolute right-3 top-2 transition-colors rounded-full hover:cursor w-7 h-7 [&_svg]:size-4 ${
+              !displayValue.trim()
+                ? 'text-textSubtle cursor-not-allowed'
+                : 'bg-bgAppInverse text-white'
+            }`}
+          >
+            <Send />
+          </Button>
+        )}
       </form>
 
-      <div className="flex items-center justify-between transition-colors text-textSubtle relative text-xs p-2 pr-3 border-t border-borderSubtle gap-2">
-        <BottomMenu hasMessages={hasMessages} setView={setView} />
-
-        <div className="gap-1 flex items-center">
+      <div className="flex items-center transition-colors text-textSubtle relative text-xs p-2 pr-3 border-t border-borderSubtle gap-2">
+        <div className="gap-1 flex items-center justify-between w-full">
           <Button
             type="button"
             size="icon"
             variant="ghost"
             onClick={handleFileSelect}
-            className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
+            className="text-textSubtle hover:text-textStandard w-7 h-7 [&_svg]:size-4"
           >
             <Attach />
           </Button>
-          {isLoading ? (
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onStop?.();
-              }}
-              className="text-textSubtle rounded-full border border-borderSubtle hover:border-borderStandard hover:text-textStandard w-7 h-7 [&_svg]:size-4"
-            >
-              <Stop size={24} />
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              disabled={!displayValue.trim()}
-              className={`bg-bgAppInverse text-white rounded-full hover:cursor w-7 h-7 [&_svg]:size-4 ${
-                !displayValue.trim() ? 'text-white cursor-not-allowed' : ''
-              }`}
-            >
-              <Send />
-            </Button>
-          )}
+
+          <BottomMenu hasMessages={hasMessages} setView={setView} />
         </div>
       </div>
     </div>
