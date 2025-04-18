@@ -187,6 +187,7 @@ pub async fn read_config(
     path = "/config/extensions",
     responses(
         (status = 200, description = "All extensions retrieved successfully", body = ExtensionResponse),
+        (status = 422, description = "Could not serialize config.yaml"),
         (status = 500, description = "Internal server error")
     )
 )]
@@ -219,7 +220,6 @@ pub async fn get_extensions(
     responses(
         (status = 200, description = "Extension added or updated successfully", body = String),
         (status = 400, description = "Invalid request"),
-        (status = 422, description = "Could not serialize config.yaml"),
         (status = 500, description = "Internal server error")
     )
 )]
