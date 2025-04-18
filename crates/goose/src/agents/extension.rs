@@ -128,6 +128,8 @@ pub enum ExtensionConfig {
         uri: String,
         #[serde(default)]
         envs: Envs,
+        #[serde(default)]
+        env_keys: Vec<String>,
         description: Option<String>,
         // NOTE: set timeout to be optional for compatibility.
         // However, new configurations should include this field.
@@ -145,6 +147,8 @@ pub enum ExtensionConfig {
         args: Vec<String>,
         #[serde(default)]
         envs: Envs,
+        #[serde(default)]
+        env_keys: Vec<String>,
         timeout: Option<u64>,
         description: Option<String>,
         /// Whether this extension is bundled with Goose
@@ -194,6 +198,7 @@ impl ExtensionConfig {
             name: name.into(),
             uri: uri.into(),
             envs: Envs::default(),
+            env_keys: Vec::new(),
             description: Some(description.into()),
             timeout: Some(timeout.into()),
             bundled: None,
@@ -211,6 +216,7 @@ impl ExtensionConfig {
             cmd: cmd.into(),
             args: vec![],
             envs: Envs::default(),
+            env_keys: Vec::new(),
             description: Some(description.into()),
             timeout: Some(timeout.into()),
             bundled: None,
@@ -227,6 +233,7 @@ impl ExtensionConfig {
                 name,
                 cmd,
                 envs,
+                env_keys,
                 timeout,
                 description,
                 bundled,
@@ -235,6 +242,7 @@ impl ExtensionConfig {
                 name,
                 cmd,
                 envs,
+                env_keys,
                 args: args.into_iter().map(Into::into).collect(),
                 description,
                 timeout,

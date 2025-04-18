@@ -202,6 +202,7 @@ async fn add_extension(
                 name,
                 uri,
                 envs: Envs::new(env_map),
+                env_keys: Vec::new(),
                 description: None,
                 timeout,
                 bundled: None,
@@ -254,6 +255,7 @@ async fn add_extension(
                 args,
                 description: None,
                 envs: Envs::new(env_map),
+                env_keys: Vec::new(),
                 timeout,
                 bundled: None,
             }
