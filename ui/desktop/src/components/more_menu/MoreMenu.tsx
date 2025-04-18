@@ -52,6 +52,7 @@ const ThemeSelect: React.FC<ThemeSelectProps> = ({ themeMode, onThemeChange }) =
       <div className="text-sm mb-2">Theme</div>
       <div className="grid grid-cols-3 gap-2">
         <button
+          data-testid="light-mode-button"
           onClick={() => onThemeChange('light')}
           className={`flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
             themeMode === 'light'
@@ -64,6 +65,7 @@ const ThemeSelect: React.FC<ThemeSelectProps> = ({ themeMode, onThemeChange }) =
         </button>
 
         <button
+          data-testid="dark-mode-button"
           onClick={() => onThemeChange('dark')}
           className={`flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
             themeMode === 'dark'
@@ -76,6 +78,7 @@ const ThemeSelect: React.FC<ThemeSelectProps> = ({ themeMode, onThemeChange }) =
         </button>
 
         <button
+          data-testid="system-mode-button"
           onClick={() => onThemeChange('system')}
           className={`flex items-center justify-center gap-2 p-2 rounded-md border transition-colors ${
             themeMode === 'system'
@@ -163,6 +166,9 @@ export default function MoreMenu({
       <PopoverTrigger asChild>
         <button
           className={`z-[100] w-7 h-7 p-1 rounded-full border border-borderSubtle transition-colors cursor-pointer no-drag hover:text-textStandard hover:border-borderStandard ${open ? 'text-textStandard' : 'text-textSubtle'}`}
+          role="button"
+          aria-label="More options"
+          data-testid="more-options-button"
         >
           <Settings />
         </button>
@@ -263,6 +269,7 @@ export default function MoreMenu({
 
               {settingsV2Enabled && (
                 <MenuButton
+                  data-testid="reset-provider-button"
                   onClick={async () => {
                     await remove('GOOSE_PROVIDER', false);
                     await remove('GOOSE_MODEL', false);
@@ -280,6 +287,7 @@ export default function MoreMenu({
 
               {!settingsV2Enabled && (
                 <MenuButton
+                  data-testid="reset-provider-button"
                   onClick={() => {
                     localStorage.removeItem('GOOSE_PROVIDER');
                     setOpen(false);
