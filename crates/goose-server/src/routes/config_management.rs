@@ -182,6 +182,28 @@ pub async fn read_config(
     }
 }
 
+fn populate_env_keys(extensions: Vec<ExtensionEntry>) -> Vec<ExtensionEntry> {
+    extensions
+        .into_iter()
+        .map(|ext| {
+            let config = match &ext.config {
+                ExtensionConfig::Sse { envs, .. } | ExtensionConfig::Stdio { envs, .. } => {
+                    let mut config = ext.config.clone();
+                    let env_keys: Vec<String> = envs.get_env().keys().cloned().collect();
+                    match &mut config {
+                        ExtensionConfig::Sse { env_keys: keys, .. } |
+                        ExtensionConfig::Stdio { env_keys: keys, .. } => *keys = env_keys,
+                        _ => unreachable!(),
+                    }
+                    config
+                }
+                _ => ext.config,
+            };
+            ExtensionEntry { enabled: ext.enabled, config }
+        })
+        .collect()
+}
+
 #[utoipa::path(
     get,
     path = "/config/extensions",
@@ -195,9 +217,8 @@ pub async fn get_extensions(
     headers: HeaderMap,
 ) -> Result<Json<ExtensionResponse>, StatusCode> {
     verify_secret_key(&headers, &state)?;
-
     match ExtensionConfigManager::get_all() {
-        Ok(extensions) => Ok(Json(ExtensionResponse { extensions })),
+        Ok(extensions) => Ok(Json(ExtensionResponse { extensions: populate_env_keys(extensions) })),
         Err(err) => {
             // Return UNPROCESSABLE_ENTITY only for DeserializeError, INTERNAL_SERVER_ERROR for everything else
             if err
