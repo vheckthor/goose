@@ -6,7 +6,7 @@ use futures::stream::BoxStream;
 use futures::TryStreamExt;
 
 use crate::config::{Config, ExtensionConfigManager, PermissionManager};
-use crate::message::Message;
+use crate::message::{Message, ToolRequest};
 use crate::permission::permission_judge::check_tool_permissions;
 use crate::permission::PermissionConfirmation;
 use crate::providers::base::Provider;
@@ -40,6 +40,14 @@ use super::tool_execution::{
 const MAX_TRUNCATION_ATTEMPTS: usize = 3;
 const ESTIMATE_FACTOR_DECAY: f32 = 0.9;
 
+/// Return type for `step_reply_for_ffi`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepReply {
+    /// The assistant response with tool requests filtered out.
+    pub message: Message,
+    /// Any tool requests extracted from the response.
+    pub tool_requests: Vec<ToolRequest>,
+}
 /// The main goose Agent
 pub struct Agent {
     pub(super) provider: Arc<dyn Provider>,
@@ -603,6 +611,108 @@ impl Agent {
     pub async fn handle_tool_result(&self, id: String, result: ToolResult<Vec<Content>>) {
         if let Err(e) = self.tool_result_tx.send((id, result)).await {
             tracing::error!("Failed to send tool result: {}", e);
+        }
+    }
+
+    /// Non-streaming step function that supports FFI integration.
+    /// Returns a [`StepReply`] containing the assistant message and any tool requests.
+    #[instrument(
+        skip(self, messages, previous_tool_responses, session),
+        fields(user_message)
+    )]
+    pub async fn step_reply_for_ffi(
+        &self,
+        messages: &[Message],
+        previous_tool_responses: Vec<(String, ToolResult<Vec<Content>>)>,
+        session: Option<SessionConfig>,
+    ) -> anyhow::Result<StepReply> {
+        let mut messages = messages.to_vec();
+        let mut truncation_attempt: usize = 0;
+
+        // Log the last user message for tracing
+        if let Some(content) = messages
+            .last()
+            .and_then(|msg| msg.content.first())
+            .and_then(|c| c.as_text())
+        {
+            debug!(user_message = &content);
+        }
+
+        // If there are tool responses from previous step, add them
+        for (tool_id, tool_result) in previous_tool_responses {
+            let tool_response = Message::user().with_tool_response(tool_id, tool_result);
+            messages.push(tool_response);
+        }
+
+        // Setup tools and prompt
+        let (mut tools, toolshim_tools, system_prompt) =
+            self.prepare_tools_and_prompt().await?;
+
+        loop {
+            // Get response from provider
+            match Self::generate_response_from_provider(
+                self.provider(),
+                &system_prompt,
+                &messages,
+                &tools,
+                &toolshim_tools,
+            )
+            .await
+            {
+                Ok((response, usage)) => {
+                    // Record usage if session provided
+                    if let Some(session_conf_ref) = session.as_ref() {
+                        let session_conf = session_conf_ref.clone();
+                        if let Err(e) =
+                            Self::update_session_metrics(session_conf, &usage, messages.len()).await
+                        {
+                            tracing::error!("Failed to update session metrics: {}", e);
+                        }
+                    }
+
+                    // Separate out any tool requests for the caller
+                    let (frontend_reqs, other_reqs, filtered_msg) =
+                        self.categorize_tool_requests(&response);
+                    let mut tool_requests = Vec::new();
+                    tool_requests.extend(frontend_reqs);
+                    tool_requests.extend(other_reqs);
+                    return Ok(StepReply {
+                        message: filtered_msg,
+                        tool_requests,
+                    });
+                }
+                Err(ProviderError::ContextLengthExceeded(_)) => {
+                    if truncation_attempt >= MAX_TRUNCATION_ATTEMPTS {
+                        warn!(
+                            attempt = truncation_attempt,
+                            "Max truncation attempts reached, aborting"
+                        );
+                        return Err(anyhow::anyhow!(
+                            "Context length exceeds limits even after multiple truncation attempts."
+                        ));
+                    }
+                    // Attempt truncation and retry
+                    truncation_attempt += 1;
+                    debug!(
+                        attempt = truncation_attempt,
+                        "Context length exceeded, truncating and retrying"
+                    );
+                    let estimate_factor: f32 =
+                        ESTIMATE_FACTOR_DECAY.powi(truncation_attempt as i32);
+                    self.truncate_messages(
+                        &mut messages,
+                        estimate_factor,
+                        &system_prompt,
+                        &mut tools,
+                    )
+                    .await?;
+                    // Retry with truncated context
+                    continue;
+                }
+                Err(e) => {
+                    return Err(anyhow::anyhow!("Provider error: {}", e));
+                }
+            }
         }
     }
 
