@@ -307,7 +307,8 @@ Extract for developer conferences (attendance &gt; 500) occurring between 2022-2
 </ul>
 <p>You’ll see ideas go from prompt to prototype in one session.</p>
 <iframe class="aspect-ratio" src="https://www.youtube.com/embed/OsA3qhns7dg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>
-<h3 class="anchor anchorWithStickyNavbar_LWe7" id="looking-for-more-examples">Looking for more examples?<a href="https://block.github.io/goose/pr-preview/pr-2287/blog/2025/04/21/practical-use-cases-of-ai#looking-for-more-examples" class="hash-link" aria-label="Direct link to Looking for more examples?" title="Direct link to Looking for more examples?">​</a></h3>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="looking-for-more-examples">Looking for more examples?<a href="https://block.github.io/goose/pr-preview/pr-2287/blog/2025/04/21/practical-use-cases-of-ai#looking-for-more-examples" class="hash-link" aria-label="Direct link to Looking for more examples?" title="Direct link to Looking for more examples?">​</a></h2>
 <p>This blog post included just a few of the ways I use Goose. If you’re curious about what else it can do, check out the <a href="https://block.github.io/goose/pr-preview/pr-2287/prompt-library">Prompt Library</a> or just ask:</p>
 <p>What are 5 useful things you can help me with today?</p>
 <p>Let Goose surprise you. ✨</p>
