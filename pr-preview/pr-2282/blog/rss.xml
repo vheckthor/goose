@@ -30,7 +30,7 @@ It's model-agnostic and tool-agnostic, allowing our AI agent to interact with in
 MCP allows us to define which models can invoke which tools, and lets us annotate tools as "read-only" or "destructive" to require user confirmation when necessary.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="how-we-configure-and-secure-mcp">How We Configure and Secure MCP<a href="https://block.github.io/goose/pr-preview/pr-2282/blog/2025/04/22/mcp-in-enterprise#how-we-configure-and-secure-mcp" class="hash-link" aria-label="Direct link to How We Configure and Secure MCP" title="Direct link to How We Configure and Secure MCP">​</a></h2>
 <p>We developed <a href="https://block.github.io/goose/pr-preview/pr-2282/"><strong>Goose</strong></a>, an open source, MCP-compatible AI agent. Thousands of Block employees use the tool daily.
-Available as both a CLI and desktop app, Goose comes pre-installed on employee machines with default access to a curated set of approved MCP servers.
+Available as both a CLI and desktop app, Goose comes with default access to a curated set of approved MCP servers.
 Most employees report saving 50–75% of their time on common tasks, and several have shared that work which once took days can now be completed in just a few hours.</p>
 <p>To ensure a secure and reliable experience, all MCP servers used internally are authored by our own engineers.
 This allows us to tailor each integration to our systems and use cases from development tools to compliance workflows.</p>
