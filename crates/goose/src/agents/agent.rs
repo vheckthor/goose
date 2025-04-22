@@ -671,10 +671,16 @@ impl Agent {
     pub async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {
         let extension_manager = self.extension_manager.lock().await;
         let extensions_info = extension_manager.get_extensions_info().await;
+
+        // Get model name from provider
+        let model_config = self.provider.get_model_config();
+        let model_name = &model_config.model_name;
+
         let system_prompt = self.prompt_manager.build_system_prompt(
             extensions_info,
             self.frontend_instructions.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
+            Some(model_name),
         );
 
         let recipe_prompt = self.prompt_manager.get_recipe_prompt().await;
