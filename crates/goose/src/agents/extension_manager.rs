@@ -299,7 +299,6 @@ impl ExtensionManager {
         // Check if either condition is met
         const MIN_EXTENSIONS: usize = 5;
         const MIN_TOOLS: usize = 50;
-        const BUILTIN_EXTENSIONS_COUNT: usize = 5;
 
         let suggest_disable_prompt = Value::String(format!(
             "The user currently has enabled {} extensions with a total of {} tools. \
@@ -308,7 +307,7 @@ impl ExtensionManager {
             To do this, list the extensions names and ask the user which ones they are currently not using. \
             Explain to them the benefit of minimizing extensions is that it helps with the recall of the correct tools to use",
             enabled_extensions_count,
-            total_tools - BUILTIN_EXTENSIONS_COUNT,
+            total_tools,
             MIN_EXTENSIONS,
             MIN_TOOLS
         ));
