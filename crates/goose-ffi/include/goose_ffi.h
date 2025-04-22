@@ -24,6 +24,30 @@ enum goose_ProviderType {
 typedef uint32_t goose_ProviderType;
 
 /*
+ Result status for reply step operations
+ */
+enum goose_ReplyStatus {
+  /*
+   Reply is complete, no more steps needed
+   */
+  goose_ReplyStatus_Complete = 0,
+  /*
+   Tool call needed, waiting for tool result
+   */
+  goose_ReplyStatus_ToolCallNeeded = 1,
+  /*
+   Error occurred
+   */
+  goose_ReplyStatus_Error = 2,
+};
+typedef uint32_t goose_ReplyStatus;
+
+/*
+ Represents the state of the agent's reply process
+ */
+typedef struct goose_AgentReplyState goose_AgentReplyState;
+
+/*
  Result type for async operations
 
  - succeeded: true if the operation succeeded, false otherwise
@@ -55,6 +79,26 @@ typedef struct goose_ProviderConfigFFI {
   const char *host;
   bool ephemeral;
 } goose_ProviderConfigFFI;
+
+typedef struct goose_AgentReplyState *goose_AgentReplyStatePtr;
+
+/*
+ Tool call information
+ */
+typedef struct goose_ToolCallFFI {
+  char *id;
+  char *tool_name;
+  char *arguments_json;
+} goose_ToolCallFFI;
+
+/*
+ Reply step result
+ */
+typedef struct goose_ReplyStepResult {
+  goose_ReplyStatus status;
+  char *message;
+  struct goose_ToolCallFFI tool_call;
+} goose_ReplyStepResult;
 
 /*
  Free an async result structure
@@ -127,6 +171,114 @@ void goose_agent_free(goose_AgentPtr agent_ptr);
  The message must be a valid C string.
  */
 char *goose_agent_send_message(goose_AgentPtr agent_ptr, const char *message);
+
+/*
+ Begin a new non-streaming reply conversation with the agent
+
+ This function starts a new conversation and returns a state pointer that can be used
+ to continue the conversation step-by-step with goose_agent_reply_step
+
+ # Parameters
+
+ - agent_ptr: Agent pointer
+ - message: Message to send
+
+ # Returns
+
+ A new agent reply state pointer, or NULL on error.
+ This pointer must be freed with goose_agent_reply_state_free when no longer needed.
+
+ # Safety
+
+ The agent_ptr must be a valid pointer returned by goose_agent_new.
+ The message must be a valid C string.
+ */
+goose_AgentReplyStatePtr goose_agent_reply_begin(goose_AgentPtr agent_ptr, const char *message);
+
+/*
+ Execute one step of the reply process
+
+ This function processes one step of the reply process. If the status is Complete,
+ the reply is done. If the status is ToolCallNeeded, the tool call information is
+ filled in and the caller should execute the tool and provide the result with
+ goose_agent_reply_tool_result.
+
+ # Parameters
+
+ - state_ptr: Agent reply state pointer
+
+ # Returns
+
+ A ReplyStepResult struct with the status, message, and tool call information.
+ The message and tool call fields must be freed with goose_free_string when
+ no longer needed.
+
+ # Safety
+
+ The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+ or goose_agent_reply_tool_result.
+ */
+struct goose_ReplyStepResult goose_agent_reply_step(goose_AgentReplyStatePtr state_ptr);
+
+/*
+ Provide a tool result to continue the reply process
+
+ This function provides a tool result to the agent and continues the reply process.
+ It returns a new state pointer that can be used to continue the conversation.
+
+ # Parameters
+
+ - state_ptr: Agent reply state pointer
+ - tool_id: Tool ID from the previous step
+ - result: Tool result
+
+ # Returns
+
+ A new agent reply state pointer, or NULL on error.
+ This pointer must be freed with goose_agent_reply_state_free when no longer needed.
+
+ # Safety
+
+ The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+ or goose_agent_reply_tool_result.
+ The tool_id and result must be valid C strings.
+ */
+goose_AgentReplyStatePtr goose_agent_reply_tool_result(goose_AgentReplyStatePtr state_ptr,
+                                                       const char *tool_id,
+                                                       const char *result);
+
+/*
+ Free an agent reply state
+
+ This function frees the memory allocated for an agent reply state.
+
+ # Parameters
+
+ - state_ptr: Agent reply state pointer
+
+ # Safety
+
+ The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+ or goose_agent_reply_tool_result.
+ The state_ptr must not be used after calling this function.
+ */
+void goose_agent_reply_state_free(goose_AgentReplyStatePtr state_ptr);
+
+/*
+ Free a tool call
+
+ This function frees the memory allocated for a tool call.
+
+ # Parameters
+
+ - tool_call: Tool call to free
+
+ # Safety
+
+ The tool_call must have been allocated by a goose FFI function.
+ The tool_call must not be used after calling this function.
+ */
+void goose_free_tool_call(struct goose_ToolCallFFI tool_call);
 
 /*
  Free a string allocated by goose FFI functions

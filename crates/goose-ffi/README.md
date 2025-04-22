@@ -9,6 +9,7 @@ The Goose FFI library provides C-compatible bindings for the Goose AI agent fram
 - Create and manage Goose agents from any language with C FFI support
 - Configure and use the Databricks AI provider for now but is extensible to other providers as needed
 - Send messages to agents and receive responses
+- Handle tool calls in a non-streaming way for multi-threaded environments
 
 ## Building
 
@@ -48,7 +49,10 @@ The `examples/goose_agent.py` demonstrates using the FFI library from Python wit
 3. Setting up C-compatible structures
 4. Creating an object-oriented API for easier use
 
-Note: Tool callback functionality shown in earlier versions is not currently available and will be implemented in a future release.
+The Python example demonstrates both streaming and non-streaming API usage:
+
+1. **Streaming API**: Send messages and get responses in a single call
+2. **Non-streaming API**: Supports step-by-step tool handling for multi-threaded environments
 
 To run the Python example:
 
@@ -137,3 +141,41 @@ Functions that can fail return either null pointers or special result structures
 ## Memory Management
 
 The FFI interface handles memory allocation and deallocation. Use the provided free functions (like `goose_free_string` and `goose_free_async_result`) to release resources when you're done with them.
+
+## Non-Streaming API for Tool Handling
+
+The non-streaming API is designed for use in multi-threaded environments where multiple agents need to handle tool calls without blocking. This approach offers several advantages:
+
+- **Step-by-step execution**: Process responses and tool calls one at a time
+- **Multi-threaded friendly**: Create multiple agents in different threads without state interference
+- **Resumable execution**: Pause agent execution during tool calls and resume with results
+
+### API Flow
+
+1. **Begin a reply**:
+   ```c
+   AgentReplyStatePtr goose_agent_reply_begin(AgentPtr agent, const char* message);
+   ```
+
+2. **Execute a step**:
+   ```c
+   ReplyStepResult goose_agent_reply_step(AgentReplyStatePtr state);
+   ```
+
+3. **Handle tool calls** (when status is `ToolCallNeeded`):
+   ```c
+   AgentReplyStatePtr goose_agent_reply_tool_result(
+       AgentReplyStatePtr state,
+       const char* tool_id,
+       const char* result
+   );
+   ```
+
+4. **Free resources** when done:
+   ```c
+   void goose_agent_reply_state_free(AgentReplyStatePtr state);
+   void goose_free_tool_call(ToolCallFFI tool_call);
+   void goose_free_string(char* s);
+   ```
+
+The Python example demonstrates this flow in the `send_message_non_streaming` method, showing how to process tool calls and continue the conversation.

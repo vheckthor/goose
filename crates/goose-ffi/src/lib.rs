@@ -8,8 +8,12 @@ use goose::config::Config;
 use goose::message::Message;
 use goose::model::ModelConfig;
 use goose::providers::databricks::DatabricksProvider;
+use mcp_core::{Content, ToolResult};
 use once_cell::sync::OnceCell;
 use tokio::runtime::Runtime;
+
+mod reply;
+use reply::AgentReplyState;
 
 // This class is in alpha and not yet ready for production use
 // and the API is not yet stable. Use at your own risk.
@@ -52,7 +56,8 @@ pub struct ProviderConfigFFI {
     pub ephemeral: bool,
 }
 
-// Extension configuration will be implemented in a future commit
+// Pointer type for agent reply state
+pub type AgentReplyStatePtr = *mut AgentReplyState;
 
 /// Role enum for message participants
 #[repr(u32)]
@@ -76,7 +81,33 @@ pub struct MessageFFI {
     pub content: *const c_char,
 }
 
-// Tool callbacks will be implemented in a future commit
+/// Result status for reply step operations
+#[repr(u32)]
+#[derive(Debug, Clone, Copy)]
+pub enum ReplyStatus {
+    /// Reply is complete, no more steps needed
+    Complete = 0,
+    /// Tool call needed, waiting for tool result
+    ToolCallNeeded = 1,
+    /// Error occurred
+    Error = 2,
+}
+
+/// Tool call information
+#[repr(C)]
+pub struct ToolCallFFI {
+    pub id: *mut c_char,
+    pub tool_name: *mut c_char,
+    pub arguments_json: *mut c_char,
+}
+
+/// Reply step result
+#[repr(C)]
+pub struct ReplyStepResult {
+    pub status: ReplyStatus,
+    pub message: *mut c_char,
+    pub tool_call: ToolCallFFI,
+}
 
 /// Result type for async operations
 ///
@@ -282,7 +313,242 @@ pub unsafe extern "C" fn goose_agent_send_message(
     string_to_c_char(&response)
 }
 
-// Tool schema creation will be implemented in a future commit
+/// Begin a new non-streaming reply conversation with the agent
+///
+/// This function starts a new conversation and returns a state pointer that can be used
+/// to continue the conversation step-by-step with goose_agent_reply_step
+///
+/// # Parameters
+///
+/// - agent_ptr: Agent pointer
+/// - message: Message to send
+///
+/// # Returns
+///
+/// A new agent reply state pointer, or NULL on error.
+/// This pointer must be freed with goose_agent_reply_state_free when no longer needed.
+///
+/// # Safety
+///
+/// The agent_ptr must be a valid pointer returned by goose_agent_new.
+/// The message must be a valid C string.
+#[no_mangle]
+pub unsafe extern "C" fn goose_agent_reply_begin(
+    agent_ptr: AgentPtr,
+    message: *const c_char,
+) -> AgentReplyStatePtr {
+    if agent_ptr.is_null() || message.is_null() {
+        return ptr::null_mut();
+    }
+
+    let agent = &mut *agent_ptr;
+    let message_str = CStr::from_ptr(message).to_string_lossy().to_string();
+    let messages = vec![Message::user().with_text(&message_str)];
+
+    // Create initial state
+    let state = match get_runtime().block_on(AgentReplyState::new(agent, messages)) {
+        Ok(state) => state,
+        Err(e) => {
+            eprintln!("Error creating reply state: {:?}", e);
+            return ptr::null_mut();
+        }
+    };
+
+    Box::into_raw(Box::new(state))
+}
+
+/// Execute one step of the reply process
+///
+/// This function processes one step of the reply process. If the status is Complete,
+/// the reply is done. If the status is ToolCallNeeded, the tool call information is
+/// filled in and the caller should execute the tool and provide the result with
+/// goose_agent_reply_tool_result.
+///
+/// # Parameters
+///
+/// - state_ptr: Agent reply state pointer
+///
+/// # Returns
+///
+/// A ReplyStepResult struct with the status, message, and tool call information.
+/// The message and tool call fields must be freed with goose_free_string when
+/// no longer needed.
+///
+/// # Safety
+///
+/// The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+/// or goose_agent_reply_tool_result.
+#[no_mangle]
+pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -> ReplyStepResult {
+    if state_ptr.is_null() {
+        return ReplyStepResult {
+            status: ReplyStatus::Error,
+            message: string_to_c_char("Error: state pointer is null"),
+            tool_call: ToolCallFFI {
+                id: ptr::null_mut(),
+                tool_name: ptr::null_mut(),
+                arguments_json: ptr::null_mut(),
+            },
+        };
+    }
+
+    let state = &mut *state_ptr;
+
+    // Process one step
+    let step_result = match get_runtime().block_on(state.step()) {
+        Ok(result) => result,
+        Err(e) => {
+            return ReplyStepResult {
+                status: ReplyStatus::Error,
+                message: string_to_c_char(&format!("Error processing step: {}", e)),
+                tool_call: ToolCallFFI {
+                    id: ptr::null_mut(),
+                    tool_name: ptr::null_mut(),
+                    arguments_json: ptr::null_mut(),
+                },
+            };
+        }
+    };
+
+    match step_result {
+        reply::StepResult::Complete(msg) => {
+            let json = serde_json::to_string(&msg)
+                .unwrap_or_else(|e| format!("Error serializing message: {}", e));
+
+            ReplyStepResult {
+                status: ReplyStatus::Complete,
+                message: string_to_c_char(&json),
+                tool_call: ToolCallFFI {
+                    id: ptr::null_mut(),
+                    tool_name: ptr::null_mut(),
+                    arguments_json: ptr::null_mut(),
+                },
+            }
+        }
+        reply::StepResult::ToolCallNeeded(request) => {
+            let tool_call_result = &request.tool_call;
+
+            match tool_call_result {
+                Ok(tool_call) => {
+                    let json = serde_json::to_string(&tool_call.arguments)
+                        .unwrap_or_else(|_| "{}".to_string());
+
+                    ReplyStepResult {
+                        status: ReplyStatus::ToolCallNeeded,
+                        message: ptr::null_mut(),
+                        tool_call: ToolCallFFI {
+                            id: string_to_c_char(&request.id),
+                            tool_name: string_to_c_char(&tool_call.name),
+                            arguments_json: string_to_c_char(&json),
+                        },
+                    }
+                }
+                Err(e) => ReplyStepResult {
+                    status: ReplyStatus::Error,
+                    message: string_to_c_char(&format!("Tool call error: {}", e)),
+                    tool_call: ToolCallFFI {
+                        id: string_to_c_char(&request.id),
+                        tool_name: ptr::null_mut(),
+                        arguments_json: ptr::null_mut(),
+                    },
+                },
+            }
+        }
+    }
+}
+
+/// Provide a tool result to continue the reply process
+///
+/// This function provides a tool result to the agent and continues the reply process.
+/// It returns a new state pointer that can be used to continue the conversation.
+///
+/// # Parameters
+///
+/// - state_ptr: Agent reply state pointer
+/// - tool_id: Tool ID from the previous step
+/// - result: Tool result
+///
+/// # Returns
+///
+/// A new agent reply state pointer, or NULL on error.
+/// This pointer must be freed with goose_agent_reply_state_free when no longer needed.
+///
+/// # Safety
+///
+/// The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+/// or goose_agent_reply_tool_result.
+/// The tool_id and result must be valid C strings.
+#[no_mangle]
+pub unsafe extern "C" fn goose_agent_reply_tool_result(
+    state_ptr: AgentReplyStatePtr,
+    tool_id: *const c_char,
+    result: *const c_char,
+) -> AgentReplyStatePtr {
+    if state_ptr.is_null() || tool_id.is_null() || result.is_null() {
+        return ptr::null_mut();
+    }
+
+    let state = &mut *state_ptr;
+    let tool_id_str = CStr::from_ptr(tool_id).to_string_lossy().to_string();
+    let result_str = CStr::from_ptr(result).to_string_lossy().to_string();
+
+    // Create tool result
+    let tool_result: ToolResult<Vec<Content>> = Ok(vec![Content::text(result_str)]);
+
+    // Apply tool result
+    if let Err(e) = get_runtime().block_on(state.apply_tool_result(tool_id_str, tool_result)) {
+        eprintln!("Error applying tool result: {:?}", e);
+        return ptr::null_mut();
+    }
+
+    // Return the same state pointer
+    state_ptr
+}
+
+/// Free an agent reply state
+///
+/// This function frees the memory allocated for an agent reply state.
+///
+/// # Parameters
+///
+/// - state_ptr: Agent reply state pointer
+///
+/// # Safety
+///
+/// The state_ptr must be a valid pointer returned by goose_agent_reply_begin
+/// or goose_agent_reply_tool_result.
+/// The state_ptr must not be used after calling this function.
+#[no_mangle]
+pub unsafe extern "C" fn goose_agent_reply_state_free(state_ptr: AgentReplyStatePtr) {
+    if !state_ptr.is_null() {
+        let _ = Box::from_raw(state_ptr);
+    }
+}
+
+/// Free a tool call
+///
+/// This function frees the memory allocated for a tool call.
+///
+/// # Parameters
+///
+/// - tool_call: Tool call to free
+///
+/// # Safety
+///
+/// The tool_call must have been allocated by a goose FFI function.
+/// The tool_call must not be used after calling this function.
+#[no_mangle]
+pub unsafe extern "C" fn goose_free_tool_call(tool_call: ToolCallFFI) {
+    if !tool_call.id.is_null() {
+        let _ = CString::from_raw(tool_call.id);
+    }
+    if !tool_call.tool_name.is_null() {
+        let _ = CString::from_raw(tool_call.tool_name);
+    }
+    if !tool_call.arguments_json.is_null() {
+        let _ = CString::from_raw(tool_call.arguments_json);
+    }
+}
 
 /// Free a string allocated by goose FFI functions
 ///
