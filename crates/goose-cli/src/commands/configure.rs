@@ -21,6 +21,7 @@ use mcp_core::Tool;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::error::Error;
+use std::sync::Arc;
 
 // useful for light themes where there is no dicernible colour contrast between
 // cursor-selected and cursor-unselected items.
@@ -987,8 +988,9 @@ pub async fn configure_tool_permissions_dialog() -> Result<(), Box<dyn Error>> {
     let provider =
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
-    // Create the agent
-    let mut agent = Agent::new(provider);
+    // Create the agent with a specific config instance
+    let config_instance = Arc::new(Config::global().clone());
+    let mut agent = Agent::with_config(provider, config_instance);
     if let Ok(Some(config)) = ExtensionConfigManager::get_config_by_name(&selected_extension_name) {
         agent
             .add_extension(config.clone())

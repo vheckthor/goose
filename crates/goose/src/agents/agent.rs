@@ -52,10 +52,17 @@ pub struct Agent {
     pub(super) confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
     pub(super) tool_result_rx: ToolResultReceiver,
+    pub(super) config: Arc<Config>,
 }
 
 impl Agent {
+    /// Create a new Agent with default configuration
     pub fn new(provider: Arc<dyn Provider>) -> Self {
+        Self::with_config(provider, Arc::new(Config::default()))
+    }
+
+    /// Create a new Agent with custom configuration
+    pub fn with_config(provider: Arc<dyn Provider>, config: Arc<Config>) -> Self {
         let token_counter = TokenCounter::new(provider.get_model_config().tokenizer_name());
         // Create channels with buffer size 32 (adjust if needed)
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
@@ -63,15 +70,16 @@ impl Agent {
 
         Self {
             provider,
-            extension_manager: Mutex::new(ExtensionManager::new()),
+            extension_manager: Mutex::new(ExtensionManager::with_config(Arc::clone(&config))),
             frontend_tools: HashMap::new(),
             frontend_instructions: None,
-            prompt_manager: PromptManager::new(),
+            prompt_manager: PromptManager::with_config(Arc::clone(&config)),
             token_counter,
             confirmation_tx: confirm_tx,
             confirmation_rx: Mutex::new(confirm_rx),
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
+            config,
         }
     }
 
@@ -200,7 +208,7 @@ impl Agent {
         request_id: String,
     ) -> (String, Result<Vec<Content>, ToolError>) {
         let mut extension_manager = self.extension_manager.lock().await;
-        let config = match ExtensionConfigManager::get_config_by_name(&extension_name) {
+        let config = match ExtensionConfigManager::get_config_by_name_with_instance(&extension_name, &self.config) {
             Ok(Some(config)) => config,
             Ok(None) => {
                 return (
@@ -331,7 +339,7 @@ impl Agent {
         let mut truncation_attempt: usize = 0;
 
         // Load settings from config
-        let config = Config::global();
+        let config = &*self.config;
 
         // Setup tools and prompt
         let (mut tools, mut toolshim_tools, mut system_prompt) =
@@ -698,7 +706,7 @@ impl Agent {
                 (instructions, activities)
             };
 
-        let extensions = ExtensionConfigManager::get_all().unwrap_or_default();
+        let extensions = ExtensionConfigManager::get_all_with_instance(&self.config).unwrap_or_default();
         let extension_configs: Vec<_> = extensions
             .iter()
             .filter(|e| e.enabled)

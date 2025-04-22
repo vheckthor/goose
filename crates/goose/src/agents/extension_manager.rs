@@ -6,7 +6,7 @@ use mcp_client::McpService;
 use mcp_core::protocol::GetPromptResult;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::sync::LazyLock;
+// Removed unused DEFAULT_TIMESTAMP static
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::task;
@@ -21,10 +21,6 @@ use mcp_client::transport::{SseTransport, StdioTransport, Transport};
 use mcp_core::{prompt::Prompt, Content, Tool, ToolCall, ToolError, ToolResult};
 use serde_json::Value;
 
-// By default, we set it to Jan 1, 2020 if the resource does not have a timestamp
-// This is to ensure that the resource is considered less important than resources with a more recent timestamp
-static DEFAULT_TIMESTAMP: LazyLock<DateTime<Utc>> =
-    LazyLock::new(|| Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap());
 
 type McpClientBox = Arc<Mutex<Box<dyn McpClientTrait>>>;
 
@@ -33,6 +29,8 @@ pub struct ExtensionManager {
     clients: HashMap<String, McpClientBox>,
     instructions: HashMap<String, String>,
     resource_capable_extensions: HashSet<String>,
+    config: Arc<Config>,
+    default_timestamp: DateTime<Utc>,
 }
 
 /// A flattened representation of a resource used by the agent to prepare inference
@@ -97,12 +95,19 @@ impl Default for ExtensionManager {
 }
 
 impl ExtensionManager {
-    /// Create a new ExtensionManager instance
+    /// Create a new ExtensionManager instance with the default config
     pub fn new() -> Self {
+        Self::with_config(Arc::new(Config::default()))
+    }
+    
+    /// Create a new ExtensionManager instance with a custom config
+    pub fn with_config(config: Arc<Config>) -> Self {
         Self {
             clients: HashMap::new(),
             instructions: HashMap::new(),
             resource_capable_extensions: HashSet::new(),
+            config,
+            default_timestamp: Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap(),
         }
     }
 
@@ -115,14 +120,14 @@ impl ExtensionManager {
     pub async fn add_extension(&mut self, config: ExtensionConfig) -> ExtensionResult<()> {
         let sanitized_name = normalize(config.key().to_string());
 
-        /// Helper function to merge environment variables from direct envs and keychain-stored env_keys
+        /// Helper method to merge environment variables from direct envs and keychain-stored env_keys
         async fn merge_environments(
+            config_instance: &Config,
             envs: &Envs,
             env_keys: &[String],
             ext_name: &str,
         ) -> Result<HashMap<String, String>, ExtensionError> {
             let mut all_envs = envs.get_env();
-            let config_instance = Config::global();
 
             for key in env_keys {
                 // If the Envs payload already contains the key, prefer that value
@@ -180,7 +185,7 @@ impl ExtensionManager {
                 timeout,
                 ..
             } => {
-                let all_envs = merge_environments(envs, env_keys, &sanitized_name).await?;
+                let all_envs = merge_environments(&self.config, envs, env_keys, &sanitized_name).await?;
                 let transport = SseTransport::new(uri, all_envs);
                 let handle = transport.start().await?;
                 let service = McpService::with_timeout(
@@ -199,7 +204,7 @@ impl ExtensionManager {
                 timeout,
                 ..
             } => {
-                let all_envs = merge_environments(envs, env_keys, &sanitized_name).await?;
+                let all_envs = merge_environments(&self.config, envs, env_keys, &sanitized_name).await?;
                 let transport = StdioTransport::new(cmd, args.to_vec(), all_envs);
                 let handle = transport.start().await?;
                 let service = McpService::with_timeout(
@@ -388,7 +393,7 @@ impl ExtensionManager {
                             uri,
                             resource.name.clone(),
                             content_str,
-                            resource.timestamp().unwrap_or(*DEFAULT_TIMESTAMP),
+                            resource.timestamp().unwrap_or(self.default_timestamp),
                             resource.priority().unwrap_or(0.0),
                         ));
                     }
@@ -403,7 +408,8 @@ impl ExtensionManager {
         let mut context: HashMap<&str, Value> = HashMap::new();
         context.insert("tools", serde_json::to_value(tools_info).unwrap());
 
-        prompt_template::render_global_file("plan.md", &context).expect("Prompt should render")
+        let prompt_env = prompt_template::PromptEnvironment::new();
+        prompt_env.render_file("plan.md", &context).expect("Prompt should render")
     }
 
     /// Find and return a reference to the appropriate client for a tool call
@@ -692,7 +698,7 @@ impl ExtensionManager {
 
         // First get disabled extensions from current config
         let mut disabled_extensions: Vec<String> = vec![];
-        for extension in ExtensionConfigManager::get_all().expect("should load extensions") {
+        for extension in ExtensionConfigManager::get_all_with_instance(&self.config).expect("should load extensions") {
             if !extension.enabled {
                 let config = extension.config.clone();
                 let description = match &config {

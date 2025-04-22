@@ -16,6 +16,7 @@ use goose::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 struct VersionsResponse {
@@ -123,7 +124,9 @@ async fn create_agent(
         providers::create(&payload.provider, model_config).expect("Failed to create provider");
 
     let version = String::from("goose");
-    let new_agent = Agent::new(provider);
+    // Create agent with a specific config instance
+    let config_instance = Arc::new(Config::global().clone());
+    let new_agent = Agent::with_config(provider, config_instance);
 
     let mut agent = state.agent.write().await;
     *agent = Some(new_agent);

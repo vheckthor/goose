@@ -36,6 +36,80 @@ static GLOBAL_ENV: Lazy<Arc<RwLock<Environment<'static>>>> = Lazy::new(|| {
     Arc::new(RwLock::new(env))
 });
 
+/// A non-static prompt environment that can be instantiated per agent
+pub struct PromptEnvironment {
+    env: Environment<'static>,
+}
+
+impl PromptEnvironment {
+    /// Create a new prompt environment with core templates
+    pub fn new() -> Self {
+        let mut env = Environment::new();
+
+        // Pre-load all core templates from the embedded dir.
+        for file in CORE_PROMPTS_DIR.files() {
+            let name = file.path().to_string_lossy().to_string();
+            let source = String::from_utf8_lossy(file.contents()).to_string();
+
+            // Since we're using 'static lifetime for the Environment, we need to ensure
+            // the strings we add as templates live for the entire program duration.
+            // We can achieve this by leaking the strings (acceptable for initialization).
+            let static_name: &'static str = Box::leak(name.into_boxed_str());
+            let static_source: &'static str = Box::leak(source.into_boxed_str());
+
+            if let Err(e) = env.add_template(static_name, static_source) {
+                tracing::error!("Failed to add template {}: {}", static_name, e);
+            }
+        }
+
+        Self { env }
+    }
+
+    /// Renders a prompt from the environment by name.
+    pub fn render_template<T: Serialize>(
+        &self,
+        template_name: &str,
+        context_data: &T,
+    ) -> Result<String, MiniJinjaError> {
+        let tmpl = self.env.get_template(template_name)?;
+        let ctx = MJValue::from_serialize(context_data);
+        let rendered = tmpl.render(ctx)?;
+        Ok(rendered.trim().to_string())
+    }
+
+    /// Renders a file from `CORE_PROMPTS_DIR` within the environment.
+    pub fn render_file<T: Serialize>(
+        &self,
+        template_file: impl Into<PathBuf>,
+        context_data: &T,
+    ) -> Result<String, MiniJinjaError> {
+        let file_path = template_file.into();
+        let template_name = file_path.to_string_lossy().to_string();
+
+        self.render_template(&template_name, context_data)
+    }
+
+    /// Renders a **one-off ephemeral** template (inline string).
+    pub fn render_inline<T: Serialize>(
+        &self,
+        template_str: &str,
+        context_data: &T,
+    ) -> Result<String, MiniJinjaError> {
+        let mut temp_env = Environment::new();
+        temp_env.add_template("inline_ephemeral", template_str)?;
+        let tmpl = temp_env.get_template("inline_ephemeral")?;
+        let ctx = MJValue::from_serialize(context_data);
+        let rendered = tmpl.render(ctx)?;
+        Ok(rendered.trim().to_string())
+    }
+}
+
+impl Default for PromptEnvironment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Renders a prompt from the global environment by name.
 ///
 /// # Arguments

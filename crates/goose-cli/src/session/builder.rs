@@ -6,6 +6,7 @@ use goose::session;
 use goose::session::Identifier;
 use mcp_client::transport::Error as McpClientError;
 use std::process;
+use std::sync::Arc;
 
 use super::output;
 use super::Session;
@@ -49,8 +50,9 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
     let provider =
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
-    // Create the agent
-    let mut agent = Agent::new(provider);
+    // Create the agent with the global config
+    let config = Arc::new(Config::global().clone());
+    let mut agent = Agent::with_config(provider, config);
 
     // Handle session file resolution and resuming
     let session_file = if session_config.resume {

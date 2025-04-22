@@ -178,7 +178,9 @@ pub unsafe extern "C" fn goose_agent_new(config: *const ProviderConfigFFI) -> Ag
     // Create Databricks provider with required parameters
     match DatabricksProvider::from_params(host, api_key, model_config) {
         Ok(provider) => {
-            let agent = Agent::new(Arc::new(provider));
+            // Create agent with a specific config instance
+            let config_instance = Arc::new(Config::default());
+            let agent = Agent::with_config(Arc::new(provider), config_instance);
             Box::into_raw(Box::new(agent))
         }
         Err(e) => {

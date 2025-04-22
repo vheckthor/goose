@@ -509,7 +509,9 @@ mod tests {
             let mock_provider = Arc::new(MockProvider {
                 model_config: mock_model_config,
             });
-            let agent = Agent::new(mock_provider);
+            // Create agent with a specific config instance
+            let config_instance = Arc::new(Config::global().clone());
+            let agent = Agent::with_config(mock_provider, config_instance);
             let state = AppState {
                 config: Arc::new(Mutex::new(HashMap::new())),
                 agent: Arc::new(RwLock::new(Some(agent))),
