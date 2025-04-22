@@ -205,28 +205,39 @@ impl Agent {
 
         // Get configs for all extension names
         let mut configs = Vec::new();
+        let mut configs_not_found = Vec::new();
+        let mut configs_errors = Vec::new();
+
         for extension_name in &extension_names {
             match ExtensionConfigManager::get_config_by_name(extension_name) {
                 Ok(Some(config)) => configs.push(config),
                 Ok(None) => {
-                    return (
-                        request_id,
-                        Err(ToolError::ExecutionError(format!(
-                        "Extension '{}' not found. Please check the extension name and try again.",
-                        extension_name
-                    ))),
-                    )
+                    configs_not_found.push(extension_name.clone());
                 }
                 Err(e) => {
-                    return (
-                        request_id,
-                        Err(ToolError::ExecutionError(format!(
-                            "Failed to get extension config: {}",
-                            e
-                        ))),
-                    )
+                    configs_errors.push(format!(
+                        "Failed to get config for extension '{}': {}",
+                        extension_name, e
+                    ));
                 }
             };
+        }
+
+        if !configs_not_found.is_empty() {
+            return (
+                request_id,
+                Err(ToolError::ExecutionError(format!(
+                    "The following extensions were not found: {}. Please check the extension names and try again.",
+                    configs_not_found.join(", ")
+                ))),
+            );
+        }
+
+        if !errors.is_empty() {
+            return (
+                request_id,
+                Err(ToolError::ExecutionError(errors.join("\n"))),
+            );
         }
 
         match tool_name {
