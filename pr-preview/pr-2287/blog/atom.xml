@@ -200,7 +200,7 @@ The introduction of <a href="https://modelcontextprotocol.io/" target="_blank" r
 <li>Enable the <a href="https://github.com/modelcontextprotocol/servers/tree/HEAD/src/postgres" target="_blank" rel="noopener noreferrer"><code>PostgreSQL</code></a> and <a href="https://block.github.io/goose/pr-preview/pr-2287/extensions/detail?id=developer"><code>Developer</code></a> extensions</li>
 <li>Prompt Goose:<!-- -->
 <blockquote>
-<p>Search my database for any students whose GPA is higher than the average in their grade level. Return name, grade, GPA difference, and the average GPA.</p>
+<p>Find my top 3 blog posts by average weekly views over the past 90 days. Include title, URL, average weekly views, and whether they were promoted on social.</p>
 </blockquote>
 </li>
 </ol>
