@@ -11,6 +11,7 @@ use bytes::Bytes;
 use futures::{stream::StreamExt, Stream};
 use goose::{
     agents::SessionConfig,
+    config::Config,
     message::{Message, MessageContent},
     permission::permission_confirmation::PrincipalType,
 };
@@ -510,8 +511,7 @@ mod tests {
                 model_config: mock_model_config,
             });
             // Create agent with a specific config instance
-            let config_instance = Arc::new(Config::global().clone());
-            let agent = Agent::with_config(mock_provider, config_instance);
+            let agent = Agent::with_config(mock_provider, Arc::new(Config::global().clone()));
             let state = AppState {
                 config: Arc::new(Mutex::new(HashMap::new())),
                 agent: Arc::new(RwLock::new(Some(agent))),

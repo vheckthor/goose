@@ -125,8 +125,7 @@ async fn create_agent(
 
     let version = String::from("goose");
     // Create agent with a specific config instance
-    let config_instance = Arc::new(Config::global().clone());
-    let new_agent = Agent::with_config(provider, config_instance);
+    let new_agent = Agent::with_config(provider, Arc::new(Config::global().clone()));
 
     let mut agent = state.agent.write().await;
     *agent = Some(new_agent);

@@ -51,8 +51,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent with the global config
-    let config = Arc::new(Config::global().clone());
-    let mut agent = Agent::with_config(provider, config);
+    let mut agent = Agent::with_config(provider, Arc::new(Config::global().to_owned()));
 
     // Handle session file resolution and resuming
     let session_file = if session_config.resume {

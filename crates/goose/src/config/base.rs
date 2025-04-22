@@ -104,11 +104,13 @@ impl From<keyring::Error> for ConfigError {
 /// environment variable OPENAI_API_KEY
 ///
 /// For Goose-specific configuration, consider prefixing with "goose_" to avoid conflicts.
+#[derive(Clone)]
 pub struct Config {
     config_path: PathBuf,
     secrets: SecretStorage,
 }
 
+#[derive(Clone)]
 enum SecretStorage {
     Keyring { service: String },
     File { path: PathBuf },

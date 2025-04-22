@@ -989,8 +989,7 @@ pub async fn configure_tool_permissions_dialog() -> Result<(), Box<dyn Error>> {
         goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent with a specific config instance
-    let config_instance = Arc::new(Config::global().clone());
-    let mut agent = Agent::with_config(provider, config_instance);
+    let mut agent = Agent::with_config(provider, Arc::new(Config::global().clone()));
     if let Ok(Some(config)) = ExtensionConfigManager::get_config_by_name(&selected_extension_name) {
         agent
             .add_extension(config.clone())

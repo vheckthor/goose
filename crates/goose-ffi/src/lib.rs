@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use futures::StreamExt;
 use goose::agents::Agent;
+use goose::config::Config;
 use goose::message::Message;
 use goose::model::ModelConfig;
 use goose::providers::databricks::DatabricksProvider;
