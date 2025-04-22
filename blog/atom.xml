@@ -206,8 +206,8 @@ As more teams experiment, they discover new ways to collaborate with Goose and r
 <p>We're also investing in:</p>
 <ul>
 <li>More secure defaults and tooling restrictions based on context</li>
-<li>Human-in-the-loop features for higher-risk operations</li>
-<li>Encouraging open-source MCP contributions from across the company</li>
+<li>Human-in-the-loop features for higher risk operations</li>
+<li>Encouraging open source MCP contributions from across the company</li>
 </ul>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="want-to-learn-more">Want to Learn More?<a href="https://block.github.io/goose/blog/2025/04/21/mcp-in-enterprise#want-to-learn-more" class="hash-link" aria-label="Direct link to Want to Learn More?" title="Direct link to Want to Learn More?">​</a></h2>
 <p>If you're curious about Goose or MCP, check out the <a href="https://block.github.io/goose/docs/quickstart">Goose documentation</a> or <a href="https://spec.modelcontextprotocol.io/" target="_blank" rel="noopener noreferrer">MCP spec</a>.
