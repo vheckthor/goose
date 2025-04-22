@@ -231,21 +231,26 @@ impl Agent {
 
         match tool_name {
             ref name if name == PLATFORM_ENABLE_EXTENSIONS_TOOL_NAME => {
-                let mut success_messages = Vec::new();
+                let mut success_names = Vec::new();
                 let mut errors = Vec::new();
 
                 // Process each config
                 for config in configs {
                     let name = config.name();
                     match extension_manager.add_extension(config).await {
-                        Ok(_) => success_messages.push(format!(
-                            "The extension '{}' has been installed successfully",
-                            name
-                        )),
+                        Ok(_) => success_names.push(name),
                         Err(e) => {
                             errors.push(format!("Failed to install extension '{}': {}", name, e))
                         }
                     }
+                }
+
+                let mut success_messages = Vec::new();
+                if !success_names.is_empty() {
+                    success_messages.push(format!(
+                        "The following extensions have been installed successfully: {}",
+                        success_names.join(", ")
+                    ));
                 }
 
                 let result = if !errors.is_empty() {
@@ -257,17 +262,14 @@ impl Agent {
                 (request_id, result)
             }
             ref name if name == PLATFORM_DISABLE_EXTENSIONS_TOOL_NAME => {
-                let mut success_messages = Vec::new();
+                let mut success_names = Vec::new();
                 let mut errors = Vec::new();
 
                 // Process each config
                 for config in configs {
                     let name = config.name();
                     match extension_manager.remove_extension(&name).await {
-                        Ok(_) => success_messages.push(format!(
-                            "The extension '{}' has been removed successfully",
-                            name
-                        )),
+                        Ok(_) => success_names.push(name),
                         Err(e) => {
                             errors.push(format!("Failed to remove extension '{}': {}", name, e))
                         }
@@ -277,7 +279,10 @@ impl Agent {
                 let result = if !errors.is_empty() {
                     Err(ToolError::ExecutionError(errors.join("\n")))
                 } else {
-                    Ok(vec![Content::text(success_messages.join("\n"))])
+                    Ok(vec![Content::text(format!(
+                        "The following extensions have been removed successfully: {}",
+                        success_names.join(", ")
+                    ))])
                 };
 
                 (request_id, result)

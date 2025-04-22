@@ -1,46 +1,154 @@
 [
   {
     "id": "developer",
-    "name": "Developer",
+    "name": "developer",
+    "display_name": "Developer",
     "description": "General development tools useful for software engineering.",
     "enabled": true,
     "type": "builtin",
     "env_keys": [],
-    "timeout": 300
+    "timeout": 300,
+    "bundled": true
   },
   {
     "id": "computercontroller",
-    "name": "Computer Controller",
+    "name": "computercontroller",
+    "display_name": "Computer Controller",
     "description": "General computer control tools that don't require you to be a developer or engineer.",
     "enabled": false,
     "type": "builtin",
     "env_keys": [],
-    "timeout": 300
+    "timeout": 300,
+    "bundled": true
   },
   {
     "id": "memory",
-    "name": "Memory",
+    "name": "memory",
+    "display_name": "Memory",
     "description": "Teach goose your preferences as you go.",
     "enabled": false,
     "type": "builtin",
     "env_keys": [],
-    "timeout": 300
+    "timeout": 300,
+    "bundled": true
   },
   {
     "id": "jetbrains",
-    "name": "Jetbrains",
+    "name": "jetbrains",
+    "display_name": "Jetbrains",
     "description": "Integration with any Jetbrains IDE",
     "enabled": false,
     "type": "builtin",
     "env_keys": [],
-    "timeout": 300
+    "timeout": 300,
+    "bundled": true
   },
   {
     "id": "tutorial",
-    "name": "Tutorial",
+    "name": "tutorial",
+    "display_name": "Tutorial",
     "description": "Access interactive tutorials and guides",
     "enabled": false,
     "type": "builtin",
-    "env_keys": []
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "googledrive",
+    "name": "Google Drive",
+    "description": "Built-in Google Drive integration for file management and access",
+    "enabled": false,
+    "type": "builtin",
+    "env_keys": [
+      "GOOGLE_DRIVE_OAUTH_PATH",
+      "GOOGLE_DRIVE_CREDENTIALS_PATH",
+      "GOOGLE_DRIVE_OAUTH_CONFIG"
+    ],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "qaiindexsearch",
+    "name": "QAI Index Search",
+    "description": "Search QAI's index directly from goose",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp_qai_index_search@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "snowflake",
+    "name": "Snowflake",
+    "description": "Integration to query Snowflake data",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp_snowflake@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "codesearch",
+    "name": "Codesearch",
+    "description": "Query https://codesearch.sqprod.co/ directly from goose",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp_codesearch@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "figma",
+    "name": "Figma",
+    "description": "Interact with Figma and Figjam files",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "npx",
+    "args": ["-y", "@block/mcp_figma@latest"],
+    "env_keys": ["FIGMA_CLIENT_ID", "FIGMA_CLIENT_SECRET"],
+    "timeout": 300
+  },
+  {
+    "id": "googlecalendar",
+    "name": "Google Calendar",
+    "description": "Interact with Google Calendar events",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp_gcal@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "pdfreader",
+    "name": "PDF Reader",
+    "description": "Read and understand large or complex PDFs",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp-read-pdf@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
+  },
+  {
+    "id": "databricks",
+    "name": "Databricks",
+    "description": "Integration to query Databricks data",
+    "enabled": false,
+    "type": "stdio",
+    "cmd": "uvx",
+    "args": ["mcp_databricks@latest"],
+    "env_keys": [],
+    "timeout": 300,
+    "bundled": true
   }
 ]
