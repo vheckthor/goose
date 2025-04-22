@@ -4,10 +4,136 @@
         <title>codename goose Blog</title>
         <link>https://block.github.io/goose/blog</link>
         <description>codename goose Blog</description>
-        <lastBuildDate>Mon, 21 Apr 2025 00:00:00 GMT</lastBuildDate>
+        <lastBuildDate>Tue, 22 Apr 2025 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <language>en</language>
+        <item>
+            <title><![CDATA[MCP Is Rewriting the Rules of API Integration]]></title>
+            <link>https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration</link>
+            <guid>https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration</guid>
+            <pubDate>Tue, 22 Apr 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[A developer's guide to modernizing API infrastructure with AI agents and Model Context Protocol. Learn about the benefits, integration strategies, and how to address security considerations.]]></description>
+            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/cover-928f359e7cedd29991f2e9baf773b56d.png" width="1920" height="1080" class="img_ev3q"></p>
+<p>As developers, we're always looking for ways to build more efficient, scalable, and intelligent applications. For years, RESTful APIs have been our go-to for connecting services. Here are some ways you can integrate AI agents and MCP into your existing API infrastructure to make it smarter, more efficient, and easier to maintain.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="introduction-the-intelligent-evolution-of-your-apis">Introduction: The Intelligent Evolution of Your APIs<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#introduction-the-intelligent-evolution-of-your-apis" class="hash-link" aria-label="Direct link to Introduction: The Intelligent Evolution of Your APIs" title="Direct link to Introduction: The Intelligent Evolution of Your APIs">​</a></h2>
+<p>In March 2023, OpenAI announced an easier integration to ChatGPT by using properly-formatted OpenAPI specification files with meticulously-written and detailed instructions in the same file. This announcement gained a lot of attention in developer communities. The business impact was having developers and documentation writers working on one gigantic spec file together, to provide ChatGPT the necessary context to understand which API to use, and how.</p>
+<p>Skip ahead just a short while, and <a href="https://news.microsoft.com/source/features/ai/ai-agents-what-they-are-and-how-theyll-change-the-way-we-work/" target="_blank" rel="noopener noreferrer">AI agents</a> combined with the <a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener noreferrer">Model Context Protocol (MCP)</a> are splitting this workload where MCP could contain the context and awareness, and your API team can focus on the API itself. These aren't just incremental improvements, either; the combination of Agentic AI and MCP represent a fundamental shift in how we connect and interact with data and services.</p>
+<p>The shift to <a href="https://block.github.io/goose/blog/2025/02/17/agentic-ai-mcp/">using AI Agents and MCP</a> has the potential to be as big a change as the introduction of REST APIs was back in 2005. Imagine a world where integrations are more dynamic, context-aware, and require less manual coding. This isn't a distant future -- it's already happening. This is an opportunity for us to boost productivity, enhance app intelligence, and ultimately deliver better experiences to our users, clients, and customers.</p>
+<p>Let's use an example: imagine your team wants AI to handle dynamic pricing adjustments in your e-commerce workflow at Square. If you could gain a faster response time to market changes or inventory, you could reduce the need to build dozens or hundreds of dynamic pricing rules into your code. Your productivity as a developer goes up, and you have less code to maintain. You could write those rules in a more spoken-language way, and the AI agent can handle the rest through MCP and your APIs.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="from-static-endpoints-to-intelligent-interactions">From Static Endpoints to Intelligent Interactions<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#from-static-endpoints-to-intelligent-interactions" class="hash-link" aria-label="Direct link to From Static Endpoints to Intelligent Interactions" title="Direct link to From Static Endpoints to Intelligent Interactions">​</a></h2>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="current-landscape-the-limitations-of-traditional-apis">Current Landscape: The Limitations of Traditional APIs<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#current-landscape-the-limitations-of-traditional-apis" class="hash-link" aria-label="Direct link to Current Landscape: The Limitations of Traditional APIs" title="Direct link to Current Landscape: The Limitations of Traditional APIs">​</a></h3>
+<p>Many of our current systems rely heavily on traditional APIs, like RESTful APIs, which are designed with static endpoints that respond to specific requests with specific results. While these APIs have served us well (and certainly aren't going away any time soon), they come with limitations:</p>
+<ul>
+<li>The static nature of RESTful APIs makes them more rigid, less adaptable to business changes, and require hard rules around versioning to provide compatibility.</li>
+<li>They often require significant manual effort to define endpoints, handle data transformations, and manage complex workflows. This can lead to slower development cycles and increased maintenance overhead.</li>
+</ul>
+<p><strong>The AI opportunity lies in leveraging intelligent agents, combined with MCP, to create more adaptive integrations.</strong> These agents can understand context, discover relevant services, and negotiate interactions in a more dynamic way than static API calls. The static APIs are still being used, but the AI agents can navigate those more easily than changing your code calling the APIs and parsing and validating responses, and handling errors.</p>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="development-impact-boosting-productivity-enhancing-user-experiences">Development Impact: Boosting Productivity, Enhancing User Experiences<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#development-impact-boosting-productivity-enhancing-user-experiences" class="hash-link" aria-label="Direct link to Development Impact: Boosting Productivity, Enhancing User Experiences" title="Direct link to Development Impact: Boosting Productivity, Enhancing User Experiences">​</a></h3>
+<p>This dual integration of AI agents and MCP can have a significant positive impact on your development processes and the applications you build:</p>
+<ul>
+<li><strong>Developer Productivity:</strong> By automating many integration tasks and reducing the need for extensive manual coding, AI agents free up our time to focus on core application logic and innovation. (And testing. And security. And documentation. And...)</li>
+<li><strong>Customer Satisfaction:</strong> Intelligent integrations can lead to more personalized and responsive user experiences. Agents can facilitate real-time data analysis and context-aware interactions, making our applications smarter and more user-friendly.</li>
+<li><strong>Scalability:</strong> As your application grows, the complexity of managing multiple APIs can become overwhelming. <a href="https://block.github.io/goose/blog/2025/02/21/gooseteam-mcp/">Using multiple AI agents</a> can help manage this complexity by dynamically adapting to changes in the underlying services and workflows.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="business-impact-driving-efficiency-and-cost-savings">Business Impact: Driving Efficiency and Cost Savings<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#business-impact-driving-efficiency-and-cost-savings" class="hash-link" aria-label="Direct link to Business Impact: Driving Efficiency and Cost Savings" title="Direct link to Business Impact: Driving Efficiency and Cost Savings">​</a></h3>
+<p>From the business side, the integration of AI agents and MCP can lead to significant cost savings and efficiency gains. Here are some key areas where you can expect to see improvements:</p>
+<p><strong>Example ROI Calculation (Per Developer):</strong></p>
+<p>Traditional API Development:</p>
+<ul>
+<li>Average time to add feature: 2 weeks</li>
+<li>Developer cost: $150/hour</li>
+<li>Assuming 40 hours/week: 2 weeks * 40 hours/week * $150/hour = $12,000</li>
+</ul>
+<p>AI-Agent Enabled:</p>
+<ul>
+<li>Average time to add feature: 2 days</li>
+<li>Developer cost: $150/hour</li>
+<li>Assuming 8 hours/day: 2 days * 8 hours/day * $150/hour = $2,400</li>
+</ul>
+<p>Annual savings for 50 features: ( $12,000 - $2,400 ) * 50 = <strong>$480,000 per developer</strong></p>
+<p>This illustrates the potential for significant time and cost savings per developer by adopting AI agents.</p>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="integrating-ai-and-mcp-navigating-the-landscape">Integrating AI and MCP: Navigating the Landscape<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#integrating-ai-and-mcp-navigating-the-landscape" class="hash-link" aria-label="Direct link to Integrating AI and MCP: Navigating the Landscape" title="Direct link to Integrating AI and MCP: Navigating the Landscape">​</a></h2>
+<p>Integrating AI agents, especially through a platform like MCP, requires careful consideration.</p>
+<ul>
+<li>Risk Management: MCP, while promising, is a newer technology. Your team needs to thoroughly evaluate <a href="https://block.github.io/goose/blog/2025/03/26/mcp-security/">potential security concerns</a> and understand the maturity of the platform before deep integration into critical systems.</li>
+<li>Planning for Continuity and Versioning: As with any evolving technology, you will need strategies for ensuring the continuity of integrations and managing versioning of both the AI agents and MCP itself.</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="phased-approach-a-practical-integration-strategy">Phased Approach: A Practical Integration Strategy<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#phased-approach-a-practical-integration-strategy" class="hash-link" aria-label="Direct link to Phased Approach: A Practical Integration Strategy" title="Direct link to Phased Approach: A Practical Integration Strategy">​</a></h3>
+<p>A step-by-step approach can help mitigate risks, and learn effectively through feedback, as you integrate AI agents via MCP:</p>
+<p><strong>Phase 1: Assessment (Initial Exploration)</strong></p>
+<ul>
+<li>Look through your existing API usage, and identify integration possibilities</li>
+<li>Consider the ROI: start with small ideas and grow your integration efforts over time</li>
+<li>Build initial business/tech plans for adopting AI agents and MCP</li>
+</ul>
+<p><strong>Phase 2: A/B Testing and Pilot Projects</strong></p>
+<ul>
+<li>Select a low-risk, high-value service for initial AI agent integration via MCP</li>
+<li>Implement the integration, then do thorough A/B testing and comparisons against the traditional API approach</li>
+<li>Measure the results, gather benchmark/performance data, and talk to the team about what you find</li>
+</ul>
+<p><strong>Phase 3: Scale and Optimization</strong></p>
+<ul>
+<li>Take it a step at a time: based on the results, take on bigger and more complex integration ideas</li>
+<li>Continue to optimize your integration process over time</li>
+<li>Use feedback from your dev teams and end-users to refine your process</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="measuring-success-quantifying-the-impact">Measuring Success: Quantifying the Impact<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#measuring-success-quantifying-the-impact" class="hash-link" aria-label="Direct link to Measuring Success: Quantifying the Impact" title="Direct link to Measuring Success: Quantifying the Impact">​</a></h2>
+<p>For the business readers: to understand the benefits of integrating AI agents via MCP, here are some key performance indicators (KPIs) you can track:</p>
+<ul>
+<li>Development Velocity</li>
+<li>Error Rates</li>
+<li>Customer Satisfaction</li>
+</ul>
+<h3 class="anchor anchorWithStickyNavbar_LWe7" id="build-your-case-study-and-share-your-learnings">Build Your Case Study and Share Your Learnings<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#build-your-case-study-and-share-your-learnings" class="hash-link" aria-label="Direct link to Build Your Case Study and Share Your Learnings" title="Direct link to Build Your Case Study and Share Your Learnings">​</a></h3>
+<p>Documenting your team's  journey and sharing your experiences is valuable for both your team and the wider developer community. Here are a few things you should share to help demonstrate the impact of your projects:</p>
+<ul>
+<li><strong>Before and After Metrics</strong>: what kind of improvements did you see in development time, error rates after integrating AI agents and MCP?</li>
+<li><strong>Team Feedback</strong>: there's going to be a learning curve here, similar to what we all experienced when integrating APIs; gather feedback about how the integration workflows are going and what could be improved</li>
+<li><strong>Customer/End User Impact</strong>: highlight any positive changes in user engagement, satisfaction, or other user/customer metrics</li>
+<li><strong>Lessons Learned</strong>: perhaps the most important; what worked well, what didn't, how are you changing the process for the next phase of integration?</li>
+</ul>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="where-do-we-go-from-here">Where do we go from here?<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#where-do-we-go-from-here" class="hash-link" aria-label="Direct link to Where do we go from here?" title="Direct link to Where do we go from here?">​</a></h2>
+<p>Understanding your existing integrations, and identifying potential areas for improvement with AI agents and MCP is your starting point. There is a lot to learn about integrating AI agents, and MCP is still a new technology.</p>
+<p>Finding those opportunities where AI can help, and outlining a plan to gradually adopt AI and MCP into your projects is the best way to start.</p>
+<p>Keep in mind, this integration landscape is still evolving. Stay open to new ideas, and adapt your approach as the technology matures. Building smarter applications is a journey, and there will be forks in the road.</p>
+<p>Additional Reading:</p>
+<ol>
+<li>What are AI Agents</li>
+</ol>
+<ul>
+<li><a href="https://news.microsoft.com/source/features/ai/ai-agents-what-they-are-and-how-theyll-change-the-way-we-work/" target="_blank" rel="noopener noreferrer">AI agents — what they are, and how they’ll change the way we work</a></li>
+<li><a href="https://www.aitrends.com/ai-agents/what-are-ai-agents-and-why-do-they-matter/" target="_blank" rel="noopener noreferrer">What are AI Agents and Why do They Matter?</a></li>
+</ul>
+<ol start="2">
+<li>
+<p><a href="https://modelcontextprotocol.io/introduction" target="_blank" rel="noopener noreferrer">An Introduction to MCP</a></p>
+</li>
+<li>
+<p><a href="https://block.github.io/goose/blog/2024/12/10/connecting-ai-agents-to-your-systems-with-mcp/">Connecting AI Agents to Your Systems with MCP</a></p>
+</li>
+<li>
+<p><a href="https://www.mckinsey.com/featured-insights/artificial-intelligence/global-ai-survey-ai-proves-its-worth-but-few-scale-impact" target="_blank" rel="noopener noreferrer">Global AI Survey: AI proves its worth, but few scale impact</a></p>
+</li>
+<li>
+<p><a href="https://www.thoughtworks.com/en-us/insights/blog/generative-ai/generative-ai-legacy-modernization-insurance-erik-doernenburg" target="_blank" rel="noopener noreferrer">Bringing generative AI to bear on legacy modernization in insurance</a></p>
+</li>
+</ol>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="tldr-common-questions">TL;DR Common Questions<a href="https://block.github.io/goose/blog/2025/04/22/mcp-is-rewriting-the-rules-of-api-integration#tldr-common-questions" class="hash-link" aria-label="Direct link to TL;DR Common Questions" title="Direct link to TL;DR Common Questions">​</a></h2>
+<p>Q: <strong>How will MCP help with APIs?</strong><br>
+A: Start with <a href="https://block.github.io/goose/blog/2025/02/17/agentic-ai-mcp/#mcp-ecosystem">this post by Angie Jones</a>. MCP provides context about your API, to give AI Agents more context and awareness of the capabilities of your API endpoints and responses. This can help the Agent understand the intent of the request, and dynamically invoke (or "call") to underlying API endpoint, handle data transformation, and return a response. No more manually writing the code, response validators, error handlers, and so on!</p>
+<p>Q: <strong>What are some initial steps I can take as a developer to explore AI agents and MCP?</strong><br>
+A: Start by researching the fundamental concepts, and use other existing MCP servers. We recommend starting with <a href="https://block.github.io/goose" target="_blank" rel="noopener noreferrer">Goose</a> to integrate an existing MCP server. We have a growing <a href="https://block.github.io/goose/docs/category/tutorials/" target="_blank" rel="noopener noreferrer">listof tutorials</a> to help you find some technologies like GitHub, PostgreSQL, Google Maps, and more. Once you feel comfortable with using MCP, you can start building your own MCP server for your own APIs.</p>
+<p>Q: <strong>What about AI and MCP security?</strong><br>
+A: AI agents can enhance security through better context awareness in interactions, but MCP is still relatively new, and requires <a href="https://block.github.io/goose/blog/2025/03/26/mcp-security/">careful security evaluations</a>. Your business and dev teams should thoroughly investigate MCP's capabilities to ensure you're building appropriate access control, and managing data privacy.</p>
+<p>Q: <strong>How long would a full migration typically take?</strong><br>
+A: It's too dynamic to give one solid answer. Integration and migrations can vary a lot, depending on the scope of your existing API usage and existing integrations. Start small, build some pilot projects to try it out, and these might only take a few days or weeks.</p>
+<p>Q: <strong>What are some potential problems devs might encounter on this AI/MCP journey?</strong><br>
+A: There's a learning curve associated with any technology. This can be compounded when you consider that MCP is still relatively new and evolving. The greater community needs strategies around testing and debugging MCP, as well as considering security and data privacy. This means that what you learn today will need to be re-evaluated even a few short months from now.</p>
+<p>Q: <strong>How mature and production-ready is MCP for enterprise-level AI integration?</strong><br>
+A: Your approach on this may vary depending on whether you're building your own MCP server, or whether you're using third-party MCP servers in your integration. Developers should evaluate all of the benefits of MCP and consider the work being done around security and data privacy. Focus on a small pilot project or non-critical system initially to assess its suitability for your specific needs. Stay updated on <a href="https://modelcontextprotocol.io/development/roadmap" target="_blank" rel="noopener noreferrer">MCP's development roadmap</a> and community feedback.</p>]]></content:encoded>
+        </item>
         <item>
             <title><![CDATA[MCP in the Enterprise: Real World Adoption at Block]]></title>
             <link>https://block.github.io/goose/blog/2025/04/21/mcp-in-enterprise</link>
@@ -1473,30 +1599,6 @@ If you’d like to try out the toolshim, check out our <a href="https://block.gi
 <h1>It's About The Freedom To Choose</h1>
 <p>While there are trade-offs in terms of raw processing power when you go local vs cloud, you don't have to choose one over the other. As Parth summarized during the livestream: "Local AI isn't about replacing cloud options—it's about having the freedom to choose the right approach for your specific needs."</p>
 <p>The benefits of owning your AI experience can be compelling for a variety of use cases. Whether you're a developer building tools, a writer working with confidential material, or simply someone who values privacy and control, I hope the Goose-Ollama integration offers a glimpse into how a local experience can benefit you, and explore a future where sophisticated AI is as personal and private as the data on your hard drive. Thanks for reading!</p>
-]]></content:encoded>
-        </item>
-        <item>
-            <title><![CDATA[Turn Figma Designs Into Code With Goose]]></title>
-            <link>https://block.github.io/goose/blog/2025/03/12/goose-figma-mcp</link>
-            <guid>https://block.github.io/goose/blog/2025/03/12/goose-figma-mcp</guid>
-            <pubDate>Wed, 12 Mar 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[Give Goose the ability to turn Figma designs into code with the Figma extension.]]></description>
-            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/goosefigma-e6f84a734bd56cb431bb02452331a5d5.png" width="1206" height="633" class="img_ev3q"></p>
-<p>In our previous episode of <a href="https://www.youtube.com/playlist?list=PLyMFt_U2IX4s1pMaidir5P4lSfjUK6Nzm" target="_blank" rel="noopener noreferrer">Goose Flight School</a>, our host <a href="https://www.linkedin.com/in/acekyd/" target="_blank" rel="noopener noreferrer">Adewale Abati</a> showed us how to use Goose to take a Figma design and transform it into a functional Nuxt application. In this stream he covered the entire process, from initial setup to final implementation, highlighting how Goose can help developers bridge the gap between design and development.</p>
-<p><a href="https://block.github.io/goose/docs/getting-started/using-extensions" target="_blank" rel="noopener noreferrer">Extensions</a> enhance Goose's functionality by connecting with your existing tools and workflows. They add new features, access external data resources, and integrate with other systems. Learn how multiple extensions, including Figma and Developer, worked together seamlessly to dramatically accelerate development.</p>
-<h1>Live Tutorial: Goose Builds Live</h1>
-<p>During the livestream, Adewale demonstrated step-by-step how Goose handled each development phase, from creating the basic application structure to generating responsive layouts using Tailwind CSS. Adewale also highlighted how Goose addresses potential limitations as you go, showcasing the powerful balance between the Goose's automation and developer control.</p>
-<iframe class="aspect-ratio" src="https://www.youtube.com/embed/_9t_N9zKwKM?si=r3e1MkrjS-f2AvkI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin"></iframe>
-<p>Throughout the stream, Adewale shared valuable tips to prepare your design for Goose. His key recommendations include:</p>
-<ul>
-<li>start with a well-structured Figma design</li>
-<li>use Goose to make targeted improvements after the initial generation</li>
-<li>fine-tune specific elements as needed</li>
-<li>make sure you thoroughly test for functionality and responsiveness</li>
-</ul>
-<h1>Getting Started with Goose and Figma</h1>
-<p>Whether you're a designer wanting to rapidly turn concepts into working code or a developer curious about streamlining design implementation, you can download Goose with its built-in <a href="https://block.github.io/goose/docs/getting-started/installation" target="_blank" rel="noopener noreferrer">Developer extension</a> and add the <a href="https://block.github.io/goose/v1/extensions/" target="_blank" rel="noopener noreferrer">Figma extension</a>.</p>
-<p>For step-by-step instructions, check out the <a href="https://block.github.io/goose/docs/tutorials/figma-mcp" target="_blank" rel="noopener noreferrer">Figma tutorial</a>.</p>
 ]]></content:encoded>
         </item>
     </channel>
