@@ -226,6 +226,33 @@ impl ExtensionManager {
         Ok(())
     }
 
+    pub async fn suggest_disable_extensions_prompt(&self) -> Value {
+        let enabled_extensions_count = self.clients.len();
+        let total_tools = self
+            .get_prefixed_tools(None)
+            .await
+            .map(|tools| tools.len())
+            .unwrap_or(0);
+
+        // Check if either condition is met
+        const MIN_EXTENSIONS: usize = 5;
+        const MIN_TOOLS: usize = 50;
+        const BUILTIN_EXTENSIONS_COUNT: usize = 5;
+
+        let suggest_disable_prompt = Value::String(format!(
+            "The user currently has enabled {} extensions with a total of {} tools. \
+            If the number of extensions is greater than {} or the number of tools is greater than {}, \
+            you should ask the user if they would like to disable a few extensions for this session. \
+            To do this, list the extensions names and ask the user which ones they are currently not using. \
+            Explain to them the benefit of minimizing extensions is that it helps with the recall of the correct tools to use",
+            enabled_extensions_count,
+            total_tools - BUILTIN_EXTENSIONS_COUNT,
+            MIN_EXTENSIONS,
+            MIN_TOOLS
+        ));
+        suggest_disable_prompt
+    }
+
     pub async fn list_extensions(&self) -> ExtensionResult<Vec<String>> {
         Ok(self.clients.keys().cloned().collect())
     }
