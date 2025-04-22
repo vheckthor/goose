@@ -6,7 +6,7 @@ pub const PLATFORM_READ_RESOURCE_TOOL_NAME: &str = "platform__read_resource";
 pub const PLATFORM_LIST_RESOURCES_TOOL_NAME: &str = "platform__list_resources";
 pub const PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME: &str =
     "platform__search_available_extensions";
-pub const   PLATFORM_ENABLE_EXTENSIONS_TOOL_NAME: &str = "platform__enable_extensions";
+pub const PLATFORM_ENABLE_EXTENSIONS_TOOL_NAME: &str = "platform__enable_extensions";
 pub const PLATFORM_DISABLE_EXTENSIONS_TOOL_NAME: &str = "platform__disable_extensions";
 
 pub fn read_resource_tool() -> Tool {
