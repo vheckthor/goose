@@ -290,6 +290,8 @@ impl ExtensionManager {
 
     pub async fn suggest_disable_extensions_prompt(&self) -> Value {
         let enabled_extensions_count = self.clients.len();
+        let extension_names: Vec<String> = self.clients.keys().cloned().collect();
+        
         let total_tools = self
             .get_prefixed_tools(None)
             .await
@@ -300,18 +302,23 @@ impl ExtensionManager {
         const MIN_EXTENSIONS: usize = 5;
         const MIN_TOOLS: usize = 50;
 
-        let suggest_disable_prompt = Value::String(format!(
-            "The user currently has enabled {} extensions with a total of {} tools. \
-            If the number of extensions is greater than {} or the number of tools is greater than {}, \
-            you should ask the user if they would like to disable a few extensions for this session. \
-            To do this, list the extensions names and ask the user which ones they are currently not using. \
-            Explain to them the benefit of minimizing extensions is that it helps with the recall of the correct tools to use",
-            enabled_extensions_count,
-            total_tools,
-            MIN_EXTENSIONS,
-            MIN_TOOLS
-        ));
-        suggest_disable_prompt
+        if enabled_extensions_count > MIN_EXTENSIONS || total_tools > MIN_TOOLS {
+            Value::String(format!(
+                "The user currently has enabled {} extensions with a total of {} tools. \
+                Since this exceeds the recommended limits ({} extensions or {} tools), \
+                you should ask the user if they would like to disable some extensions for this session.\n\n\
+                Currently enabled extensions:\n{}\n\n\
+                Please ask the user which extensions they are not currently using and could disable. \
+                Explain that minimizing extensions helps with the recall of the correct tools to use.",
+                enabled_extensions_count,
+                total_tools,
+                MIN_EXTENSIONS,
+                MIN_TOOLS,
+                extension_names.join("\n- ")
+            ))
+        } else {
+            Value::String(String::new()) // Empty string if under limits
+        }
     }
 
     pub async fn list_extensions(&self) -> ExtensionResult<Vec<String>> {
