@@ -14,12 +14,12 @@
         <updated>2025-04-23T00:00:00.000Z</updated>
         <summary type="html"><![CDATA[Learn what you need to get starte with Goose,local, open-source, and powered by the LLM of choice.]]></summary>
         <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-2318/assets/images/cover-2ba7c2e15786be2db6108c91d27dc1ec.png" width="2240" height="1260" class="img_ev3q"></p>
-<p>So you’ve heard about Goose. Maybe you saw a livestream, maybe someone on your team mentioned it, or maybe you just stumbled into our corner of the internet while trying to automate your dev setup. Either way—love that for you.</p>
+<p>So you’ve heard about Goose. Maybe you saw a livestream, someone on your team mentioned it, or you just stumbled into our corner of the internet while trying to automate your dev setup.  Either way—love that for you.</p>
 <p>Goose is a local, open source AI agent that can automate tasks, interact with your codebase, and connect to a growing ecosystem of tools. But before you hit install, here are four things you should know to get the most out of it.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="so-waitwhat-is-goose-actually">So Wait—What <em>Is</em> Goose, Actually?<a href="https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know#so-waitwhat-is-goose-actually" class="hash-link" aria-label="Direct link to so-waitwhat-is-goose-actually" title="Direct link to so-waitwhat-is-goose-actually">​</a></h2>
 <p>Goose is an <strong>MCP client</strong>.</p>
-<p>That means it connects to tools and data through something called the <strong>Model Context Protocol (MCP)</strong>—an open standard that makes it possible for AI agents to interact with external systems through natural language. If you’ve used Claude Desktop, or Cursor you’ve already used an MCP client, even if you didn’t realize it.</p>
+<p>That means it connects to tools and data through something called the <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank" rel="noopener noreferrer"><strong>Model Context Protocol (MCP)</strong></a>—an open standard that makes it possible for AI agents to interact with external systems through natural language. If you’ve used Claude Desktop, Windsurf, Agent mode in VS Code or Cursor you’ve already used an MCP client, even if you didn’t realize it.</p>
 <p>Here’s what makes Goose different:</p>
 <ul>
 <li>It runs <strong>locally</strong>, not in someone else’s cloud</li>
@@ -43,7 +43,7 @@
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="3-there-can-be-costs">3. There <em>Can</em> Be Costs<a href="https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know#3-there-can-be-costs" class="hash-link" aria-label="Direct link to 3-there-can-be-costs" title="Direct link to 3-there-can-be-costs">​</a></h2>
 <p>Goose itself? Totally free and open source. 🎉 But your LLM provider might not be as generous.</p>
 <p>Most models give you a free tier to play around with, but if you're doing anything intensive or using it often, you’ll eventually run into rate limits or token charges. That’s normal but it can sneak up on you if you’re not expecting it.</p>
-<p>To help you manage this, there is a <a href="https://block.github.io/goose/docs/guides/handling-llm-rate-limits-with-goose/" target="_blank" rel="noopener noreferrer">Handling Rate limits Guide</a> that you can check out.</p>
+<p>To help you manage this, there is a <a href="https://block.github.io/goose/docs/guides/handling-llm-rate-limits-with-goose/" target="_blank" rel="noopener noreferrer">Handling Rate Limits Guide</a> that you can check out.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="4-tap-into-the-community">4. Tap Into the Community<a href="https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know#4-tap-into-the-community" class="hash-link" aria-label="Direct link to 4. Tap Into the Community" title="Direct link to 4. Tap Into the Community">​</a></h2>
 <p>This part matters more than most people realize.</p>
@@ -58,7 +58,7 @@
 <hr>
 <p>If you’ve got those four things, a solid LLM, the right servers, a basic understanding of LLM cost, and a place to ask questions you’re more than ready to Goose.</p>
 <p>Now, head over to the <a href="https://block.github.io/goose/docs/quickstart" target="_blank" rel="noopener noreferrer">Quickstart Guide</a> and get started.</p>
-<p>Oh and when you get to the Tic-Tac-Toe game?
+<p>Oh and when you get to the <a href="https://block.github.io/goose/docs/quickstart/#write-prompt" target="_blank" rel="noopener noreferrer">Tic-Tac-Toe game</a>?
 I’ll bet you 10 Goosebucks you won’t beat the bot.</p>
 ]]></content>
         <author>
@@ -212,7 +212,8 @@ A: It's too dynamic to give one solid answer. Integration and migrations can var
 <p>Q: <strong>What are some potential problems devs might encounter on this AI/MCP journey?</strong><br>
 A: There's a learning curve associated with any technology. This can be compounded when you consider that MCP is still relatively new and evolving. The greater community needs strategies around testing and debugging MCP, as well as considering security and data privacy. This means that what you learn today will need to be re-evaluated even a few short months from now.</p>
 <p>Q: <strong>How mature and production-ready is MCP for enterprise-level AI integration?</strong><br>
-A: Your approach on this may vary depending on whether you're building your own MCP server, or whether you're using third-party MCP servers in your integration. Developers should evaluate all of the benefits of MCP and consider the work being done around security and data privacy. Focus on a small pilot project or non-critical system initially to assess its suitability for your specific needs. Stay updated on <a href="https://modelcontextprotocol.io/development/roadmap" target="_blank" rel="noopener noreferrer">MCP's development roadmap</a> and community feedback.</p>]]></content>
+A: Your approach on this may vary depending on whether you're building your own MCP server, or whether you're using third-party MCP servers in your integration. Developers should evaluate all of the benefits of MCP and consider the work being done around security and data privacy. Focus on a small pilot project or non-critical system initially to assess its suitability for your specific needs. Stay updated on <a href="https://modelcontextprotocol.io/development/roadmap" target="_blank" rel="noopener noreferrer">MCP's development roadmap</a> and community feedback.</p>
+]]></content>
         <author>
             <name>W Ian Douglas</name>
         </author>
