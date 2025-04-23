@@ -233,10 +233,10 @@ impl Agent {
             );
         }
 
-        if !errors.is_empty() {
+        if !configs_errors.is_empty() {
             return (
                 request_id,
-                Err(ToolError::ExecutionError(errors.join("\n"))),
+                Err(ToolError::ExecutionError(configs_errors.join("\n"))),
             );
         }
 
