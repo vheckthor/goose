@@ -281,6 +281,34 @@ void goose_agent_reply_state_free(goose_AgentReplyStatePtr state_ptr);
 void goose_free_tool_call(struct goose_ToolCallFFI tool_call);
 
 /*
+ Register tools with the agent
+
+ This function registers tools with the agent for use with the non-streaming API.
+ The tools should be provided as a JSON array of Tool objects.
+
+ # Parameters
+
+ - agent_ptr: Agent pointer
+ - tools_json: JSON string containing an array of Tool objects
+ - extension_name: Optional name for the extension. If NULL, a default name will be used.
+ - instructions: Optional instructions for using the tools. If NULL, default instructions will be used.
+
+ # Returns
+
+ A boolean indicating success (true) or failure (false)
+
+ # Safety
+
+ The agent_ptr must be a valid pointer returned by goose_agent_new.
+ The tools_json must be a valid JSON string in the expected format.
+ The extension_name and instructions must be valid UTF-8 strings or NULL.
+ */
+bool goose_agent_register_tools(goose_AgentPtr agent_ptr,
+                                const char *tools_json,
+                                const char *extension_name,
+                                const char *instructions);
+
+/*
  Free a string allocated by goose FFI functions
 
  This function frees memory allocated for strings returned by goose FFI functions.

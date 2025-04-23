@@ -6,8 +6,8 @@ WORKDIR /app
 RUN useradd -m gooseuser
 
 # Copy the Python example and pre-built library
-COPY goose_agent.py /app/
-COPY ../../../target/x86_64-unknown-linux-gnu/release/libgoose_ffi.so /app/
+COPY crates/goose-ffi/examples/goose_agent.py /app/
+COPY target/x86_64-unknown-linux-gnu/release/libgoose_ffi.so /app/
 
 # Modify the Python script to use the local library path
 RUN sed -i 's|LIB_PATH = os.path.join(os.path.dirname(__file__), "../../..", "target", "debug", LIB_NAME)|LIB_PATH = "/app/libgoose_ffi.so"|g' /app/goose_agent.py && \

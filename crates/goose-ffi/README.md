@@ -142,6 +142,48 @@ Functions that can fail return either null pointers or special result structures
 
 The FFI interface handles memory allocation and deallocation. Use the provided free functions (like `goose_free_string` and `goose_free_async_result`) to release resources when you're done with them.
 
+## Tool Registration
+
+You can register tools with the agent using the `goose_agent_register_tools` function. This allows the model to know which tools are available and how to use them:
+
+```c
+bool goose_agent_register_tools(
+    AgentPtr agent_ptr,
+    const char* tools_json,
+    const char* extension_name,
+    const char* instructions
+);
+```
+
+Parameters:
+- `agent_ptr`: Pointer to the agent
+- `tools_json`: JSON string containing an array of tools (must follow the Tool schema)
+- `extension_name`: (Optional) Name for the extension. If NULL, a default name will be used.
+- `instructions`: (Optional) Instructions for using the tools. If NULL, default instructions will be used.
+
+The JSON format for tools follows the standard OpenAI function calling schema:
+
+```json
+[
+  {
+    "name": "calculator",
+    "description": "Calculate mathematical expressions",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "expression": {
+          "type": "string",
+          "description": "Mathematical expression to evaluate"
+        }
+      },
+      "required": ["expression"]
+    }
+  }
+]
+```
+
+See the Python example (`goose_agent.py`) for a complete implementation of tool registration and usage.
+
 ## Non-Streaming API for Tool Handling
 
 The non-streaming API is designed for use in multi-threaded environments where multiple agents need to handle tool calls without blocking. This approach offers several advantages:
@@ -152,17 +194,23 @@ The non-streaming API is designed for use in multi-threaded environments where m
 
 ### API Flow
 
-1. **Begin a reply**:
+1. **Register tools** (optional, but recommended):
+   ```c
+   bool goose_agent_register_tools(AgentPtr agent, const char* tools_json, 
+                                  const char* extension_name, const char* instructions);
+   ```
+
+2. **Begin a reply**:
    ```c
    AgentReplyStatePtr goose_agent_reply_begin(AgentPtr agent, const char* message);
    ```
 
-2. **Execute a step**:
+3. **Execute a step**:
    ```c
    ReplyStepResult goose_agent_reply_step(AgentReplyStatePtr state);
    ```
 
-3. **Handle tool calls** (when status is `ToolCallNeeded`):
+4. **Handle tool calls** (when status is `ToolCallNeeded`):
    ```c
    AgentReplyStatePtr goose_agent_reply_tool_result(
        AgentReplyStatePtr state,
@@ -171,7 +219,7 @@ The non-streaming API is designed for use in multi-threaded environments where m
    );
    ```
 
-4. **Free resources** when done:
+5. **Free resources** when done:
    ```c
    void goose_agent_reply_state_free(AgentReplyStatePtr state);
    void goose_free_tool_call(ToolCallFFI tool_call);
