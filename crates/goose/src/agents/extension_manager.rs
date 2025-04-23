@@ -291,7 +291,7 @@ impl ExtensionManager {
     pub async fn suggest_disable_extensions_prompt(&self) -> Value {
         let enabled_extensions_count = self.clients.len();
         let extension_names: Vec<String> = self.clients.keys().cloned().collect();
-        
+
         let total_tools = self
             .get_prefixed_tools(None)
             .await
