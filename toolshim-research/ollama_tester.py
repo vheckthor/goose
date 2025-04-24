@@ -19,9 +19,8 @@ import sys
 # ===== EDIT THIS LIST TO CHANGE THE DEFAULT MODELS TO TEST =====
 MODELS_TO_TEST = [
     "gemma3:12b",
-    "deepseek-r1:7b",
+    "qwen2.5:14b",
     "deepseek-r1:14b",
-    "phi4"
 ]
 # =============================================================
 
