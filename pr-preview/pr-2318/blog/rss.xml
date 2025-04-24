@@ -13,7 +13,7 @@
             <link>https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know</link>
             <guid>https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know</guid>
             <pubDate>Wed, 23 Apr 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[Learn what you need to get starte with Goose,local, open-source, and powered by the LLM of choice.]]></description>
+            <description><![CDATA[Learn what you need to get started with Goose - a local open source AI agent that's powered by the LLM of your choice.]]></description>
             <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/pr-preview/pr-2318/assets/images/cover-2ba7c2e15786be2db6108c91d27dc1ec.png" width="2240" height="1260" class="img_ev3q"></p>
 <p>So you’ve heard about Goose. Maybe you saw a livestream, someone on your team mentioned it, or you just stumbled into our corner of the internet while trying to automate your dev setup.  Either way—love that for you.</p>
 <p>Goose is a local, open source AI agent that can automate tasks, interact with your codebase, and connect to a growing ecosystem of tools. But before you hit install, here are four things you should know to get the most out of it.</p>
@@ -27,17 +27,18 @@
 <li>You <strong>bring your own LLM</strong>, allowing you to use the one that works best for you</li>
 <li>You can <strong>add new capabilities</strong>, using open-source MCP servers</li>
 </ul>
-<p>Think of it less like “an AI assistant” and more like “your personal automation toolkit.” You decide which LLM to use, what tools it should have access to, and what tasks it can perform. You’re not locked in, you’re in charge.</p>
+<p>Think of it less like “an AI assistant” and more like “your personal automation toolkit.” You decide which LLM to use, what tools it should have access to, and what tasks it can perform. You're not locked in; you're in charge.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="1-pick-the-right-llm">1. Pick the Right LLM<a href="https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know#1-pick-the-right-llm" class="hash-link" aria-label="Direct link to 1. Pick the Right LLM" title="Direct link to 1. Pick the Right LLM">​</a></h2>
-<p>Goose doesn’t bundle in an LLM, you bring your own. That means you get to choose what kind of model works best for you, whether it’s a fancy hosted one like Claude or Gemini, or something more private and local like Ollama.</p>
+<p>Goose doesn’t bundle in an LLM. You bring your own LLM. That means you get to choose what kind of model works best for you, whether it’s a fancy hosted one like Claude or Gemini, or something more private and local like Ollama.</p>
 <p>But heads up: not every model is created equal, especially when it comes to privacy, performance, or how much they charge you per token. If you're just exploring, a cloud-hosted LLM with a free tier is a great place to start. But if you’re working with sensitive data or just don’t want to send things off to a third-party server, local is the way to go.</p>
 <p>Either way, Goose gives you the flexibility.</p>
 <p>That said, if you’re looking for the best performance with Goose right now, Anthropic's Claude 3.5 Sonnet and OpenAI's GPT-4o (2024-11-20) are recommended, as they currently offer the strongest support for tool calling.</p>
-<p>You can check out the full list of <a href="https://block.github.io/goose/docs/getting-started/providers#available-providers" target="_blank" rel="noopener noreferrer">available LLM providers here</a>.</p>
+<p>Curious how other models stack up? Check out the <a href="https://block.github.io/goose/blog/2025/03/31/goose-benchmark/#leaderboard" target="_blank" rel="noopener noreferrer">Community-Inspired Benchmark Leaderboard</a> to see how your favorite model performs with Goose.</p>
+<p>And if you’re still deciding, here’s the full list of <a href="https://block.github.io/goose/docs/getting-started/providers#available-providers" target="_blank" rel="noopener noreferrer">available LLM providers</a>.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="2-understand-what-mcp-servers-are">2. Understand What MCP Servers Are<a href="https://block.github.io/goose/pr-preview/pr-2318/blog/2025/04/23/things-need-to-know#2-understand-what-mcp-servers-are" class="hash-link" aria-label="Direct link to 2. Understand What MCP Servers Are" title="Direct link to 2. Understand What MCP Servers Are">​</a></h2>
-<p>Here’s where things get fun. Goose is a client that speaks <strong>MCP</strong>—the Model Context Protocol. MCP is what makes it possible to talk to other apps and tools <em>as part of your prompt</em>. Want to read emails, check GitHub issues, run a Cypress test, or scrape a webpage? That’s where MCP servers come in.</p>
+<p>Here’s where things get fun. Goose is a client that speaks <strong>MCP</strong>. MCP is what makes it possible to talk to other apps and tools <em>as part of your prompt</em>. Want to read emails, check GitHub issues, run an automated test, or scrape a webpage? That’s where MCP servers come in.</p>
 <p>Each server gives Goose a new ability.</p>
 <p>The real question is: <em>what do you want Goose to be able to do?</em> If there's a server for it, you can probably make it happen. And yes, there's an entire <a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener noreferrer">directory of MCP servers</a> where you can search by tool, downloads, you name it.</p>
 <hr>
@@ -57,10 +58,9 @@
 </ul>
 <p>You’ll find those livestreams on our <a href="https://www.youtube.com/@blockopensource/streams" target="_blank" rel="noopener noreferrer">YouTube channel</a>, and upcoming ones on the Discord calendar. Plus, if you prefer documentation, the <a href="https://block.github.io/goose/" target="_blank" rel="noopener noreferrer">Goose docs</a> and <a href="https://block.github.io/goose/blog" target="_blank" rel="noopener noreferrer">blog</a> are constantly being updated with new guides, tips, and tutorials.</p>
 <hr>
-<p>If you’ve got those four things, a solid LLM, the right servers, a basic understanding of LLM cost, and a place to ask questions you’re more than ready to Goose.</p>
+<p>If you've got those four things: a performant LLM, the right MCP servers, a basic understanding of LLM cost, and a place to ask questions, you're more than ready to Goose.</p>
 <p>Now, head over to the <a href="https://block.github.io/goose/docs/quickstart" target="_blank" rel="noopener noreferrer">Quickstart Guide</a> and get started.</p>
-<p>Oh and when you get to the <a href="https://block.github.io/goose/docs/quickstart/#write-prompt" target="_blank" rel="noopener noreferrer">Tic-Tac-Toe game</a>?
-I’ll bet you 10 Goosebucks you won’t beat the bot.</p>
+<p>Oh and when you get to the <a href="https://block.github.io/goose/docs/quickstart/#write-prompt" target="_blank" rel="noopener noreferrer">Tic-Tac-Toe game</a>, I’ll bet you 10 Goosebucks you won’t beat the bot.</p>
 ]]></content:encoded>
         </item>
         <item>
