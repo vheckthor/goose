@@ -4,10 +4,65 @@
         <title>codename goose Blog</title>
         <link>https://block.github.io/goose/blog</link>
         <description>codename goose Blog</description>
-        <lastBuildDate>Tue, 22 Apr 2025 00:00:00 GMT</lastBuildDate>
+        <lastBuildDate>Wed, 23 Apr 2025 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <language>en</language>
+        <item>
+            <title><![CDATA[4 Things You Need to Know Before Using Goose]]></title>
+            <link>https://block.github.io/goose/blog/2025/04/23/things-need-to-know</link>
+            <guid>https://block.github.io/goose/blog/2025/04/23/things-need-to-know</guid>
+            <pubDate>Wed, 23 Apr 2025 00:00:00 GMT</pubDate>
+            <description><![CDATA[Learn what you need to get started with Goose - a local open source AI agent that's powered by the LLM of your choice.]]></description>
+            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/cover-2ba7c2e15786be2db6108c91d27dc1ec.png" width="2240" height="1260" class="img_ev3q"></p>
+<p>So you’ve heard about Goose. Maybe you saw a livestream, someone on your team mentioned it, or you just stumbled into our corner of the internet while trying to automate your dev setup.  Either way—love that for you.</p>
+<p>Goose is a local, open source AI agent that can automate tasks, interact with your codebase, and connect to a growing ecosystem of tools. But before you hit install, here are four things you should know to get the most out of it.</p>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="so-waitwhat-is-goose-actually">So Wait—What <em>Is</em> Goose, Actually?<a href="https://block.github.io/goose/blog/2025/04/23/things-need-to-know#so-waitwhat-is-goose-actually" class="hash-link" aria-label="Direct link to so-waitwhat-is-goose-actually" title="Direct link to so-waitwhat-is-goose-actually">​</a></h2>
+<p>Goose is an <strong>MCP client</strong>.</p>
+<p>That means it connects to tools and data through something called the <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank" rel="noopener noreferrer"><strong>Model Context Protocol (MCP)</strong></a>—an open standard that makes it possible for AI agents to interact with external systems through natural language. If you’ve used Claude Desktop, Windsurf, Agent mode in VS Code or Cursor you’ve already used an MCP client, even if you didn’t realize it.</p>
+<p>Here’s what makes Goose different:</p>
+<ul>
+<li>It runs <strong>locally</strong>, not in someone else’s cloud</li>
+<li>You <strong>bring your own LLM</strong>, allowing you to use the one that works best for you</li>
+<li>You can <strong>add new capabilities</strong>, using open-source MCP servers</li>
+</ul>
+<p>Think of it less like “an AI assistant” and more like “your personal automation toolkit.” You decide which LLM to use, what tools it should have access to, and what tasks it can perform. You're not locked in; you're in charge.</p>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="1-pick-the-right-llm">1. Pick the Right LLM<a href="https://block.github.io/goose/blog/2025/04/23/things-need-to-know#1-pick-the-right-llm" class="hash-link" aria-label="Direct link to 1. Pick the Right LLM" title="Direct link to 1. Pick the Right LLM">​</a></h2>
+<p>Goose doesn’t bundle in an LLM. You bring your own LLM. That means you get to choose what kind of model works best for you, whether it’s a fancy hosted one like Claude or Gemini, or something more private and local like Ollama.</p>
+<p>But heads up: not every model is created equal, especially when it comes to privacy, performance, or how much they charge you per token. If you're just exploring, a cloud-hosted LLM with a free tier is a great place to start. But if you’re working with sensitive data or just don’t want to send things off to a third-party server, local is the way to go.</p>
+<p>Either way, Goose gives you the flexibility.</p>
+<p>That said, if you’re looking for the best performance with Goose right now, Anthropic's Claude 3.5 Sonnet and OpenAI's GPT-4o (2024-11-20) are recommended, as they currently offer the strongest support for tool calling.</p>
+<p>Curious how other models stack up? Check out the <a href="https://block.github.io/goose/blog/2025/03/31/goose-benchmark/#leaderboard" target="_blank" rel="noopener noreferrer">Community-Inspired Benchmark Leaderboard</a> to see how your favorite model performs with Goose.</p>
+<p>And if you’re still deciding, here’s the full list of <a href="https://block.github.io/goose/docs/getting-started/providers#available-providers" target="_blank" rel="noopener noreferrer">available LLM providers</a>.</p>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="2-understand-what-mcp-servers-are">2. Understand What MCP Servers Are<a href="https://block.github.io/goose/blog/2025/04/23/things-need-to-know#2-understand-what-mcp-servers-are" class="hash-link" aria-label="Direct link to 2. Understand What MCP Servers Are" title="Direct link to 2. Understand What MCP Servers Are">​</a></h2>
+<p>Here’s where things get fun. Goose is a client that speaks <strong>MCP</strong>. MCP is what makes it possible to talk to other apps and tools <em>as part of your prompt</em>. Want to read emails, check GitHub issues, run an automated test, or scrape a webpage? That’s where MCP servers come in.</p>
+<p>Each server gives Goose a new ability.</p>
+<p>The real question is: <em>what do you want Goose to be able to do?</em> If there's a server for it, you can probably make it happen. And yes, there's an entire <a href="https://glama.ai/mcp/servers" target="_blank" rel="noopener noreferrer">directory of MCP servers</a> where you can search by tool, downloads, you name it.</p>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="3-there-can-be-costs">3. There <em>Can</em> Be Costs<a href="https://block.github.io/goose/blog/2025/04/23/things-need-to-know#3-there-can-be-costs" class="hash-link" aria-label="Direct link to 3-there-can-be-costs" title="Direct link to 3-there-can-be-costs">​</a></h2>
+<p>Goose itself? Totally free and open source. 🎉 But your LLM provider might not be as generous.</p>
+<p>Most models give you a free tier to play around with, but if you're doing anything intensive or using it often, you’ll eventually run into rate limits or token charges. That’s normal but it can sneak up on you if you’re not expecting it.</p>
+<p>To help you manage this, there is a <a href="https://block.github.io/goose/docs/guides/handling-llm-rate-limits-with-goose/" target="_blank" rel="noopener noreferrer">Handling Rate Limits Guide</a> that you can check out.</p>
+<hr>
+<h2 class="anchor anchorWithStickyNavbar_LWe7" id="4-tap-into-the-community">4. Tap Into the Community<a href="https://block.github.io/goose/blog/2025/04/23/things-need-to-know#4-tap-into-the-community" class="hash-link" aria-label="Direct link to 4. Tap Into the Community" title="Direct link to 4. Tap Into the Community">​</a></h2>
+<p>This part matters more than most people realize.</p>
+<p>Goose has an entire community behind it—folks building, exploring, breaking things (and fixing them), and sharing everything they learn along the way. We hang out on <a href="https://discord.gg/7GaTvbDwga" target="_blank" rel="noopener noreferrer">Discord</a>, we answer questions in <a href="https://github.com/block/goose/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a>, and we host livestreams every week to show off what Goose can do and how to make it do more.</p>
+<p>There’s:</p>
+<ul>
+<li><strong>Goosing Around</strong> – casual deep dives where we build in public</li>
+<li><strong>Wild Goose Case</strong> – showcasing cool community projects</li>
+<li><strong>Great Goose Off</strong> - same task, same time limit, but different prompts, MCP servers, and strategies</li>
+</ul>
+<p>You’ll find those livestreams on our <a href="https://www.youtube.com/@blockopensource/streams" target="_blank" rel="noopener noreferrer">YouTube channel</a>, and upcoming ones on the Discord calendar. Plus, if you prefer documentation, the <a href="https://block.github.io/goose/" target="_blank" rel="noopener noreferrer">Goose docs</a> and <a href="https://block.github.io/goose/blog" target="_blank" rel="noopener noreferrer">blog</a> are constantly being updated with new guides, tips, and tutorials.</p>
+<hr>
+<p>If you've got those four things: a performant LLM, the right MCP servers, a basic understanding of LLM cost, and a place to ask questions, you're more than ready to Goose.</p>
+<p>Now, head over to the <a href="https://block.github.io/goose/docs/quickstart" target="_blank" rel="noopener noreferrer">Quickstart Guide</a> and get started.</p>
+<p>Oh and when you get to the <a href="https://block.github.io/goose/docs/quickstart/#write-prompt" target="_blank" rel="noopener noreferrer">Tic-Tac-Toe game</a>, I’ll bet you 10 Goosebucks you won’t beat the bot.</p>
+]]></content:encoded>
+        </item>
         <item>
             <title><![CDATA[How One Contribution Can Spark Many Wins]]></title>
             <link>https://block.github.io/goose/blog/2025/04/22/community-bestcodes</link>
@@ -1541,38 +1596,6 @@ If you’d like to try out the toolshim, check out our <a href="https://block.gi
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="the-best-prompts-feel-natural">The Best Prompts Feel Natural<a href="https://block.github.io/goose/blog/2025/03/19/better-ai-prompting#the-best-prompts-feel-natural" class="hash-link" aria-label="Direct link to The Best Prompts Feel Natural" title="Direct link to The Best Prompts Feel Natural">​</a></h2>
 <p>At the end of the day, all these prompting styles are just tools, at your disposal. The most important thing is to keep your prompts clear and natural. You don’t have to overthink it, but adding a little structure can make a huge difference in getting the responses you actually want.</p>
 <p>Goose is here to make your life easier, so the next time you open up a session, just keep your goal in mind, experiment with different prompting styles, and see what works best for you.</p>
-]]></content:encoded>
-        </item>
-        <item>
-            <title><![CDATA[How Goose Catches AI Errors with Langfuse]]></title>
-            <link>https://block.github.io/goose/blog/2025/03/18/goose-langfuse</link>
-            <guid>https://block.github.io/goose/blog/2025/03/18/goose-langfuse</guid>
-            <pubDate>Tue, 18 Mar 2025 00:00:00 GMT</pubDate>
-            <description><![CDATA[Get detailed insights into Goose's behavior with Langfuse's observability tools.]]></description>
-            <content:encoded><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/goose_aierrors-22154af884db86789ce1a12a72897e8e.png" width="1206" height="633" class="img_ev3q"></p>
-<p>How do we debug AI agents like Goose? In the <a href="https://youtube.com/playlist?list=PLyMFt_U2IX4uFFhd_2TD9-tlJkgHMMb6F&amp;feature=shared" target="_blank" rel="noopener noreferrer">Goosing Around</a> stream series, host <a href="https://www.linkedin.com/in/rizel-bobb-semple/" target="_blank" rel="noopener noreferrer">Rizel Scarlett</a> invited <a href="https://www.linkedin.com/in/marcklingen/" target="_blank" rel="noopener noreferrer">Marc Klingen</a>, Co-Founder at Langfuse, and <a href="https://www.linkedin.com/in/alice-hau/" target="_blank" rel="noopener noreferrer">Alice Hau</a>, Machine Learning Engineer at Block, to demo how Langfuse enables observability into Goose's actions, letting you trace LLM behavior and catch errors.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="what-is-langfuse">What is Langfuse<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#what-is-langfuse" class="hash-link" aria-label="Direct link to What is Langfuse" title="Direct link to What is Langfuse">​</a></h2>
-<p><a href="https://langfuse.com/" target="_blank" rel="noopener noreferrer">Langfuse</a> is an open source observability platform specifically designed for LLM-powered apps. Mark revealed during stream that Langfuse wasn't originally an observability platform, it was born from early attempts to build an AI agent like Goose.</p>
-<p>While they were limited by the available models at the time, especially with multi-file edits, the team discovered the tooling they had built for debugging and monitoring their agent was more valuable to them than their agent.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="how-langfuse-works-with-goose">How Langfuse Works With Goose<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#how-langfuse-works-with-goose" class="hash-link" aria-label="Direct link to How Langfuse Works With Goose" title="Direct link to How Langfuse Works With Goose">​</a></h2>
-<p>Since traditional observability tools don't quite cut it when it comes to AI agents. Langfuse introduces 3 core concepts to make Goose's behavior more observable, and create logs that are easier to parse:</p>
-<h3 class="anchor anchorWithStickyNavbar_LWe7" id="traces">Traces<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#traces" class="hash-link" aria-label="Direct link to Traces" title="Direct link to Traces">​</a></h3>
-<p>Each interaction with Goose creates a trace to capture the full story of what happened. These traces include key information, from the initial prompt and user messages to tool calls and their responses. They also store valuable metadata about model outputs and timing information, giving developers a complete picture of each interaction.</p>
-<h3 class="anchor anchorWithStickyNavbar_LWe7" id="timeline-view">Timeline View<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#timeline-view" class="hash-link" aria-label="Direct link to Timeline View" title="Direct link to Timeline View">​</a></h3>
-<p>The timeline view takes these complex interactions and transforms it into a digestible format. Developers can see parallel task execution in real-time, understand the dependencies between different actions, and measure the actual duration of each opersation. This can be super helpful when debugging a complex sequence of actions taken by Goose, or to help optimize performance.</p>
-<h3 class="anchor anchorWithStickyNavbar_LWe7" id="structured-data">Structured Data<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#structured-data" class="hash-link" aria-label="Direct link to Structured Data" title="Direct link to Structured Data">​</a></h3>
-<p>Alice explained, "Goose sessions can be really long... we have log files, but you'll just see a massive log of JSON."</p>
-<p>Rather than rangle raw JSON log, Langfuse helps organize this data to help make navigating longer sessions and their data more straightforward. This approach can help developers easily analyze tool usage patterns, monitor token consumption, and quickly identify any performance bottlenecks and where they may happen.</p>
-<p>With this integration, you can instead better understand the sequence of actions taken by Goose, and analyze track token usage and model behavior across LLMs.</p>
-<h2 class="anchor anchorWithStickyNavbar_LWe7" id="practical-benefits">Practical Benefits<a href="https://block.github.io/goose/blog/2025/03/18/goose-langfuse#practical-benefits" class="hash-link" aria-label="Direct link to Practical Benefits" title="Direct link to Practical Benefits">​</a></h2>
-<p>The observability the Goose and Langfuse integration brings is great for anyone who wants clear insight into what Goose is doing behind the scenes. Alice and Marc discussed the different ways this integration can help you debug faster.</p>
-<p>Developers can dive deeper into detailed session logs and identify the root cause to a reported issue and ensure Goose is operating as efficiently as possible. Like checking why certain commands may not be working as expected, or seeing exactly how Goose is processing information for a given task with a specific LLM.</p>
-<p>As developers focus on operational efficiency, researchers can use the analytical capabilities of this integration to better understand which models best suit their needs. Through comprehensive model evaluations, they can analyze how different models handle tool calling, understand decision-making patterns across LLMs, and establish a systematic approach to understanding and improving AI systems.</p>
-<h1>The Future of AI Observability</h1>
-<p>These powerful debugging and analysis capabilities are only the beginning. This integration between Goose and Langfuse represents a significant step forward in making AI agents as transparent and debuggable as traditional code.</p>
-<p>To keep up with the exciting developments as they release, you can check out both of the <a href="https://github.com/block/goose" target="_blank" rel="noopener noreferrer">Goose</a> and <a href="https://github.com/langfuse/langfuse" target="_blank" rel="noopener noreferrer">Langfuse</a> repositories on GitHub.</p>
-<p>You can also watch the <a href="https://www.youtube.com/live/W39BQjsTS9E?feature=shared" target="_blank" rel="noopener noreferrer">livestream discussing the Goose and Langfuse integration</a>, and follow the <a href="https://block.github.io/goose/docs/tutorials/langfuse" target="_blank" rel="noopener noreferrer">tutorial showing you how to integrate Langfuse with Goose</a>.</p>
-<p>Also, be sure to subscribe to our <a href="https://calget.com/c/t7jszrie" target="_blank" rel="noopener noreferrer">events calendar</a> to catch upcoming events.</p>
 ]]></content:encoded>
         </item>
     </channel>
