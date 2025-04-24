@@ -1,34 +1,30 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::{Result};
-use futures::TryStreamExt;
+use anyhow::Result;
 
 use crate::message::Message;
 use crate::providers::base::{Provider, ProviderUsage};
 use crate::providers::errors::ProviderError;
-use tokio::sync::{Mutex};
+use tokio::sync::Mutex;
 use tracing::{debug, instrument};
 
 use crate::agents::extension::{ExtensionConfig, ExtensionResult};
 use crate::agents::extension_manager::ExtensionManager;
 use crate::agents::platform_tools::{
-    PLATFORM_LIST_RESOURCES_TOOL_NAME, 
-    PLATFORM_READ_RESOURCE_TOOL_NAME,
+    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
-use mcp_core::{
-    prompt::Prompt, tool::Tool, Content, ToolError
-};
-use crate::providers::toolshim::{modify_system_prompt_for_tool_json, OllamaInterpreter};
+use crate::providers::toolshim::modify_system_prompt_for_tool_json;
+use mcp_core::{prompt::Prompt, tool::Tool, Content, ToolError};
 
-use  crate::agents::platform_tools;
+use crate::agents::platform_tools;
 
 /// The main goose Agent
 pub struct AgentV2 {
     pub(super) provider: Mutex<Arc<dyn Provider>>,
     pub(super) extension_manager: Mutex<ExtensionManager>,
-    pub(super) prompt_manager: Mutex<PromptManager>
+    pub(super) prompt_manager: Mutex<PromptManager>,
 }
 
 impl AgentV2 {
@@ -44,15 +40,12 @@ impl AgentV2 {
 impl AgentV2 {
     /// Get a reference count clone to the provider
     pub async fn provider(&self) -> Arc<dyn Provider> {
-        self.provider
-            .lock()
-            .await
-            .clone()
+        self.provider.lock().await.clone()
     }
 
     /// Get all tools from all clients with proper prefixing
     pub async fn get_prefixed_tools(&self) -> ExtensionResult<Vec<Tool>> {
-        let mut tools = self
+        let tools = self
             .extension_manager
             .lock()
             .await
@@ -134,11 +127,8 @@ impl AgentV2 {
             .expect("Failed to list extensions")
     }
 
-
     /// Prepares tools and system prompt for a provider request
-    async fn prepare_tools_and_prompt(
-        &self,
-    ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
+    async fn prepare_tools_and_prompt(&self) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
         // Get tools from extension manager
         let mut tools = self.list_tools(None).await;
 
@@ -180,12 +170,11 @@ impl AgentV2 {
         &self,
         messages: &[Message],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
-        let mut messages = messages.to_vec();
+        let messages = messages.to_vec();
 
         // Setup tools and prompt
         // Not using the toolshim tools in any way
-        let (mut tools, mut _toolshim_tools, mut system_prompt) =
-            self.prepare_tools_and_prompt().await?;
+        let (tools, mut _toolshim_tools, system_prompt) = self.prepare_tools_and_prompt().await?;
 
         let provider = self.provider().await;
 
@@ -223,7 +212,4 @@ impl AgentV2 {
             .await
             .expect("Failed to list prompts")
     }
-
-
-
 }
