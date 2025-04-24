@@ -1,6 +1,6 @@
 import Electron, { contextBridge, ipcRenderer } from 'electron';
 
-interface BotConfig {
+interface RecipeConfig {
   id: string;
   name: string;
   description: string;
@@ -34,7 +34,8 @@ type ElectronAPI = {
     dir?: string,
     version?: string,
     resumeSessionId?: string,
-    botConfig?: BotConfig
+    recipeConfig?: RecipeConfig,
+    viewType?: string
   ) => void;
   logInfo: (txt: string) => void;
   showNotification: (data: NotificationData) => void;
@@ -48,6 +49,7 @@ type ElectronAPI = {
   getBinaryPath: (binaryName: string) => Promise<string>;
   readFile: (directory: string) => Promise<FileResponse>;
   writeFile: (directory: string, content: string) => Promise<boolean>;
+  getAllowedExtensions: () => Promise<string[]>;
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
@@ -74,8 +76,18 @@ const electronAPI: ElectronAPI = {
     dir?: string,
     version?: string,
     resumeSessionId?: string,
-    botConfig?: BotConfig
-  ) => ipcRenderer.send('create-chat-window', query, dir, version, resumeSessionId, botConfig),
+    recipeConfig?: RecipeConfig,
+    viewType?: string
+  ) =>
+    ipcRenderer.send(
+      'create-chat-window',
+      query,
+      dir,
+      version,
+      resumeSessionId,
+      recipeConfig,
+      viewType
+    ),
   logInfo: (txt: string) => ipcRenderer.send('logInfo', txt),
   showNotification: (data: NotificationData) => ipcRenderer.send('notify', data),
   openInChrome: (url: string) => ipcRenderer.send('open-in-chrome', url),
@@ -89,6 +101,7 @@ const electronAPI: ElectronAPI = {
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-file', filePath, content),
+  getAllowedExtensions: () => ipcRenderer.invoke('get-allowed-extensions'),
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void

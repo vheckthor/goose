@@ -2,6 +2,9 @@ use cliclack::spinner;
 use console::style;
 use goose::agents::extension::ToolInfo;
 use goose::agents::extension_manager::get_parameter_names;
+use goose::agents::platform_tools::{
+    PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_READ_RESOURCE_TOOL_NAME,
+};
 use goose::agents::Agent;
 use goose::agents::{extension::Envs, ExtensionConfig};
 use goose::config::extensions::name_to_key;
@@ -579,6 +582,9 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 cliclack::confirm("Would you like to add environment variables?").interact()?;
 
             let mut envs = HashMap::new();
+            let mut env_keys = Vec::new();
+            let config = Config::global();
+
             if add_env {
                 loop {
                     let key: String = cliclack::input("Environment variable name:")
@@ -589,7 +595,18 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                         .mask('▪')
                         .interact()?;
 
-                    envs.insert(key, value);
+                    // Try to store in keychain
+                    let keychain_key = key.to_string();
+                    match config.set_secret(&keychain_key, Value::String(value.clone())) {
+                        Ok(_) => {
+                            // Successfully stored in keychain, add to env_keys
+                            env_keys.push(keychain_key);
+                        }
+                        Err(_) => {
+                            // Failed to store in keychain, store directly in envs
+                            envs.insert(key, value);
+                        }
+                    }
 
                     if !cliclack::confirm("Add another environment variable?").interact()? {
                         break;
@@ -604,6 +621,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                     cmd,
                     args,
                     envs: Envs::new(envs),
+                    env_keys,
                     description,
                     timeout: Some(timeout),
                     bundled: None,
@@ -667,6 +685,9 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                 cliclack::confirm("Would you like to add environment variables?").interact()?;
 
             let mut envs = HashMap::new();
+            let mut env_keys = Vec::new();
+            let config = Config::global();
+
             if add_env {
                 loop {
                     let key: String = cliclack::input("Environment variable name:")
@@ -677,7 +698,18 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                         .mask('▪')
                         .interact()?;
 
-                    envs.insert(key, value);
+                    // Try to store in keychain
+                    let keychain_key = key.to_string();
+                    match config.set_secret(&keychain_key, Value::String(value.clone())) {
+                        Ok(_) => {
+                            // Successfully stored in keychain, add to env_keys
+                            env_keys.push(keychain_key);
+                        }
+                        Err(_) => {
+                            // Failed to store in keychain, store directly in envs
+                            envs.insert(key, value);
+                        }
+                    }
 
                     if !cliclack::confirm("Add another environment variable?").interact()? {
                         break;
@@ -691,6 +723,7 @@ pub fn configure_extensions_dialog() -> Result<(), Box<dyn Error>> {
                     name: name.clone(),
                     uri,
                     envs: Envs::new(envs),
+                    env_keys,
                     description,
                     timeout: Some(timeout),
                     bundled: None,
@@ -921,6 +954,24 @@ pub fn toggle_experiments_dialog() -> Result<(), Box<dyn Error>> {
 }
 
 pub async fn configure_tool_permissions_dialog() -> Result<(), Box<dyn Error>> {
+    let mut extensions: Vec<String> = ExtensionConfigManager::get_all()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|ext| ext.enabled)
+        .map(|ext| ext.config.name().clone())
+        .collect();
+    extensions.push("platform".to_string());
+
+    let selected_extension_name = cliclack::select("Choose an extension to configure tools")
+        .items(
+            &extensions
+                .iter()
+                .map(|ext| (ext.clone(), ext.clone(), ""))
+                .collect::<Vec<_>>(),
+        )
+        .interact()?;
+
+    // Fetch tools for the selected extension
     // Load config and get provider/model
     let config = Config::global();
 
@@ -932,33 +983,40 @@ pub async fn configure_tool_permissions_dialog() -> Result<(), Box<dyn Error>> {
         .get_param("GOOSE_MODEL")
         .expect("No model configured. Please set model first");
     let model_config = goose::model::ModelConfig::new(model.clone());
-    let provider =
-        goose::providers::create(&provider_name, model_config).expect("Failed to create provider");
 
     // Create the agent
-    let mut agent = Agent::new(provider);
-    for extension in ExtensionConfigManager::get_all().expect("should load extensions") {
-        if extension.enabled {
-            let config = extension.config.clone();
-            agent
-                .add_extension(config.clone())
-                .await
-                .unwrap_or_else(|_| {
-                    println!(
-                        "{} Failed to check extension: {}",
-                        style("Error").red().italic(),
-                        config.name()
-                    );
-                });
-        }
+    let agent = Agent::new();
+    let new_provider = create(&provider_name, model_config)?;
+    agent.update_provider(new_provider).await?;
+    if let Ok(Some(config)) = ExtensionConfigManager::get_config_by_name(&selected_extension_name) {
+        agent
+            .add_extension(config.clone())
+            .await
+            .unwrap_or_else(|_| {
+                println!(
+                    "{} Failed to check extension: {}",
+                    style("Error").red().italic(),
+                    config.name()
+                );
+            });
+    } else {
+        println!(
+            "{} Configuration not found for extension: {}",
+            style("Warning").yellow().italic(),
+            selected_extension_name
+        );
+        return Ok(());
     }
 
     let mut permission_manager = PermissionManager::default();
-    // Fetch the list of tools grouped by extension
-    let tools: Vec<ToolInfo> = agent
-        .list_tools()
+    let selected_tools = agent
+        .list_tools(Some(selected_extension_name.clone()))
         .await
         .into_iter()
+        .filter(|tool| {
+            tool.name != PLATFORM_LIST_RESOURCES_TOOL_NAME
+                && tool.name != PLATFORM_READ_RESOURCE_TOOL_NAME
+        })
         .map(|tool| {
             ToolInfo::new(
                 &tool.name,
@@ -967,37 +1025,21 @@ pub async fn configure_tool_permissions_dialog() -> Result<(), Box<dyn Error>> {
                 permission_manager.get_user_permission(&tool.name),
             )
         })
-        .collect();
-
-    let mut tools_by_extension: HashMap<String, Vec<ToolInfo>> = HashMap::new();
-
-    for tool in tools {
-        if let Some((extension_name, _tool_name)) = tool.name.split_once("__") {
-            tools_by_extension
-                .entry(extension_name.to_string())
-                .or_default()
-                .push(tool);
-        }
-    }
-
-    // Ask the user to choose an extension
-    let extension_name = cliclack::select("Choose an extension to configure tools")
-        .items(
-            &tools_by_extension
-                .keys()
-                .map(|ext| (ext.clone(), ext.clone(), ""))
-                .collect::<Vec<_>>(),
-        )
-        .interact()?;
-
-    // Fetch tools for the selected extension
-    let selected_tools = tools_by_extension.get(&extension_name).unwrap();
+        .collect::<Vec<ToolInfo>>();
 
     let tool_name = cliclack::select("Choose a tool to update permission")
         .items(
             &selected_tools
                 .iter()
-                .map(|tool| (tool.name.clone(), tool.name.clone(), &tool.description))
+                .map(|tool| {
+                    let first_description = tool
+                        .description
+                        .split('.')
+                        .next()
+                        .unwrap_or("No description available")
+                        .trim();
+                    (tool.name.clone(), tool.name.clone(), first_description)
+                })
                 .collect::<Vec<_>>(),
         )
         .interact()?;

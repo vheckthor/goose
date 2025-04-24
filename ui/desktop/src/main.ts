@@ -32,6 +32,7 @@ import * as crypto from 'crypto';
 import * as electron from 'electron';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import * as yaml from 'yaml';
 
 const exec = promisify(execCallback);
 
@@ -39,20 +40,157 @@ if (started) app.quit();
 
 app.setAsDefaultProtocolClient('goose');
 
-// Triggered when the user opens "goose://..." links
+// Only apply single instance lock on Windows where it's needed for deep links
+let gotTheLock = true;
+if (process.platform === 'win32') {
+  gotTheLock = app.requestSingleInstanceLock();
+
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', (event, commandLine) => {
+      const protocolUrl = commandLine.find((arg) => arg.startsWith('goose://'));
+      if (protocolUrl) {
+        const parsedUrl = new URL(protocolUrl);
+
+        // If it's a bot/recipe URL, handle it directly by creating a new window
+        if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
+          app.whenReady().then(() => {
+            const recentDirs = loadRecentDirs();
+            const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
+
+            let recipeConfig = null;
+            const configParam = parsedUrl.searchParams.get('config');
+            if (configParam) {
+              try {
+                recipeConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
+              } catch (e) {
+                console.error('Failed to parse bot config:', e);
+              }
+            }
+
+            createChat(app, undefined, openDir, undefined, undefined, recipeConfig);
+          });
+          return; // Skip the rest of the handler
+        }
+
+        // For non-bot URLs, continue with normal handling
+        handleProtocolUrl(protocolUrl);
+      }
+
+      // Only focus existing windows for non-bot/recipe URLs
+      const existingWindows = BrowserWindow.getAllWindows();
+      if (existingWindows.length > 0) {
+        const mainWindow = existingWindows[0];
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.focus();
+      }
+    });
+  }
+
+  // Handle protocol URLs on Windows startup
+  const protocolUrl = process.argv.find((arg) => arg.startsWith('goose://'));
+  if (protocolUrl) {
+    app.whenReady().then(() => {
+      handleProtocolUrl(protocolUrl);
+    });
+  }
+}
+
 let firstOpenWindow: BrowserWindow;
-let pendingDeepLink: string | null = null; // Store deep link if sent before React is ready
-app.on('open-url', async (_event, url) => {
+let pendingDeepLink = null;
+
+async function handleProtocolUrl(url: string) {
+  if (!url) return;
+
   pendingDeepLink = url;
 
-  // Parse the URL to determine the type
   const parsedUrl = new URL(url);
-
   const recentDirs = loadRecentDirs();
   const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
 
-  if (parsedUrl.hostname !== 'bot') {
-    // For non URL types, reuse existing window if available
+  if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
+    // For bot/recipe URLs, skip existing window processing
+    // and let processProtocolUrl handle it entirely
+    processProtocolUrl(parsedUrl, null);
+  } else {
+    // For other URL types, reuse existing window if available
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+      firstOpenWindow = existingWindows[0];
+      if (firstOpenWindow.isMinimized()) {
+        firstOpenWindow.restore();
+      }
+      firstOpenWindow.focus();
+    } else {
+      firstOpenWindow = await createChat(app, undefined, openDir);
+    }
+
+    if (firstOpenWindow) {
+      const webContents = firstOpenWindow.webContents;
+      if (webContents.isLoadingMainFrame()) {
+        webContents.once('did-finish-load', () => {
+          processProtocolUrl(parsedUrl, firstOpenWindow);
+        });
+      } else {
+        processProtocolUrl(parsedUrl, firstOpenWindow);
+      }
+    }
+  }
+}
+
+function processProtocolUrl(parsedUrl: URL, window: BrowserWindow) {
+  const recentDirs = loadRecentDirs();
+  const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
+
+  if (parsedUrl.hostname === 'extension') {
+    window.webContents.send('add-extension', pendingDeepLink);
+  } else if (parsedUrl.hostname === 'sessions') {
+    window.webContents.send('open-shared-session', pendingDeepLink);
+  } else if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
+    let recipeConfig = null;
+    const configParam = parsedUrl.searchParams.get('config');
+    if (configParam) {
+      try {
+        recipeConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
+      } catch (e) {
+        console.error('Failed to parse bot config:', e);
+      }
+    }
+    // Create a new window and ignore the passed-in window
+    createChat(app, undefined, openDir, undefined, undefined, recipeConfig);
+  }
+  pendingDeepLink = null;
+}
+
+app.on('open-url', async (event, url) => {
+  if (process.platform !== 'win32') {
+    const parsedUrl = new URL(url);
+    const recentDirs = loadRecentDirs();
+    const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
+
+    // Handle bot/recipe URLs by directly creating a new window
+    if (parsedUrl.hostname === 'bot' || parsedUrl.hostname === 'recipe') {
+      let recipeConfig = null;
+      const configParam = parsedUrl.searchParams.get('config');
+      if (configParam) {
+        try {
+          recipeConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
+        } catch (e) {
+          console.error('Failed to parse bot config:', e);
+        }
+      }
+
+      // Create a new window directly
+      await createChat(app, undefined, openDir, undefined, undefined, recipeConfig);
+      return; // Skip the rest of the handler
+    }
+
+    // For non-bot URLs, continue with normal handling
+    pendingDeepLink = url;
+
     const existingWindows = BrowserWindow.getAllWindows();
     if (existingWindows.length > 0) {
       firstOpenWindow = existingWindows[0];
@@ -61,29 +199,12 @@ app.on('open-url', async (_event, url) => {
     } else {
       firstOpenWindow = await createChat(app, undefined, openDir);
     }
-  }
 
-  // Handle extension install links and sessions
-  if (parsedUrl.hostname === 'extension') {
-    firstOpenWindow.webContents.send('add-extension', pendingDeepLink);
-  } else if (parsedUrl.hostname === 'sessions') {
-    firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
-  } else if (parsedUrl.hostname === 'bot') {
-    let botConfig = null;
-
-    // Extract bot config if it's a bot (miniagent) URL
-    if (parsedUrl.hostname === 'bot') {
-      const configParam = parsedUrl.searchParams.get('config');
-      if (configParam) {
-        try {
-          botConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
-        } catch (e) {
-          console.error('Failed to parse bot config:', e);
-        }
-      }
+    if (parsedUrl.hostname === 'extension') {
+      firstOpenWindow.webContents.send('add-extension', pendingDeepLink);
+    } else if (parsedUrl.hostname === 'sessions') {
+      firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
     }
-
-    firstOpenWindow = await createChat(app, undefined, openDir, undefined, undefined, botConfig);
   }
 });
 
@@ -138,6 +259,7 @@ const getVersion = () => {
 };
 
 let [provider, model] = getGooseProvider();
+console.log('[main] Got provider and model:', { provider, model });
 
 let sharingUrl = getSharingUrl();
 
@@ -152,11 +274,13 @@ let appConfig = {
   secretKey: generateSecretKey(),
 };
 
+console.log('[main] Created appConfig:', appConfig);
+
 // Track windows by ID
 let windowCounter = 0;
 const windowMap = new Map<number, BrowserWindow>();
 
-interface BotConfig {
+interface RecipeConfig {
   id: string;
   name: string;
   description: string;
@@ -170,12 +294,42 @@ const createChat = async (
   dir?: string,
   version?: string,
   resumeSessionId?: string,
-  botConfig?: BotConfig
+  recipeConfig?: RecipeConfig, // Bot configuration
+  viewType?: string // View type
 ) => {
-  // Apply current environment settings before creating chat
-  updateEnvironmentVariables(envToggles);
+  // Initialize variables for process and configuration
+  let port = 0;
+  let working_dir = '';
+  let goosedProcess = null;
 
-  const [port, working_dir, goosedProcess] = await startGoosed(app, dir);
+  if (viewType === 'recipeEditor') {
+    // For recipeEditor, get the port from existing windows' config
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+      // Get the config from localStorage through an existing window
+      try {
+        const result = await existingWindows[0].webContents.executeJavaScript(
+          `localStorage.getItem('gooseConfig')`
+        );
+        if (result) {
+          const config = JSON.parse(result);
+          port = config.GOOSE_PORT;
+          working_dir = config.GOOSE_WORKING_DIR;
+        }
+      } catch (e) {
+        console.error('Failed to get config from localStorage:', e);
+      }
+    }
+    if (port === 0) {
+      console.error('No existing Goose process found for recipeEditor');
+      throw new Error('Cannot create recipeEditor window: No existing Goose process found');
+    }
+  } else {
+    // Apply current environment settings before creating chat
+    updateEnvironmentVariables(envToggles);
+    // Start new Goosed process for regular windows
+    [port, working_dir, goosedProcess] = await startGoosed(app, dir);
+  }
 
   const mainWindow = new BrowserWindow({
     titleBarStyle: process.platform === 'darwin' ? 'hidden' : 'default',
@@ -200,12 +354,69 @@ const createChat = async (
           REQUEST_DIR: dir,
           GOOSE_BASE_URL_SHARE: sharingUrl,
           GOOSE_VERSION: gooseVersion,
-          botConfig: botConfig,
+          recipeConfig: recipeConfig,
         }),
       ],
       partition: 'persist:goose', // Add this line to ensure persistence
     },
   });
+
+  // Enable spellcheck / right and ctrl + click on mispelled word
+  //
+  // NOTE: We could use webContents.session.availableSpellCheckerLanguages to include
+  // all languages in the list of spell checked words, but it diminishes the times you
+  // get red squigglies back for mispelled english words. Given the rest of Goose only
+  // renders in english right now, this feels like the correct set of language codes
+  // for the moment.
+  //
+  // TODO: Load language codes from a setting if we ever have i18n/l10n
+  mainWindow.webContents.session.setSpellCheckerLanguages(['en-US', 'en-GB']);
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const menu = new Menu();
+
+    // Add each spelling suggestion
+    for (const suggestion of params.dictionarySuggestions) {
+      menu.append(
+        new MenuItem({
+          label: suggestion,
+          click: () => mainWindow.webContents.replaceMisspelling(suggestion),
+        })
+      );
+    }
+
+    // Allow users to add the misspelled word to the dictionary
+    if (params.misspelledWord) {
+      menu.append(
+        new MenuItem({
+          label: 'Add to dictionary',
+          click: () =>
+            mainWindow.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+        })
+      );
+    }
+
+    menu.popup();
+  });
+
+  // Store config in localStorage for future windows
+  const windowConfig = {
+    ...appConfig,
+    GOOSE_PORT: port,
+    GOOSE_WORKING_DIR: working_dir,
+    REQUEST_DIR: dir,
+    GOOSE_BASE_URL_SHARE: sharingUrl,
+    recipeConfig: recipeConfig,
+  };
+
+  // We need to wait for the window to load before we can access localStorage
+  mainWindow.webContents.on('did-finish-load', () => {
+    const configStr = JSON.stringify(windowConfig).replace(/'/g, "\\'");
+    mainWindow.webContents.executeJavaScript(`
+      localStorage.setItem('gooseConfig', '${configStr}')
+    `);
+  });
+
+  console.log('[main] Creating window with config:', windowConfig);
 
   // Handle new window creation for links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -228,6 +439,13 @@ const createChat = async (
     queryParams = queryParams
       ? `${queryParams}&resumeSessionId=${encodeURIComponent(resumeSessionId)}`
       : `?resumeSessionId=${encodeURIComponent(resumeSessionId)}`;
+  }
+
+  // Add view type to query params if provided
+  if (viewType) {
+    queryParams = queryParams
+      ? `${queryParams}&view=${encodeURIComponent(viewType)}`
+      : `?view=${encodeURIComponent(viewType)}`;
   }
 
   const primaryDisplay = electron.screen.getPrimaryDisplay();
@@ -268,9 +486,12 @@ const createChat = async (
   });
 
   windowMap.set(windowId, mainWindow);
+  // Handle window closure
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
-    goosedProcess.kill();
+    if (goosedProcess) {
+      goosedProcess.kill();
+    }
   });
   return mainWindow;
 };
@@ -390,21 +611,14 @@ ipcMain.on('react-ready', () => {
 
   if (pendingDeepLink) {
     console.log('Processing pending deep link:', pendingDeepLink);
-    const parsedUrl = new URL(pendingDeepLink);
-
-    // Handle different deep link types
-    if (parsedUrl.hostname === 'extension') {
-      console.log('Sending add-extension event');
-      firstOpenWindow.webContents.send('add-extension', pendingDeepLink);
-    } else if (parsedUrl.hostname === 'sessions') {
-      console.log('Sending open-shared-session event');
-      firstOpenWindow.webContents.send('open-shared-session', pendingDeepLink);
-    }
-    // Bot URLs are handled directly through botConfig in additionalArguments
-    pendingDeepLink = null;
+    handleProtocolUrl(pendingDeepLink);
   } else {
     console.log('No pending deep link to process');
   }
+
+  // We don't need to handle pending deep links here anymore
+  // since we're handling them in the window creation flow
+  console.log('[main] React ready - window is prepared for deep links');
 });
 
 // Handle directory chooser
@@ -493,6 +707,17 @@ EOT`;
       resolve(true);
     });
   });
+});
+
+// Handle allowed extensions list fetching
+ipcMain.handle('get-allowed-extensions', async () => {
+  try {
+    const allowList = await getAllowList();
+    return allowList;
+  } catch (error) {
+    console.error('Error fetching allowed extensions:', error);
+    throw error;
+  }
 });
 
 app.whenReady().then(async () => {
@@ -592,34 +817,6 @@ app.whenReady().then(async () => {
         },
       })
     );
-
-    fileMenu.submenu.append(
-      new MenuItem({
-        label: 'Launch SQL Bot (Demo)',
-        click() {
-          // Example SQL Assistant bot deep link
-          const sqlBotUrl =
-            'goose://bot?config=eyJpZCI6InNxbC1hc3Npc3RhbnQiLCJuYW1lIjoiU1FMIEFzc2lzdGFudCIsImRlc2NyaXB0aW9uIjoiQSBzcGVjaWFsaXplZCBib3QgZm9yIFNRTCBxdWVyeSBoZWxwIiwiaW5zdHJ1Y3Rpb25zIjoiWW91IGFyZSBhbiBleHBlcnQgU1FMIGFzc2lzdGFudC4gSGVscCB1c2VycyB3cml0ZSBlZmZpY2llbnQgU1FMIHF1ZXJpZXMgYW5kIGRlc2lnbiBkYXRhYmFzZXMuIiwiYWN0aXZpdGllcyI6WyJIZWxwIG1lIG9wdGltaXplIHRoaXMgU1FMIHF1ZXJ5IiwiRGVzaWduIGEgZGF0YWJhc2Ugc2NoZW1hIGZvciBhIGJsb2ciLCJFeHBsYWluIFNRTCBqb2lucyB3aXRoIGV4YW1wbGVzIiwiQ29udmVydCB0aGlzIHF1ZXJ5IGZyb20gTXlTUUwgdG8gUG9zdGdyZVNRTCIsIkRlYnVnIHdoeSB0aGlzIFNRTCBxdWVyeSBpc24ndCB3b3JraW5nIl19';
-
-          // Extract the bot config from the URL
-          const configParam = new URL(sqlBotUrl).searchParams.get('config');
-          let botConfig = null;
-          if (configParam) {
-            try {
-              botConfig = JSON.parse(Buffer.from(configParam, 'base64').toString('utf-8'));
-            } catch (e) {
-              console.error('Failed to parse bot config:', e);
-            }
-          }
-
-          // Create a new window
-          const recentDirs = loadRecentDirs();
-          const openDir = recentDirs.length > 0 ? recentDirs[0] : null;
-
-          createChat(app, undefined, openDir, undefined, undefined, botConfig);
-        },
-      })
-    );
   }
 
   if (menu) {
@@ -632,13 +829,21 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.on('create-chat-window', (_event, query, dir, version, resumeSessionId, botConfig) => {
-    if (!dir?.trim()) {
-      const recentDirs = loadRecentDirs();
-      dir = recentDirs.length > 0 ? recentDirs[0] : null;
+  ipcMain.on(
+    'create-chat-window',
+    (_, query, dir, version, resumeSessionId, recipeConfig, viewType) => {
+      if (!dir?.trim()) {
+        const recentDirs = loadRecentDirs();
+        dir = recentDirs.length > 0 ? recentDirs[0] : null;
+      }
+
+      // Log the recipeConfig for debugging
+      console.log('Creating chat window with recipeConfig:', recipeConfig);
+
+      // Pass recipeConfig as part of viewOptions when viewType is recipeEditor
+      createChat(app, query, dir, version, resumeSessionId, recipeConfig, viewType);
     }
-    createChat(app, query, dir, version, resumeSessionId, botConfig);
-  });
+  );
 
   ipcMain.on('notify', (_event, data) => {
     console.log('NOTIFY', data);
@@ -718,6 +923,60 @@ app.whenReady().then(async () => {
     }
   });
 });
+
+/**
+ * Fetches the allowed extensions list from the remote YAML file if GOOSE_ALLOWLIST is set.
+ * If the ALLOWLIST is not set, any are allowed. If one is set, it will warn if the deeplink 
+ * doesn't match a command from the list. 
+ * If it fails to load, then it will return an empty list.
+ * If the format is incorrect, it will return an empty list.
+ * Format of yaml is:
+ *  
+ ```yaml:
+ extensions:
+  - id: slack
+    command: uvx mcp_slack
+  - id: knowledge_graph_memory
+    command: npx -y @modelcontextprotocol/server-memory
+  ```
+ * 
+ * @returns A promise that resolves to an array of extension commands that are allowed.
+ */
+async function getAllowList(): Promise<string[]> {
+  if (!process.env.GOOSE_ALLOWLIST) {
+    return [];
+  }
+
+  try {
+    // Fetch the YAML file
+    const response = await fetch(process.env.GOOSE_ALLOWLIST);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch allowed extensions: ${response.status} ${response.statusText}`
+      );
+    }
+
+    // Parse the YAML content
+    const yamlContent = await response.text();
+    const parsedYaml = yaml.parse(yamlContent);
+
+    // Extract the commands from the extensions array
+    if (parsedYaml && parsedYaml.extensions && Array.isArray(parsedYaml.extensions)) {
+      const commands = parsedYaml.extensions.map(
+        (ext: { id: string; command: string }) => ext.command
+      );
+      console.log(`Fetched ${commands.length} allowed extension commands`);
+      return commands;
+    } else {
+      console.error('Invalid YAML structure:', parsedYaml);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error in getAllowList:', error);
+    throw error;
+  }
+}
 
 // Quit when all windows are closed, except on macOS or if we have a tray icon.
 app.on('window-all-closed', () => {

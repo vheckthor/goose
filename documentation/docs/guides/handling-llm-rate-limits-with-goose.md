@@ -1,12 +1,12 @@
 ---
-title: LLM Rate Limits
-sidebar_position: 4
+title: Set LLM Rate Limits
+sidebar_label: LLM Rate Limits
+sidebar_position: 8
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Handling LLM Rate Limits
 
 Rate limiting is the process of restricting the number of requests a user or application can send to an LLM API within a specific timeframe. LLM providers enforce this with the purpose of managing resources and preventing abuse. 
 
@@ -31,7 +31,7 @@ OpenRouter provides a unified interface for LLMs that allows you to select and s
   <TabItem value="ui" label="Goose Desktop">
 
     1. Click on the three dots in the top-right corner.
-    2. Select `Settings` from the menu.
+    2. Select `Advanced Settings` from the menu.
     3. Click on "Browse" in the `Models` section.
     4. Click on `Configure`
     5. Select `OpenRouter` from the list of available providers.

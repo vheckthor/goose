@@ -92,7 +92,7 @@ To configure your chosen provider or see available options, run `goose configure
   <TabItem value="ui" label="Goose Desktop">
   **To update your LLM provider and API key:** 
   1. Click `...` in the upper right corner
-  2. Click `Settings`
+  2. Click `Advanced Settings`
   3. Next to `Models`, click `Browse`
   4. Click `Configure` in the upper right corner
   4. Press the `+` button next to the provider of your choice
@@ -100,7 +100,7 @@ To configure your chosen provider or see available options, run `goose configure
 
   **To change provider model**
   1. Click `...` in the upper right corner
-  2. Click `Settings`
+  2. Click `Advanced Settings`
   3. Next to `Models`, click `Browse`
   4. Scroll down to `Add Model` 
   5. Select a Provider from drop down menu
@@ -128,7 +128,7 @@ Goose supports using custom OpenAI-compatible endpoints, which is particularly u
 | `OPENAI_HOST` | No | Custom endpoint URL (defaults to api.openai.com) |
 | `OPENAI_ORGANIZATION` | No | Organization ID for usage tracking and governance |
 | `OPENAI_PROJECT` | No | Project identifier for resource management |
-| `OPENAI_CUSTOM_HEADERS` | No | Additional headers to include in the request, in the format "HEADER_A=VALUE_A,HEADER_B=VALUE_B" |
+| `OPENAI_CUSTOM_HEADERS` | No | Additional headers to include in the request. Can be set via environment variable, configuration file, or CLI, in the format `HEADER_A=VALUE_A,HEADER_B=VALUE_B`. |
 
 ### Example Configurations
 
@@ -183,7 +183,7 @@ Goose supports using custom OpenAI-compatible endpoints, which is particularly u
   </TabItem>
   <TabItem value="ui" label="Goose Desktop">
     1. Click `...` in the upper right corner
-    2. Click `Settings`
+    2. Click `Advanced Settings`
     3. Next to `Models`, click the `browse` link
     4. Click the `configure` link in the upper right corner
     5. Press the `+` button next to OpenAI
@@ -453,7 +453,7 @@ ollama run michaelneale/deepseek-r1-goose
   </TabItem>
   <TabItem value="ui" label="Goose Desktop">
     3. Click `...` in the top-right corner.
-    4. Navigate to `Settings` -> `Browse Models` -> and select `Ollama` from the list.
+    4. Navigate to `Advanced Settings` -> `Browse Models` -> and select `Ollama` from the list.
     5. Enter `michaelneale/deepseek-r1-goose` for the model name.
   </TabItem>
 </Tabs>

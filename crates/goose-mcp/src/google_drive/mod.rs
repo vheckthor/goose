@@ -28,7 +28,7 @@ use google_docs1::{self, Docs};
 use google_drive3::common::ReadSeek;
 use google_drive3::{
     self,
-    api::{Comment, File, FileShortcutDetails, Reply, Scope},
+    api::{Comment, File, FileShortcutDetails, Permission, Reply, Scope},
     hyper_rustls::{self, HttpsConnector},
     hyper_util::{self, client::legacy::connect::HttpConnector},
     DriveHub,
@@ -54,6 +54,15 @@ enum PaginationState {
     Next(String),
     End,
 }
+const PERMISSIONTYPE: &[&str] = &["user", "group", "domain", "anyone"];
+const ROLES: &[&str] = &[
+    "owner",
+    "organizer",
+    "fileOrganizer",
+    "writer",
+    "commenter",
+    "reader",
+];
 
 lazy_static! {
     static ref GOOGLE_DRIVE_ID_REGEX: Regex =
@@ -714,6 +723,88 @@ impl GoogleDriveRouter {
             }),
         );
 
+        let get_permissions_tool = Tool::new(
+            "get_permissions".to_string(),
+            indoc! {r#"
+                List sharing permissions for a file, folder, or shared drive.
+            "#}
+            .to_string(),
+            json!({
+              "type": "object",
+              "properties": {
+                "fileId": {
+                    "type": "string",
+                    "description": "Id of the file, folder, or shared drive.",
+                }
+              },
+              "required": ["fileId"],
+            }),
+            Some(ToolAnnotations {
+                title: Some("List sharing permissions".to_string()),
+                read_only_hint: true,
+                destructive_hint: false,
+                idempotent_hint: false,
+                open_world_hint: false,
+            }),
+        );
+
+        let sharing_tool = Tool::new(
+            "sharing".to_string(),
+            indoc! {r#"
+                Manage sharing for a Google Drive file or folder.
+
+                Supports the operations:
+                - create: Create a new permission for a 'type' identified by the 'target' param to have the 'role' privileges.
+                - update: Update an existing permission to a different role. (You cannot change the type or to whom it is targeted).
+                - delete: Delete an existing permission.
+            "#}
+            .to_string(),
+            json!({
+              "type": "object",
+              "properties": {
+                "fileId": {
+                    "type": "string",
+                    "description": "Id of the file or folder.",
+                },
+                "operation": {
+                    "type": "string",
+                    "description": "Desired sharing operation.",
+                    "enum": ["create", "update", "delete"],
+                },
+                "permissionId": {
+                    "type": "string",
+                    "description": "Permission Id for delete or update operations.",
+                },
+                "role": {
+                    "type": "string",
+                    "description": "Role to apply to permission for create or update operations.",
+                    "enum": ["owner", "organizer", "fileOrganizer", "writer", "commenter", "reader"]
+                },
+                "type": {
+                    "type": "string",
+                    "description": "Type of permission to create or update.",
+                    "enum": ["user", "group", "domain", "anyone"],
+                },
+                "target": {
+                    "type": "string",
+                    "description": "For the user and group types, the email address. For a domain type, the domain name. (The anyone type does not require a target). Required for the create operation.",
+                },
+                "emailMessage": {
+                    "type": "string",
+                    "description": "Email notification message to send to users and groups.",
+                },
+              },
+              "required": ["fileId", "operation"],
+            }),
+            Some(ToolAnnotations {
+                title: Some("Manage file sharing".to_string()),
+                read_only_hint: false,
+                destructive_hint: false,
+                idempotent_hint: false,
+                open_world_hint: false,
+            }),
+        );
+
         let instructions = indoc::formatdoc! {r#"
             Google Drive MCP Server Instructions
 
@@ -721,12 +812,19 @@ impl GoogleDriveRouter {
             The Google Drive MCP server provides tools for interacting with Google Drive files, Google Sheets, and Google Docs:
             1. search - Find files in your Google Drive
             2. read - Read file contents directly using a uri in the `gdrive:///uri` format
-            3. sheets_tool - Work with Google Sheets data using various operations
-            4. create_file - Create Google Workspace files (Docs, Sheets, or Slides)
-            5. update_google_file - Update existing Google Workspace files (Docs, Sheets, or Slides)
-            6. update_file - Update existing normal non-Google Workspace files
-            7. docs_tool - Work with Google Docs data using various operations
-
+            3. move_file - Move a file to a new location in Google Drive
+            4. list_drives - List the shared drives to which you have access
+            5. get_permissions - List the permissions of a file or folder
+            6. sharing - Share a file or folder with others
+            7. get_comments - List a file or folder's comments
+            8. create_comment - Create a comment on a file or folder
+            9. reply - Reply to a comment on a file or folder
+            10. create_file - Create Google Workspace files (Docs, Sheets, or Slides)
+            11. update_google_file - Update existing Google Workspace files (Docs, Sheets, or Slides)
+            12. upload - Upload any kind of file to Google Drive
+            13. update_file - Update existing normal non-Google Workspace files
+            14. sheets_tool - Work with Google Sheets data using various operations
+            15. docs_tool - Work with Google Docs data using various operations
 
             ## Available Tools
 
@@ -758,14 +856,72 @@ impl GoogleDriveRouter {
             Limitations: Google Sheets exporting only supports reading the first sheet. This is an important limitation that should
             be communicated to the user whenever dealing with a Google Sheet (mimeType: application/vnd.google-apps.spreadsheet).
 
-            ### 3. Sheets Tool
+            #### File Format Handling
+            The read file tool's output will be converted:
+            - Google Docs → Markdown
+            - Google Sheets → CSV
+            - Google Presentations → Plain text
+            - Text/JSON files → UTF-8 text
+            - Binary files → Base64 encoded
+
+            ### 3. Move File Tool
+            Move a file from its current folder to a new folder, including folders on another drive.
+
+            ### 4. List Drives Tool
+            Lists the user's available Shared Drives.
+
+            ### 5. Get Permissions Tool
+            Lists the permissions for a file or folder. Permissions in Google
+            Drive consist of a type ('user', 'group', 'domain', 'anyone') and a role
+            ('owner', 'organizer', 'fileOrganizer', 'writer', 'commenter',
+            'reader').
+
+            ### 6. Sharing Tool
+            Create a new permission, update the role on an existing permission,
+            or delete a permission. User, group, and domain permissions should
+            have a provided "target" email address or domain name.
+
+            ### 7. Get Comments Tool
+            Lists the comments for a Google Workspace file.
+
+            ### 8. Create Comment Tool
+            Create a new comment on a Google Workspace file. The Google Drive
+            API only allows "unanchored" comments, which are comments not
+            attache to a specific location or region in the document.
+
+            ### 9. Reply Tool
+            Reply to an existing comment.
+
+            ### 10. Create File Tool
+            Create Google Workspace files (Docs, Sheets, or Slides) directly in Google Drive.
+            - For Google Docs: Converts Markdown text to a Google Document
+            - For Google Sheets: Converts CSV text to a Google Spreadsheet
+            - For Google Slides: Converts a PowerPoint file to Google Slides (requires a path to the powerpoint file)
+
+            ### 11. Update Google File Tool
+            Update existing Google Workspace files (Docs, Sheets, or Slides) in Google Drive.
+            - For Google Docs: Updates with new Markdown text
+            - For Google Sheets: Updates with new CSV text
+            - For Google Slides: Updates with a new PowerPoint file (requires a path to the powerpoint file)
+
+            *Note*: All updates overwrite the existing content with the new
+            content provided. To modify specific parts of the document, you must
+            include the changes as part of the entire document.
+
+            ### 12. Upload Tool
+            Upload any kind of file to Google Drive. The file will not be converted to a Google Workspace file.
+
+            ### 13. Update File Tool
+            Replace the entire contents of an existing Google Drive file with new content. This is for non-Google Workspace files only.
+
+            ### 14. Sheets Tool
             Work with Google Sheets data using various operations:
             - list_sheets: List all sheets in a spreadsheet
             - get_columns: Get column headers from a specific sheet
             - get_values: Get values from a range
             - update_values: Update values in a range (requires CSV formatted data)
             - update_cell: Update a single cell value
-            - add_sheet: Add a new sheet (tab) to a spreadshee
+            - add_sheet: Add a new sheet (tab) to a spreadsheet
             - clear_values: Clear values from a range
 
             For update_values operation, provide CSV formatted data in the values parameter.
@@ -774,7 +930,18 @@ impl GoogleDriveRouter {
 
             For update_cell operation, provide the cell reference (e.g., 'Sheet1!A1') and the value to set.
 
-            ### 4. Docs Tool
+            Parameters:
+            - spreadsheetId: The ID of the spreadsheet (can be obtained from search results)
+            - operation: The operation to perform (one of the operations listed above)
+            - sheetName: The name of the sheet to work with (optional for some operations)
+            - range: The A1 notation of the range to retrieve or update values (e.g., 'Sheet1!A1:D10')
+            - values: CSV formatted data for update operations
+            - cell: The A1 notation of the cell to update (e.g., 'Sheet1!A1') for update_cell operation
+            - value: The value to set in the cell for update_cell operation
+            - title: Title for the new sheet (required for add_sheet operation)
+            - valueInputOption: How input data should be interpreted (RAW or USER_ENTERED)
+
+            ### 15. Docs Tool
             Work with Google Docs data using various operations:
             - get_document: Get the full document content
             - insert_text: Insert text at a specific location
@@ -791,38 +958,6 @@ impl GoogleDriveRouter {
             - position: The position in the document (index) for operations that require a position
             - startPosition: The start position for delete_content operation
             - endPosition: The end position for delete_content operation
-
-            ### 5. Create File Tool
-            Create Google Workspace files (Docs, Sheets, or Slides) directly in Google Drive.
-            - For Google Docs: Converts Markdown text to a Google Document
-            - For Google Sheets: Converts CSV text to a Google Spreadsheet
-            - For Google Slides: Converts a PowerPoint file to Google Slides (requires a path to the powerpoint file)
-
-            ### 6. Update File Tool
-            Update existing Google Workspace files (Docs, Sheets, or Slides) in Google Drive.
-            - For Google Docs: Updates with new Markdown text
-            - For Google Sheets: Updates with new CSV text
-            - For Google Slides: Updates with a new PowerPoint file (requires a path to the powerpoint file)
-                - Note: This functionally is an overwrite to the slides, warn the user before using this tool.
-
-            Parameters:
-            - spreadsheetId: The ID of the spreadsheet (can be obtained from search results)
-            - operation: The operation to perform (one of the operations listed above)
-            - sheetName: The name of the sheet to work with (optional for some operations)
-            - range: The A1 notation of the range to retrieve or update values (e.g., 'Sheet1!A1:D10')
-            - values: CSV formatted data for update operations
-            - cell: The A1 notation of the cell to update (e.g., 'Sheet1!A1') for update_cell operation
-            - value: The value to set in the cell for update_cell operation
-            - title: Title for the new sheet (required for add_sheet operation)
-            - valueInputOption: How input data should be interpreted (RAW or USER_ENTERED)
-
-            ## File Format Handling
-            The server automatically handles different file types:
-            - Google Docs → Markdown
-            - Google Sheets → CSV
-            - Google Presentations → Plain text
-            - Text/JSON files → UTF-8 text
-            - Binary files → Base64 encoded
 
             ## Common Usage Pattern
 
@@ -862,6 +997,8 @@ impl GoogleDriveRouter {
                 create_comment_tool,
                 reply_tool,
                 list_drives_tool,
+                get_permissions_tool,
+                sharing_tool,
             ],
             instructions,
             drive,
@@ -1216,7 +1353,7 @@ impl GoogleDriveRouter {
                 // Validation: check for / path separators as invalid uris
                 if drive_uri.contains('/') {
                     return Err(ToolError::InvalidParameters(format!(
-                        "The uri '{}' conatins extra '/'. Only the base URI is allowed.",
+                        "The uri '{}' contains extra '/'. Only the base URI is allowed.",
                         uri
                     )));
                 }
@@ -2746,6 +2883,225 @@ impl GoogleDriveRouter {
         }
         Ok(vec![Content::text(results.join("\n"))])
     }
+
+    fn output_permission(&self, p: Permission) -> String {
+        format!(
+            "(display_name: {}) (domain: {}) (email_address: {}) (expiration_time: {}) (permission_details: {:?}) (role: {}) (type: {}) (uri: {})",
+            p.display_name.unwrap_or_default(),
+            p.domain.unwrap_or_default(),
+            p.email_address.unwrap_or_default(),
+            p.expiration_time.unwrap_or_default(),
+            p.permission_details.unwrap_or_default(),
+            p.role.unwrap_or_default(),
+            p.type_.unwrap_or_default(),
+            p.id.unwrap_or_default())
+    }
+
+    async fn get_permissions(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+        let file_id =
+            params
+                .get("fileId")
+                .and_then(|q| q.as_str())
+                .ok_or(ToolError::InvalidParameters(
+                    "The fileId param is required".to_string(),
+                ))?;
+
+        let mut results: Vec<String> = Vec::new();
+        let mut state = PaginationState::Start;
+        while state != PaginationState::End {
+            let mut builder = self
+                .drive
+                .permissions()
+                .list(file_id)
+                .param("fields", "permissions(displayName, domain, emailAddress, expirationTime, permissionDetails, role, type, id)")
+                .supports_all_drives(true)
+                .page_size(100)
+                .clear_scopes() // Scope::MeetReadonly is the default, remove it
+                .add_scope(GOOGLE_DRIVE_SCOPES);
+            if let PaginationState::Next(pt) = state {
+                builder = builder.page_token(&pt);
+            }
+            let result = builder.doit().await;
+
+            match result {
+                Err(e) => {
+                    return Err(ToolError::ExecutionError(format!(
+                        "Failed to execute google drive list, {}.",
+                        e
+                    )))
+                }
+                Ok(r) => {
+                    let mut content =
+                        r.1.permissions
+                            .map(|perms| perms.into_iter().map(|p| self.output_permission(p)))
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<_>>();
+                    results.append(&mut content);
+                    state = match r.1.next_page_token {
+                        Some(npt) => PaginationState::Next(npt),
+                        None => PaginationState::End,
+                    }
+                }
+            }
+        }
+        Ok(vec![Content::text(results.join("\n"))])
+    }
+
+    async fn sharing(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+        let file_id =
+            params
+                .get("fileId")
+                .and_then(|q| q.as_str())
+                .ok_or(ToolError::InvalidParameters(
+                    "The fileId param is required".to_string(),
+                ))?;
+        let operation = params.get("operation").and_then(|q| q.as_str()).ok_or(
+            ToolError::InvalidParameters("The operation is required".to_string()),
+        )?;
+        let permission_id = params.get("permissionId").and_then(|q| q.as_str());
+        let role = params.get("role").and_then(|s| {
+            s.as_str().map(|s| {
+                if ROLES.contains(&s) {
+                    Ok(s)
+                } else {
+                    Err(ToolError::InvalidParameters("Invalid role: must be one of ('owner', 'organizer', 'fileOrganizer', 'writer', 'commenter', 'reader')".to_string()))
+                }
+            })
+        }).transpose()?;
+        let permission_type = params.get("type").and_then(|s|
+            s.as_str().map(|s| {
+                if PERMISSIONTYPE.contains(&s) {
+                    Ok(s)
+                } else {
+                    Err(ToolError::InvalidParameters("Invalid permission type: must be one of ('user', 'group', 'domain', 'anyone')".to_string()))
+                }
+            })
+        ).transpose()?;
+        let target = params.get("target").and_then(|s| s.as_str());
+        let email_message = params.get("emailMessage").and_then(|s| s.as_str());
+
+        match operation {
+            "create" => {
+                let (role, permission_type) = match (role, permission_type) {
+                    (Some(r), Some(t)) => (r, t),
+                    _ => {
+                        return Err(ToolError::InvalidParameters(
+                            "The 'create' operation requires the 'role' and 'type' parameters."
+                                .to_string(),
+                        ))
+                    }
+                };
+                let mut req = Permission {
+                    role: Some(role.to_string()),
+                    type_: Some(permission_type.to_string()),
+                    ..Default::default()
+                };
+                match (permission_type, target) {
+                    ("user", Some(t)) | ("group", Some(t)) => {
+                        req.email_address = Some(t.to_string())
+                    }
+                    ("domain", Some(d)) => req.domain = Some(d.to_string()),
+                    ("anyone", None) => {}
+                    (_, _) => {
+                        return Err(ToolError::InvalidParameters(format!(
+                            "The '{}' operation for type '{}' requires the 'target' parameter.",
+                            operation, permission_type
+                        )))
+                    }
+                }
+
+                let mut builder = self
+                    .drive
+                    .permissions()
+                    .create(req, file_id)
+                    .supports_all_drives(true)
+                    .clear_scopes()
+                    .add_scope(GOOGLE_DRIVE_SCOPES);
+                if let Some(msg) = email_message {
+                    builder = builder.email_message(msg);
+                }
+
+                let result = builder.doit().await;
+                match result {
+                    Err(e) => Err(ToolError::ExecutionError(format!(
+                        "Failed to manage sharing for google drive file {}, {}.",
+                        file_id, e
+                    ))),
+                    Ok(r) => Ok(vec![Content::text(self.output_permission(r.1))]),
+                }
+            }
+            "update" => {
+                let (permission_id, role) = match (permission_id, role) {
+                    (Some(p), Some(r)) => (p, r),
+                    _ => {
+                        return Err(ToolError::InvalidParameters(
+                            "The 'update' operation requires the 'permissionId', and 'role'."
+                                .to_string(),
+                        ))
+                    }
+                };
+                // A permission update requires a permissionId, which is also
+                // the ID for that user, group, or domain. We don't _use_ the
+                // permission type in the Permission req body, because the
+                // update uses "patch semantics", and you can't patch a
+                // permission from one user to another without changing its ID.
+                let req = Permission {
+                    role: Some(role.to_string()),
+                    ..Default::default()
+                };
+
+                let result = self
+                    .drive
+                    .permissions()
+                    .update(req, file_id, permission_id)
+                    .supports_all_drives(true)
+                    .clear_scopes()
+                    .add_scope(GOOGLE_DRIVE_SCOPES)
+                    .doit()
+                    .await;
+                match result {
+                    Err(e) => Err(ToolError::ExecutionError(format!(
+                        "Failed to manage sharing for google drive file {}, {}.",
+                        file_id, e
+                    ))),
+                    Ok(r) => Ok(vec![Content::text(self.output_permission(r.1))]),
+                }
+            }
+            "delete" => {
+                let permission_id = permission_id.ok_or(ToolError::InvalidParameters(
+                    "The 'delete' operation requires the 'permissionId'.".to_string(),
+                ))?;
+
+                let result = self
+                    .drive
+                    .permissions()
+                    .delete(file_id, permission_id)
+                    .supports_all_drives(true)
+                    .clear_scopes()
+                    .add_scope(GOOGLE_DRIVE_SCOPES)
+                    .doit()
+                    .await;
+                match result {
+                    Err(e) => Err(ToolError::ExecutionError(format!(
+                        "Failed to manage sharing for google drive file {}, {}.",
+                        file_id, e
+                    ))),
+                    Ok(_) => Ok(vec![Content::text(format!(
+                        "Deleted permission: {} from file: {}",
+                        file_id, permission_id
+                    ))]),
+                }
+            }
+            s => Err(ToolError::InvalidParameters(
+                format!(
+                    "Parameter 'operation' must be one of ('create', 'update', 'delete'); given {}",
+                    s
+                )
+                .to_string(),
+            )),
+        }
+    }
 }
 
 impl Router for GoogleDriveRouter {
@@ -2790,6 +3146,8 @@ impl Router for GoogleDriveRouter {
                 "get_comments" => this.get_comments(arguments).await,
                 "reply" => this.reply(arguments).await,
                 "list_drives" => this.list_drives(arguments).await,
+                "get_permissions" => this.get_permissions(arguments).await,
+                "sharing" => this.sharing(arguments).await,
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })

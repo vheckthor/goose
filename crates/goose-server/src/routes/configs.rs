@@ -1,3 +1,4 @@
+use super::utils::verify_secret_key;
 use crate::state::AppState;
 use axum::{
     extract::{Query, State},
@@ -9,7 +10,7 @@ use http::{HeaderMap, StatusCode};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 #[derive(Serialize)]
 struct ConfigResponse {
@@ -25,19 +26,11 @@ struct ConfigRequest {
 }
 
 async fn store_config(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<ConfigRequest>,
 ) -> Result<Json<ConfigResponse>, StatusCode> {
-    // Verify secret key
-    let secret_key = headers
-        .get("X-Secret-Key")
-        .and_then(|value| value.to_str().ok())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    if secret_key != state.secret_key {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    verify_secret_key(&headers, &state)?;
 
     let config = Config::global();
     let result = if request.is_secret {
@@ -155,19 +148,11 @@ pub struct GetConfigResponse {
 }
 
 pub async fn get_config(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Query(query): Query<GetConfigQuery>,
 ) -> Result<Json<GetConfigResponse>, StatusCode> {
-    // Verify secret key
-    let secret_key = headers
-        .get("X-Secret-Key")
-        .and_then(|value| value.to_str().ok())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    if secret_key != state.secret_key {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    verify_secret_key(&headers, &state)?;
 
     // Fetch the configuration value. Right now we don't allow get a secret.
     let config = Config::global();
@@ -189,19 +174,11 @@ struct DeleteConfigRequest {
 }
 
 async fn delete_config(
-    State(state): State<AppState>,
+    State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Json(request): Json<DeleteConfigRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    // Verify secret key
-    let secret_key = headers
-        .get("X-Secret-Key")
-        .and_then(|value| value.to_str().ok())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    if secret_key != state.secret_key {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+    verify_secret_key(&headers, &state)?;
 
     // Attempt to delete the key
     let config = Config::global();
@@ -216,7 +193,7 @@ async fn delete_config(
     }
 }
 
-pub fn routes(state: AppState) -> Router {
+pub fn routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/configs/providers", post(check_provider_configs))
         .route("/configs/get", get(get_config))

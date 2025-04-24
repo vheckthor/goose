@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { getApiUrl } from '../config';
-import BottomMenu from './BottomMenu';
+import BottomMenu from './bottom_menu/BottomMenu';
 import FlappyGoose from './FlappyGoose';
 import GooseMessage from './GooseMessage';
 import Input from './Input';
@@ -12,10 +12,14 @@ import { ScrollArea, ScrollAreaHandle } from './ui/scroll-area';
 import UserMessage from './UserMessage';
 import Splash from './Splash';
 import { SearchView } from './conversation/SearchView';
-import { DeepLinkModal } from './ui/DeepLinkModal';
+import { createRecipe } from '../recipe';
+import { AgentHeader } from './AgentHeader';
+import LayingEggLoader from './LayingEggLoader';
+import { fetchSessionDetails } from '../sessions';
+// import { configureRecipeExtensions } from '../utils/recipeExtensions';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
-import { BotConfig } from '../botConfig';
+import { Recipe } from '../recipe';
 import {
   Message,
   createUserMessage,
@@ -24,7 +28,6 @@ import {
   ToolRequestMessageContent,
   ToolResponseMessageContent,
   ToolConfirmationRequestMessageContent,
-  getTextContent,
 } from '../types/message';
 
 export interface ChatType {
@@ -36,20 +39,11 @@ export interface ChatType {
   messages: Message[];
 }
 
-interface GeneratedBotConfig {
-  id: string;
-  name: string;
-  description: string;
-  instructions: string;
-  activities: string[];
-}
-
 // Helper function to determine if a message is a user message
 const isUserMessage = (message: Message): boolean => {
   if (message.role === 'assistant') {
     return false;
   }
-
   if (message.content.every((c) => c.type === 'toolConfirmationRequest')) {
     return false;
   }
@@ -72,13 +66,12 @@ export default function ChatView({
   const [hasMessages, setHasMessages] = useState(false);
   const [lastInteractionTime, setLastInteractionTime] = useState<number>(Date.now());
   const [showGame, setShowGame] = useState(false);
-  const [waitingForAgentResponse, setWaitingForAgentResponse] = useState(false);
-  const [showShareableBotModal, setshowShareableBotModal] = useState(false);
-  const [generatedBotConfig, setGeneratedBotConfig] = useState<GeneratedBotConfig | null>(null);
+  const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
+  const [sessionTokenCount, setSessionTokenCount] = useState<number>(0);
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
-  // Get botConfig directly from appConfig
-  const botConfig = window.appConfig.get('botConfig') as BotConfig | null;
+  // Get recipeConfig directly from appConfig
+  const recipeConfig = window.appConfig.get('recipeConfig') as Recipe | null;
 
   const {
     messages,
@@ -123,33 +116,49 @@ export default function ChatView({
   // Listen for make-agent-from-chat event
   useEffect(() => {
     const handleMakeAgent = async () => {
-      window.electron.logInfo('Making agent from chat...');
+      window.electron.logInfo('Making recipe from chat...');
+      setIsGeneratingRecipe(true);
 
-      // Log all messages for now
-      window.electron.logInfo('Current messages:');
-      chat.messages.forEach((message, index) => {
-        const role = isUserMessage(message) ? 'user' : 'assistant';
-        const content = isUserMessage(message) ? message.text : getTextContent(message);
-        window.electron.logInfo(`Message ${index} (${role}): ${content}`);
-      });
+      try {
+        // Create recipe directly from chat messages
+        const createRecipeRequest = {
+          messages: messages,
+          title: '',
+          description: '',
+        };
 
-      // Inject a question into the chat to generate instructions
-      const instructionsPrompt =
-        'Based on our conversation so far, could you create:\n' +
-        "1. A concise set of instructions (1-2 paragraphs) that describe what you've been helping with. Pay special attention if any output styles or formats are requested (and make it clear), and note any non standard tools used or required.\n" +
-        '2. A list of 3-5 example activities (as a few words each at most) that would be relevant to this topic\n\n' +
-        "Format your response with clear headings for 'Instructions:' and 'Activities:' sections." +
-        'For example, perhaps we have been discussing fruit and you might write:\n\n' +
-        'Instructions:\nUsing web searches we find pictures of fruit, and always check what language to reply in.' +
-        'Activities:\nShow pics of apples, say a random fruit, share a fruit fact';
+        const response = await createRecipe(createRecipeRequest);
 
-      // Set waiting state to true before adding the prompt
-      setWaitingForAgentResponse(true);
+        if (response.error) {
+          throw new Error(`Failed to create recipe: ${response.error}`);
+        }
 
-      // Add the prompt as a user message
-      append(createUserMessage(instructionsPrompt));
+        window.electron.logInfo('Created recipe:');
+        window.electron.logInfo(JSON.stringify(response.recipe, null, 2));
 
-      window.electron.logInfo('Injected instructions prompt into chat');
+        // First, verify the recipe data
+        if (!response.recipe) {
+          throw new Error('No recipe data received');
+        }
+
+        // Create a new window for the recipe editor
+        console.log('Opening recipe editor with config:', response.recipe);
+        window.electron.createChatWindow(
+          undefined, // query
+          undefined, // dir
+          undefined, // version
+          undefined, // resumeSessionId
+          response.recipe, // recipe config
+          'recipeEditor' // view type
+        );
+
+        window.electron.logInfo('Opening recipe editor window');
+      } catch (error) {
+        window.electron.logInfo('Failed to create recipe:');
+        window.electron.logInfo(error.message);
+      } finally {
+        setIsGeneratingRecipe(false);
+      }
     };
 
     window.addEventListener('make-agent-from-chat', handleMakeAgent);
@@ -157,74 +166,9 @@ export default function ChatView({
     return () => {
       window.removeEventListener('make-agent-from-chat', handleMakeAgent);
     };
-  }, [append, chat.messages, setWaitingForAgentResponse]);
-
-  // Listen for new messages and process agent response
-  useEffect(() => {
-    // Only process if we're waiting for an agent response
-    if (!waitingForAgentResponse || messages.length === 0) {
-      return;
-    }
-
-    // Get the last message
-    const lastMessage = messages[messages.length - 1];
-
-    // Check if it's an assistant message (response to our prompt)
-    if (lastMessage.role === 'assistant') {
-      // Extract the content
-      const content = getTextContent(lastMessage);
-
-      // Process the agent's response
-      if (content) {
-        window.electron.logInfo('Received agent response:');
-        window.electron.logInfo(content);
-
-        // Parse the response to extract instructions and activities
-        const instructionsMatch = content.match(/Instructions:(.*?)(?=Activities:|$)/s);
-        const activitiesMatch = content.match(/Activities:(.*?)$/s);
-
-        const instructions = instructionsMatch ? instructionsMatch[1].trim() : '';
-        const activitiesText = activitiesMatch ? activitiesMatch[1].trim() : '';
-
-        // Parse activities into an array
-        const activities = activitiesText
-          .split(/\n+/)
-          .map((line) => line.replace(/^[•\-*\d]+\.?\s*/, '').trim())
-          .filter((activity) => activity.length > 0);
-
-        // Create a bot config object
-        const generatedConfig = {
-          id: `bot-${Date.now()}`,
-          name: 'Custom Bot',
-          description: 'Bot created from chat',
-          instructions: instructions,
-          activities: activities,
-        };
-
-        window.electron.logInfo('Extracted bot config:');
-        window.electron.logInfo(JSON.stringify(generatedConfig, null, 2));
-
-        // Store the generated bot config
-        setGeneratedBotConfig(generatedConfig);
-
-        // Show the modal with the generated bot config
-        setshowShareableBotModal(true);
-
-        window.electron.logInfo('Generated bot config for agent creation');
-
-        // Reset waiting state
-        setWaitingForAgentResponse(false);
-      }
-    }
-  }, [messages, waitingForAgentResponse, setshowShareableBotModal, setGeneratedBotConfig]);
-
-  // Leaving these in for easy debugging of different message states
-
-  // One message with a tool call and no text content
-  // const messages = [{"role":"assistant","created":1742484893,"content":[{"type":"toolRequest","id":"call_udVcu3crnFdx2k5FzlAjk5dI","toolCall":{"status":"success","value":{"name":"developer__text_editor","arguments":{"command":"write","file_text":"Hello, this is a test file.\nLet's see if this works properly.","path":"/Users/alexhancock/Development/testfile.txt"}}}}]}];
-
-  // One message with text content and tool calls
-  // const messages = [{"role":"assistant","created":1742484388,"content":[{"type":"text","text":"Sure, let's break this down into two steps:\n\n1. **Write content to a `.txt` file.**\n2. **Read the content from the `.txt` file.**\n\nLet's start by writing some example content to a `.txt` file. I'll create a file named `example.txt` and write a sample sentence into it. Then I'll read the content back. \n\n### Sample Content\nWe'll write the following content into the `example.txt` file:\n\n```\nHello World! This is an example text file.\n```\n\nLet's proceed with this task."},{"type":"toolRequest","id":"call_CmvAsxMxiWVKZvONZvnz4QCE","toolCall":{"status":"success","value":{"name":"developer__text_editor","arguments":{"command":"write","file_text":"Hello World! This is an example text file.","path":"/Users/alexhancock/Development/example.txt"}}}}]}];
+  }, [messages]);
+  // do we need append here?
+  // }, [append, chat.messages]);
 
   // Update chat messages when they change and save to sessionStorage
   useEffect(() => {
@@ -338,7 +282,6 @@ export default function ChatView({
 
           responseMessage.content.push(toolResponse);
         }
-
         // Use an immutable update to add the response message to the messages array
         setMessages([...messages, responseMessage]);
       }
@@ -380,23 +323,59 @@ export default function ChatView({
       .reverse();
   }, [filteredMessages]);
 
+  // Fetch session metadata to get token count
+  useEffect(() => {
+    const fetchSessionTokens = async () => {
+      try {
+        const sessionDetails = await fetchSessionDetails(chat.id);
+        setSessionTokenCount(sessionDetails.metadata.total_tokens);
+      } catch (err) {
+        console.error('Error fetching session token count:', err);
+      }
+    };
+    if (chat.id) {
+      fetchSessionTokens();
+    }
+  }, [chat.id, messages]);
+
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
+      {/* Loader when generating recipe */}
+      {isGeneratingRecipe && <LayingEggLoader />}
       <div className="relative flex items-center h-[36px] w-full">
         <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
       </div>
 
       <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
+        {recipeConfig?.title && messages.length > 0 && (
+          <AgentHeader
+            title={recipeConfig.title}
+            profileInfo={
+              recipeConfig.profile
+                ? `${recipeConfig.profile} - ${recipeConfig.mcps || 12} MCPs`
+                : undefined
+            }
+            onChangeProfile={() => {
+              // Handle profile change
+              console.log('Change profile clicked');
+            }}
+          />
+        )}
         {messages.length === 0 ? (
           <Splash
             append={(text) => append(createUserMessage(text))}
-            activities={botConfig?.activities || null}
+            activities={Array.isArray(recipeConfig?.activities) ? recipeConfig.activities : null}
+            title={recipeConfig?.title}
           />
         ) : (
           <ScrollArea ref={scrollRef} className="flex-1" autoScroll>
             <SearchView>
               {filteredMessages.map((message, index) => (
-                <div key={message.id || index} className="mt-4 px-4">
+                <div
+                  key={message.id || index}
+                  className="mt-4 px-4"
+                  data-testid="message-container"
+                >
                   {isUserMessage(message) ? (
                     <UserMessage message={message} />
                   ) : (
@@ -450,26 +429,11 @@ export default function ChatView({
             commandHistory={commandHistory}
             initialValue={_input}
           />
-          <BottomMenu hasMessages={hasMessages} setView={setView} />
+          <BottomMenu hasMessages={hasMessages} setView={setView} numTokens={sessionTokenCount} />
         </div>
       </Card>
 
       {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
-
-      {/* Deep Link Modal */}
-      {showShareableBotModal && generatedBotConfig && (
-        <DeepLinkModal
-          botConfig={generatedBotConfig}
-          onClose={() => {
-            setshowShareableBotModal(false);
-            setGeneratedBotConfig(null);
-          }}
-          onOpen={() => {
-            setshowShareableBotModal(false);
-            setGeneratedBotConfig(null);
-          }}
-        />
-      )}
     </div>
   );
 }

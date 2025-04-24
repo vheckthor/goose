@@ -65,7 +65,7 @@ import DesktopInstallButtons from '@site/src/components/DesktopInstallButtons';
 
           Ensure the `~/.config` directory has read and write access.
 
-          Goose needs this access to create the log directory and file. Once permissions are granted, the app should load correctly. For steps on how to do this, refer to the  [Troubleshooting Guide](/docs/troubleshooting.md#macos-permission-issues-m3-macs)
+          Goose needs this access to create the log directory and file. Once permissions are granted, the app should load correctly. For steps on how to do this, refer to the  [Troubleshooting Guide](/docs/troubleshooting.md#macos-permission-issues)
           :::
         </div>
       </TabItem>
@@ -237,6 +237,28 @@ Goose works with a set of [supported LLM providers][providers], and you’ll nee
         Starting a session in the Goose Desktop is straightforward. After choosing your provider, you’ll see the session interface ready for use.
 
         Type your questions, tasks, or instructions directly into the input field, and Goose will get to work immediately.
+    </TabItem>
+</Tabs>
+
+## Shared Configuration Settings
+
+The Goose CLI and Desktop UI share all core configurations, including LLM provider settings, model selection, and extension configurations. When you install or configure extensions in either interface, the settings are stored in a central location at `~/.config/goose/config.yaml`, making them available to both the Desktop application and CLI. This makes it convenient to switch between interfaces while maintaining consistent settings.
+
+:::note
+While core configurations are shared between interfaces, extensions have flexibility in how they store authentication credentials. Some extensions may use the shared config file while others implement their own storage methods.
+::: 
+
+<Tabs groupId="interface">
+    <TabItem value="cli" label="Goose CLI" default>
+        Use the following command to manage shared configurations:
+        ```sh
+        goose configure
+        ```
+    </TabItem>
+    <TabItem value="ui" label="Goose Desktop">
+        Navigate to shared configurations through:
+        1. Click `...` in the upper right corner
+        2. Click `Advanced Settings`
     </TabItem>
 </Tabs>
 

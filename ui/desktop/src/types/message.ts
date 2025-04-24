@@ -41,13 +41,6 @@ export interface ToolResponse {
   toolResult: ToolCallResult<Content[]>;
 }
 
-export interface ToolConfirmationRequest {
-  id: string;
-  toolName: string;
-  arguments: Record<string, unknown>;
-  prompt?: string;
-}
-
 export interface ToolRequestMessageContent {
   type: 'toolRequest';
   id: string;
@@ -68,12 +61,30 @@ export interface ToolConfirmationRequestMessageContent {
   prompt?: string;
 }
 
+export interface ExtensionCall {
+  name: string;
+  arguments: Record<string, unknown>;
+  extensionName: string;
+}
+
+export interface ExtensionCallResult<T> {
+  status: 'success' | 'error';
+  value?: T;
+  error?: string;
+}
+
+export interface ContextLengthExceededContent {
+  type: 'contextLengthExceeded';
+  msg: string;
+}
+
 export type MessageContent =
   | TextContent
   | ImageContent
   | ToolRequestMessageContent
   | ToolResponseMessageContent
-  | ToolConfirmationRequestMessageContent;
+  | ToolConfirmationRequestMessageContent
+  | ContextLengthExceededContent;
 
 export interface Message {
   id?: string;
@@ -170,8 +181,18 @@ function generateId(): string {
 // Helper functions to extract content from messages
 export function getTextContent(message: Message): string {
   return message.content
-    .filter((content): content is TextContent => content.type === 'text')
-    .map((content) => content.text)
+    .filter(
+      (content): content is TextContent | ContextLengthExceededContent =>
+        content.type === 'text' || content.type === 'contextLengthExceeded'
+    )
+    .map((content) => {
+      if (content.type === 'text') {
+        return content.text;
+      } else if (content.type === 'contextLengthExceeded') {
+        return content.msg;
+      }
+      return '';
+    })
     .join('\n');
 }
 

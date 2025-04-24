@@ -3,8 +3,8 @@ use goose::agents::extension::ToolInfo;
 use goose::agents::ExtensionConfig;
 use goose::config::permission::PermissionLevel;
 use goose::config::ExtensionEntry;
-use goose::providers::base::ConfigKey;
-use goose::providers::base::ProviderMetadata;
+use goose::permission::permission_confirmation::PrincipalType;
+use goose::providers::base::{ConfigKey, ModelInfo, ProviderMetadata};
 use mcp_core::tool::{Tool, ToolAnnotations};
 use utoipa::OpenApi;
 
@@ -12,6 +12,7 @@ use utoipa::OpenApi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        super::routes::config_management::backup_config,
         super::routes::config_management::init_config,
         super::routes::config_management::upsert_config,
         super::routes::config_management::remove_config,
@@ -21,7 +22,9 @@ use utoipa::OpenApi;
         super::routes::config_management::get_extensions,
         super::routes::config_management::read_all_config,
         super::routes::config_management::providers,
+        super::routes::config_management::upsert_permissions,
         super::routes::agent::get_tools,
+        super::routes::reply::confirm_permission,
     ),
     components(schemas(
         super::routes::config_management::UpsertConfigQuery,
@@ -31,6 +34,9 @@ use utoipa::OpenApi;
         super::routes::config_management::ProviderDetails,
         super::routes::config_management::ExtensionResponse,
         super::routes::config_management::ExtensionQuery,
+        super::routes::config_management::ToolPermission,
+        super::routes::config_management::UpsertPermissionsQuery,
+        super::routes::reply::PermissionConfirmationRequest,
         ProviderMetadata,
         ExtensionEntry,
         ExtensionConfig,
@@ -40,6 +46,8 @@ use utoipa::OpenApi;
         ToolAnnotations,
         ToolInfo,
         PermissionLevel,
+        PrincipalType,
+        ModelInfo,
     ))
 )]
 pub struct ApiDoc;
