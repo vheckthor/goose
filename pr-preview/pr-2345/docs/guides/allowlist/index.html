@@ -5,7 +5,7 @@
 <meta name="generator" content="Docusaurus v3.7.0">
 <title data-rh="true">Goose Extension Allowlist | codename goose</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://block.github.io/goose/pr-preview/pr-2345/img/home-banner.png"><meta data-rh="true" name="twitter:image" content="https://block.github.io/goose/pr-preview/pr-2345/img/home-banner.png"><meta data-rh="true" property="og:url" content="https://block.github.io/goose/pr-preview/pr-2345/docs/guides/allowlist"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Goose Extension Allowlist | codename goose"><meta data-rh="true" name="description" content="Goose is an extensible framework that, by default, allows you to install any MCP server. However when using Goose in a corporate setting, you may want stricter controls on which MCP servers can be installed as extensions. This guide explains how your organization can create an approved list of safe extensions that work with both the desktop app and command line version of Goose. This keeps your system secure by making sure only trusted extensions can run commands. The approved list is known as an allowlist."><meta data-rh="true" property="og:description" content="Goose is an extensible framework that, by default, allows you to install any MCP server. However when using Goose in a corporate setting, you may want stricter controls on which MCP servers can be installed as extensions. This guide explains how your organization can create an approved list of safe extensions that work with both the desktop app and command line version of Goose. This keeps your system secure by making sure only trusted extensions can run commands. The approved list is known as an allowlist."><link data-rh="true" rel="icon" href="/goose/pr-preview/pr-2345/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://block.github.io/goose/pr-preview/pr-2345/docs/guides/allowlist"><link data-rh="true" rel="alternate" href="https://block.github.io/goose/pr-preview/pr-2345/docs/guides/allowlist" hreflang="en"><link data-rh="true" rel="alternate" href="https://block.github.io/goose/pr-preview/pr-2345/docs/guides/allowlist" hreflang="x-default"><link rel="alternate" type="application/rss+xml" href="/goose/pr-preview/pr-2345/blog/rss.xml" title="codename goose RSS Feed">
 <link rel="alternate" type="application/atom+xml" href="/goose/pr-preview/pr-2345/blog/atom.xml" title="codename goose Atom Feed"><link rel="stylesheet" href="/goose/pr-preview/pr-2345/assets/css/styles.51ea72d1.css">
-<script src="/goose/pr-preview/pr-2345/assets/js/runtime~main.e93c0320.js" defer="defer"></script>
+<script src="/goose/pr-preview/pr-2345/assets/js/runtime~main.c85d4676.js" defer="defer"></script>
 <script src="/goose/pr-preview/pr-2345/assets/js/main.c1b45cda.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -13,7 +13,7 @@
 <p>An allowlist lets administrators control which commands can run in Goose&#x27;s <code>stdio</code> extensions. This security feature stops harmful extensions from running unapproved commands on your computer. When turned on, the Goose server agent only allows commands that are on the list. Any command not on this list is blocked, and the user see an error message.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="how-it-works">How It Works<a href="#how-it-works" class="hash-link" aria-label="Direct link to How It Works" title="Direct link to How It Works">​</a></h2>
 <ol>
-<li>Goose fetches the allowlist from a URL specified by the <code>GOOSE_ALLOWLIST</code> environment variable.</li>
+<li>Goose fetches the allowlist from an URL specified by the <code>GOOSE_ALLOWLIST</code> environment variable.</li>
 <li>The allowlist is a YAML file that contains a list of allowed extension commands.</li>
 <li>The allowlist is fetched once when first needed and cached for the lifetime of the Goose server.</li>
 <li>When an extension is <a href="/goose/pr-preview/pr-2345/docs/getting-started/using-extensions#adding-extensions">added</a>, Goose checks the MCP server&#x27;s installation command against the allowlist.</li>
@@ -67,7 +67,7 @@
 <li><strong>HTTPS</strong>: Always use HTTPS URLs for your allowlist to prevent man-in-the-middle attacks.</li>
 <li><strong>Access Control</strong>: Ensure the allowlist URL is only accessible to authorized users.</li>
 <li><strong>Validation</strong>: The allowlist file should be carefully reviewed to ensure only trusted commands are included.</li>
-<li><strong>Monitoring</strong>: Monitor extension registrations for any rejected commands, which might indicate attempted abuse.</li>
+<li><strong>Monitoring</strong>: Monitor extension installations for any rejected commands, which might indicate attempted abuse.</li>
 </ol>
 <p>To implement monitoring for rejected commands, use your centralized logging infrastructure and configure Goose clients to send their logs to your logging system.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="troubleshooting">Troubleshooting<a href="#troubleshooting" class="hash-link" aria-label="Direct link to Troubleshooting" title="Direct link to Troubleshooting">​</a></h2>
@@ -77,7 +77,7 @@
 <li>Verify that the allowlist file is accessible from the server.</li>
 <li>Ensure the allowlist file is properly formatted YAML.</li>
 <li>Check <a href="/goose/pr-preview/pr-2345/docs/guides/logs">server logs</a> for any errors related to fetching or parsing the allowlist.</li>
-<li>Verify that the command in the extension registration exactly matches what&#x27;s in the allowlist.</li>
+<li>Verify that the command in the extension installations exactly matches what&#x27;s in the allowlist.</li>
 </ol>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="example-usage">Example Usage<a href="#example-usage" class="hash-link" aria-label="Direct link to Example Usage" title="Direct link to Example Usage">​</a></h2>
 <ol>
