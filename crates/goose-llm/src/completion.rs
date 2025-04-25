@@ -13,7 +13,6 @@ use goose::permission::permission_judge::{check_tool_permissions, PermissionChec
 
 use serde::{Deserialize, Serialize};
 
-
 // The tool request IDs of the tools that are approved, need approval, or are denied
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolApprovals {
@@ -25,14 +24,24 @@ pub struct ToolApprovals {
 impl ToolApprovals {
     pub fn from_permission_check_result(permission_check_result: PermissionCheckResult) -> Self {
         Self {
-            approved: permission_check_result.approved.iter().map(|t| t.id.clone()).collect(),
-            needs_approval: permission_check_result.needs_approval.iter().map(|t| t.id.clone()).collect(),
-            denied: permission_check_result.denied.iter().map(|t| t.id.clone()).collect(),
+            approved: permission_check_result
+                .approved
+                .iter()
+                .map(|t| t.id.clone())
+                .collect(),
+            needs_approval: permission_check_result
+                .needs_approval
+                .iter()
+                .map(|t| t.id.clone())
+                .collect(),
+            denied: permission_check_result
+                .denied
+                .iter()
+                .map(|t| t.id.clone())
+                .collect(),
         }
     }
-    
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionResponse {
@@ -97,7 +106,7 @@ pub async fn completion(
         .await;
 
         let tool_approvals = ToolApprovals::from_permission_check_result(permission_check_result);
-        result.tool_approvals = Some( tool_approvals );
+        result.tool_approvals = Some(tool_approvals);
     }
 
     Ok(result)

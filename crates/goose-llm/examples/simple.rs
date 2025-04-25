@@ -8,11 +8,8 @@ use serde_json::json;
 #[tokio::main]
 async fn main() -> Result<()> {
     let provider = "databricks";
-    let model_name = "gpt-4o-mini";
+    let model_name = "goose-claude-3-5-sonnet";
     let model_config = ModelConfig::new(model_name.to_string());
-
-    // Create a message sequence that includes a tool response with both text and image
-    let messages = vec![Message::user().with_text("Add 10037 + 23123")];
 
     let calculator_tool = Tool::new(
         "calculator",
@@ -36,25 +33,46 @@ async fn main() -> Result<()> {
         None,
     );
 
-    let tools = vec![calculator_tool];
+    let bash_tool = Tool::new(
+        "bash_shell",
+        "Run a shell command",
+        json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "The shell command to execute"
+                }
+            }
+        }),
+        None,
+    );
 
-    let system_preamble =
-        "You are a helpful assistant that can perform arithmetic operations and view images.";
+    let tools = vec![calculator_tool, bash_tool];
+    let system_preamble = "You are a helpful assistant";
 
-    let completion_response: CompletionResponse = completion(
-        provider,
-        model_config,
-        system_preamble,
-        &messages,
-        &tools,
-        true,
-    )
-    .await?;
-
-    // Print the response and usage statistics
-    println!("\nCompletion Response:");
-    println!("---------------");
-    println!("{}", serde_json::to_string_pretty(&completion_response)?);
+    for text in [
+        "Add 10037 + 23123", 
+        "Write some random bad words to end of words.txt",
+        "List all json files in the current directory and then multiply the count of the files by 7",
+    ] {
+        println!("\n---------------\n");
+        println!("User Input: {text}");
+        let messages = vec![Message::user().with_text(text)];
+        let completion_response: CompletionResponse = completion(
+            provider,
+            model_config.clone(),
+            system_preamble,
+            &messages,
+            &tools,
+            true,
+        )
+        .await?;
+        // Print the response
+        println!("\nCompletion Response:");
+        println!("{}", serde_json::to_string_pretty(&completion_response)?);
+    }
 
     Ok(())
 }
