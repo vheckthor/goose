@@ -47,14 +47,14 @@ async fn main() -> Result<()> {
         system_preamble,
         &messages,
         &tools,
-        false,
+        true,
     )
     .await?;
 
     // Print the response and usage statistics
     println!("\nCompletion Response:");
     println!("---------------");
-    println!("{:?}", completion_response);
+    println!("{}", serde_json::to_string_pretty(&completion_response)?);
 
     Ok(())
 }
