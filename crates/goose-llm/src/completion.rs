@@ -45,9 +45,9 @@ impl ToolApprovals {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionResponse {
-    message: Message,
-    usage: ProviderUsage,
-    tool_approvals: Option<ToolApprovals>,
+    pub message: Message,
+    pub usage: ProviderUsage,
+    pub tool_approvals: Option<ToolApprovals>,
 }
 
 impl CompletionResponse {
