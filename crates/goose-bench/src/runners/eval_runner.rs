@@ -94,7 +94,27 @@ impl EvalRunner {
 
             // handle running post-process cmd if configured
             if let Some(cmd) = &bench_eval.post_process_cmd {
-                let handle = Command::new(cmd).arg(&eval_results_file).spawn()?;
+                // Replace placeholders with actual paths
+                let current_dir = env::current_dir()?.canonicalize()?;
+                let run_dir = work_dir.run_dir.canonicalize()?;
+
+                let cmd_with_placeholders_replaced = cmd
+                    .replace("{working_dir}", current_dir.to_str().unwrap())
+                    .replace("{run_dir}", run_dir.to_str().unwrap());
+
+                // Execute the command through a shell to handle shell syntax like && and |
+                let handle = if cfg!(target_os = "windows") {
+                    Command::new("cmd")
+                        .arg("/C")
+                        .arg(&cmd_with_placeholders_replaced)
+                        .spawn()?
+                } else {
+                    Command::new("sh")
+                        .arg("-c")
+                        .arg(&cmd_with_placeholders_replaced)
+                        .spawn()?
+                };
+
                 await_process_exits(&mut [handle], Vec::new());
             }
 
