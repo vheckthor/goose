@@ -54,6 +54,10 @@ impl AgentReplyState {
 
         if !self.tool_call_in_progress {
             // Starting a new interaction
+            // Debug: Check what tools are available
+            let available_tools = agent.list_tools(None).await;
+            println!("DEBUG: Available tools: {:?}", available_tools);
+
             // Try to get a response from the model
             match try_get_model_response(agent, &self.messages, self.truncation_attempt).await {
                 Ok((response, tool_requests)) => {
@@ -188,6 +192,9 @@ async fn try_get_model_response(
     // Get the first response
     match reply_stream.try_next().await {
         Ok(Some(response)) => {
+            // Debug: log the full response
+            println!("DEBUG: Full response: {:?}", response);
+
             // Extract tool requests from the response
             let tool_requests: Vec<ToolRequest> = response
                 .content
@@ -200,6 +207,15 @@ async fn try_get_model_response(
                     }
                 })
                 .collect();
+
+            // Debug: log what we found
+            println!(
+                "DEBUG: Found {} tool requests in response",
+                tool_requests.len()
+            );
+            for (i, req) in tool_requests.iter().enumerate() {
+                println!("DEBUG: Tool request {}: {:?}", i, req);
+            }
 
             // Filter content to create a message without tool requests
             let filtered_content = response

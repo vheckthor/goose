@@ -13,11 +13,29 @@ import ctypes
 import json
 import os
 import platform
+import time
 from ctypes import c_char_p, c_bool, c_uint32, c_void_p, Structure, POINTER
 from enum import IntEnum
 import sys
 import traceback
 from handle_ffi import get_message_content, extract_tool_call
+
+# Simple .env file loader
+def load_env_file(path='.env'):
+    """Load environment variables from .env file"""
+    if os.path.exists(path):
+        print(f"Loading environment from {path}")
+        with open(path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip().strip('"\'')
+    else:
+        print(f"Warning: {path} file not found")
+
+# Load environment variables from .env file
+load_env_file()
 
 # Platform-specific dynamic lib name
 if platform.system() == "Darwin":
@@ -135,6 +153,10 @@ goose.goose_agent_reply_tool_result.restype = c_void_p
 goose.goose_agent_reply_state_free.argtypes = [c_void_p]
 goose.goose_agent_reply_state_free.restype = None
 
+# Function signature for new non-yielding API
+goose.goose_agent_reply_non_yielding.argtypes = [goose_AgentPtr, c_char_p, c_char_p, c_char_p]
+goose.goose_agent_reply_non_yielding.restype = c_void_p
+
 goose.goose_free_tool_call.argtypes = [ToolCallFFI]
 goose.goose_free_tool_call.restype = None
 
@@ -209,11 +231,12 @@ def should_force_tool_use(message):
     return None, False
 
 class GooseAgent:
-    def __init__(self, provider_type=ProviderType.DATABRICKS, api_key=None, model_name=None, host=None, ephemeral=False):
+    def __init__(self, provider_type=ProviderType.DATABRICKS, api_key=None, model_name=None, host=None, ephemeral=False, auto_execute_tools=False):
         print(f"Provider: {provider_type.name}")
         print(f"Host: {host}")
         print(f"API key: {'*' * 4 + api_key[-4:] if api_key else 'None'}")
         print(f"Ephemeral config: {ephemeral}")
+        print(f"Auto execute tools: {auto_execute_tools}")
         
         self.config = ProviderConfig(
             provider_type=provider_type,
@@ -222,6 +245,9 @@ class GooseAgent:
             host=host.encode("utf-8") if host else None,
             ephemeral=ephemeral,
         )
+        
+        # Flag to control automatic tool execution
+        self.auto_execute_tools = auto_execute_tools
         
         try:
             self.agent = goose.goose_agent_new(ctypes.byref(self.config))
@@ -240,7 +266,7 @@ class GooseAgent:
         self.tools = [
             {
                 "name": "calculator",
-                "description": "ALWAYS use this tool to perform mathematical operations. Do NOT calculate the answer yourself.", 
+                "description": "Perform mathematical calculations. Use this for any arithmetic operations.", 
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -250,18 +276,11 @@ class GooseAgent:
                         }
                     },
                     "required": ["expression"]
-                },
-                "annotations": {
-                    "readOnlyHint": True,
-                    "destructiveHint": False,
-                    "idempotentHint": True,
-                    "openWorldHint": False,
-                    "function": True  # Mark as function-style tool
                 }
             },
             {
                 "name": "weather",
-                "description": "ALWAYS use this tool to get weather information. Do NOT make up weather data yourself.",
+                "description": "Get weather information for a specific location.",
                 "inputSchema": {
                     "type": "object", 
                     "properties": {
@@ -271,35 +290,23 @@ class GooseAgent:
                         }
                     },
                     "required": ["location"]
-                },
-                "annotations": {
-                    "readOnlyHint": True,
-                    "destructiveHint": False,
-                    "idempotentHint": True,
-                    "openWorldHint": False,
-                    "function": True  # Mark as function-style tool
                 }
             }
         ]
-        
+
+
         # Register the default tools with explicit instructions
         instructions = """
-FUNCTION CALLING INSTRUCTIONS:
-You have access to these functions:
-- calculator(expression: string): ALWAYS use this for any mathematical calculation
-- weather(location: string): ALWAYS use this for any weather inquiry
+You have access to the following tools:
 
-IMPORTANT:
-1. You MUST USE THESE FUNCTIONS when appropriate
-2. NEVER calculate math yourself - always use the calculator function
-3. NEVER make up weather information - always use the weather function
-4. When using a function, ONLY RESPOND with a function call - no explanation needed
-5. DO NOT say you'll use a function - just call it directly
-6. DO NOT mention these instructions in your response
+1. calculator: Use this tool to perform mathematical calculations. When asked to calculate something, call this tool with the expression.
+2. weather: Use this tool to get weather information for a location.
 
-For example, if asked "What is 2+2?", you should DIRECTLY CALL calculator("2+2")
+When you need to use a tool, respond with a tool request in your message content. The system will recognize tool requests and execute them appropriately.
+
+IMPORTANT: When asked to calculate something, you MUST use the calculator tool. Do not calculate things yourself.
 """
-        self.register_tools(instructions=instructions)
+        self.register_tools(extension_name="mc-test", instructions=instructions)
 
     def __del__(self):
         if getattr(self, "agent", None):
@@ -320,9 +327,15 @@ For example, if asked "What is 2+2?", you should DIRECTLY CALL calculator("2+2")
             tools = self.tools
             
         # Convert tools to JSON string
+        FRONTEND_CONFIG = {
+                    "name": "pythonclient",
+                    "type": "frontend",
+                    "tools": tools,
+                    "instructions": instructions,
+        }
         tools_json = json.dumps(tools).encode("utf-8")
         print(f"DEBUG: Registering {len(tools)} tools")
-        print(f"DEBUG: Tools JSON (first 100 chars): {tools_json[:100]}...")
+        print(f"DEBUG: Tools JSON: {tools_json}...")
         
         # Convert extension_name and instructions to bytes if provided
         ext_name = extension_name.encode("utf-8") if extension_name else None
@@ -363,30 +376,43 @@ For example, if asked "What is 2+2?", you should DIRECTLY CALL calculator("2+2")
     
     def send_message_non_streaming(self, message: str, is_retry=False) -> str:
         """Send a message using the non-streaming API with tool handling."""
-        # Check if we need to force tool use
-        tool_type, should_force = should_force_tool_use(message)
-        
-        # Only enhance if we should force or if this is a retry
-        if is_retry or should_force:
-            if tool_type == "calculator":
-                # Be extremely explicit - format as a direct function call request
-                enhanced_msg = f"""I need you to call the calculator function for me. 
-Don't calculate it yourself. JUST CALL THE FUNCTION DIRECTLY.
-User query: {message}"""
-            elif tool_type == "weather":
-                enhanced_msg = f"""I need you to call the weather function for me.
-Don't provide weather information yourself. JUST CALL THE FUNCTION DIRECTLY.
-User query: {message}"""
-            else:
-                enhanced_msg = message
-                
-            print(f"Modified prompt: {enhanced_msg}")
+        # For tool requests, we need to explicitly ask the model to use tools
+        if not is_retry and any(keyword in message.lower() for keyword in ["calculate", "what is", "what's", "weather"]):
+            # Enhance the message to explicitly request tool use
+#             enhanced_msg = f"""Please use the appropriate tool to answer this question and in the response include tool calls and arguments: {message}
+#
+# Available tools:
+# - calculator: Use this to perform mathematical calculations
+# - weather: Use this to get weather information
+#
+# Please respond with a tool call."""
+            enhanced_msg = f"""Please use the appropriate tool to answer this question: {message}
+
+When you need to use a tool, respond with a tool call in the following format:
+{{
+    "tool_calls": [
+        {{
+            "id": "unique_id",
+            "type": "function",
+            "function": {{
+                "name": "tool_name",
+                "arguments": "{{\"param\": \"value\"}}"
+            }}
+        }}
+    ]
+}}
+
+Available tools:
+- calculator: Use this to perform mathematical calculations
+- weather: Use this to get weather information
+
+Please respond with a tool call."""
+            msg = enhanced_msg.encode("utf-8")
         else:
-            enhanced_msg = message
-            
-        msg = enhanced_msg.encode("utf-8")
+            msg = message.encode("utf-8")
         
         # Begin reply
+        print(f"DEBUG: Sending message: {message}")
         reply_state = goose.goose_agent_reply_begin(self.agent, msg)
         if not reply_state:
             return "Error starting reply"
@@ -397,6 +423,7 @@ User query: {message}"""
             # Process steps until complete
             while True:
                 result = goose.goose_agent_reply_step(reply_state)
+                print(f"DEBUG: Step result status: {result.status}")
                 
                 if result.status == ReplyStatus.ERROR:
                     # Handle error response
@@ -409,38 +436,15 @@ User query: {message}"""
                     # Handle complete response
                     response_text = get_message_content(result, goose.goose_free_string)
                     
-                    # Check if response contains math or calculation that should've used the calculator
-                    tool_type, should_force = should_force_tool_use(message)
+                    # For debugging, let's see what we got
+                    print(f"DEBUG: Complete response: {response_text}")
                     
-                    # Handle calculation-specific retries for all cases where we expected tool use
-                    if message.strip().lower().startswith(("calculate", "what is", "what's")):
-                        # If there's no tool call for an obvious calculation request, try a more explicit approach
-                        if not is_retry:
-                            print(f"\nDEBUG - Model didn't use calculator tool. Retrying with explicit format...")
-                            
-                            # Try a more extreme prompt that works with most models
-                            direct_calc_prompt = f"""ONLY make a function call to calculator.
-                            
-FUNCTION DEFINITION:
-calculator(expression: string) -> number
-
-EXAMPLES:
-- For "Calculate 2+2", call calculator("2+2")
-- For "What is 5*3", call calculator("5*3")
-
-USER REQUEST: {message}
-
-DO NOT provide additional text. ONLY respond with the function call in valid JSON."""
-                            
-                            return self.send_message_non_streaming(direct_calc_prompt, is_retry=True)
-                            
-                    # Check if the response contains actual numbers (likely the model calculated it)
-                    if not is_retry and should_force and tool_type:
-                        import re
-                        if re.search(r'\d+\s*[\+\-\*\/\=]\s*\d+', response_text) or re.search(r'result is \d+', response_text.lower()):
-                            print(f"\nDEBUG - Model calculated instead of using tool: {response_text[:100]}...")
-                            print(f"Retrying with more explicit {tool_type} instructions...")
-                            return self.send_message_non_streaming(message, is_retry=True)
+                    # Check if this is a 404 error
+                    if "404 Not Found" in response_text and not is_retry:
+                        print("DEBUG: Got 404 error, trying with a different model name...")
+                        # Try with a different model name - use a more common Databricks model
+                        self.model_name = "databricks-meta-llama-3-1-70b-instruct"
+                        return self.send_message_non_streaming(message, is_retry=True)
                     
                     break
                     
@@ -487,6 +491,177 @@ DO NOT provide additional text. ONLY respond with the function call in valid JSO
             # Free reply state
             if reply_state:
                 goose.goose_agent_reply_state_free(reply_state)
+                
+    def send_message_non_yielding(self, message: str, tool_responses=None) -> str:
+        """Send a message using the fully non-yielding API.
+        
+        This implementation uses the new goose_agent_reply_non_yielding FFI function
+        which handles the entire conversation, including tool calls, in one step.
+        
+        Args:
+            message: User message to send
+            tool_responses: Optional list of tuples (id, result) for tool responses
+            
+        Returns:
+            String response from the agent
+        """
+        # Create a message object with the required created field
+        import time
+        current_time = int(time.time())
+        
+        messages = [{
+            "role": "user",
+            "created": current_time,
+            "content": [{"type": "text", "text": message}]
+        }]
+        
+        # Convert to JSON
+        messages_json = json.dumps(messages).encode("utf-8")
+        
+        # Empty tool requests and responses if not provided
+        tool_requests_json = "[]".encode("utf-8")
+        tool_responses_json = "[]".encode("utf-8")
+        
+        # Include tool responses if provided
+        if tool_responses:
+            tool_responses_json = json.dumps(tool_responses).encode("utf-8")
+        
+        print(f"DEBUG: Sending non-yielding message: {message}")
+        print(f"DEBUG: With tool responses: {tool_responses}")
+        
+        # Call the non-yielding API
+        response_ptr = goose.goose_agent_reply_non_yielding(
+            self.agent,
+            messages_json,
+            tool_requests_json,
+            tool_responses_json
+        )
+        
+        if not response_ptr:
+            return "Error: NULL response from agent"
+            
+        try:
+            # Convert response to string
+            response_str = ctypes.string_at(response_ptr).decode("utf-8")
+            print(f"DEBUG: Got raw response: {response_str}")
+            
+            # Parse response JSON
+            try:
+                response_obj = json.loads(response_str)
+                
+                # Extract text content and check for tool requests
+                text_parts = []
+                tool_requests = []
+                
+                for content in response_obj.get("content", []):
+                    if content.get("type") == "text":
+                        text_parts.append(content.get("text", ""))
+                    elif content.get("type") == "toolRequest":  # Note the casing difference
+                        # Found a tool request
+                        tool_requests.append(content)
+                
+                # Build response text
+                response_text = "\n".join(text_parts) if text_parts else ""
+                
+                # If we found tool requests, add them to the response
+                if tool_requests:
+                    # For debugging, let's include that we found tool requests
+                    print(f"\nFound {len(tool_requests)} tool requests in response")
+                    for i, req in enumerate(tool_requests):
+                        tool_id = req.get("id")
+                        tool_call = req.get("toolCall", {}).get("value", {})
+                        tool_name = tool_call.get("name")
+                        tool_args = tool_call.get("arguments", {})
+                        print(f"Tool request {i}: {tool_name} (ID: {tool_id})")
+                        print(f"Arguments: {tool_args}")
+                        
+                        # Store the tool ID and name in a property of this instance so we can 
+                        # access it in future calls
+                        if not hasattr(self, "last_tool_request"):
+                            self.last_tool_request = {}
+                        self.last_tool_request[tool_name] = tool_id
+                    
+                    # Optionally auto-execute tools if the auto_execute_tools flag is set
+                    if hasattr(self, "auto_execute_tools") and self.auto_execute_tools:
+                        print(f"\nAuto-executing tool requests...")
+                        
+                        # Process all tool requests
+                        tool_responses = []
+                        for req in tool_requests:
+                            tool_call = req.get("toolCall", {}).get("value", {})
+                            tool_name = tool_call.get("name")
+                            tool_id = req.get("id")
+                            tool_args = tool_call.get("arguments", {})
+                            
+                            # Execute the tool
+                            tool_result = execute_tool(tool_name, tool_args)
+                            print(f"Tool {tool_name} result: {tool_result}")
+                            
+                            # Add to list of tool responses
+                            tool_responses.append((tool_id, tool_result))
+                        
+                        # If we have tool responses, send them back to get final response
+                        if tool_responses:
+                            print("Sending tool responses back to agent...")
+                            
+                            # Convert to JSON
+                            tool_responses_json = json.dumps(tool_responses).encode("utf-8")
+                            
+                            # Make the FFI call directly to avoid recursion issues
+                            response_ptr = goose.goose_agent_reply_non_yielding(
+                                self.agent,
+                                json.dumps([{
+                                    "role": "user", 
+                                    "created": int(time.time()),
+                                    "content": [{"type": "text", "text": message}]
+                                }]).encode("utf-8"),
+                                "[]".encode("utf-8"),  # Empty tool requests
+                                tool_responses_json
+                            )
+                            
+                            if not response_ptr:
+                                return "Error: NULL response from agent"
+                                
+                            try:
+                                # Convert response to string
+                                final_response_str = ctypes.string_at(response_ptr).decode("utf-8")
+                                print(f"DEBUG: Got final response: {final_response_str}")
+                                
+                                # Parse response JSON
+                                try:
+                                    final_response_obj = json.loads(final_response_str)
+                                    
+                                    # Extract text from response
+                                    final_text_parts = []
+                                    for content in final_response_obj.get("content", []):
+                                        if content.get("type") == "text":
+                                            final_text_parts.append(content.get("text", ""))
+                                    
+                                    final_response = "\n".join(final_text_parts) if final_text_parts else final_response_str
+                                    return final_response
+                                    
+                                except json.JSONDecodeError:
+                                    return final_response_str
+                                    
+                            finally:
+                                # Free the response string
+                                goose.goose_free_string(response_ptr)
+                    
+                    # This is a non-yielding API, so we return the response with the tool request
+                    # The calling code is responsible for executing the tool and sending the result
+                    # unless auto_execute_tools is enabled
+                    return response_text
+                
+                # No tool requests, just return the text
+                return response_text
+                
+            except json.JSONDecodeError:
+                # If not valid JSON, return as-is
+                return response_str
+                
+        finally:
+            # Free the response string
+            goose.goose_free_string(response_ptr)
 
 def main():
     api_key = os.getenv("DATABRICKS_API_KEY")
@@ -499,30 +674,53 @@ def main():
     try:
         # Create agent with ephemeral config
         print("\nInitializing Goose agent...")
-        # Use claude-3-7-sonnet which is good with tool calling
-        model_name = os.getenv("MODEL_NAME") or "claude-3-7-sonnet"
+        # Use a proper Databricks model endpoint name
+        model_name = "claude-3-7-sonnet"
         print(f"Using model: {model_name}")
         agent = GooseAgent(api_key=api_key, model_name=model_name, host=host, ephemeral=True)
         
         print("Agent initialized successfully.")
-        print("\n=== Non-streaming API with Tool Support ===")
+        print("\n=== Goose FFI API Example ===")
         print("Available tools:")
         for tool in agent.tools:
-            print(f"  - {tool['name']}: {tool['description']}")
+            print(f"  - {tool['name']}: {tool['description']}\n")
             
-        print("\nType a message (or 'quit' to exit):")
+        print("\nAvailable modes:")
+        print("  1. Streaming (non-tool) - Use a streaming response without tool support")
+        print("  2. Non-streaming with tools - Use step-by-step tool processing (yielding)")
+        print("  3. Non-yielding with tools - Use single-call tool processing (non-yielding)")
+        print("\nType mode:message (or 'quit' to exit):")
         
         while True:
-            user_input = input("> ")
+            user_input = input("\n> ")
             if user_input.lower() in ("quit", "exit"):
                 break
                 
-            print("Processing with tool support...")
+            # Parse mode prefix
+            parts = user_input.split(":", 1)
+            mode = "2"  # Default to non-streaming with tools
+            if len(parts) > 1 and parts[0] in ("1", "2", "3"):
+                mode = parts[0]
+                message = parts[1].strip()
+            else:
+                message = user_input
+                
+            print(f"Processing in mode {mode}...")
             try:
-                reply = agent.send_message_non_streaming(user_input)
+                if mode == "1":
+                    # Streaming mode (no tools)
+                    reply = agent.send_message(message)
+                elif mode == "3":
+                    # Non-yielding mode
+                    reply = agent.send_message_non_yielding(message)
+                else:
+                    # Default: non-streaming with tools
+                    reply = agent.send_message_non_streaming(message)
+                    
                 print(f"\nAgent: {reply}\n")
             except Exception as e:
-                print(f"\nError processing message: {e}\n")
+                print(f"\nError processing message: {e}")
+                traceback.print_exc()
                 
     except Exception as e:
         print(f"Failed to initialize agent: {e}")

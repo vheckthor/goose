@@ -3,16 +3,16 @@ use std::ptr;
 use std::sync::Arc;
 
 use futures::StreamExt;
-use goose::agents::Agent;
 use goose::agents::extension::ExtensionConfig;
+use goose::agents::Agent;
 use goose::config::Config;
-use goose::message::Message;
+use goose::message::{Message, MessageContent};
 use goose::model::ModelConfig;
 use goose::providers::databricks::DatabricksProvider;
 use mcp_core::{Content, Tool, ToolResult};
 use once_cell::sync::OnceCell;
-use tokio::runtime::Runtime;
 use serde_json::{self, Value};
+use tokio::runtime::Runtime;
 
 mod reply;
 use reply::AgentReplyState;
@@ -216,13 +216,19 @@ pub unsafe extern "C" fn goose_agent_new(config: *const ProviderConfigFFI) -> Ag
     };
 
     // Create model config with model name
-    let model_config = ModelConfig::new(model_name);
+    let model_config = ModelConfig::new(model_name.clone());
 
-    // First set GOOSE_MODE in the config
+    // First set GOOSE_MODE in the config - use "auto" mode for tool calling
     if let Err(e) = cfg.set_param("GOOSE_MODE", Value::String("auto".to_string())) {
         eprintln!("Warning: Failed to set GOOSE_MODE: {:?}", e);
     }
-    
+
+    // Debug: Print the configuration
+    println!(
+        "DEBUG: Creating provider with host: {}, model: {}",
+        host, model_name
+    );
+
     // Create Databricks provider with required parameters
     match DatabricksProvider::from_params(host, api_key, model_config) {
         Ok(provider) => {
@@ -348,36 +354,36 @@ pub unsafe extern "C" fn goose_agent_reply_begin(
         println!("ERROR: agent_ptr is null in goose_agent_reply_begin");
         return ptr::null_mut();
     }
-    
+
     if message.is_null() {
         println!("ERROR: message is null in goose_agent_reply_begin");
         return ptr::null_mut();
     }
 
     let agent = &mut *agent_ptr;
-    
+
     // Safely convert C string to Rust string
     let message_str = match CStr::from_ptr(message).to_str() {
         Ok(s) => {
             println!("DEBUG: Starting conversation with message: {}", s);
             s.to_string()
-        },
+        }
         Err(e) => {
             println!("ERROR: Invalid UTF-8 in message: {}", e);
             return ptr::null_mut();
         }
     };
-    
+
     let messages = vec![Message::user().with_text(&message_str)];
 
     println!("DEBUG: Creating new AgentReplyState");
-    
+
     // Create initial state
     let state = match get_runtime().block_on(AgentReplyState::new(agent, messages)) {
         Ok(state) => {
             println!("DEBUG: AgentReplyState created successfully");
             state
-        },
+        }
         Err(e) => {
             println!("ERROR: Failed to create AgentReplyState: {:?}", e);
             return ptr::null_mut();
@@ -432,7 +438,7 @@ pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -
         Ok(result) => {
             println!("DEBUG: Step completed successfully");
             result
-        },
+        }
         Err(e) => {
             println!("ERROR: Error in step execution: {}", e);
             return ReplyStepResult {
@@ -453,9 +459,9 @@ pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -
             let json = match serde_json::to_string(&msg) {
                 Ok(json) => {
                     println!("DEBUG: Message serialized successfully");
-                    println!("DEBUG: Message JSON (first 100 chars): {}", json);
+                    println!("DEBUG: Message JSON: {}", json);
                     json
-                },
+                }
                 Err(e) => {
                     println!("ERROR: Failed to serialize message: {}", e);
                     format!("Error serializing message: {}", e)
@@ -473,19 +479,22 @@ pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -
             }
         }
         reply::StepResult::ToolCallNeeded(request) => {
-            println!("DEBUG: Step returned ToolCallNeeded, request ID: {}", request.id);
+            println!(
+                "DEBUG: Step returned ToolCallNeeded, request ID: {}",
+                request.id
+            );
             let tool_call_result = &request.tool_call;
 
             match tool_call_result {
                 Ok(tool_call) => {
                     println!("DEBUG: Tool call requested for: {}", tool_call.name);
-                    
+
                     // Safely serialize arguments
                     let json = match serde_json::to_string(&tool_call.arguments) {
                         Ok(json) => {
                             println!("DEBUG: Arguments serialized successfully");
                             json
-                        },
+                        }
                         Err(e) => {
                             println!("ERROR: Failed to serialize arguments: {}", e);
                             "{}".to_string()
@@ -505,7 +514,7 @@ pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -
                 Err(e) => {
                     let error_msg = format!("Tool call error: {}", e);
                     println!("ERROR: {}", error_msg);
-                    
+
                     ReplyStepResult {
                         status: ReplyStatus::Error,
                         message: string_to_c_char(&error_msg),
@@ -515,7 +524,7 @@ pub unsafe extern "C" fn goose_agent_reply_step(state_ptr: AgentReplyStatePtr) -
                             arguments_json: ptr::null_mut(),
                         },
                     }
-                },
+                }
             }
         }
     }
@@ -554,27 +563,27 @@ pub unsafe extern "C" fn goose_agent_reply_tool_result(
     }
 
     println!("DEBUG: Processing tool result");
-    
+
     let state = &mut *state_ptr;
-    
+
     // Get tool_id as string
     let tool_id_str = match CStr::from_ptr(tool_id).to_str() {
         Ok(s) => {
             println!("DEBUG: Tool ID: {}", s);
             s.to_string()
-        },
+        }
         Err(e) => {
             eprintln!("Error: tool_id is not valid UTF-8: {}", e);
             return ptr::null_mut();
         }
     };
-    
+
     // Get result as string
     let result_str = match CStr::from_ptr(result).to_str() {
         Ok(s) => {
             println!("DEBUG: Tool result: {}", s);
             s.to_string()
-        },
+        }
         Err(e) => {
             eprintln!("Error: result is not valid UTF-8: {}", e);
             return ptr::null_mut();
@@ -592,7 +601,7 @@ pub unsafe extern "C" fn goose_agent_reply_tool_result(
     }
 
     println!("DEBUG: Tool result applied successfully");
-    
+
     // Return the same state pointer
     state_ptr
 }
@@ -632,25 +641,25 @@ pub unsafe extern "C" fn goose_agent_reply_state_free(state_ptr: AgentReplyState
 #[no_mangle]
 pub unsafe extern "C" fn goose_free_tool_call(mut tool_call: ToolCallFFI) {
     println!("DEBUG: Freeing tool call resources");
-    
+
     if !tool_call.id.is_null() {
         println!("DEBUG: Freeing tool call ID");
         goose_free_string(tool_call.id);
         tool_call.id = ptr::null_mut();
     }
-    
+
     if !tool_call.tool_name.is_null() {
         println!("DEBUG: Freeing tool name");
         goose_free_string(tool_call.tool_name);
         tool_call.tool_name = ptr::null_mut();
     }
-    
+
     if !tool_call.arguments_json.is_null() {
         println!("DEBUG: Freeing arguments JSON");
         goose_free_string(tool_call.arguments_json);
         tool_call.arguments_json = ptr::null_mut();
     }
-    
+
     println!("DEBUG: Tool call resources freed");
 }
 
@@ -688,37 +697,36 @@ pub unsafe extern "C" fn goose_agent_register_tools(
     }
 
     let agent = &mut *agent_ptr;
-    
+
     println!("DEBUG: Starting tool registration process");
-    
+
     let tools_json_str = match CStr::from_ptr(tools_json).to_str() {
         Ok(s) => {
-            println!("DEBUG: Successfully converted tools_json to UTF-8 string, length: {}", s.len());
-            if s.len() > 100 {
-                println!("DEBUG: tools_json (first 100 chars): {}", &s[..100]);
-            } else {
-                println!("DEBUG: tools_json: {}", s);
-            }
+            println!(
+                "DEBUG: Successfully converted tools_json to UTF-8 string, length: {}",
+                s.len()
+            );
+            println!("DEBUG: tools_json: {}", s);
             s
-        },
+        }
         Err(e) => {
             eprintln!("Error: tools_json is not valid UTF-8: {}", e);
             return false;
         }
     };
-    
+
     // Parse tools from JSON
     let tools: Vec<Tool> = match serde_json::from_str::<Vec<Tool>>(tools_json_str) {
         Ok(tools) => {
             println!("DEBUG: Successfully parsed {} tools from JSON", tools.len());
             tools
-        },
+        }
         Err(e) => {
             eprintln!("Error parsing tools JSON: {}", e);
             return false;
         }
     };
-    
+
     // Get extension name and instructions or use defaults
     let ext_name = if extension_name.is_null() {
         println!("DEBUG: Using default extension name");
@@ -728,14 +736,14 @@ pub unsafe extern "C" fn goose_agent_register_tools(
             Ok(s) => {
                 println!("DEBUG: Using provided extension name: {}", s);
                 s.to_string()
-            },
+            }
             Err(e) => {
                 eprintln!("Error: extension_name is not valid UTF-8: {}", e);
                 return false;
             }
         }
     };
-    
+
     let ext_instructions = if instructions.is_null() {
         println!("DEBUG: Using default instructions");
         Some("These tools are provided by an external service through FFI".to_string())
@@ -744,35 +752,235 @@ pub unsafe extern "C" fn goose_agent_register_tools(
             Ok(s) => {
                 println!("DEBUG: Using provided instructions");
                 Some(s.to_string())
-            },
+            }
             Err(e) => {
                 eprintln!("Error: instructions is not valid UTF-8: {}", e);
                 return false;
             }
         }
     };
-    
+
     // Create frontend extension
     let frontend_extension = ExtensionConfig::Frontend {
-        name: ext_name,
+        name: ext_name.clone(),
         tools,
         instructions: ext_instructions,
         bundled: Some(false),
     };
-    
+
     println!("DEBUG: Created extension configuration, attempting to add to agent");
-    
+
     // Add extension to agent
     match get_runtime().block_on(agent.add_extension(frontend_extension)) {
         Ok(_) => {
             println!("DEBUG: Successfully registered tools with agent");
+
+            // Extend the system prompt to ensure tool usage
+            let tool_prompt = format!(
+                "You have access to tools from the '{}' extension. When you need to use a tool, respond with a tool call in the format the model expects. For Databricks models, use the OpenAI tool calling format with tool_calls array.",
+                ext_name
+            );
+            get_runtime().block_on(agent.extend_system_prompt(tool_prompt));
+
+            // Debug: List all tools to verify they're registered
+            let all_tools = get_runtime().block_on(agent.list_tools(None));
+            println!("DEBUG: All registered tools: {:?}", all_tools);
+
             true
-        },
+        }
         Err(e) => {
             eprintln!("Error registering tools: {}", e);
             false
         }
     }
+}
+
+/// Execute a non-yielding reply with tool requests and responses
+///
+/// This function executes a complete conversation with the agent, including tool calls,
+/// and returns the final response. Unlike the stream-based reply function, this method
+/// requires the caller to provide both tool requests and their responses upfront.
+///
+/// # Parameters
+///
+/// - agent_ptr: Agent pointer
+/// - messages_json: JSON string containing an array of message objects
+/// - tool_requests_json: JSON string containing an array of tool request objects (can be empty array)
+/// - tool_responses_json: JSON string containing an array of tool response objects (can be empty array)
+///
+/// # Returns
+///
+/// A C string containing the agent's response (must be freed with goose_free_string)
+/// or NULL on error
+///
+/// # Safety
+///
+/// The agent_ptr must be a valid pointer returned by goose_agent_new.
+/// The messages_json, tool_requests_json, and tool_responses_json must be valid JSON strings.
+#[no_mangle]
+pub unsafe extern "C" fn goose_agent_reply_non_yielding(
+    agent_ptr: AgentPtr,
+    messages_json: *const c_char,
+    tool_requests_json: *const c_char,
+    tool_responses_json: *const c_char,
+) -> *mut c_char {
+    if agent_ptr.is_null() || messages_json.is_null() || tool_requests_json.is_null() || tool_responses_json.is_null() {
+        eprintln!("Error: Null pointer passed to goose_agent_reply_non_yielding");
+        return ptr::null_mut();
+    }
+
+    let agent = &mut *agent_ptr;
+    
+    // Parse messages from JSON
+    let messages_json_str = match CStr::from_ptr(messages_json).to_str() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error: messages_json is not valid UTF-8: {}", e);
+            return string_to_c_char(&format!("Error: messages_json is not valid UTF-8: {}", e));
+        }
+    };
+
+    let messages: Vec<Message> = match serde_json::from_str(messages_json_str) {
+        Ok(msgs) => msgs,
+        Err(e) => {
+            eprintln!("Error parsing messages JSON: {}", e);
+            return string_to_c_char(&format!("Error parsing messages JSON: {}", e));
+        }
+    };
+
+    // Run the completion in the runtime
+    get_runtime().block_on(async {
+        // First, get the initial response from the model
+        let mut agent_messages = messages.clone();
+        
+        // Let's use provider's complete() directly instead of using the reply stream
+        // This is a truly non-yielding approach
+        
+        println!("DEBUG: Starting non-yielding reply with {} messages", agent_messages.len());
+        
+        // Get the provider
+        let provider = agent.provider();
+        
+        // Get system prompt
+        let mut system_prompt = String::new();
+        if let Ok(prompt) = agent.get_plan_prompt().await {
+            // Use the plan prompt as system prompt
+            system_prompt = prompt;
+        } else {
+            // Use a default system prompt if we can't get the plan prompt
+            system_prompt = "You are a helpful AI assistant with access to tools.".to_string();
+        }
+        
+        // Get available tools - directly using the result since list_tools() returns Vec<Tool>
+        let tools = agent.list_tools(None).await;
+        
+        println!("DEBUG: Using direct provider.complete() call with {} tools", tools.len());
+        
+        // Call complete() directly on the provider
+        let (response, _) = match provider.complete(&system_prompt, &agent_messages, &tools).await {
+            Ok(result) => result,
+            Err(e) => {
+                let error_msg = format!("Error getting response from provider: {}", e);
+                eprintln!("{}", error_msg);
+                return string_to_c_char(&error_msg);
+            }
+        };
+
+        // Add the response to the conversation
+        agent_messages.push(response.clone());
+
+        // Check for tool calls in the response
+        let mut has_tool_calls = false;
+        for content in &response.content {
+            if let MessageContent::ToolRequest(_) = content {
+                has_tool_calls = true;
+                break;
+            }
+        }
+        
+        // Process tool responses if provided
+        if has_tool_calls && tool_responses_json != ptr::null() {
+            // Parse tool responses from JSON
+            let tool_responses_str = match CStr::from_ptr(tool_responses_json).to_str() {
+                Ok(s) => s,
+                Err(e) => {
+                    let error_msg = format!("Error: tool_responses_json is not valid UTF-8: {}", e);
+                    eprintln!("{}", error_msg);
+                    return string_to_c_char(&error_msg);
+                }
+            };
+
+            // If we have non-empty tool responses, process them
+            if tool_responses_str != "[]" {
+                match serde_json::from_str::<Vec<(String, String)>>(tool_responses_str) {
+                    Ok(responses) => {
+                        // Create a user message with tool responses
+                        let mut user_tool_message = Message::user();
+                        
+                        for (id, result) in responses {
+                            // Add the tool response to the user message
+                            user_tool_message = user_tool_message.with_tool_response(
+                                id,
+                                Ok(vec![Content::text(result)]),
+                            );
+                        }
+                        
+                        // Add the tool responses message to the conversation
+                        agent_messages.push(user_tool_message);
+                        
+                        // Get the final response directly from the provider
+                        let (final_response, _) = match provider.complete(&system_prompt, &agent_messages, &tools).await {
+                            Ok(result) => result,
+                            Err(e) => {
+                                let error_msg = format!("Error getting final response: {}", e);
+                                eprintln!("{}", error_msg);
+                                return string_to_c_char(&error_msg);
+                            }
+                        };
+                        
+                        // Return the final response
+                        match serde_json::to_string(&final_response) {
+                            Ok(json) => string_to_c_char(&json),
+                            Err(e) => {
+                                let error_msg = format!("Error serializing final response: {}", e);
+                                eprintln!("{}", error_msg);
+                                string_to_c_char(&error_msg)
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        let error_msg = format!("Error parsing tool responses JSON: {}", e);
+                        eprintln!("{}", error_msg);
+                        string_to_c_char(&error_msg)
+                    }
+                }
+            } else {
+                println!("DEBUG: Response has tool calls but no tool responses provided");
+                
+                // Return the initial response with tool calls
+                match serde_json::to_string(&response) {
+                    Ok(json) => string_to_c_char(&json),
+                    Err(e) => {
+                        let error_msg = format!("Error serializing response: {}", e);
+                        eprintln!("{}", error_msg);
+                        string_to_c_char(&error_msg)
+                    }
+                }
+            }
+        } else {
+            println!("DEBUG: No tool calls in response, returning directly");
+            
+            // No tool calls or responses, return the initial response
+            match serde_json::to_string(&response) {
+                Ok(json) => string_to_c_char(&json),
+                Err(e) => {
+                    let error_msg = format!("Error serializing response: {}", e);
+                    eprintln!("{}", error_msg);
+                    string_to_c_char(&error_msg)
+                }
+            }
+        }
+    })
 }
 
 /// Free a string allocated by goose FFI functions

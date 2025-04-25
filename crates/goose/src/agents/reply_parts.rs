@@ -18,13 +18,8 @@ impl Agent {
     pub(crate) async fn prepare_tools_and_prompt(
         &self,
     ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
-        // Get tools from extension manager
+        // Get tools from extension manager (this already includes frontend tools)
         let mut tools = self.list_tools(None).await;
-
-        // Add frontend tools
-        for frontend_tool in self.frontend_tools.values() {
-            tools.push(frontend_tool.tool.clone());
-        }
 
         // Prepare system prompt
         let extension_manager = self.extension_manager.lock().await;

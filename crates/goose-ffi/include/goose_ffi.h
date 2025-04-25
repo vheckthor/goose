@@ -309,6 +309,35 @@ bool goose_agent_register_tools(goose_AgentPtr agent_ptr,
                                 const char *instructions);
 
 /*
+ Execute a non-yielding reply with tool requests and responses
+
+ This function executes a complete conversation with the agent, including tool calls,
+ and returns the final response. Unlike the stream-based reply function, this method
+ requires the caller to provide both tool requests and their responses upfront.
+
+ # Parameters
+
+ - agent_ptr: Agent pointer
+ - messages_json: JSON string containing an array of message objects
+ - tool_requests_json: JSON string containing an array of tool request objects (can be empty array)
+ - tool_responses_json: JSON string containing an array of tool response objects (can be empty array)
+
+ # Returns
+
+ A C string containing the agent's response (must be freed with goose_free_string)
+ or NULL on error
+
+ # Safety
+
+ The agent_ptr must be a valid pointer returned by goose_agent_new.
+ The messages_json, tool_requests_json, and tool_responses_json must be valid JSON strings.
+ */
+char *goose_agent_reply_non_yielding(goose_AgentPtr agent_ptr,
+                                     const char *messages_json,
+                                     const char *tool_requests_json,
+                                     const char *tool_responses_json);
+
+/*
  Free a string allocated by goose FFI functions
 
  This function frees memory allocated for strings returned by goose FFI functions.

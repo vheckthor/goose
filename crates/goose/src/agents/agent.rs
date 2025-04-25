@@ -111,7 +111,10 @@ impl Agent {
 
         // Add frontend tools directly - they don't need prefixing since they're already uniquely named
         for frontend_tool in self.frontend_tools.values() {
-            tools.push(frontend_tool.tool.clone());
+            // Check if tool already exists to avoid duplicates
+            if !tools.iter().any(|t| t.name == frontend_tool.tool.name) {
+                tools.push(frontend_tool.tool.clone());
+            }
         }
 
         Ok(tools)
@@ -256,6 +259,11 @@ impl Agent {
             } => {
                 // For frontend tools, just store them in the frontend_tools map
                 for tool in tools {
+                    // Check if tool already exists to avoid duplicates
+                    if self.frontend_tools.contains_key(&tool.name) {
+                        tracing::warn!("Tool {} already exists, skipping", tool.name);
+                        continue;
+                    }
                     let frontend_tool = FrontendTool {
                         name: tool.name.clone(),
                         tool: tool.clone(),
@@ -297,6 +305,13 @@ impl Agent {
             if extension_manager.supports_resources() {
                 prefixed_tools.push(platform_tools::read_resource_tool());
                 prefixed_tools.push(platform_tools::list_resources_tool());
+            }
+        }
+
+        // Add frontend tools if no specific extension is requested
+        if extension_name.is_none() {
+            for frontend_tool in self.frontend_tools.values() {
+                prefixed_tools.push(frontend_tool.tool.clone());
             }
         }
 

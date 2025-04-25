@@ -33,6 +33,27 @@ CALCULATOR_TOOL = {
     },
 }
 
+CALCULATOR_V2TOOL = {
+-
+    "name": "calculator",
+    "description": "Perform basic arithmetic calculations",
+    "inputSchema": {
+        "type": "object",
+        "required": ["operation", "numbers"],
+        "properties": {
+            "operation": {
+                "type": "string",
+                "enum": ["add", "subtract", "multiply", "divide"],
+                "description": "The arithmetic operation to perform",
+            },
+            "numbers": {
+                "type": "array",
+                "items": {"type": "number"},
+                "description": "List of numbers to operate on in order",
+            },
+        },
+    },
+}
 # Frontend extension configuration
 FRONTEND_CONFIG = {
     "name": "pythonclient",
