@@ -4,11 +4,11 @@ use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd};
 use anyhow::Context;
-use polars::{prelude::*, io::csv::QuoteStyle};
+use polars::{io::csv::QuoteStyle, prelude::*};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, read_to_string};
 use std::io::{self, BufRead};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Child;
 use std::thread;
 
@@ -243,7 +243,10 @@ impl ModelRunner {
                 .collect();
 
             // Try to convert to appropriate type
-            if column == "total_tool_calls" || column == "total_tokens" || column.starts_with("tool_calls_") {
+            if column == "total_tool_calls"
+                || column == "total_tokens"
+                || column.starts_with("tool_calls_")
+            {
                 // Handle integer columns
                 if let Ok(int_values) = values
                     .iter()
@@ -254,7 +257,11 @@ impl ModelRunner {
                 } else {
                     series_vec.push(Series::new(column, values));
                 }
-            } else if column.starts_with("Complete") || column.starts_with("Git") || column.ends_with("added") || column.ends_with("executed") {
+            } else if column.starts_with("Complete")
+                || column.starts_with("Git")
+                || column.ends_with("added")
+                || column.ends_with("executed")
+            {
                 // Handle boolean columns as strings to maintain consistency
                 series_vec.push(Series::new(column, values));
             } else if let Ok(float_values) = values
@@ -271,14 +278,14 @@ impl ModelRunner {
         DataFrame::new(series_vec).context("Failed to create DataFrame")
     }
 
-    fn generate_eval_csvs(df: &DataFrame, output_dir: &PathBuf) -> anyhow::Result<()> {
+    fn generate_eval_csvs(df: &DataFrame, output_dir: &Path) -> anyhow::Result<()> {
         println!(
             "Starting generate_eval_csvs with DataFrame of height: {}",
             df.height()
         );
 
         // Important columns that should come first in the CSV
-        let important_columns = vec![
+        let important_columns = [
             "provider",
             "model_name",
             "eval_suite",
@@ -294,10 +301,16 @@ impl ModelRunner {
             .clone()
             .lazy()
             .select([col("eval_suite"), col("eval_name")])
-            .unique(Some(vec!["eval_suite".to_string(), "eval_name".to_string()]), UniqueKeepStrategy::First)
+            .unique(
+                Some(vec!["eval_suite".to_string(), "eval_name".to_string()]),
+                UniqueKeepStrategy::First,
+            )
             .collect()?;
 
-        println!("unique_evals top rows are: {:?}", unique_evals.head(Some(5)));
+        println!(
+            "unique_evals top rows are: {:?}",
+            unique_evals.head(Some(5))
+        );
 
         for row_idx in 0..unique_evals.height() {
             let suite_name = unique_evals
@@ -323,7 +336,7 @@ impl ModelRunner {
                 .filter(
                     col("eval_suite")
                         .eq(lit(suite_name.as_str()))
-                        .and(col("eval_name").eq(lit(eval_name.as_str())))
+                        .and(col("eval_name").eq(lit(eval_name.as_str()))),
                 )
                 .collect()?;
 
@@ -365,10 +378,16 @@ impl ModelRunner {
             if file_path.exists() {
                 println!("Found existing file, merging data...");
                 // Read existing CSV and cast boolean columns to strings
-                let mut existing_df = CsvReader::from_path(&file_path)?.has_header(true).finish()?;
-                
+                let mut existing_df = CsvReader::from_path(&file_path)?
+                    .has_header(true)
+                    .finish()?;
+
                 // Convert any boolean columns to strings
-                let column_names: Vec<String> = existing_df.get_column_names().iter().map(|&s| s.to_string()).collect();
+                let column_names: Vec<String> = existing_df
+                    .get_column_names()
+                    .iter()
+                    .map(|&s| s.to_string())
+                    .collect();
                 for col_name in column_names {
                     if let Ok(col) = existing_df.column(&col_name) {
                         if matches!(col.dtype(), DataType::Boolean) {
@@ -381,16 +400,16 @@ impl ModelRunner {
                         }
                     }
                 }
-                
+
                 // Combine existing and new data, dropping duplicates
                 let concat_df = concat(
                     &[existing_df.lazy(), ordered_df.lazy()],
                     UnionArgs {
                         parallel: true,
                         ..Default::default()
-                    }
+                    },
                 )?;
-                
+
                 ordered_df = concat_df
                     .unique(
                         Some(vec![
@@ -398,9 +417,9 @@ impl ModelRunner {
                             "model_name".to_string(),
                             "eval_suite".to_string(),
                             "eval_name".to_string(),
-                            "run_num".to_string()
+                            "run_num".to_string(),
                         ]),
-                        UniqueKeepStrategy::First
+                        UniqueKeepStrategy::First,
                     )
                     .collect()?;
             }
@@ -426,7 +445,7 @@ impl ModelRunner {
         Ok(())
     }
 
-    fn generate_aggregate_metrics(df: &DataFrame, output_dir: &PathBuf) -> anyhow::Result<()> {
+    fn generate_aggregate_metrics(df: &DataFrame, output_dir: &Path) -> anyhow::Result<()> {
         // Identify numeric columns (excluding run_num)
         let numeric_cols: Vec<String> = df
             .get_columns()
@@ -439,6 +458,13 @@ impl ModelRunner {
             })
             .map(|col| col.name().to_string())
             .collect();
+
+        println!("Numeric columns found: {:?}", numeric_cols);
+
+        // Debug: Print all column types
+        for col in df.get_columns() {
+            println!("Column '{}' has type: {:?}", col.name(), col.dtype());
+        }
 
         // Create aggregation expressions
         let mut agg_exprs: Vec<Expr> = vec![];
@@ -465,7 +491,7 @@ impl ModelRunner {
             .collect()?;
 
         // Write to CSV
-        let mut file = std::fs::File::create(&output_dir.join("aggregate_metrics.csv"))?;
+        let mut file = std::fs::File::create(output_dir.join("aggregate_metrics.csv"))?;
         CsvWriter::new(&mut file)
             .include_header(true)
             .with_separator(b',')
@@ -507,7 +533,7 @@ impl ModelRunner {
             if let Some(first_suite) = first_run.suites.first() {
                 if let Some(first_eval) = first_suite.evaluations.first() {
                     let eval_path = EvalRunner::path_for_eval(
-                        &model,
+                        model,
                         &BenchEval {
                             selector: format!("{}:{}", first_suite.name, first_eval.name),
                             post_process_cmd: None,
@@ -515,15 +541,25 @@ impl ModelRunner {
                         },
                         "0".to_string(),
                     );
-                    if let Some(parent) = eval_path.parent() {
-                        if let Some(benchmark_dir) = parent.parent() {
-                            Some(benchmark_dir.join("eval-results"))
-                        } else {
-                            None
+                    // eval_path is like: databricks-goose/run-0/core/developer_list_files
+                    // We need to find the parent directory that contains the run-x directories
+                    let mut current_path = eval_path.as_path();
+                    let mut model_dir = None;
+
+                    while let Some(parent) = current_path.parent() {
+                        if parent
+                            .file_name()
+                            .and_then(|name| name.to_str())
+                            .map_or(false, |name| name.starts_with("run-"))
+                        {
+                            // Found a run-x directory, so its parent is the model directory
+                            model_dir = parent.parent().map(|p| p.to_path_buf());
+                            break;
                         }
-                    } else {
-                        None
+                        current_path = parent;
                     }
+
+                    model_dir.map(|dir| dir.join("eval-results"))
                 } else {
                     None
                 }
@@ -582,18 +618,94 @@ impl ModelRunner {
             .collect();
 
         // Create series for each column
-        let series: Vec<Series> = columns
+        let mut series_vec = Vec::new();
+
+        // Add metadata columns first with known types
+        let provider_values: Vec<&str> = records
             .iter()
-            .map(|column| {
-                let values: Vec<String> = records
-                    .iter()
-                    .map(|record| record.get(column).cloned().unwrap_or_default())
-                    .collect();
-                Series::new(column, values)
+            .map(|record| record.get("provider").map(String::as_str).unwrap_or(""))
+            .collect();
+        series_vec.push(Series::new("provider", provider_values));
+
+        let model_name_values: Vec<&str> = records
+            .iter()
+            .map(|record| record.get("model_name").map(String::as_str).unwrap_or(""))
+            .collect();
+        series_vec.push(Series::new("model_name", model_name_values));
+
+        let eval_suite_values: Vec<&str> = records
+            .iter()
+            .map(|record| record.get("eval_suite").map(String::as_str).unwrap_or(""))
+            .collect();
+        series_vec.push(Series::new("eval_suite", eval_suite_values));
+
+        let eval_name_values: Vec<&str> = records
+            .iter()
+            .map(|record| record.get("eval_name").map(String::as_str).unwrap_or(""))
+            .collect();
+        series_vec.push(Series::new("eval_name", eval_name_values));
+
+        let run_num_values: Vec<i64> = records
+            .iter()
+            .map(|record| {
+                record
+                    .get("run_num")
+                    .and_then(|v| v.parse::<i64>().ok())
+                    .unwrap_or(0)
             })
             .collect();
+        series_vec.push(Series::new("run_num", run_num_values));
 
-        DataFrame::new(series).context("Failed to create DataFrame")
+        // Add metric columns with inferred types
+        for column in columns.iter().filter(|c| {
+            ![
+                "provider",
+                "model_name",
+                "eval_suite",
+                "eval_name",
+                "run_num",
+            ]
+            .contains(&c.as_str())
+        }) {
+            let values: Vec<&str> = records
+                .iter()
+                .map(|record| record.get(column).map(String::as_str).unwrap_or(""))
+                .collect();
+
+            // Try to convert to appropriate type
+            if column == "total_tool_calls"
+                || column == "total_tokens"
+                || column.starts_with("tool_calls_")
+            {
+                // Handle integer columns
+                if let Ok(int_values) = values
+                    .iter()
+                    .map(|&v| v.parse::<i64>())
+                    .collect::<Result<Vec<i64>, _>>()
+                {
+                    series_vec.push(Series::new(column, int_values));
+                } else {
+                    series_vec.push(Series::new(column, values));
+                }
+            } else if column.starts_with("Complete")
+                || column.starts_with("Git")
+                || column.ends_with("added")
+                || column.ends_with("executed")
+            {
+                // Handle boolean columns as strings to maintain consistency
+                series_vec.push(Series::new(column, values));
+            } else if let Ok(float_values) = values
+                .iter()
+                .map(|&v| v.parse::<f64>())
+                .collect::<Result<Vec<f64>, _>>()
+            {
+                series_vec.push(Series::new(column, float_values));
+            } else {
+                series_vec.push(Series::new(column, values));
+            }
+        }
+
+        DataFrame::new(series_vec).context("Failed to create DataFrame")
     }
 
     fn run_benchmark(
@@ -729,7 +841,8 @@ impl ModelRunner {
     fn toolshim_envs(&self) -> Vec<(String, String)> {
         // read tool-shim preference from config, set respective env vars accordingly
         let mut shim_envs: Vec<(String, String)> = Vec::new();
-        if let Some(shim_opt) = &self.config.tool_shim {
+        let model = self.config.models.first().unwrap();
+        if let Some(shim_opt) = &model.tool_shim {
             if shim_opt.use_tool_shim {
                 shim_envs.push(("GOOSE_TOOLSHIM".to_string(), "true".to_string()));
                 if let Some(shim_model) = &shim_opt.tool_shim_model {
