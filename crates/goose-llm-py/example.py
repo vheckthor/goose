@@ -63,15 +63,18 @@ def main():
         print(f"User Input: {prompt}")
         print(f"{'='*50}")
         
-        # Create a user message
-        message = goose_llm_py.create_message("user", prompt)
-        
+        # Create a list of messages
+        messages=[
+            goose_llm_py.create_message("user", "hi there"), 
+            goose_llm_py.create_message("assistant", "hey! can i do something for you?"),
+            goose_llm_py.create_message("user", prompt)
+        ]        
         # Perform the completion
         response = goose_llm_py.perform_completion(
             provider="databricks",
             model_name="goose-claude-3-5-sonnet",
             system_preamble="You are a helpful assistant",
-            messages=[message],
+            messages=messages,
             tools=tools,
             check_tool_approval=True
         )
