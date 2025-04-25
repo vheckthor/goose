@@ -2507,11 +2507,27 @@ dependencies = [
 name = "goose-ffi"
 version = "1.0.20"
 dependencies = [
+ "anyhow",
  "cbindgen",
+ "chrono",
  "futures",
  "goose",
+ "goose-llm",
  "libc",
+ "mcp-core",
  "once_cell",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "goose-llm"
+version = "1.0.20"
+dependencies = [
+ "anyhow",
+ "goose",
+ "mcp-core",
  "serde",
  "serde_json",
  "tokio",
