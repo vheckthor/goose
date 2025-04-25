@@ -20,7 +20,7 @@ pub struct BenchModel {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BenchEval {
     pub selector: String,
-    pub post_process_cmd: Option<String>,
+    pub post_process_cmd: Option<PathBuf>,
     pub parallel_safe: bool,
 }
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -78,8 +78,18 @@ impl BenchRunConfig {
         Ok(config)
     }
 
-    fn canonicalize_eval_post_proc_cmd(_config: &mut BenchRunConfig) {
-        // No longer needed since post_process_cmd is now a String
+    fn canonicalize_eval_post_proc_cmd(config: &mut BenchRunConfig) {
+        // update eval post-process script paths to all be full-paths
+        config.evals.iter_mut().for_each(|eval| {
+            if let Some(post_process_cmd) = &eval.post_process_cmd {
+                let canon = BenchmarkWorkDir::canonical_dirs(vec![post_process_cmd.clone()]);
+                let full_path_cmd = canon[0].clone();
+                if !full_path_cmd.exists() {
+                    panic!("BenchConfigError: Eval post-process command not found. File {:?} does not exist", full_path_cmd);
+                }
+                eval.post_process_cmd = Some(full_path_cmd);
+            }
+        });
     }
     pub fn from(cfg: PathBuf) -> anyhow::Result<Self> {
         let config = Self::from_string(read_to_string(cfg)?)?;
