@@ -115,8 +115,33 @@ Note that you'll need [uv](https://docs.astral.sh/uv/#installation) installed on
     │
     └ 
   ``` 
-  
-  6. Obtain an [ElevenLabs API Key](https://elevenlabs.io/app/settings/api-keys) and paste it in.
+  6. Choose to add a description. If you select "Yes" here, you will be prompted to enter a description for the extension.
+  ```sh
+    ┌   goose-configure 
+    │
+    ◇  What would you like to configure?
+    │  Add Extension 
+    │
+    ◇  What type of extension would you like to add?
+    │  Command-line Extension 
+    │
+    ◇  What would you like to call this extension?
+    │  elevenlabs
+    │
+    ◇  What command should be run?
+    │  uvx elevenlabs-mcp
+    │
+    ◆  Please set the timeout for this tool (in secs):
+    │  300
+    │
+    // highlight-start
+    ◇  Would you like to add a description?
+    │  No
+    // highlight-end
+    └ 
+  ```
+
+  7. Obtain an [ElevenLabs API Key](https://elevenlabs.io/app/settings/api-keys) and paste it in.
 
    ```sh
     ┌   goose-configure 
@@ -135,7 +160,10 @@ Note that you'll need [uv](https://docs.astral.sh/uv/#installation) installed on
     │
     ◇  Please set the timeout for this tool (in secs):
     │  300
-    │        
+    │  
+    ◇  Would you like to add a description?
+    │  No   
+    |   
     // highlight-start
     ◆  Would you like to add environment variables?
     │  Yes 
@@ -149,7 +177,7 @@ Note that you'll need [uv](https://docs.astral.sh/uv/#installation) installed on
     ◇  Add another environment variable?
     │  No 
     // highlight-end
-    └  Added github extension
+    └  Added elevenlabs extension
   ```   
 
   </TabItem>
