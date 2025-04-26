@@ -4,24 +4,28 @@ title: Create a Session Sharing Service
 sidebar_label: Create a Sharing Service
 ---
 
+Goose session sharing enables real-time collaboration by allowing users to share their AI-assisted workflows, conversations, and project context with team members. When you implement session sharing, your users can:
 
-This document covers the implementation details for setting up a Goose session sharing server. The discussion focused on:
-1. How to implement the required server endpoints for session sharing
-2. The flow of sharing sessions between Goose Desktop clients
-3. Implementation of a web interface for shared session links
-4. Security considerations and best practices
+- Collaborate on complex problem-solving with shared context and history
+- Share AI-guided debugging sessions with team members
+- Create persistent knowledge bases from successful problem-solving sessions
+- Onboard new team members by sharing exemplar workflows
+- Get help from colleagues who can join their session and see the full context
 
-### Set up a server to enable session sharing
+Setting up session sharing for your organization requires implementing a service that manages these shared sessions using the [Goose API](/docs/guides/Session-Sharing/SSE-api-reference.md). This guide will walk you through creating a secure, scalable sharing service that lets your users collaborate effectively while maintaining control over your organization's data.
 
-The server uses a [Goose session sharing API](/docs/Session-Sharing/SSE-api-reference) to implement two main endpoints and handle proper authentication and security:
 
-1. **API Requirements**
+## Set up a server to enable session sharing
+
+Your session sharing service implements two main endpoints and handles proper authentication and security:
+
+### API Requirements
 ```
 POST /sessions/share
 GET /sessions/share/:shareToken
 ```
 
-2. **API Interface**
+### API Interface
 ```typescript
 // POST /sessions/share Request Body
 interface CreateSessionRequest {
@@ -50,17 +54,44 @@ interface SharedSessionDetails {
 }
 ```
 
-3. **Security Requirements**
+### Security Requirements
 - The server must verify a secret key for authentication
 - The server should be configured with HTTPS
 - CORS must be properly configured to allow requests from Goose desktop clients
 - Consider implementing rate limiting for shared session creation
 
-4. **Example Server Implementation**
+## How Session Sharing Works
+
+When a user shares a session:
+1. Their Goose Desktop client sends the session data to your sharing service
+2. Your service generates a unique token and stores the session
+3. The user gets a shareable link they can send to colleagues
+4. Other users can open the link to join the session with full context
+```
+User A                     Server                      User B
+  |                          |                           |
+  |-- Create share --------->|                           |
+  |<-- Token & URL ----------|                           |
+  |                          |                           |
+  |-- Share URL with User B->|                           |
+  |                          |                           |
+  |                          |<-- Open URL in browser ---|
+  |                          |--- Serve HTML page ------>|
+  |                          |                           |
+  |                          |   [Click "Open in Goose"] |
+  |                          |                           |
+  |                          |<-- Request session -------|
+  |                          |--- Return session ------->|
+```
+
+
+## Example Server Implementation
 ```javascript
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const crypto = require('crypto');
+
 
 app.use(express.json());
 app.use(cors({
@@ -90,7 +121,7 @@ app.post('/sessions/share', verifySecretKey, (req, res) => {
     total_tokens
   } = req.body;
 
-  const shareToken = generateUniqueToken();
+  const shareToken = crypto.randomUUID();
   const session = {
     share_token: shareToken,
     created_at: Date.now(),
@@ -118,22 +149,52 @@ app.get('/sessions/share/:shareToken', verifySecretKey, (req, res) => {
 app.listen(3000, () => {
   console.log('Goose sharing server running on port 3000');
 });
+
 ```
 
-### Q: If the Goose Desktop calls my CreateSessionRequest endpoint and gets back an URL and a session token, how should that URL and token get to another Goose desktop client to allow sharing?
+## Example web UI implementation
 
 The process involves creating a web interface that handles shared session links:
 
-1. **URL Format**
+ **URL Format**
 ```
 https://your-sharing-service.com/share/{share_token}
 ```
 
-2. **Web Route Implementation**
+**Web Route Implementation**
+
+Create a web page that lets a user open Goose with the shared session.
+
+![website goose built](../../assets/guides/example-goose-share-session-page.png)
+
+The page only attempts to auto-open if the user arrived directly at the URL (no referrer). This prevents repeated open attempts if they return to the page. It shows a clear "Opening..." message when attempting to open
+and falls back to manual button if auto-open fails.  Installation instructions are shown if the app doesn't open.
+
+
+If user arrives directly at the URL:
+
+* Automatically attempt to open Goose Desktop
+* Show "Opening..." message
+* After 3 seconds, show manual instructions if still on the page
+
+If user arrives from a referring page:
+
+* Shows the "Open in Goose Desktop" button
+* Waits for user to click
+* Then follows the same sequence as auto-open
+
+
+In both cases:
+
+If Goose Desktop opens successfully, the user leaves this page
+If it fails to open, they see the installation instructions
+
+### Web page code example
 ```javascript
 app.get('/share/:token', (req, res) => {
   const token = req.params.token;
   const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const gooseUrl = `goose://share/${token}?base_url=${encodeURIComponent(baseUrl)}`;
   
   // Send HTML page
   res.send(`
@@ -165,6 +226,15 @@ app.get('/share/:token', (req, res) => {
           border-radius: 8px;
           margin: 20px 0;
         }
+        #openingApp {
+          display: none;
+        }
+        #openButton {
+          display: block;
+        }
+        #manualInstructions {
+          display: none;
+        }
       </style>
     </head>
     <body>
@@ -174,34 +244,64 @@ app.get('/share/:token', (req, res) => {
         <p>Someone has shared a Goose session with you!</p>
       </div>
 
-      <a href="goose://share/${token}?base_url=${encodeURIComponent(baseUrl)}" class="button">
-        Open in Goose Desktop
-      </a>
+      <div id="openingApp" class="info">
+        <p>Opening Goose Desktop...</p>
+        <p>If nothing happens, click the button below:</p>
+      </div>
 
-      <div class="info">
+      <div id="openButton">
+        <a href="${gooseUrl}" class="button" id="openGooseBtn">
+          Open in Goose Desktop
+        </a>
+      </div>
+
+      <div id="manualInstructions" class="info">
         <h3>Don't have Goose Desktop?</h3>
         <p>To view this shared session:</p>
         <ol>
-          <li>Install Goose Desktop from <a href="https://github.com/block/goose/releases">GitHub Releases</a></li>
+          <li>Install Goose Desktop from <a href="https://block.github.io/goose/docs/getting-started/installation">Install Goose</a></li>
           <li>Configure session sharing in Settings:</li>
           <ul>
             <li>Enable session sharing</li>
             <li>Set the base URL to: <code>${baseUrl}</code></li>
           </ul>
-          <li>Click the "Open in Goose Desktop" button above</li>
+          <li>Return to this page and click the "Open in Goose Desktop" button</li>
         </ol>
       </div>
 
       <script>
-        // Attempt to open Goose Desktop automatically
-        document.addEventListener('DOMContentLoaded', () => {
-          window.location.href = 'goose://share/${token}?base_url=${encodeURIComponent(baseUrl)}';
-          
-          // After a delay, if we're still here, the app didn't open
-          setTimeout(() => {
-            document.getElementById('manual-instructions').style.display = 'block';
-          }, 2000);
+        let hasAttemptedOpen = false;
+        const openingMessage = document.getElementById('openingApp');
+        const manualInstructions = document.getElementById('manualInstructions');
+        const openButton = document.getElementById('openButton');
+
+        // Function to attempt opening Goose
+        function openGooseDesktop() {
+          if (!hasAttemptedOpen) {
+            hasAttemptedOpen = true;
+            openingMessage.style.display = 'block';
+            
+            // Try to open Goose Desktop
+            window.location.href = '${gooseUrl}';
+            
+            // After a delay, show manual instructions if we're still here
+            setTimeout(() => {
+              openingMessage.style.display = 'none';
+              manualInstructions.style.display = 'block';
+            }, 3000);
+          }
+        }
+
+        // Listen for button click
+        document.getElementById('openGooseBtn').addEventListener('click', (e) => {
+          e.preventDefault();
+          openGooseDesktop();
         });
+
+        // Try to open automatically only if this looks like a direct navigation
+        if (!document.referrer) {
+          openGooseDesktop();
+        }
       </script>
     </body>
     </html>
@@ -209,52 +309,8 @@ app.get('/share/:token', (req, res) => {
 });
 ```
 
-3. **Custom Protocol Handler in Goose Desktop**
-```typescript
-// In your Electron main process (main.ts)
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('goose', process.execPath, [
-      path.resolve(process.argv[1])
-    ]);
-  }
-} else {
-  app.setAsDefaultProtocolClient('goose');
-}
 
-// Handle the protocol
-app.on('open-url', (event, url) => {
-  event.preventDefault();
-  
-  const urlObj = new URL(url);
-  if (urlObj.protocol === 'goose:') {
-    // Extract token and base_url from the URL
-    const token = urlObj.pathname.replace('/share/', '');
-    const baseUrl = urlObj.searchParams.get('base_url');
-    
-    // Handle the shared session
-    handleSharedSession(token, baseUrl);
-  }
-});
-```
 
-4. **Flow**
-```
-User A                     Server                      User B
-  |                          |                           |
-  |-- Create share --------->|                           |
-  |<-- Token & URL ----------|                           |
-  |                          |                           |
-  |-- Share URL with User B->|                           |
-  |                          |                           |
-  |                          |<-- Open URL in browser ---|
-  |                          |--- Serve HTML page ------>|
-  |                          |                           |
-  |                          |   [Click "Open in Goose"] |
-  |                          |                           |
-  |                          |<-- Request session -------|
-  |                          |--- Return session ------->|
-```
 
 ## Additional Considerations
 

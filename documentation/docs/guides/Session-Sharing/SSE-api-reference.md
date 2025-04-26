@@ -1,60 +1,11 @@
 ---
-title: SSE API Reference
+title: Goose API Reference
 ---
 
 
-FastAPI service version 0.1.0
+The Goose API lets a developer integrate with Goose server agents and the Goose Desktop in an organization. 
 
 ## Endpoints
-
-### MCP Endpoints
-
-#### GET /messages
-
-Messages endpoint for SSE communication
-
-**Description**: This endpoint is used for posting messages to SSE clients.
-Note: This route is for documentation purposes only.
-The actual implementation is handled by the SSE transport.
-
-**Responses**:
-| Status | Description | Content Type |
-|--------|-------------|--------------|
-| 200 | Successful Response | application/json |
-
-#### GET /sse
-
-SSE endpoint that connects to the MCP server
-
-**Description**: This endpoint establishes a Server-Sent Events connection with the client
-and forwards communication to the Model Context Protocol server.
-
-**Responses**:
-| Status | Description | Content Type |
-|--------|-------------|--------------|
-| 200 | Successful Response | application/json |
-
-### Status Endpoints
-
-#### GET /_status
-
-Return the status of the service.
-
-**Description**: This endpoint is REQUIRED for the service to be considered healthy.
-
-**Responses**:
-| Status | Description | Content Type | Schema |
-|--------|-------------|--------------|--------|
-| 200 | Successful Response | application/json | StatusResponse |
-
-#### GET /api/ping/
-
-A simple hello-world endpoint.
-
-**Responses**:
-| Status | Description | Content Type | Schema |
-|--------|-------------|--------------|--------|
-| 200 | Successful Response | application/json | PingResponse |
 
 ### Session Management
 
@@ -162,24 +113,6 @@ Extended Session model that includes messages - used for API responses.
 | total_tokens | integer/null | No | Total token count |
 | messages | array[BaseMessage] | Yes | Array of messages |
 
-### StatusResponse
-
-Status response model for the _status endpoint.
-
-**Properties**:
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| ok | boolean | Yes | Status flag |
-| status | string | Yes | Status message |
-
-### PingResponse
-
-Ping response model.
-
-**Properties**:
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| message | string | Yes | Response message |
 
 ### HTTPValidationError
 
