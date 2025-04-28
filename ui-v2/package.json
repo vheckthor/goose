@@ -8,6 +8,8 @@
     "start": "concurrently -n web,electron -c blue,green \"npm run start:web\" \"npm run start:electron\"",
     "start:electron": "electron-forge start",
     "start:web": "vite",
+    "start:a2a": "./scripts/start-a2a-server.sh",
+    "start:all": "concurrently -n a2a,electron -c blue,green \"npm run start:a2a\" \"wait-on tcp:41242 && npm run start:electron\"",
     "build:web": "tsc --project tsconfig.json && vite build",
     "build:electron": "electron-forge make",
     "preview:web": "vite preview",
@@ -73,7 +75,8 @@
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
-    "vitest": "^3.1.2"
+    "vitest": "^3.1.2",
+    "wait-on": "^7.2.0"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

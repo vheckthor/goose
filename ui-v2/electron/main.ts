@@ -32,42 +32,6 @@ async function createWindow() {
     },
   });
 
-  // Set up CSP
-  session.defaultSession.webRequest.onHeadersReceived(
-    (
-      details: OnHeadersReceivedListenerDetails,
-      callback: (response: HeadersReceivedResponse) => void
-    ) => {
-      callback({
-        responseHeaders: {
-          ...details.responseHeaders,
-          'Content-Security-Policy': [
-            isDevelopment
-              ? `
-                default-src 'self';
-                script-src 'self' 'unsafe-inline';
-                style-src 'self' 'unsafe-inline';
-                connect-src 'self' ws://localhost:3001 http://localhost:3001;
-                img-src 'self' data: https:;
-                font-src 'self' data:;
-              `
-                  .replace(/\s+/g, ' ')
-                  .trim()
-              : `
-                default-src 'self';
-                script-src 'self';
-                style-src 'self' 'unsafe-inline';
-                img-src 'self' data: https:;
-                font-src 'self' data:;
-              `
-                  .replace(/\s+/g, ' ')
-                  .trim(),
-          ],
-        },
-      });
-    }
-  );
-
   // Set up IPC handlers
   ipcMain.handle('clipboard-copy', async (_: IpcMainInvokeEvent, text: string) => {
     clipboard.writeText(text);

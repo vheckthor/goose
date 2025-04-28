@@ -2600,6 +2600,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "goose-server-a2a"
+version = "1.0.20"
+dependencies = [
+ "anyhow",
+ "axum 0.7.9",
+ "chrono",
+ "futures",
+ "goose",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "grep-cli"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
