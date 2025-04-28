@@ -239,6 +239,11 @@ I'll create your YouTube script for you using the given script as reference.
 
 The script has been created and read aloud using the specified voices and style. The audio files have been saved to your desktop.
 
-Head over to [YouTube](/) to hear it for yourself!
+Press play and hear it for yourself! 🔊
+
+<audio controls>
+  <source src="/goose/audio/elevenlabs-mcp-demo.mp3" type="audio/mpeg" />
+  Your browser does not support the audio element.
+</audio>
 
 :::
