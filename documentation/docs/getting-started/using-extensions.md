@@ -107,6 +107,9 @@ Extensions can be installed directly via the [extensions directory][extensions-d
 
 You can install any MCP server as a Goose extension. An MCP server can be a Standard IO server (`stdio`) or a Server-sent Event server (`SSE`). If you are installing a `stdio` server, you need to provide the command that starts the server. An `SSE` server is usually a remote server but it can also be a locally hosted server. In either case, Goose needs the URL address of that server.  
 
+#### Standard IO vs. Server-sent Event servers
+Think of stdio extensions like a personal assistant that sits in your offce - they only work with you, one-on-one, and need to be in the same room. SSE extensions, on the other hand, are more like a team assistant who works from their own office - they can help multiple people at once and can be located anywhere in the building or even in a different city.
+
 :::tip MCP Server Directory
 See available servers in the **[MCP Server Directory](https://www.pulsemcp.com/servers)**.
 :::
