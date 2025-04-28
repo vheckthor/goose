@@ -105,7 +105,7 @@ Extensions can be installed directly via the [extensions directory][extensions-d
 
 ### MCP Servers
 
-You can install any MCP server as a Goose extension. 
+You can install any MCP server as a Goose extension. An MCP server can be a Standard IO server (`stdio`) or a Server-sent Event server (`SSE`). If you are installing a `stdio` server, you need to provide the command that starts the server. An `SSE` server is usually a remote server but it can also be a locally hosted server. In either case, Goose needs the URL address of that server.  
 
 :::tip MCP Server Directory
 See available servers in the **[MCP Server Directory](https://www.pulsemcp.com/servers)**.
@@ -224,7 +224,34 @@ Note: Java and Kotlin extensions are only support on Linux and macOS
 
    </TabItem>
   </Tabs>
+#### Example of adding the Pieces MCP server:
 
+```
+┌   goose-configure 
+│
+◇  What would you like to configure?
+│  Add Extension 
+│
+◇  What type of extension would you like to add?
+│  Remote Extension 
+│
+◇  What would you like to call this extension?
+│  pieces
+│
+◇  What is the SSE endpoint URI?
+│  http://localhost:3500/events
+│
+◇  Please set the timeout for this tool (in secs):
+│  300
+│
+◇  Would you like to add a description?
+│  Yes 
+│
+◆  Enter a description for this extension:
+│  My Pieces long term memory access extension 
+└  
+
+```
   </TabItem>
   <TabItem value="ui" label="Goose Desktop">
  
@@ -232,6 +259,8 @@ Note: Java and Kotlin extensions are only support on Linux and macOS
   2. Select `Advanced Settings` from the menu.
   3. Under `Extensions`, click `Add custom extension`.
   4. On the `Add custom extension` modal, enter the necessary details
+     - Choose the extension type from either `Standard IO` or `Server-sent Events`
+     - If you chose `Standard IO`,  add the `Command`. Otherwise, add the SSE `Endpoint`
      - If adding an environment variable, click `Add` button to the right of the variable
      - The `Timeout` field lets you set how long Goose should wait for a tool call from this extension to complete
   5. Click `Add` button
@@ -242,6 +271,12 @@ Note: Java and Kotlin extensions are only support on Linux and macOS
     * **Name**: `Knowledge Graph Memory` (_set this to whatever you want_)
     * **Description**: `maps and stores complex relationships between concepts` (_set this to whatever you want_)
     * **Command**: `npx -y @modelcontextprotocol/server-memory`
+   #### Example of adding the Pieces MCP Server:
+    * **Type**: `SSE`
+    * **ID**: `pieces-mcp` (_set this to whatever you want_)
+    * **Name**: `Pieces` (_set this to whatever you want_)
+    * **Description**: `Provides access to your Pieces Long-Term Memory. You need to have Pieces installed to use this.` (_set this to whatever you want_)
+    * **Endpoint**: `http://localhost:39300/model_context_protocol/2024-11-05/sse`
   </TabItem>
 </Tabs>
 
@@ -258,6 +293,21 @@ extensions:
     envs: { "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>" }
     type: stdio
     timeout: 300
+```
+#### SSE server example
+
+```yaml
+  pieces:
+    bundled: null
+    description: Provides access to your Pieces Long-Term Memory. You need to have Pieces installed to use this.
+    enabled: false
+    env_keys: []
+    envs: {}
+    name: pieces
+    timeout: 300
+    type: sse
+    uri: http://localhost:39300/model_context_protocol/2024-11-05/sse
+
 ```
     
 
