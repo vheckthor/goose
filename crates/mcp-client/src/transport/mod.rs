@@ -133,3 +133,6 @@ pub use stdio::StdioTransport;
 
 pub mod sse;
 pub use sse::SseTransport;
+
+pub mod http;
+pub use http::HttpTransport;

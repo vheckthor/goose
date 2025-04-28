@@ -181,6 +181,24 @@ pub enum ExtensionConfig {
         #[serde(default)]
         bundled: Option<bool>,
     },
+    /// HTTP client with a URL endpoint
+    #[serde(rename = "http")]
+    Http {
+        /// The name used to identify this extension
+        name: String,
+        url: String,
+        description: Option<String>,
+        timeout: Option<u64>,
+        /// Custom HTTP headers to include in requests
+        #[serde(default)]
+        headers: HashMap<String, String>,
+        /// Cookies to include in requests (will be combined into a single Cookie header)
+        #[serde(default)]
+        cookies: HashMap<String, String>,
+        /// Whether this extension is bundled with Goose
+        #[serde(default)]
+        bundled: Option<bool>,
+    },
 }
 
 impl Default for ExtensionConfig {
@@ -266,6 +284,7 @@ impl ExtensionConfig {
             Self::Stdio { name, .. } => name,
             Self::Builtin { name, .. } => name,
             Self::Frontend { name, .. } => name,
+            Self::Http { name, .. } => name,
         }
         .to_string()
     }
@@ -284,6 +303,7 @@ impl std::fmt::Display for ExtensionConfig {
             ExtensionConfig::Frontend { name, tools, .. } => {
                 write!(f, "Frontend({}: {} tools)", name, tools.len())
             }
+            ExtensionConfig::Http { name, url, .. } => write!(f, "HTTP({}: {})", name, url),
         }
     }
 }

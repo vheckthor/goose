@@ -17,7 +17,7 @@ use crate::agents::extension::Envs;
 use crate::config::{Config, ExtensionConfigManager};
 use crate::prompt_template;
 use mcp_client::client::{ClientCapabilities, ClientInfo, McpClient, McpClientTrait};
-use mcp_client::transport::{SseTransport, StdioTransport, Transport};
+use mcp_client::transport::{HttpTransport, SseTransport, StdioTransport, Transport};
 use mcp_core::{prompt::Prompt, Content, Tool, ToolCall, ToolError, ToolResult};
 use serde_json::Value;
 
@@ -226,6 +226,34 @@ impl ExtensionManager {
                     vec!["mcp".to_string(), name.clone()],
                     HashMap::new(),
                 );
+                let handle = transport.start().await?;
+                let service = McpService::with_timeout(
+                    handle,
+                    Duration::from_secs(
+                        timeout.unwrap_or(crate::config::DEFAULT_EXTENSION_TIMEOUT),
+                    ),
+                );
+                Box::new(McpClient::new(service))
+            }
+            ExtensionConfig::Http {
+                url,
+                timeout,
+                headers,
+                cookies,
+                ..
+            } => {
+                // Combine cookies into a single Cookie header if any exist
+                let mut all_headers = headers.clone();
+                if !cookies.is_empty() {
+                    let cookie_string = cookies
+                        .iter()
+                        .map(|(name, value)| format!("{}={}", name, value))
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    all_headers.insert("Cookie".to_string(), cookie_string);
+                }
+
+                let transport = HttpTransport::new(url).with_headers(all_headers);
                 let handle = transport.start().await?;
                 let service = McpService::with_timeout(
                     handle,
@@ -742,8 +770,11 @@ impl ExtensionManager {
                     }
                     | ExtensionConfig::Stdio {
                         description, name, ..
+                    }
+                    | ExtensionConfig::Http {
+                        description, name, ..
                     } => {
-                        // For SSE/Stdio, use description if available
+                        // For SSE/Stdio/HTTP, use description if available
                         description
                             .as_ref()
                             .map(|s| s.to_string())
@@ -987,5 +1018,51 @@ mod tests {
             .dispatch_tool_call(invalid_tool_call)
             .await;
         assert!(matches!(result.err().unwrap(), ToolError::NotFound(_)));
+    }
+
+    #[test]
+    fn test_cookie_combining() {
+        let mut cookies = HashMap::new();
+        cookies.insert("session_id".to_string(), "abc123".to_string());
+        cookies.insert("user_token".to_string(), "xyz789".to_string());
+        cookies.insert("preferences".to_string(), "dark_mode".to_string());
+
+        let cookie_string = cookies
+            .iter()
+            .map(|(name, value)| format!("{}={}", name, value))
+            .collect::<Vec<_>>()
+            .join("; ");
+
+        // The order might vary due to HashMap, but all cookies should be present
+        assert!(cookie_string.contains("session_id=abc123"));
+        assert!(cookie_string.contains("user_token=xyz789"));
+        assert!(cookie_string.contains("preferences=dark_mode"));
+        assert!(cookie_string.contains("; "));
+    }
+
+    #[test]
+    fn test_empty_cookies() {
+        let cookies: HashMap<String, String> = HashMap::new();
+        let cookie_string = cookies
+            .iter()
+            .map(|(name, value)| format!("{}={}", name, value))
+            .collect::<Vec<_>>()
+            .join("; ");
+
+        assert_eq!(cookie_string, "");
+    }
+
+    #[test]
+    fn test_single_cookie() {
+        let mut cookies = HashMap::new();
+        cookies.insert("session_id".to_string(), "abc123".to_string());
+
+        let cookie_string = cookies
+            .iter()
+            .map(|(name, value)| format!("{}={}", name, value))
+            .collect::<Vec<_>>()
+            .join("; ");
+
+        assert_eq!(cookie_string, "session_id=abc123");
     }
 }
