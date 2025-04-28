@@ -242,8 +242,8 @@ The script has been created and read aloud using the specified voices and style.
 Press play and hear it for yourself! 🔊
 
 <audio controls>
-  <source src={require('@site/static/audio/elevenlabs-mcp-demo.mp3').default} type="audio/mpeg" />
-  Your browser does not support the audio element.
+   <source src={require('@site/static/audio/elevenlabs-mcp-demo.mp3').default} type="audio/mpeg" />
+  Your browser does not support the audio element.     
 </audio>
 
 :::
