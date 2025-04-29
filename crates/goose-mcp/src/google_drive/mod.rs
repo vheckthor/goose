@@ -720,7 +720,7 @@ impl GoogleDriveRouter {
         let download_tool = Tool::new(
             "download".to_string(),
             indoc! {r#"
-                Download a file from Google Drive to a local destination path.
+                Download a file from Google Drive to a local destination path. If they are google workspace files, will attempt to convert to an appopriate format.
             "#}
             .to_string(),
             json!({
@@ -3066,7 +3066,7 @@ impl GoogleDriveRouter {
                                 file_name,
                                 file_extension
                             );
-                        } else if !dest_path.extension().is_some() {
+                        } else if dest_path.extension().is_none() {
                             // If no extension, add the appropriate one
                             final_destination = format!("{}{}", final_destination, file_extension);
                         }
