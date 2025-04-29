@@ -252,6 +252,7 @@ impl GoogleDriveRouter {
                 One of URI or URL MUST is required.
 
                 Optionally include base64 encoded images, false by default.
+                Optionally provide a downloadTo path to download the file to a local destination.
 
                 Example extracting URIs from URLs:
                 Given "https://docs.google.com/document/d/1QG8d8wtWe7ZfmG93sW-1h2WXDJDUkOi-9hDnvJLmWrc/edit?tab=t.0#heading=h.5v419d3h97tr"
@@ -273,6 +274,10 @@ impl GoogleDriveRouter {
                   "includeImages": {
                       "type": "boolean",
                       "description": "Whether or not to include images as base64 encoded strings, defaults to false",
+                  },
+                  "downloadTo": {
+                      "type": "string",
+                      "description": "Optional local path to download the file to. If provided, the file will be downloaded to this location.",
                   }
               },
             }),
@@ -1293,6 +1298,28 @@ impl GoogleDriveRouter {
         }
     }
 
+    async fn read_file_content(
+        &self,
+        drive_uri: &str,
+        include_images: &bool,
+    ) -> Result<Vec<Content>, ToolError> {
+        let metadata = self.fetch_file_metadata(drive_uri).await?;
+        let mime_type = metadata.mime_type.ok_or_else(|| {
+            ToolError::ExecutionError(format!(
+                "Missing mime type in file metadata for {}.",
+                drive_uri
+            ))
+        })?;
+
+        // Handle Google Docs export
+        if mime_type.starts_with("application/vnd.google-apps") {
+            self.export_google_file(drive_uri, &mime_type, *include_images)
+                .await
+        } else {
+            self.get_google_file(drive_uri, *include_images).await
+        }
+    }
+
     async fn read(&self, params: Value) -> Result<Vec<Content>, ToolError> {
         let (maybe_uri, maybe_url) = (
             params.get("uri").and_then(|q| q.as_str()),
@@ -1340,21 +1367,28 @@ impl GoogleDriveRouter {
             .and_then(|i| i.as_bool())
             .unwrap_or(false);
 
-        let metadata = self.fetch_file_metadata(&drive_uri).await?;
-        let mime_type = metadata.mime_type.ok_or_else(|| {
-            ToolError::ExecutionError(format!(
-                "Missing mime type in file metadata for {}.",
-                drive_uri
-            ))
-        })?;
+        // Check if downloadTo parameter is provided
+        let download_to = params.get("downloadTo").and_then(|d| d.as_str());
 
-        // Handle Google Docs export
-        if mime_type.starts_with("application/vnd.google-apps") {
-            self.export_google_file(&drive_uri, &mime_type, include_images)
-                .await
-        } else {
-            self.get_google_file(&drive_uri, include_images).await
+        // If downloadTo is provided, download the file to the specified location
+        if let Some(destination) = download_to {
+            // Create a new params object for the download function
+            let download_params = json!({
+                "fileId": drive_uri,
+                "destination": destination
+            });
+
+            // Call the download function
+            let download_result = self.download(download_params).await?;
+
+            // Return the download result along with the file content
+            let mut result = self.read_file_content(&drive_uri, &include_images).await?;
+            result.extend(download_result);
+            return Ok(result);
         }
+
+        // If no downloadTo parameter, just read the file content
+        self.read_file_content(&drive_uri, &include_images).await
     }
 
     // Implement sheets_tool functionality
