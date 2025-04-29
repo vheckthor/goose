@@ -1231,27 +1231,6 @@ impl GoogleDriveRouter {
         uri: &str,
         include_images: bool,
     ) -> Result<Vec<Content>, ToolError> {
-        // First get the file metadata
-        let file_metadata = self
-            .drive
-            .files()
-            .get(uri)
-            .param("fields", "mimeType,name")
-            .clear_scopes()
-            .add_scope(GOOGLE_DRIVE_SCOPES)
-            .doit()
-            .await
-            .map_err(|e| {
-                ToolError::ExecutionError(format!("Failed to get file metadata for {}: {}", uri, e))
-            })?;
-
-        let file = file_metadata.1;
-        let mime_type = file
-            .mime_type
-            .unwrap_or("application/octet-stream".to_string());
-        let file_name = file.name.unwrap_or_else(|| "unknown".to_string());
-
-        // Now get the file content
         let result = self
             .drive
             .files()
@@ -1268,79 +1247,46 @@ impl GoogleDriveRouter {
                 uri, e
             ))),
             Ok(r) => {
-                // Collect the response body into bytes
-                let body_result = r.0.into_body().collect().await;
-                if let Ok(body) = body_result {
-                    let bytes = body.to_bytes().to_vec();
+                let file = r.1;
+                let mime_type = file
+                    .mime_type
+                    .unwrap_or("application/octet-stream".to_string());
+                if mime_type.starts_with("text/") || mime_type == "application/json" {
+                    if let Ok(body) = r.0.into_body().collect().await {
+                        if let Ok(response) = String::from_utf8(body.to_bytes().to_vec()) {
+                            if !include_images {
+                                let content = self.strip_image_body(&response);
+                                Ok(vec![Content::text(content).with_priority(0.1)])
+                            } else {
+                                let images = self.resize_images(&response).map_err(|e| {
+                                    ToolError::ExecutionError(format!(
+                                        "Failed to resize image(s): {}",
+                                        e
+                                    ))
+                                })?;
 
-                    // Try to handle as text for common text formats
-                    let is_text = mime_type.starts_with("text/")
-                        || mime_type == "application/json"
-                        || mime_type == "application/javascript"
-                        || mime_type == "application/xml"
-                        || mime_type == "application/css"
-                        || file_name.ends_with(".js")
-                        || file_name.ends_with(".json")
-                        || file_name.ends_with(".html")
-                        || file_name.ends_with(".htm")
-                        || file_name.ends_with(".css")
-                        || file_name.ends_with(".xml")
-                        || file_name.ends_with(".txt")
-                        || file_name.ends_with(".md");
-
-                    if is_text {
-                        // Try to convert to string, with fallback for UTF-8 errors
-                        match String::from_utf8(bytes.clone()) {
-                            Ok(response) => {
-                                if !include_images {
-                                    let content = self.strip_image_body(&response);
-                                    Ok(vec![Content::text(content).with_priority(0.1)])
-                                } else {
-                                    let images = self.resize_images(&response).map_err(|e| {
-                                        ToolError::ExecutionError(format!(
-                                            "Failed to resize image(s): {}",
-                                            e
-                                        ))
-                                    })?;
-
-                                    let content = self.strip_image_body(&response);
-                                    Ok(std::iter::once(Content::text(content).with_priority(0.1))
-                                        .chain(images.iter().cloned())
-                                        .collect::<Vec<Content>>())
-                                }
+                                let content = self.strip_image_body(&response);
+                                Ok(std::iter::once(Content::text(content).with_priority(0.1))
+                                    .chain(images.iter().cloned())
+                                    .collect::<Vec<Content>>())
                             }
-                            Err(_) => {
-                                // If UTF-8 conversion fails, try a lossy conversion
-                                let lossy_string = String::from_utf8_lossy(&bytes).to_string();
-                                tracing::warn!("Used lossy UTF-8 conversion for file {}", uri);
-                                Ok(vec![Content::text(lossy_string).with_priority(0.1)])
-                            }
+                        } else {
+                            Err(ToolError::ExecutionError(format!(
+                                "Failed to convert google drive to string, {}.",
+                                uri,
+                            )))
                         }
-                    } else if mime_type.starts_with("image/") {
-                        // Handle image files
-                        let base64_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                        Ok(vec![Content::image(base64_data, &mime_type)])
                     } else {
-                        // For all other binary files, provide basic info and a small base64 preview
-                        let preview_size = 100.min(bytes.len());
-                        let base64_preview = base64::engine::general_purpose::STANDARD
-                            .encode(&bytes[..preview_size]);
-
-                        Ok(vec![Content::text(format!(
-                            "Binary file: {} ({})\nSize: {} bytes\nBase64 preview (first {} bytes): {}{}",
-                            file_name,
-                            mime_type,
-                            bytes.len(),
-                            preview_size,
-                            base64_preview,
-                            if bytes.len() > preview_size { "..." } else { "" }
-                        ))
-                        .with_priority(0.1)])
+                        Err(ToolError::ExecutionError(format!(
+                            "Failed to get google drive document, {}.",
+                            uri,
+                        )))
                     }
                 } else {
+                    //TODO: handle base64 image case, see typscript mcp-gdrive
                     Err(ToolError::ExecutionError(format!(
-                        "Failed to get google drive document content, {}.",
-                        uri,
+                        "Suported mimeType {}, for {}",
+                        mime_type, uri,
                     )))
                 }
             }
