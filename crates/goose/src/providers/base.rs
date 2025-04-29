@@ -155,7 +155,7 @@ pub trait Provider: Send + Sync {
     fn metadata() -> ProviderMetadata
     where
         Self: Sized;
-
+    
     /// Generate the next message using the configured model and other parameters
     ///
     /// # Arguments
