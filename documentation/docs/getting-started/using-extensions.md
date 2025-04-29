@@ -245,34 +245,7 @@ Note: Java and Kotlin extensions are only support on Linux and macOS
 
    </TabItem>
   </Tabs>
-#### Example of adding the Pieces MCP server:
 
-```
-┌   goose-configure 
-│
-◇  What would you like to configure?
-│  Add Extension 
-│
-◇  What type of extension would you like to add?
-│  Remote Extension 
-│
-◇  What would you like to call this extension?
-│  pieces
-│
-◇  What is the SSE endpoint URI?
-│  http://localhost:3500/events
-│
-◇  Please set the timeout for this tool (in secs):
-│  300
-│
-◇  Would you like to add a description?
-│  Yes 
-│
-◆  Enter a description for this extension:
-│  My Pieces long term memory access extension 
-└  
-
-```
   </TabItem>
   <TabItem value="ui" label="Goose Desktop">
  
