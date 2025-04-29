@@ -17,6 +17,7 @@ impl Agent {
     /// Prepares tools and system prompt for a provider request
     pub(crate) async fn prepare_tools_and_prompt(
         &self,
+        goose_mode: Option<&str>,
     ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
         // Get tools from extension manager
         let mut tools = self.list_tools(None).await;
@@ -42,6 +43,7 @@ impl Agent {
             self.frontend_instructions.lock().await.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
             Some(model_name),
+            goose_mode,
         );
 
         // Handle toolshim if enabled

@@ -64,6 +64,7 @@ impl PromptManager {
         frontend_instructions: Option<String>,
         suggest_disable_extensions_prompt: Value,
         model_name: Option<&str>,
+        goose_mode: Option<&str>,
     ) -> String {
         let mut context: HashMap<&str, Value> = HashMap::new();
         let mut extensions_info = extensions_info.clone();
@@ -114,7 +115,9 @@ impl PromptManager {
 
         let mut system_prompt_extras = self.system_prompt_extras.clone();
         let config = Config::global();
-        let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
+        let goose_mode = goose_mode.unwrap_or_else(|| {
+            config.get_param("GOOSE_MODE").unwrap_or("auto".to_string()).as_str()
+        });
         if goose_mode == "chat" {
             system_prompt_extras.push(
                 "Right now you are in the chat only mode, no access to any tool use and system."

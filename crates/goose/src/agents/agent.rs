@@ -321,11 +321,11 @@ impl Agent {
         // Load settings from config
         let config = Config::global();
 
+        let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
+
         // Setup tools and prompt
         let (mut tools, mut toolshim_tools, mut system_prompt) =
-            self.prepare_tools_and_prompt().await?;
-
-        let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
+            self.prepare_tools_and_prompt(Some(goose_mode.as_str())).await?;
 
         let (tools_with_readonly_annotation, tools_without_annotation) =
             Self::categorize_tools_by_annotation(&tools);
@@ -470,7 +470,7 @@ impl Agent {
 
                             // Update system prompt and tools if installations were successful
                             if all_install_successful {
-                                (tools, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt().await?;
+                                (tools, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt(Some(goose_mode.as_str())).await?;
                             }
                         }
 
@@ -593,6 +593,7 @@ impl Agent {
             self.frontend_instructions.lock().await.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
             Some(model_name),
+            None,
         );
 
         let recipe_prompt = prompt_manager.get_recipe_prompt().await;
