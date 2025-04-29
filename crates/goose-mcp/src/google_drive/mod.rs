@@ -722,35 +722,6 @@ impl GoogleDriveRouter {
             }),
         );
 
-        let download_tool = Tool::new(
-            "download".to_string(),
-            indoc! {r#"
-                Download a file from Google Drive to a local destination path. If they are google workspace files, will attempt to convert to an appopriate format.
-            "#}
-            .to_string(),
-            json!({
-              "type": "object",
-              "properties": {
-                  "fileId": {
-                      "type": "string",
-                      "description": "The ID of the file to download.",
-                  },
-                  "destination": {
-                      "type": "string",
-                      "description": "The local file path where the file should be saved.",
-                  }
-              },
-              "required": ["fileId", "destination"],
-            }),
-            Some(ToolAnnotations {
-                title: Some("Download file from GDrive".to_string()),
-                read_only_hint: false,
-                destructive_hint: false,
-                idempotent_hint: false,
-                open_world_hint: false,
-            }),
-        );
-
         let instructions = indoc::formatdoc! {r#"
             Google Drive MCP Server Instructions
 
@@ -769,7 +740,6 @@ impl GoogleDriveRouter {
             11. update_file - Update a existing file
             12. sheets_tool - Work with Google Sheets data using various operations
             13. docs_tool - Work with Google Docs data using various operations
-            14. download - Download a file from Google Drive to a local destination path
 
             ## Available Tools
 
@@ -781,6 +751,8 @@ impl GoogleDriveRouter {
             ### 2. Read File Tool
             Read a file's contents using its ID, and optionally include images as base64 encoded data.
             The default is to exclude images, to include images set includeImages to true in the query.
+            
+            Optionally, you can download the file to a local destination by providing the downloadTo parameter.
 
             Example mappings for Google Drive resources to `gdrive:///$URI` format:
             - Google Document File:
@@ -797,6 +769,20 @@ impl GoogleDriveRouter {
 
             Images take up a large amount of context, this should only be used if a
             user explicity needs the image data.
+
+            When using the downloadTo parameter:
+            - For regular files: Downloads the file as-is
+            - For Google Workspace files: Exports the file to an appropriate format:
+              - Google Docs → DOCX
+              - Google Sheets → XLSX
+              - Google Slides → PPTX
+              - Google Drawings → PNG
+              - Other Google formats → PDF
+              
+            The downloadTo parameter can be:
+            - A directory path: The file will be saved with its original name
+            - A file path without an extension: The appropriate extension will be added for Google Workspace files
+            - A file path with an extension: It will be used as-is
 
             Limitations: Google Sheets exporting only supports reading the first sheet. This is an important limitation that should
             be communicated to the user whenever dealing with a Google Sheet (mimeType: application/vnd.google-apps.spreadsheet).
@@ -899,24 +885,6 @@ impl GoogleDriveRouter {
             - position: The position in the document (index) for operations that require a position
             - startPosition: The start position for delete_content operation
             - endPosition: The end position for delete_content operation
-            
-            ### 14. Download Tool
-            Download a file from Google Drive to a local destination path.
-            
-            - For regular files: Downloads the file as-is
-            - For Google Workspace files: Exports the file to an appropriate format:
-              - Google Docs → DOCX
-              - Google Sheets → XLSX
-              - Google Slides → PPTX
-              - Google Drawings → PNG
-              - Other Google formats → PDF
-              
-            Parameters:
-            - fileId: The ID of the file to download (can be obtained from search results)
-            - destination: The local file path where the file should be saved
-              - If destination is a directory, the file will be saved with its original name
-              - If destination is a file path without an extension, the appropriate extension will be added for Google Workspace files
-              - If destination already has an extension, it will be used as-is
 
             ## Common Usage Pattern
 
@@ -956,7 +924,6 @@ impl GoogleDriveRouter {
                 list_drives_tool,
                 get_permissions_tool,
                 sharing_tool,
-                download_tool,
             ],
             instructions,
             drive,
