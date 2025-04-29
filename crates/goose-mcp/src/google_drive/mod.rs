@@ -717,6 +717,35 @@ impl GoogleDriveRouter {
             }),
         );
 
+        let download_tool = Tool::new(
+            "download".to_string(),
+            indoc! {r#"
+                Download a file from Google Drive to a local destination path.
+            "#}
+            .to_string(),
+            json!({
+              "type": "object",
+              "properties": {
+                  "fileId": {
+                      "type": "string",
+                      "description": "The ID of the file to download.",
+                  },
+                  "destination": {
+                      "type": "string",
+                      "description": "The local file path where the file should be saved.",
+                  }
+              },
+              "required": ["fileId", "destination"],
+            }),
+            Some(ToolAnnotations {
+                title: Some("Download file from GDrive".to_string()),
+                read_only_hint: false,
+                destructive_hint: false,
+                idempotent_hint: false,
+                open_world_hint: false,
+            }),
+        );
+
         let instructions = indoc::formatdoc! {r#"
             Google Drive MCP Server Instructions
 
@@ -735,6 +764,7 @@ impl GoogleDriveRouter {
             11. update_file - Update a existing file
             12. sheets_tool - Work with Google Sheets data using various operations
             13. docs_tool - Work with Google Docs data using various operations
+            14. download - Download a file from Google Drive to a local destination path
 
             ## Available Tools
 
@@ -864,6 +894,24 @@ impl GoogleDriveRouter {
             - position: The position in the document (index) for operations that require a position
             - startPosition: The start position for delete_content operation
             - endPosition: The end position for delete_content operation
+            
+            ### 14. Download Tool
+            Download a file from Google Drive to a local destination path.
+            
+            - For regular files: Downloads the file as-is
+            - For Google Workspace files: Exports the file to an appropriate format:
+              - Google Docs → DOCX
+              - Google Sheets → XLSX
+              - Google Slides → PPTX
+              - Google Drawings → PNG
+              - Other Google formats → PDF
+              
+            Parameters:
+            - fileId: The ID of the file to download (can be obtained from search results)
+            - destination: The local file path where the file should be saved
+              - If destination is a directory, the file will be saved with its original name
+              - If destination is a file path without an extension, the appropriate extension will be added for Google Workspace files
+              - If destination already has an extension, it will be used as-is
 
             ## Common Usage Pattern
 
@@ -903,6 +951,7 @@ impl GoogleDriveRouter {
                 list_drives_tool,
                 get_permissions_tool,
                 sharing_tool,
+                download_tool,
             ],
             instructions,
             drive,
@@ -1182,6 +1231,27 @@ impl GoogleDriveRouter {
         uri: &str,
         include_images: bool,
     ) -> Result<Vec<Content>, ToolError> {
+        // First get the file metadata
+        let file_metadata = self
+            .drive
+            .files()
+            .get(uri)
+            .param("fields", "mimeType,name")
+            .clear_scopes()
+            .add_scope(GOOGLE_DRIVE_SCOPES)
+            .doit()
+            .await
+            .map_err(|e| {
+                ToolError::ExecutionError(format!("Failed to get file metadata for {}: {}", uri, e))
+            })?;
+
+        let file = file_metadata.1;
+        let mime_type = file
+            .mime_type
+            .unwrap_or("application/octet-stream".to_string());
+        let file_name = file.name.unwrap_or_else(|| "unknown".to_string());
+
+        // Now get the file content
         let result = self
             .drive
             .files()
@@ -1198,46 +1268,79 @@ impl GoogleDriveRouter {
                 uri, e
             ))),
             Ok(r) => {
-                let file = r.1;
-                let mime_type = file
-                    .mime_type
-                    .unwrap_or("application/octet-stream".to_string());
-                if mime_type.starts_with("text/") || mime_type == "application/json" {
-                    if let Ok(body) = r.0.into_body().collect().await {
-                        if let Ok(response) = String::from_utf8(body.to_bytes().to_vec()) {
-                            if !include_images {
-                                let content = self.strip_image_body(&response);
-                                Ok(vec![Content::text(content).with_priority(0.1)])
-                            } else {
-                                let images = self.resize_images(&response).map_err(|e| {
-                                    ToolError::ExecutionError(format!(
-                                        "Failed to resize image(s): {}",
-                                        e
-                                    ))
-                                })?;
+                // Collect the response body into bytes
+                let body_result = r.0.into_body().collect().await;
+                if let Ok(body) = body_result {
+                    let bytes = body.to_bytes().to_vec();
 
-                                let content = self.strip_image_body(&response);
-                                Ok(std::iter::once(Content::text(content).with_priority(0.1))
-                                    .chain(images.iter().cloned())
-                                    .collect::<Vec<Content>>())
+                    // Try to handle as text for common text formats
+                    let is_text = mime_type.starts_with("text/")
+                        || mime_type == "application/json"
+                        || mime_type == "application/javascript"
+                        || mime_type == "application/xml"
+                        || mime_type == "application/css"
+                        || file_name.ends_with(".js")
+                        || file_name.ends_with(".json")
+                        || file_name.ends_with(".html")
+                        || file_name.ends_with(".htm")
+                        || file_name.ends_with(".css")
+                        || file_name.ends_with(".xml")
+                        || file_name.ends_with(".txt")
+                        || file_name.ends_with(".md");
+
+                    if is_text {
+                        // Try to convert to string, with fallback for UTF-8 errors
+                        match String::from_utf8(bytes.clone()) {
+                            Ok(response) => {
+                                if !include_images {
+                                    let content = self.strip_image_body(&response);
+                                    Ok(vec![Content::text(content).with_priority(0.1)])
+                                } else {
+                                    let images = self.resize_images(&response).map_err(|e| {
+                                        ToolError::ExecutionError(format!(
+                                            "Failed to resize image(s): {}",
+                                            e
+                                        ))
+                                    })?;
+
+                                    let content = self.strip_image_body(&response);
+                                    Ok(std::iter::once(Content::text(content).with_priority(0.1))
+                                        .chain(images.iter().cloned())
+                                        .collect::<Vec<Content>>())
+                                }
                             }
-                        } else {
-                            Err(ToolError::ExecutionError(format!(
-                                "Failed to convert google drive to string, {}.",
-                                uri,
-                            )))
+                            Err(_) => {
+                                // If UTF-8 conversion fails, try a lossy conversion
+                                let lossy_string = String::from_utf8_lossy(&bytes).to_string();
+                                tracing::warn!("Used lossy UTF-8 conversion for file {}", uri);
+                                Ok(vec![Content::text(lossy_string).with_priority(0.1)])
+                            }
                         }
+                    } else if mime_type.starts_with("image/") {
+                        // Handle image files
+                        let base64_data = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        Ok(vec![Content::image(base64_data, &mime_type)])
                     } else {
-                        Err(ToolError::ExecutionError(format!(
-                            "Failed to get google drive document, {}.",
-                            uri,
-                        )))
+                        // For all other binary files, provide basic info and a small base64 preview
+                        let preview_size = 100.min(bytes.len());
+                        let base64_preview = base64::engine::general_purpose::STANDARD
+                            .encode(&bytes[..preview_size]);
+
+                        Ok(vec![Content::text(format!(
+                            "Binary file: {} ({})\nSize: {} bytes\nBase64 preview (first {} bytes): {}{}",
+                            file_name,
+                            mime_type,
+                            bytes.len(),
+                            preview_size,
+                            base64_preview,
+                            if bytes.len() > preview_size { "..." } else { "" }
+                        ))
+                        .with_priority(0.1)])
                     }
                 } else {
-                    //TODO: handle base64 image case, see typscript mcp-gdrive
                     Err(ToolError::ExecutionError(format!(
-                        "Suported mimeType {}, for {}",
-                        mime_type, uri,
+                        "Failed to get google drive document content, {}.",
+                        uri,
                     )))
                 }
             }
@@ -2928,6 +3031,205 @@ impl GoogleDriveRouter {
             )),
         }
     }
+
+    async fn download(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+        let file_id =
+            params
+                .get("fileId")
+                .and_then(|q| q.as_str())
+                .ok_or(ToolError::InvalidParameters(
+                    "The fileId param is required".to_string(),
+                ))?;
+
+        let destination = params.get("destination").and_then(|q| q.as_str()).ok_or(
+            ToolError::InvalidParameters("The destination param is required".to_string()),
+        )?;
+
+        // First get the file metadata to get the name and MIME type
+        let file_metadata = self
+            .drive
+            .files()
+            .get(file_id)
+            .param("fields", "name,mimeType,size")
+            .clear_scopes()
+            .add_scope(GOOGLE_DRIVE_SCOPES)
+            .supports_all_drives(true)
+            .doit()
+            .await
+            .map_err(|e| {
+                ToolError::ExecutionError(format!(
+                    "Failed to get file metadata for {}: {}",
+                    file_id, e
+                ))
+            })?;
+
+        let file = file_metadata.1;
+        let mime_type = file
+            .mime_type
+            .clone()
+            .unwrap_or_else(|| "application/octet-stream".to_string());
+        let file_name = file.name.clone().unwrap_or_else(|| "unknown".to_string());
+        let _file_size = file.size.unwrap_or_default();
+
+        // Handle Google Workspace files differently - they need to be exported
+        if mime_type.starts_with("application/vnd.google-apps") {
+            // Determine export format based on Google Workspace file type
+            let (export_mime_type, file_extension) = match mime_type.as_str() {
+                "application/vnd.google-apps.document" => (
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ".docx",
+                ),
+                "application/vnd.google-apps.spreadsheet" => (
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    ".xlsx",
+                ),
+                "application/vnd.google-apps.presentation" => (
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    ".pptx",
+                ),
+                "application/vnd.google-apps.drawing" => ("image/png", ".png"),
+                _ => ("application/pdf", ".pdf"), // Default to PDF for other Google Workspace files
+            };
+
+            // Export the file
+            let result = self
+                .drive
+                .files()
+                .export(file_id, export_mime_type)
+                .clear_scopes()
+                .add_scope(GOOGLE_DRIVE_SCOPES)
+                .doit()
+                .await;
+
+            match result {
+                Err(e) => Err(ToolError::ExecutionError(format!(
+                    "Failed to export Google Workspace file {}: {}",
+                    file_id, e
+                ))),
+                Ok(response) => {
+                    // Create destination path with appropriate extension if needed
+                    let mut final_destination = destination.to_string();
+                    if !final_destination.ends_with(file_extension) {
+                        // Check if destination is a directory
+                        let dest_path = std::path::Path::new(&final_destination);
+                        if dest_path.is_dir() {
+                            // If destination is a directory, create a file with the original name plus extension
+                            final_destination = format!(
+                                "{}/{}{}",
+                                final_destination.trim_end_matches('/'),
+                                file_name,
+                                file_extension
+                            );
+                        } else if !dest_path.extension().is_some() {
+                            // If no extension, add the appropriate one
+                            final_destination = format!("{}{}", final_destination, file_extension);
+                        }
+                    }
+
+                    // Collect the response body
+                    let body_result = response.into_body().collect().await;
+                    if let Ok(body) = body_result {
+                        let bytes = body.to_bytes();
+                        let bytes_len = bytes.len();
+
+                        // Create parent directories if they don't exist
+                        if let Some(parent) = std::path::Path::new(&final_destination).parent() {
+                            std::fs::create_dir_all(parent).map_err(|e| {
+                                ToolError::ExecutionError(format!(
+                                    "Failed to create parent directories for {}: {}",
+                                    final_destination, e
+                                ))
+                            })?;
+                        }
+
+                        // Write the file
+                        std::fs::write(&final_destination, &bytes).map_err(|e| {
+                            ToolError::ExecutionError(format!(
+                                "Failed to write file to {}: {}",
+                                final_destination, e
+                            ))
+                        })?;
+
+                        Ok(vec![Content::text(format!(
+                            "Successfully downloaded and exported Google Workspace file '{}' to '{}'.\nFile size: {} bytes",
+                            file_name, final_destination, bytes_len
+                        ))])
+                    } else {
+                        Err(ToolError::ExecutionError(format!(
+                            "Failed to read response body when exporting file {}",
+                            file_id
+                        )))
+                    }
+                }
+            }
+        } else {
+            // For regular files, use the get method with alt=media
+            let result = self
+                .drive
+                .files()
+                .get(file_id)
+                .param("alt", "media")
+                .clear_scopes()
+                .add_scope(GOOGLE_DRIVE_SCOPES)
+                .supports_all_drives(true)
+                .doit()
+                .await;
+
+            match result {
+                Err(e) => Err(ToolError::ExecutionError(format!(
+                    "Failed to download file {}: {}",
+                    file_id, e
+                ))),
+                Ok(response) => {
+                    // Create destination path
+                    let mut final_destination = destination.to_string();
+
+                    // Check if destination is a directory
+                    let dest_path = std::path::Path::new(&final_destination);
+                    if dest_path.is_dir() {
+                        // If destination is a directory, create a file with the original name
+                        final_destination =
+                            format!("{}/{}", final_destination.trim_end_matches('/'), file_name);
+                    }
+
+                    // Collect the response body
+                    let body_result = response.0.into_body().collect().await;
+                    if let Ok(body) = body_result {
+                        let bytes = body.to_bytes();
+                        let bytes_len = bytes.len();
+
+                        // Create parent directories if they don't exist
+                        if let Some(parent) = std::path::Path::new(&final_destination).parent() {
+                            std::fs::create_dir_all(parent).map_err(|e| {
+                                ToolError::ExecutionError(format!(
+                                    "Failed to create parent directories for {}: {}",
+                                    final_destination, e
+                                ))
+                            })?;
+                        }
+
+                        // Write the file
+                        std::fs::write(&final_destination, &bytes).map_err(|e| {
+                            ToolError::ExecutionError(format!(
+                                "Failed to write file to {}: {}",
+                                final_destination, e
+                            ))
+                        })?;
+
+                        Ok(vec![Content::text(format!(
+                            "Successfully downloaded file '{}' to '{}'.\nFile size: {} bytes\nMIME type: {}",
+                            file_name, final_destination, bytes_len, mime_type
+                        ))])
+                    } else {
+                        Err(ToolError::ExecutionError(format!(
+                            "Failed to read response body when downloading file {}",
+                            file_id
+                        )))
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl Router for GoogleDriveRouter {
@@ -2972,6 +3274,7 @@ impl Router for GoogleDriveRouter {
                 "list_drives" => this.list_drives(arguments).await,
                 "get_permissions" => this.get_permissions(arguments).await,
                 "sharing" => this.sharing(arguments).await,
+                "download" => this.download(arguments).await,
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })
