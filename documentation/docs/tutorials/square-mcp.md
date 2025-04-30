@@ -212,6 +212,8 @@ The Square MCP server allows you to interact with Square's connect API with an e
 ( O)> Find my food menu from the following image and import these into my Square seller account. "my-burger-menu.png"
 ```
 
+[Here's the menu image used in the demo.](../assets/guides/square-mcp-goosin-menu.png)
+
 #### Goose Output
 
 ```
