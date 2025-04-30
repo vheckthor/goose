@@ -1223,7 +1223,13 @@ impl GoogleDriveRouter {
                 let mime_type = file
                     .mime_type
                     .unwrap_or("application/octet-stream".to_string());
-                if mime_type.starts_with("text/") || mime_type == "application/json" {
+
+                // Handle text-based files that we can display directly
+                if mime_type.starts_with("text/")
+                    || mime_type == "application/json"
+                    || mime_type == "application/javascript"
+                    || mime_type == "application/x-javascript"
+                {
                     if let Ok(body) = r.0.into_body().collect().await {
                         if let Ok(response) = String::from_utf8(body.to_bytes().to_vec()) {
                             if !include_images {
@@ -1255,11 +1261,11 @@ impl GoogleDriveRouter {
                         )))
                     }
                 } else {
-                    //TODO: handle base64 image case, see typscript mcp-gdrive
-                    Err(ToolError::ExecutionError(format!(
-                        "Suported mimeType {}, for {}",
-                        mime_type, uri,
-                    )))
+                    // For binary files or other non-text formats, provide a message
+                    Ok(vec![Content::text(format!(
+                        "This file has MIME type '{}' which cannot be displayed directly. Use the downloadTo parameter to download it.",
+                        mime_type
+                    ))])
                 }
             }
         }
