@@ -56,7 +56,8 @@ impl Agent {
             tools = vec![];
         }
 
-        let (mcp_router_tools, mcp_router_toolshims) = self.mcp_router(messages, &tools, &toolshim_tools).await?;
+        let (mcp_router_tools, mcp_router_toolshims) =
+            self.mcp_router(messages, &tools, &toolshim_tools).await?;
 
         Ok((mcp_router_tools, mcp_router_toolshims, system_prompt))
     }

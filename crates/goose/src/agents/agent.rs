@@ -338,7 +338,6 @@ impl Agent {
             debug!("user_message" = &content);
         }
 
-
         Ok(Box::pin(async_stream::try_stream! {
             let _ = reply_span.enter();
             loop {
@@ -705,7 +704,12 @@ impl Agent {
         Ok(recipe)
     }
 
-    pub async fn mcp_router(&self, _messages: &[Message], tools: &[Tool], toolshim_tools: &[Tool]) -> Result<(Vec<Tool>, Vec<Tool>)> {
+    pub async fn mcp_router(
+        &self,
+        _messages: &[Message],
+        tools: &[Tool],
+        toolshim_tools: &[Tool],
+    ) -> Result<(Vec<Tool>, Vec<Tool>)> {
         Ok((tools.to_vec(), toolshim_tools.to_vec()))
     }
 }
