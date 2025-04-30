@@ -1352,7 +1352,7 @@ impl GoogleDriveRouter {
             });
 
             // Call the download function
-            let download_result = self.download(download_params).await?;
+            let download_result = self._download(download_params).await?;
 
             // Return the download result along with the file content
             let mut result = self.read_file_content(&drive_uri, &include_images).await?;
@@ -2985,7 +2985,8 @@ impl GoogleDriveRouter {
         }
     }
 
-    async fn download(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+    // Private helper method for downloading files
+    async fn _download(&self, params: Value) -> Result<Vec<Content>, ToolError> {
         let file_id =
             params
                 .get("fileId")
@@ -3227,7 +3228,6 @@ impl Router for GoogleDriveRouter {
                 "list_drives" => this.list_drives(arguments).await,
                 "get_permissions" => this.get_permissions(arguments).await,
                 "sharing" => this.sharing(arguments).await,
-                "download" => this.download(arguments).await,
                 _ => Err(ToolError::NotFound(format!("Tool {} not found", tool_name))),
             }
         })
