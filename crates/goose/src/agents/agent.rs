@@ -338,6 +338,8 @@ impl Agent {
             debug!("user_message" = &content);
         }
 
+        let (mcp_router_tools, mcp_router_toolshims) = self.mcp_router(tools, toolshim_tools).await?;
+
         Ok(Box::pin(async_stream::try_stream! {
             let _ = reply_span.enter();
             loop {

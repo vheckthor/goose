@@ -16,7 +16,7 @@ pub fn read_resource_tool() -> Tool {
 
             Resources allow extensions to share data that provide context to LLMs, such as
             files, database schemas, or application-specific information. This tool searches for the
-            resource URI in the provided extension, and reads in the resource content. If no extension
+            resource URI in the pr  ovided extension, and reads in the resource content. If no extension
             is provided, the tool will search all extensions for the resource.
         "#}.to_string(),
         json!({

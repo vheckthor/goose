@@ -13,3 +13,4 @@ pub use extension::ExtensionConfig;
 pub use extension_manager::ExtensionManager;
 pub use prompt_manager::PromptManager;
 pub use types::{FrontendTool, SessionConfig};
+pub use tool_router::ToolRouter;
