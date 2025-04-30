@@ -38,7 +38,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
   1. [Launch the installer](goose://extension?cmd=npx&arg=-y&arg=square-mcp-server%20start&id=square-mcp&name=Square%20MCP%20Server&description=Square%20MCP%20Server&env=ACCESS_TOKEN%3DYour%20Access%20Token&env=SANDBOX%3Dtrue)
   2. Press `Yes` to confirm the installation
   3. Get your [Square Access Token](https://developer.squareup.com/apps) and paste it in
-  4. Add either `SANDBOX` or `PRODUCTION` as an environment variable and set its value to `true`
+  4. Keep `SANDBOX` as the environment variable, or change to `PRODUCTION`, and set its value to `true`
   5. Click `Save Configuration`
   6. Scroll to the top and click `Exit` from the upper left corner
   </TabItem>
@@ -152,11 +152,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     └ 
   ```  
 
-  1. Obtain a [Brave Search API Key](https://api-dashboard.search.brave.com/app/keys) and paste it in.
-  :::info
-  Sign up for a [Brave Search API account](https://brave.com/search/api/), choose a plan (the free tier gives you 2000 queries per month), and generate your API key from [the developer dashboard](https://api-dashboard.search.brave.com/app/keys).
-  :::
-
+  1. Obtain a [Square Access Token](https://developer.squareup.com/apps) and paste it in.
    ```sh
     ┌   goose-configure 
     │
@@ -199,6 +195,9 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     // highlight-end
     └  Added square-mcp extension
   ```  
+    :::info 
+    Change the `SANDBOX` key to `PRODUCTION` if using a production token
+    :::
 
   </TabItem>
 </Tabs>
