@@ -7,9 +7,11 @@ pub mod prompt_manager;
 mod reply_parts;
 mod tool_execution;
 mod types;
+pub mod tool_router;
 
 pub use agent::Agent;
 pub use extension::ExtensionConfig;
 pub use extension_manager::ExtensionManager;
 pub use prompt_manager::PromptManager;
 pub use types::{FrontendTool, SessionConfig};
+pub use tool_router::ToolRouter;
