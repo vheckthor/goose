@@ -208,11 +208,11 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
               <Button
                 size="icon"
                 variant="ghost"
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-textStandard hover:text-textProminent"
                 onClick={handleCopyLink}
                 disabled={isCopied}
               >
-                {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 <span className="sr-only">Copy</span>
               </Button>
             </div>

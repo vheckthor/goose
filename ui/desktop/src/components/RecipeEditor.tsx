@@ -383,7 +383,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
                 </div>
                 <button
                   onClick={() => validateForm() && handleCopy()}
-                  className="ml-4 p-2 hover:bg-bgApp rounded-lg transition-colors flex items-center disabled:opacity-50 disabled:hover:bg-transparent"
+                  className="ml-4 p-2 hover:bg-bgApp rounded-lg transition-colors flex items-center disabled:opacity-50 disabled:hover:bg-transparent text-textStandard hover:text-textProminent"
                   title={
                     !title.trim() || !description.trim()
                       ? 'Fill in required fields first'
@@ -394,9 +394,9 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
                   {copied ? (
                     <Check className="w-4 h-4 text-green-500" />
                   ) : (
-                    <Copy className="w-4 h-4 text-iconSubtle" />
+                    <Copy className="w-4 h-4" />
                   )}
-                  <span className="ml-1 text-sm text-textSubtle">
+                  <span className="ml-1 text-sm">
                     {copied ? 'Copied!' : 'Copy'}
                   </span>
                 </button>
