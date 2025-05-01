@@ -47,6 +47,7 @@ fn default_version() -> String {
 ///     context: None,
 ///     activities: None,
 ///     author: None,
+///     settings: None,
 /// };
 /// ```
 
