@@ -1,4 +1,5 @@
 mod agent;
+pub mod builtins;
 mod context;
 pub mod extension;
 pub mod extension_manager;

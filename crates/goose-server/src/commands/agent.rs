@@ -18,7 +18,15 @@ pub async fn run() -> Result<()> {
     let secret_key =
         std::env::var("GOOSE_SERVER__SECRET_KEY").unwrap_or_else(|_| "test".to_string());
 
-    let new_agent = Agent::new();
+    // Create a new agent
+    let mut new_agent = Agent::new();
+    
+    // Initialize the ToolRouter
+    if let Err(e) = new_agent.init_tool_router().await {
+        tracing::warn!("Failed to initialize ToolRouter: {}", e);
+    } else {
+        info!("ToolRouter initialized successfully");
+    }
 
     // Create app state with agent
     let state = state::AppState::new(Arc::new(new_agent), secret_key.clone()).await;

@@ -15,8 +15,15 @@ async fn main() {
     let provider = Arc::new(DatabricksProvider::default());
 
     // Setup an agent with the developer extension
-    let agent = Agent::new();
+    let mut agent = Agent::new();
     let _ = agent.update_provider(provider).await;
+    
+    // Initialize the ToolRouter
+    if let Err(e) = agent.init_tool_router().await {
+        println!("Failed to initialize ToolRouter: {}", e);
+    } else {
+        println!("ToolRouter initialized successfully");
+    }
 
     let config = ExtensionConfig::stdio(
         "developer",

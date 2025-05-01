@@ -178,8 +178,13 @@ pub unsafe extern "C" fn goose_agent_new(config: *const ProviderConfigFFI) -> Ag
     // Create Databricks provider with required parameters
     match DatabricksProvider::from_params(host, api_key, model_config) {
         Ok(provider) => {
-            let agent = Agent::new();
+            let mut agent = Agent::new();
             get_runtime().block_on(async {
+                // Initialize the ToolRouter
+                if let Err(e) = agent.init_tool_router().await {
+                    eprintln!("Warning: Failed to initialize ToolRouter: {:?}", e);
+                }
+                
                 let _ = agent.update_provider(Arc::new(provider)).await;
             });
             Box::into_raw(Box::new(agent))

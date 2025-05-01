@@ -17,6 +17,7 @@ use serde_json::Value;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, instrument};
 
+use crate::agents::builtins::toolrouter::ToolRouter;
 use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
@@ -44,6 +45,7 @@ pub struct Agent {
     pub(super) confirmation_rx: Mutex<mpsc::Receiver<(String, PermissionConfirmation)>>,
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
     pub(super) tool_result_rx: ToolResultReceiver,
+    pub(super) tool_router: Option<Arc<Mutex<ToolRouter>>>,
 }
 
 impl Agent {
@@ -62,7 +64,21 @@ impl Agent {
             confirmation_rx: Mutex::new(confirm_rx),
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
+            tool_router: None,
         }
+    }
+    
+    /// Initialize the ToolRouter as a built-in component
+    pub async fn init_tool_router(&mut self) -> anyhow::Result<()> {
+        // Create the ToolRouter
+        let extension_manager = self.extension_manager.lock().await;
+        let tool_router = ToolRouter::new(&extension_manager).await?;
+        let tool_router = Arc::new(Mutex::new(tool_router));
+        
+        // Store the ToolRouter
+        self.tool_router = Some(tool_router);
+        
+        Ok(())
     }
 }
 
@@ -134,6 +150,18 @@ impl Agent {
                 .await;
         }
 
+        // Check if this is a ToolRouter tool
+        if tool_call.name.starts_with("toolrouter__") {
+            if let Some(tool_router) = &self.tool_router {
+                let mut router = tool_router.lock().await;
+                let result = match router.handle_call(tool_call.clone()).await {
+                    Ok(inner_result) => inner_result,
+                    Err(e) => Err(ToolError::ExecutionError(e.to_string())),
+                };
+                return (request_id, result);
+            }
+        }
+        
         let extension_manager = self.extension_manager.lock().await;
         let result = if tool_call.name == PLATFORM_READ_RESOURCE_TOOL_NAME {
             // Check if the tool is read_resource and handle it separately
