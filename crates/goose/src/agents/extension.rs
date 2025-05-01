@@ -28,6 +28,8 @@ pub enum ExtensionError {
     SetupError(String),
     #[error("Join error occurred during task execution: {0}")]
     TaskJoinError(#[from] tokio::task::JoinError),
+    #[error("Search index error: {0}")]
+    SearchIndex(#[from] tantivy::TantivyError),
 }
 
 pub type ExtensionResult<T> = Result<T, ExtensionError>;

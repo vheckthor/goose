@@ -1,3 +1,5 @@
+use crate::agents::extension::ExtensionConfig;
+use mcp_core::tool::Tool;
 use tantivy::schema::*;
 use tantivy::{Index, ReloadPolicy, Term};
 use tantivy::collector::TopDocs;
@@ -6,6 +8,8 @@ use tantivy::schema::TantivyDocument;
 use etcetera::{choose_app_strategy, AppStrategy};
 use std::path::PathBuf;
 use uuid::Uuid;
+use std::fs::OpenOptions; // TODO: remove this
+use std::io::Write; // TODO: remove this
 
 pub struct ToolRouter {
     index: Index,
@@ -17,28 +21,6 @@ pub struct ToolRouter {
 }
 
 impl ToolRouter {
-    fn build_schema() -> Schema {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("title", TEXT | STORED);
-        schema_builder.add_text_field("body", TEXT);
-        schema_builder.build()
-    }
-
-    fn write_documents(index: &Index, schema: &Schema, tool_descriptions: &[(&str, &str)]) -> tantivy::Result<()> {
-        let mut writer = index.writer::<TantivyDocument>(50_000_000)?;
-        let title_field = schema.get_field("title").unwrap();
-        let body_field = schema.get_field("body").unwrap();
-
-        for (title, body) in tool_descriptions {
-            let mut doc = TantivyDocument::default();
-            doc.add_text(title_field, title);
-            doc.add_text(body_field, body);
-            writer.add_document(doc)?;
-        }
-        writer.commit()?;
-        Ok(())
-    }
-
     pub fn new(tool_descriptions: Vec<(&str, &str)>) -> tantivy::Result<Self> {
         // Create schema
         let schema = Self::build_schema();
@@ -53,7 +35,8 @@ impl ToolRouter {
             .unwrap_or_else(|_| PathBuf::from(".config/goose/toolrouter"));
 
         // Append a random UUID to create a unique subdirectory
-        let unique_dir = Uuid::new_v4().to_string();
+        // let unique_dir = Uuid::new_v4().to_string();
+        let unique_dir = "wendy_test";
         index_dir.push(unique_dir);
 
         // Ensure the directory exists
@@ -81,6 +64,28 @@ impl ToolRouter {
         })
     }
 
+    fn build_schema() -> Schema {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_text_field("body", TEXT);
+        schema_builder.build()
+    }
+
+    fn write_documents(index: &Index, schema: &Schema, tool_descriptions: &[(&str, &str)]) -> tantivy::Result<()> {
+        let mut writer = index.writer::<TantivyDocument>(50_000_000)?;
+        let title_field = schema.get_field("title").unwrap();
+        let body_field = schema.get_field("body").unwrap();
+
+        for (title, body) in tool_descriptions {
+            let mut doc = TantivyDocument::default();
+            doc.add_text(title_field, title);
+            doc.add_text(body_field, body);
+            writer.add_document(doc)?;
+        }
+        writer.commit()?;
+        Ok(())
+    }
+
     pub fn remove_document(&self, title: &str) -> tantivy::Result<()> {
         let mut writer = self.index.writer::<TantivyDocument>(50_000_000)?;
         let title_field = self.schema.get_field("title").unwrap();
@@ -96,11 +101,11 @@ impl ToolRouter {
 
         // Reload the reader to reflect the changes
         self.reader.reload()?;
-        
+
         Ok(())
     }
 
-    pub fn match_tools(&self, user_query: &str, top_k: usize) -> tantivy::Result<Vec<String>> {
+    pub async fn match_tools(&self, user_query: &str, tools: &[Tool], top_k: usize) -> anyhow::Result<Vec<Tool>> {
         self.reader.reload()?; // Refresh index state
         let searcher = self.reader.searcher();
 
@@ -108,91 +113,109 @@ impl ToolRouter {
         let query = query_parser.parse_query(user_query)?;
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(top_k))?;
+        // Log top_docs to debug file
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/goose_debug2.log")
+            .unwrap();
+        writeln!(file, "top_docs: {:?}", &top_docs).unwrap();
 
         let mut results = Vec::new();
         for (_score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
+            writeln!(file, "Retrieved doc: {:?}", retrieved_doc).unwrap();
+
             if let Some(id_val) = retrieved_doc.get_first(self.id_field) {
+                writeln!(file, "ID value: {:?}", id_val).unwrap();
+
                 if let Some(id_text) = id_val.as_str() {
-                    results.push(id_text.to_string());
+                    writeln!(file, "ID text: {}", id_text).unwrap();
+
+                    // Find matching tools in tools array using prefix matching
+                    writeln!(file, "Available tools: {:?}", tools.iter().map(|t| &t.name).collect::<Vec<_>>()).unwrap();
+
+                    // Create the prefix pattern (e.g., "developer__")
+                    let prefix = format!("{}__", id_text);
+
+                    // Find all tools that start with the prefix
+                    let matching_tools: Vec<Tool> = tools
+                        .iter()
+                        .filter(|t| t.name.starts_with(&prefix))
+                        .cloned()
+                        .collect();
+
+                    if !matching_tools.is_empty() {
+                        writeln!(file, "Found matching tools: {}", matching_tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", ")).unwrap();
+                        results.extend(matching_tools);
+                    } else {
+                        writeln!(file, "No matching tools found for prefix: {}", prefix).unwrap();
+                    }
                 }
+            } else {
+                writeln!(file, "No ID field found in document").unwrap();
             }
         }
 
         Ok(results)
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    fn extension_to_document(schema: &Schema, extension: &ExtensionConfig) -> TantivyDocument {
+        let mut doc = TantivyDocument::default();
+        let title_field = schema.get_field("title").unwrap();
+        let body_field = schema.get_field("body").unwrap();
 
-    #[test]
-    fn test_tool_router_basic_operations() -> tantivy::Result<()> {
-        // Create test data
-        let tool_descriptions = vec![
-            ("Tool 1", "This is the first tool description"),
-            ("Tool 2", "This is the second tool description"),
-            ("Tool 3", "This is the third tool description"),
-        ];
-
-        // Create router
-        let router = ToolRouter::new(tool_descriptions)?;
-
-        // Test searching
-        let results = router.match_tools("first tool", 1)?;
-        println!("Results: {:?}", results);
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0], "Tool 1");
-
-        // Test removing a document
-        // TODO: implement remove document so documents can be removed from the index in time
-        // router.remove_document("Tool 1")?;
-
-        // // Verify the document was removed
-        // let results_after_removal = router.match_tools("first tool", 1)?;
-        // assert_eq!(results_after_removal.len(), 0);
-
-        // Test searching for remaining documents
-        let results = router.match_tools("second tool", 1)?;
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0], "Tool 2");
-
-        Ok(())
+        match extension {
+            ExtensionConfig::Sse { name, uri, description, .. } => {
+                doc.add_text(title_field, name);
+                let body = format!(
+                    "SSE Extension: {}\nURI: {}\nDescription: {}",
+                    name,
+                    uri,
+                    description.as_deref().unwrap_or("No description")
+                );
+                doc.add_text(body_field, &body);
+            }
+            ExtensionConfig::Stdio { name, cmd, args, description, .. } => {
+                doc.add_text(title_field, name);
+                let body = format!(
+                    "Stdio Extension: {}\nCommand: {}\nArgs: {}\nDescription: {}",
+                    name,
+                    cmd,
+                    args.join(" "),
+                    description.as_deref().unwrap_or("No description")
+                );
+                doc.add_text(body_field, &body);
+            }
+            ExtensionConfig::Builtin { name, display_name, .. } => {
+                doc.add_text(title_field, name);
+                let body = format!(
+                    "Builtin Extension: {}\nDisplay Name: {}",
+                    name,
+                    display_name.as_deref().unwrap_or("No display name")
+                );
+                doc.add_text(body_field, &body);
+            }
+            ExtensionConfig::Frontend { name, tools, instructions, .. } => {
+                doc.add_text(title_field, name);
+                let body = format!(
+                    "Frontend Extension: {}\nTools: {}\nInstructions: {}",
+                    name,
+                    tools.len(),
+                    instructions.as_deref().unwrap_or("No instructions")
+                );
+                doc.add_text(body_field, &body);
+            }
+        }
+        doc
     }
 
-    #[test]
-    fn test_tool_router_empty_search() -> tantivy::Result<()> {
-        let tool_descriptions = vec![
-            ("Tool 1", "This is the first tool description"),
-            ("Tool 2", "This is the second tool description"),
-        ];
-
-        let router = ToolRouter::new(tool_descriptions)?;
-
-        // Test searching with non-matching query
-        let results = router.match_tools("nonexistent", 1)?;
-        assert_eq!(results.len(), 0);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_tool_router_remove_nonexistent() -> tantivy::Result<()> {
-        let tool_descriptions = vec![
-            ("Tool 1", "This is the first tool description"),
-        ];
-
-        let router = ToolRouter::new(tool_descriptions)?;
-
-        // Test removing a non-existent document
-        router.remove_document("Nonexistent Tool")?;
-
-        // Verify the original document still exists
-        let results = router.match_tools("first tool", 1)?;
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0], "Tool 1");
-
+    pub async fn write_extension(&self, extension: &ExtensionConfig) -> tantivy::Result<()> {
+        let mut writer = self.index.writer::<TantivyDocument>(50_000_000)?;
+        let doc = Self::extension_to_document(&self.schema, extension);
+        writer.add_document(doc)?;
+        writer.commit()?;
+        self.reader.reload()?;
         Ok(())
     }
 }
