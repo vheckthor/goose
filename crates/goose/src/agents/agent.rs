@@ -695,8 +695,8 @@ impl Agent {
         // but it doesn't know and the plumbing looks complicated.
         let config = Config::global();
         let provider_name: String = config
-        .get_param("GOOSE_PROVIDER")
-        .expect("No provider configured. Run 'goose configure' first");
+            .get_param("GOOSE_PROVIDER")
+            .expect("No provider configured. Run 'goose configure' first");
 
         let settings = Settings {
             goose_provider: Some(provider_name.clone()),

@@ -62,13 +62,10 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
         .or_else(|| config.get_param("GOOSE_MODEL").ok())
         .expect("No model configured. Run 'goose configure' first");
 
-    let temperature = session_config
-        .settings
-        .as_ref()
-        .and_then(|s| s.temperature);
+    let temperature = session_config.settings.as_ref().and_then(|s| s.temperature);
 
-    let model_config = goose::model::ModelConfig::new(model_name.clone())
-        .with_temperature(temperature);
+    let model_config =
+        goose::model::ModelConfig::new(model_name.clone()).with_temperature(temperature);
 
     // Create the agent
     let agent: Agent = Agent::new();
@@ -204,6 +201,11 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
         session.agent.override_system_prompt(override_prompt).await;
     }
 
-    output::display_session_info(session_config.resume, &provider_name, &model_name, &session_file);
+    output::display_session_info(
+        session_config.resume,
+        &provider_name,
+        &model_name,
+        &session_file,
+    );
     session
 }

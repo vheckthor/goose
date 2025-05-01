@@ -454,7 +454,7 @@ pub async fn cli() -> Result<()> {
                     std::io::stdin()
                         .read_to_string(&mut input)
                         .expect("Failed to read from stdin");
-            
+
                     (
                         InputConfig {
                             contents: Some(input),
