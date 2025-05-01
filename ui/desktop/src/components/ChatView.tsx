@@ -95,6 +95,7 @@ function ChatContent({
   const [showGame, setShowGame] = useState(false);
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
   const [sessionTokenCount, setSessionTokenCount] = useState<number>(0);
+  const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
   const {
@@ -404,13 +405,33 @@ function ChatContent({
     }
   }, [chat.id, messages]);
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const paths: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        paths.push(window.electron.getPathForFile(files[i]));
+      }
+      setDroppedFiles(paths);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
       {/* Loader when generating recipe */}
       {isGeneratingRecipe && <LayingEggLoader />}
       <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
 
-      <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
+      <Card
+        className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
         {recipeConfig?.title && messages.length > 0 && (
           <AgentHeader
             title={recipeConfig.title}
@@ -503,6 +524,7 @@ function ChatContent({
             initialValue={_input}
             setView={setView}
             hasMessages={hasMessages}
+            droppedFiles={droppedFiles}
           />
           <BottomMenu hasMessages={hasMessages} setView={setView} numTokens={sessionTokenCount} />
         </div>
