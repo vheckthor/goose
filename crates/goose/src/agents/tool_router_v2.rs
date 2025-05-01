@@ -2,18 +2,17 @@ use crate::agents::extension::ExtensionConfig;
 use crate::agents::extension_manager::ExtensionManager;
 use crate::agents::platform_tools;
 
+use etcetera::{choose_app_strategy, AppStrategy};
 use mcp_core::tool::Tool;
-use tantivy::schema::*;
-use tantivy::{Index, ReloadPolicy, Term};
+use std::fs::OpenOptions; // TODO: remove this
+use std::io::Write;
+use std::path::PathBuf;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::TantivyDocument;
-use etcetera::{choose_app_strategy, AppStrategy};
-use std::path::PathBuf;
-use uuid::Uuid;
-use std::fs::OpenOptions; // TODO: remove this
-use std::io::Write; // TODO: remove this
-
+use tantivy::schema::*;
+use tantivy::{Index, ReloadPolicy, Term};
+use uuid::Uuid; // TODO: remove this
 
 pub struct ToolRouterV2 {
     index: Index,
@@ -22,7 +21,7 @@ pub struct ToolRouterV2 {
     name_field: Field,
     description_field: Field,
     extension_name_field: Field,
-    _index_dir: PathBuf,  // Keep the path alive for the lifetime of the index
+    _index_dir: PathBuf, // Keep the path alive for the lifetime of the index
 }
 
 impl ToolRouterV2 {
@@ -46,18 +45,16 @@ impl ToolRouterV2 {
 
         // Ensure the directory exists
         std::fs::create_dir_all(&index_dir).expect("Failed to create toolrouter directory");
-        
+
         // Create index in the persistent directory
         let index = Index::create_in_dir(&index_dir, schema.clone())?;
-        
+
         // Create reader
         let reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::Manual)
             .try_into()?;
 
-
-            
         Ok(Self {
             index,
             reader,
@@ -97,7 +94,12 @@ impl ToolRouterV2 {
         Ok(())
     }
 
-    pub async fn match_tools(&self, user_query: &str, _tools: &[Tool], top_k: usize) -> anyhow::Result<Vec<Tool>> {
+    pub async fn match_tools(
+        &self,
+        user_query: &str,
+        _tools: &[Tool],
+        top_k: usize,
+    ) -> anyhow::Result<Vec<Tool>> {
         self.reader.reload()?; // Refresh index state
         let searcher = self.reader.searcher();
 
@@ -132,8 +134,13 @@ impl ToolRouterV2 {
 
         for (_score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
-            writeln!(file, "retrieved_docs: {:?}", retrieved_doc.to_json(&self.schema)).unwrap();
-            
+            writeln!(
+                file,
+                "retrieved_docs: {:?}",
+                retrieved_doc.to_json(&self.schema)
+            )
+            .unwrap();
+
             // Get the tool name from the retrieved document
             if let Some(name_values) = retrieved_doc.get_first(self.name_field) {
                 if let Some(tool_name) = name_values.as_str() {
@@ -148,11 +155,17 @@ impl ToolRouterV2 {
         Ok(matched_tools)
     }
 
-    pub async fn write_documents(&self, extension_manager: &ExtensionManager, extension: &ExtensionConfig) -> anyhow::Result<()> {
+    pub async fn write_documents(
+        &self,
+        extension_manager: &ExtensionManager,
+        extension: &ExtensionConfig,
+    ) -> anyhow::Result<()> {
         let mut writer = self.index.writer::<TantivyDocument>(50_000_000)?;
 
         let extension_name = extension.name();
-        let extension_tools = extension_manager.get_prefixed_tools(Some(extension_name.clone())).await?;
+        let extension_tools = extension_manager
+            .get_prefixed_tools(Some(extension_name.clone()))
+            .await?;
 
         for tool in extension_tools {
             let mut doc = TantivyDocument::default();

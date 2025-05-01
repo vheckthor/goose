@@ -31,8 +31,8 @@ use mcp_core::{
     prompt::Prompt, protocol::GetPromptResult, tool::Tool, Content, ToolError, ToolResult,
 };
 
-use super::{extension, platform_tools};
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
+use super::{extension, platform_tools};
 
 /// The main goose Agent
 pub struct Agent {
@@ -225,7 +225,10 @@ impl Agent {
 
         if result.is_ok() {
             let tool_router = self.tool_router.lock().await;
-            if let Err(e) = tool_router.write_documents(&extension_manager, &config).await {
+            if let Err(e) = tool_router
+                .write_documents(&extension_manager, &config)
+                .await
+            {
                 return (request_id, Err(ToolError::ExecutionError(e.to_string())));
             }
         }
@@ -264,7 +267,9 @@ impl Agent {
                 let mut extension_manager = self.extension_manager.lock().await;
                 extension_manager.add_extension(extension.clone()).await?;
                 let tool_router = self.tool_router.lock().await;
-                tool_router.write_documents(&extension_manager, &extension).await?;
+                tool_router
+                    .write_documents(&extension_manager, &extension)
+                    .await?;
                 // tool_router.write_extension(&extension).await?;
             }
         };
@@ -354,7 +359,14 @@ impl Agent {
             let tool_router = self.tool_router.lock().await;
             let matched_tools = tool_router.match_tools(&content, &tools, 10).await?;
             if matched_tools.len() > 0 {
-                println!("matched tools: {}", matched_tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", "));
+                println!(
+                    "matched tools: {}",
+                    matched_tools
+                        .iter()
+                        .map(|t| t.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
                 router_tools = matched_tools;
             }
             debug!("router_tools: {:?}", &router_tools);

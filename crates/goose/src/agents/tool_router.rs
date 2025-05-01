@@ -1,15 +1,15 @@
 use crate::agents::extension::ExtensionConfig;
+use etcetera::{choose_app_strategy, AppStrategy};
 use mcp_core::tool::Tool;
-use tantivy::schema::*;
-use tantivy::{Index, ReloadPolicy, Term};
+use std::fs::OpenOptions; // TODO: remove this
+use std::io::Write;
+use std::path::PathBuf;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::TantivyDocument;
-use etcetera::{choose_app_strategy, AppStrategy};
-use std::path::PathBuf;
-use uuid::Uuid;
-use std::fs::OpenOptions; // TODO: remove this
-use std::io::Write; // TODO: remove this
+use tantivy::schema::*;
+use tantivy::{Index, ReloadPolicy, Term};
+use uuid::Uuid; // TODO: remove this
 
 pub struct ToolRouter {
     index: Index,
@@ -17,7 +17,7 @@ pub struct ToolRouter {
     schema: Schema,
     id_field: Field,
     description_field: Field,
-    _index_dir: PathBuf,  // Keep the path alive for the lifetime of the index
+    _index_dir: PathBuf, // Keep the path alive for the lifetime of the index
 }
 
 impl ToolRouter {
@@ -26,7 +26,7 @@ impl ToolRouter {
         let schema = Self::build_schema();
         let title_field = schema.get_field("title").unwrap();
         let body_field = schema.get_field("body").unwrap();
-        
+
         // Create persistent index directory in goose config
         // - macOS/Linux: ~/.config/goose/toolrouter/
         // - Windows:     ~\AppData\Roaming\Block\goose\config\toolrouter\
@@ -41,13 +41,13 @@ impl ToolRouter {
 
         // Ensure the directory exists
         std::fs::create_dir_all(&index_dir).expect("Failed to create toolrouter directory");
-        
+
         // Create index in the persistent directory
         let index = Index::create_in_dir(&index_dir, schema.clone())?;
-        
+
         // Write documents to index
         Self::write_documents(&index, &schema, &tool_descriptions)?;
-        
+
         // Create reader
         let reader = index
             .reader_builder()
@@ -71,7 +71,11 @@ impl ToolRouter {
         schema_builder.build()
     }
 
-    fn write_documents(index: &Index, schema: &Schema, tool_descriptions: &[(&str, &str)]) -> tantivy::Result<()> {
+    fn write_documents(
+        index: &Index,
+        schema: &Schema,
+        tool_descriptions: &[(&str, &str)],
+    ) -> tantivy::Result<()> {
         let mut writer = index.writer::<TantivyDocument>(50_000_000)?;
         let title_field = schema.get_field("title").unwrap();
         let body_field = schema.get_field("body").unwrap();
@@ -105,7 +109,12 @@ impl ToolRouter {
         Ok(())
     }
 
-    pub async fn match_tools(&self, user_query: &str, tools: &[Tool], top_k: usize) -> anyhow::Result<Vec<Tool>> {
+    pub async fn match_tools(
+        &self,
+        user_query: &str,
+        tools: &[Tool],
+        top_k: usize,
+    ) -> anyhow::Result<Vec<Tool>> {
         self.reader.reload()?; // Refresh index state
         let searcher = self.reader.searcher();
 
@@ -133,7 +142,12 @@ impl ToolRouter {
                     writeln!(file, "ID text: {}", id_text).unwrap();
 
                     // Find matching tools in tools array using prefix matching
-                    writeln!(file, "Available tools: {:?}", tools.iter().map(|t| &t.name).collect::<Vec<_>>()).unwrap();
+                    writeln!(
+                        file,
+                        "Available tools: {:?}",
+                        tools.iter().map(|t| &t.name).collect::<Vec<_>>()
+                    )
+                    .unwrap();
 
                     // Create the prefix pattern (e.g., "developer__")
                     let prefix = format!("{}__", id_text);
@@ -146,7 +160,16 @@ impl ToolRouter {
                         .collect();
 
                     if !matching_tools.is_empty() {
-                        writeln!(file, "Found matching tools: {}", matching_tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>().join(", ")).unwrap();
+                        writeln!(
+                            file,
+                            "Found matching tools: {}",
+                            matching_tools
+                                .iter()
+                                .map(|t| t.name.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        )
+                        .unwrap();
                         results.extend(matching_tools);
                     } else {
                         writeln!(file, "No matching tools found for prefix: {}", prefix).unwrap();
@@ -166,7 +189,12 @@ impl ToolRouter {
         let body_field = schema.get_field("body").unwrap();
 
         match extension {
-            ExtensionConfig::Sse { name, uri, description, .. } => {
+            ExtensionConfig::Sse {
+                name,
+                uri,
+                description,
+                ..
+            } => {
                 doc.add_text(title_field, name);
                 let body = format!(
                     "SSE Extension: {}\nURI: {}\nDescription: {}",
@@ -176,7 +204,13 @@ impl ToolRouter {
                 );
                 doc.add_text(body_field, &body);
             }
-            ExtensionConfig::Stdio { name, cmd, args, description, .. } => {
+            ExtensionConfig::Stdio {
+                name,
+                cmd,
+                args,
+                description,
+                ..
+            } => {
                 doc.add_text(title_field, name);
                 let body = format!(
                     "Stdio Extension: {}\nCommand: {}\nArgs: {}\nDescription: {}",
@@ -187,7 +221,9 @@ impl ToolRouter {
                 );
                 doc.add_text(body_field, &body);
             }
-            ExtensionConfig::Builtin { name, display_name, .. } => {
+            ExtensionConfig::Builtin {
+                name, display_name, ..
+            } => {
                 doc.add_text(title_field, name);
                 let body = format!(
                     "Builtin Extension: {}\nDisplay Name: {}",
@@ -196,7 +232,12 @@ impl ToolRouter {
                 );
                 doc.add_text(body_field, &body);
             }
-            ExtensionConfig::Frontend { name, tools, instructions, .. } => {
+            ExtensionConfig::Frontend {
+                name,
+                tools,
+                instructions,
+                ..
+            } => {
                 doc.add_text(title_field, name);
                 let body = format!(
                     "Frontend Extension: {}\nTools: {}\nInstructions: {}",
