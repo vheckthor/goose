@@ -42,3 +42,5 @@ benchmark-*
 benchconf.json
 scripts/fake.sh
 do_not_version/
+
+*.env

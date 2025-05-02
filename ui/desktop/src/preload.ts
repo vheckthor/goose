@@ -1,4 +1,4 @@
-import Electron, { contextBridge, ipcRenderer, webUtils } from 'electron';
+import Electron, { contextBridge, ipcRenderer } from 'electron';
 
 interface RecipeConfig {
   id: string;
@@ -50,7 +50,6 @@ type ElectronAPI = {
   readFile: (directory: string) => Promise<FileResponse>;
   writeFile: (directory: string, content: string) => Promise<boolean>;
   getAllowedExtensions: () => Promise<string[]>;
-  getPathForFile: (file: File) => string;
   on: (
     channel: string,
     callback: (event: Electron.IpcRendererEvent, ...args: unknown[]) => void
@@ -102,7 +101,6 @@ const electronAPI: ElectronAPI = {
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath: string, content: string) =>
     ipcRenderer.invoke('write-file', filePath, content),
-  getPathForFile: (file: File) => webUtils.getPathForFile(file),
   getAllowedExtensions: () => ipcRenderer.invoke('get-allowed-extensions'),
   on: (
     channel: string,

@@ -1,6 +1,5 @@
 pub mod anthropic;
 pub mod azure;
-pub mod azureauth;
 pub mod base;
 pub mod bedrock;
 pub mod databricks;

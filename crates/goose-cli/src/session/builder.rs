@@ -49,7 +49,8 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
     let model_config = goose::model::ModelConfig::new(model.clone());
 
     // Create the agent
-    let agent: Agent = Agent::new();
+    let mut agent: Agent = Agent::new();
+    
     let new_provider = create(&provider_name, model_config).unwrap();
     let _ = agent.update_provider(new_provider).await;
 
@@ -162,6 +163,11 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
             eprintln!("Failed to start builtin extension: {}", e);
             process::exit(1);
         }
+    }
+    
+    // Initialize the ToolRouter after all extensions are loaded
+    if let Err(e) = session.agent.init_tool_router().await {
+        eprintln!("Failed to initialize ToolRouter: {}", e);
     }
 
     // Add CLI-specific system prompt extension

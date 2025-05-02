@@ -176,9 +176,9 @@ export default function BottomMenu({
             <TooltipTrigger asChild>
               <span
                 ref={dirRef}
-                className="max-w-[170px] md:max-w-[200px] lg:max-w-[380px] min-w-0 block overflow-hidden text-ellipsis whitespace-nowrap [direction:rtl] text-left"
+                className="truncate max-w-[170px] md:max-w-[200px] lg:max-w-[380px] min-w-0 block"
               >
-                {window.appConfig.get('GOOSE_WORKING_DIR') as string}
+                Working in {window.appConfig.get('GOOSE_WORKING_DIR') as string}
               </span>
             </TooltipTrigger>
             {isDirTruncated && (

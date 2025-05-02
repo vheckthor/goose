@@ -41,7 +41,7 @@ fn default_version() -> String {
 ///     version: "1.0.0".to_string(),
 ///     title: "Example Agent".to_string(),
 ///     description: "An example Recipe configuration".to_string(),
-///     instructions: Some("Act as a helpful assistant".to_string()),
+///     instructions: "Act as a helpful assistant".to_string(),
 ///     prompt: None,
 ///     extensions: None,
 ///     context: None,
@@ -59,11 +59,9 @@ pub struct Recipe {
 
     pub description: String, // a longer description of the recipe
 
-    // Optional fields
-    // Note: at least one of instructions or prompt need to be set
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub instructions: Option<String>, // the instructions for the model
+    pub instructions: String, // the instructions for the model
 
+    // Optional fields
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>, // the prompt to start the session with
 
@@ -195,16 +193,13 @@ impl RecipeBuilder {
     pub fn build(self) -> Result<Recipe, &'static str> {
         let title = self.title.ok_or("Title is required")?;
         let description = self.description.ok_or("Description is required")?;
-
-        if self.instructions.is_none() && self.prompt.is_none() {
-            return Err("At least one of 'prompt' or 'instructions' is required");
-        }
+        let instructions = self.instructions.ok_or("Instructions are required")?;
 
         Ok(Recipe {
             version: self.version,
             title,
             description,
-            instructions: self.instructions,
+            instructions,
             prompt: self.prompt,
             extensions: self.extensions,
             context: self.context,

@@ -531,8 +531,10 @@ mod tests {
             let mock_provider = Arc::new(MockProvider {
                 model_config: mock_model_config,
             });
-            let agent = Agent::new();
+            let mut agent = Agent::new();
             let _ = agent.update_provider(mock_provider).await;
+            // Initialize the ToolRouter (ignore errors in tests)
+            let _ = agent.init_tool_router().await;
             let state = AppState::new(Arc::new(agent), "test-secret".to_string()).await;
 
             // Build router

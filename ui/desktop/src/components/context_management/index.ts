@@ -49,14 +49,10 @@ export async function manageContextFromBackend({
 }
 
 // Function to convert API Message to frontend Message
-export function convertApiMessageToFrontendMessage(
-  apiMessage: ApiMessage,
-  display?: boolean,
-  sendToLLM?: boolean
-): FrontendMessage {
+export function convertApiMessageToFrontendMessage(apiMessage: ApiMessage): FrontendMessage {
   return {
-    display: display ?? true,
-    sendToLLM: sendToLLM ?? true,
+    display: false,
+    sendToLLM: false,
     id: generateId(),
     role: apiMessage.role,
     created: apiMessage.created,

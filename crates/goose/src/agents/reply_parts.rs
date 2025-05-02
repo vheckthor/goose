@@ -18,18 +18,40 @@ impl Agent {
     pub(crate) async fn prepare_tools_and_prompt(
         &self,
     ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
-        // Get tools from extension manager
-        let mut tools = self.list_tools(None).await;
+        // Start with platform tools
+        let mut tools = Vec::new();
+        // tools.push(super::platform_tools::search_available_extensions_tool());
+        // tools.push(super::platform_tools::manage_extensions_tool());
+        
+        // Get extension manager info
+        // let supports_resources;
+        let extensions_info;
+        let suggestion;
+        {
+            let extension_manager = self.extension_manager.lock().await;
+            // supports_resources = extension_manager.supports_resources();
+            extensions_info = extension_manager.get_extensions_info().await;
+            suggestion = extension_manager.suggest_disable_extensions_prompt().await;
+        }
+        
+        // Add resource tools if supported
+        // if supports_resources {
+        //     tools.push(super::platform_tools::read_resource_tool());
+        //     tools.push(super::platform_tools::list_resources_tool());
+        // }
+        
+        // Add ToolRouter tools if available
+        if let Some(tool_router) = &self.tool_router {
+            // Get tools from ToolRouter
+            let router = tool_router.lock().await;
+            tools.extend(router.tools());
+        }
 
         // Add frontend tools
         let frontend_tools = self.frontend_tools.lock().await;
         for frontend_tool in frontend_tools.values() {
             tools.push(frontend_tool.tool.clone());
         }
-
-        // Prepare system prompt
-        let extension_manager = self.extension_manager.lock().await;
-        let extensions_info = extension_manager.get_extensions_info().await;
 
         // Get model name from provider
         let provider = self.provider().await?;
@@ -40,7 +62,7 @@ impl Agent {
         let mut system_prompt = prompt_manager.build_system_prompt(
             extensions_info,
             self.frontend_instructions.lock().await.clone(),
-            extension_manager.suggest_disable_extensions_prompt().await,
+            suggestion,
             Some(model_name),
         );
 
@@ -54,7 +76,6 @@ impl Agent {
             // Empty the tools vector for provider completion
             tools = vec![];
         }
-
         Ok((tools, toolshim_tools, system_prompt))
     }
 

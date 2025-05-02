@@ -1,10 +1,10 @@
-use crate::session::{self, SessionMetadata};
 use anyhow::Result;
 use serde::Serialize;
 use std::cmp::Ordering;
-use utoipa::ToSchema;
 
-#[derive(Clone, Serialize, ToSchema)]
+use crate::session::{self, SessionMetadata};
+
+#[derive(Clone, Serialize)]
 pub struct SessionInfo {
     pub id: String,
     pub path: String,

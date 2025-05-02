@@ -26,8 +26,9 @@ pub struct Resource {
     pub annotations: Option<Annotations>,
 }
 
-#[derive(ToSchema, Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", untagged)]
+#[derive(ToSchema)]
 pub enum ResourceContents {
     TextResourceContents {
         uri: String,

@@ -15,15 +15,12 @@ import { SearchView } from './conversation/SearchView';
 import { createRecipe } from '../recipe';
 import { AgentHeader } from './AgentHeader';
 import LayingEggLoader from './LayingEggLoader';
-import { fetchSessionDetails, generateSessionId } from '../sessions';
+import { fetchSessionDetails } from '../sessions';
 import 'react-toastify/dist/ReactToastify.css';
 import { useMessageStream } from '../hooks/useMessageStream';
 import { SessionSummaryModal } from './context_management/SessionSummaryModal';
 import { Recipe } from '../recipe';
-import {
-  ChatContextManagerProvider,
-  useChatContextManager,
-} from './context_management/ContextManager';
+import { ContextManagerProvider, useChatContextManager } from './context_management/ContextManager';
 import { ContextLengthExceededHandler } from './context_management/ContextLengthExceededHandler';
 import {
   Message,
@@ -67,14 +64,14 @@ export default function ChatView({
   setIsGoosehintsModalOpen: (isOpen: boolean) => void;
 }) {
   return (
-    <ChatContextManagerProvider>
+    <ContextManagerProvider>
       <ChatContent
         chat={chat}
         setChat={setChat}
         setView={setView}
         setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
       />
-    </ChatContextManagerProvider>
+    </ContextManagerProvider>
   );
 }
 
@@ -96,9 +93,6 @@ function ChatContent({
   const [showGame, setShowGame] = useState(false);
   const [isGeneratingRecipe, setIsGeneratingRecipe] = useState(false);
   const [sessionTokenCount, setSessionTokenCount] = useState<number>(0);
-  const [ancestorMessages, setAncestorMessages] = useState<Message[]>([]);
-  const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
-
   const scrollRef = useRef<ScrollAreaHandle>(null);
 
   const {
@@ -113,6 +107,7 @@ function ChatContent({
 
   useEffect(() => {
     // Log all messages when the component first mounts
+    console.log('Initial messages when resuming session:', chat.messages);
     window.electron.logInfo(
       'Initial messages when resuming session: ' + JSON.stringify(chat.messages, null, 2)
     );
@@ -133,7 +128,6 @@ function ChatContent({
     setInput: _setInput,
     handleInputChange: _handleInputChange,
     handleSubmit: _submitMessage,
-    updateMessageStreamBody,
   } = useMessageStream({
     api: getApiUrl('/reply'),
     initialMessages: chat.messages,
@@ -163,36 +157,6 @@ function ChatContent({
       }
     },
   });
-
-  // for CLE events -- create a new session id for the next set of messages
-  useEffect(() => {
-    // If we're in a continuation session, update the chat ID
-    if (summarizedThread.length > 0) {
-      const newSessionId = generateSessionId();
-
-      // Update the session ID in the chat object
-      setChat({
-        ...chat,
-        id: newSessionId!,
-        title: `Continued from ${chat.id}`,
-        messageHistoryIndex: summarizedThread.length,
-      });
-
-      // Update the body used by useMessageStream to send future messages to the new session
-      if (summarizedThread.length > 0 && updateMessageStreamBody) {
-        updateMessageStreamBody({
-          session_id: newSessionId,
-          session_working_dir: window.appConfig.get('GOOSE_WORKING_DIR'),
-        });
-      }
-    }
-
-    // only update if summarizedThread length changes from 0 -> 1+
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    summarizedThread.length > 0,
-  ]);
 
   // Listen for make-agent-from-chat event
   useEffect(() => {
@@ -236,8 +200,7 @@ function ChatContent({
         window.electron.logInfo('Opening recipe editor window');
       } catch (error) {
         window.electron.logInfo('Failed to create recipe:');
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        window.electron.logInfo(errorMessage);
+        window.electron.logInfo(error.message);
       } finally {
         setIsGeneratingRecipe(false);
       }
@@ -269,33 +232,25 @@ function ChatContent({
   // Handle submit
   const handleSubmit = (e: React.FormEvent) => {
     window.electron.startPowerSaveBlocker();
-    const customEvent = e as unknown as CustomEvent;
+    const customEvent = e as CustomEvent;
     const content = customEvent.detail?.value || '';
 
     if (content.trim()) {
       setLastInteractionTime(Date.now());
 
-      if (summarizedThread.length > 0) {
-        // move current `messages` to `ancestorMessages` and `messages` to `summarizedThread`
-        resetMessagesWithSummary(
-          messages,
-          setMessages,
-          ancestorMessages,
-          setAncestorMessages,
-          summaryContent
-        );
+      if (process.env.ALPHA && summarizedThread.length > 0) {
+        // First reset the messages with the summary
+        resetMessagesWithSummary(messages, setMessages);
 
-        // update the chat with new sessionId
-
-        // now call the llm
+        // Then append the new user message
         setTimeout(() => {
           append(createUserMessage(content));
           if (scrollRef.current?.scrollToBottom) {
             scrollRef.current.scrollToBottom();
           }
-        }, 150);
+        }, 150); // Small delay to ensure state updates properly
       } else {
-        // Normal flow (existing code)
+        // Normal flow - just append the message
         append(createUserMessage(content));
         if (scrollRef.current?.scrollToBottom) {
           scrollRef.current.scrollToBottom();
@@ -368,8 +323,6 @@ function ChatContent({
         // Create tool responses for all interrupted tool requests
 
         let responseMessage: Message = {
-          display: true,
-          sendToLLM: true,
           role: 'user',
           created: Date.now(),
           content: [],
@@ -398,7 +351,7 @@ function ChatContent({
 
   // Filter out standalone tool response messages for rendering
   // They will be shown as part of the tool invocation in the assistant message
-  const filteredMessages = [...ancestorMessages, ...messages].filter((message) => {
+  const filteredMessages = messages.filter((message) => {
     // Only filter out when display is explicitly false
     if (message.display === false) return false;
 
@@ -449,22 +402,6 @@ function ChatContent({
     }
   }, [chat.id, messages]);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      const paths: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        paths.push(window.electron.getPathForFile(files[i]));
-      }
-      setDroppedFiles(paths);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
-
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
       {/* Loader when generating recipe */}
@@ -473,11 +410,7 @@ function ChatContent({
         <MoreMenuLayout setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
       </div>
 
-      <Card
-        className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative"
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
+      <Card className="flex flex-col flex-1 rounded-none h-[calc(100vh-95px)] w-full bg-bgApp mt-0 border-none relative">
         {recipeConfig?.title && messages.length > 0 && (
           <AgentHeader
             title={recipeConfig.title}
@@ -512,13 +445,10 @@ function ChatContent({
                   ) : (
                     <>
                       {/* Only render GooseMessage if it's not a CLE message (and we are not in alpha mode) */}
-                      {process.env.NODE_ENV === 'development' &&
-                      hasContextLengthExceededContent(message) ? (
+                      {process.env.ALPHA && hasContextLengthExceededContent(message) ? (
                         <ContextLengthExceededHandler
                           messages={messages}
                           messageId={message.id ?? message.created.toString()}
-                          chatId={chat.id}
-                          workingDir={window.appConfig.get('GOOSE_WORKING_DIR') as string}
                         />
                       ) : (
                         <GooseMessage
@@ -571,14 +501,13 @@ function ChatContent({
             onStop={onStopGoose}
             commandHistory={commandHistory}
             initialValue={_input}
-            droppedFiles={droppedFiles}
           />
           <BottomMenu hasMessages={hasMessages} setView={setView} numTokens={sessionTokenCount} />
         </div>
       </Card>
 
       {showGame && <FlappyGoose onClose={() => setShowGame(false)} />}
-      {process.env.NODE_ENV === 'development' && (
+      {process.env.ALPHA && (
         <SessionSummaryModal
           isOpen={isSummaryModalOpen}
           onClose={closeSummaryModal}

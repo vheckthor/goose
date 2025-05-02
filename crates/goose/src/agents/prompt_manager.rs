@@ -77,7 +77,7 @@ impl PromptManager {
             ));
         }
 
-        context.insert("extensions", serde_json::to_value(extensions_info).unwrap());
+        // context.insert("extensions", serde_json::to_value(extensions_info).unwrap());
 
         let current_date_time = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
         context.insert("current_date_time", Value::String(current_date_time));

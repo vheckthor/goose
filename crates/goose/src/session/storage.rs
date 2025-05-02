@@ -8,7 +8,6 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 fn get_home_dir() -> PathBuf {
     choose_app_strategy(crate::config::APP_STRATEGY.clone())
@@ -18,10 +17,9 @@ fn get_home_dir() -> PathBuf {
 }
 
 /// Metadata for a session, stored as the first line in the session file
-#[derive(Debug, Clone, Serialize, ToSchema)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionMetadata {
     /// Working directory for the session
-    #[schema(value_type = String, example = "/home/user/sessions/session1")]
     pub working_dir: PathBuf,
     /// A short description of the session, typically 3 words or less
     pub description: String,
