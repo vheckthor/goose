@@ -171,15 +171,47 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
   const deeplink = generateDeepLink(getCurrentConfig());
 
   const handleCopy = () => {
-    navigator.clipboard
-      .writeText(deeplink)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      })
-      .catch((err) => {
-        console.error('Failed to copy the text:', err);
-      });
+    // Make sure we have a link to copy
+    if (!deeplink) {
+      console.error('No deeplink to copy');
+      return;
+    }
+
+    // Try to copy using the Clipboard API
+    try {
+      navigator.clipboard.writeText(deeplink)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy text with navigator.clipboard:', err);
+          
+          // Fallback for browsers that don't support clipboard API
+          const textArea = document.createElement('textarea');
+          textArea.value = deeplink;
+          textArea.style.position = 'fixed';  // Avoid scrolling to bottom
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          
+          try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } else {
+              console.error('Fallback execCommand failed');
+            }
+          } catch (err) {
+            console.error('Fallback copy failed:', err);
+          }
+          
+          document.body.removeChild(textArea);
+        });
+    } catch (err) {
+      console.error('Copy operation failed:', err);
+    }
   };
 
   // Reset extensionsLoaded when section changes away from extensions

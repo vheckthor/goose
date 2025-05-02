@@ -95,16 +95,50 @@ const SessionHistoryView: React.FC<SessionHistoryViewProps> = ({
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard
-      .writeText(shareLink)
-      .then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-      })
-      .catch((err) => {
-        console.error('Failed to copy link:', err);
-        toast.error('Failed to copy link to clipboard');
-      });
+    // Make sure we have a link to copy
+    if (!shareLink) {
+      console.error('No share link to copy');
+      toast.error('No share link to copy');
+      return;
+    }
+
+    // Try to copy using the Clipboard API
+    try {
+      navigator.clipboard.writeText(shareLink)
+        .then(() => {
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+        })
+        .catch((err) => {
+          console.error('Failed to copy link with navigator.clipboard:', err);
+          
+          // Fallback for browsers that don't support clipboard API
+          const textArea = document.createElement('textarea');
+          textArea.value = shareLink;
+          textArea.style.position = 'fixed';  // Avoid scrolling to bottom
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          
+          try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+              setIsCopied(true);
+              setTimeout(() => setIsCopied(false), 2000);
+            } else {
+              toast.error('Failed to copy link to clipboard');
+            }
+          } catch (err) {
+            console.error('Fallback copy failed:', err);
+            toast.error('Failed to copy link to clipboard');
+          }
+          
+          document.body.removeChild(textArea);
+        });
+    } catch (err) {
+      console.error('Copy operation failed:', err);
+      toast.error('Failed to copy link to clipboard');
+    }
   };
 
   return (
