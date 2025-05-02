@@ -111,6 +111,10 @@ impl ToolRouterV2 {
                 self.name_field,
             ],
         );
+        // Return all tools if query is too long to avoid performance issues
+        if user_query.chars().count() > 2000 {
+            return Ok(_tools.to_vec());
+        }
         let query = query_parser.parse_query(user_query)?;
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(top_k))?;
