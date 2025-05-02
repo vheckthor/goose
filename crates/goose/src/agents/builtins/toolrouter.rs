@@ -421,7 +421,7 @@ impl ToolRouter {
 
         // Search the index for similar tools (top 5 matches)
         tracing::debug!("ToolRouter: Searching index with {} tools", self.tools.len());
-        let results = self.index.search(&query_embedding, 5);
+        let results = self.index.search(&query_embedding, 3);
         tracing::debug!("ToolRouter: Found {} matching tools", results.len());
 
         // Format results as JSON
