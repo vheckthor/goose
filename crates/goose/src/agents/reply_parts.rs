@@ -24,21 +24,21 @@ impl Agent {
         // tools.push(super::platform_tools::manage_extensions_tool());
         
         // Get extension manager info
-        let supports_resources;
+        // let supports_resources;
         let extensions_info;
         let suggestion;
         {
             let extension_manager = self.extension_manager.lock().await;
-            supports_resources = extension_manager.supports_resources();
+            // supports_resources = extension_manager.supports_resources();
             extensions_info = extension_manager.get_extensions_info().await;
             suggestion = extension_manager.suggest_disable_extensions_prompt().await;
         }
         
         // Add resource tools if supported
-        if supports_resources {
-            tools.push(super::platform_tools::read_resource_tool());
-            tools.push(super::platform_tools::list_resources_tool());
-        }
+        // if supports_resources {
+        //     tools.push(super::platform_tools::read_resource_tool());
+        //     tools.push(super::platform_tools::list_resources_tool());
+        // }
         
         // Add ToolRouter tools if available
         if let Some(tool_router) = &self.tool_router {
@@ -76,7 +76,6 @@ impl Agent {
             // Empty the tools vector for provider completion
             tools = vec![];
         }
-
         Ok((tools, toolshim_tools, system_prompt))
     }
 
