@@ -103,7 +103,14 @@ impl ToolRouterV2 {
         self.reader.reload()?; // Refresh index state
         let searcher = self.reader.searcher();
 
-        let query_parser = QueryParser::for_index(&self.index, vec![self.description_field]);
+        let query_parser = QueryParser::for_index(
+            &self.index,
+            vec![
+                self.extension_name_field,
+                self.description_field,
+                self.name_field,
+            ],
+        );
         let query = query_parser.parse_query(user_query)?;
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(top_k))?;
@@ -136,8 +143,9 @@ impl ToolRouterV2 {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
             writeln!(
                 file,
-                "retrieved_docs: {:?}",
-                retrieved_doc.to_json(&self.schema)
+                "retrieved_docs: {:?}  === score: {:?}",
+                retrieved_doc.to_json(&self.schema),
+                _score
             )
             .unwrap();
 
@@ -146,12 +154,21 @@ impl ToolRouterV2 {
                 if let Some(tool_name) = name_values.as_str() {
                     // Find the matching tool from _tools
                     if let Some(tool) = _tools.iter().find(|t| t.name == tool_name) {
-                        matched_tools.push(tool.clone());
+                        // Only append tools with a score >= 1
+                        if _score >= 1.0 {
+                            matched_tools.push(tool.clone());
+                        }
                     }
                 }
             }
         }
-
+        writeln!(
+            file,
+            "original tool size: {} - matched_tools: {}",
+            _tools.len(),
+            matched_tools.len()
+        )
+        .unwrap();
         Ok(matched_tools)
     }
 
