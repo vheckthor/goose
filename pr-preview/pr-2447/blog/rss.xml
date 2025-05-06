@@ -32,7 +32,7 @@
 <li>An Agent</li>
 <li>Tools</li>
 </ul>
-<p>The LLM is like Remy; it is full of knowledge and reasoning, but has no hands-on access. The agent is like Linguini; it can take action, but doesn't know what to do unless guided.</p>
+<p>The LLM is like Remy; it is full of knowledge and reasoning, but has no hands-on access. The agent is like Linguini; it can take action, but needs guidance.</p>
 <p>If a user says, "Write some unit tests," the LLM analyzes the code and replies,</p>
 <blockquote>
 <p><em>"Looks like JavaScript. Use Jest, create a test file, and import the module."</em></p>
