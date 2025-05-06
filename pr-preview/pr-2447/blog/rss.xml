@@ -64,7 +64,7 @@
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="built-different">Built Different<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#built-different" class="hash-link" aria-label="Direct link to Built Different" title="Direct link to Built Different">​</a></h2>
 <p>That's how it works with AI agents that follow the Model Context Protocol(MCP). MCP shifts the agent from passive executor to active orchestrator, making it less reliant on an LLM and more aware of the context in which it's operating.</p>
-<p><a href="https://block.github.io/goose/pr-preview/pr-2447/">Codename Goose</a> is a local, open source AI agent that follows the structure of MCP.</p>
+<p><a href="https://block.github.io/goose/pr-preview/pr-2447/">Goose</a> is a local, open source AI agent that follows the structure of MCP.</p>
 <p>MCP provides a standardized way for agents to interact with external data and services. It has three core components:</p>
 <ul>
 <li><strong>MCP Host</strong> – the core agent that receives a plan and coordinates the task</li>
