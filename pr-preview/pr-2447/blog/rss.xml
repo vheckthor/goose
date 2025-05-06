@@ -19,7 +19,7 @@
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="the-remy-linguini-dynamic">The Remy-Linguini Dynamic<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#the-remy-linguini-dynamic" class="hash-link" aria-label="Direct link to The Remy-Linguini Dynamic" title="Direct link to The Remy-Linguini Dynamic">​</a></h2>
 <p>If you haven't seen the movie, here's the gist: Remy is an incredible chef with all the know-how, but he's a rat, so no kitchen access. Linguini is a kitchen worker with full access but little cooking skill. Together, they form a symbiotic relationship: Remy hides under Linguini's hat and guides him on what tools to use and when.</p>
-<p>If a customer orders fries, Linguini might freeze but Remy scopes out the kitchen, sees what's available, and gives step-by-step instructions:</p>
+<p>If a customer orders fries, Linguini might freeze, but Remy scopes out the kitchen, sees what's available, and gives step-by-step instructions:</p>
 <blockquote>
 <p><em>"Grab a knife and a cutting board. Now slice the potato."</em></p>
 </blockquote>
@@ -32,7 +32,7 @@
 <li>An Agent</li>
 <li>Tools</li>
 </ul>
-<p>The LLM is like Remy, full of knowledge and reasoning, but no hands-on access. The agent is like Linguini; it can take action but doesn't know what to do unless guided.</p>
+<p>The LLM is like Remy; it is full of knowledge and reasoning, but has no hands-on access. The agent is like Linguini; it can take action, but doesn't know what to do unless guided.</p>
 <p>If a user says, "Write some unit tests," the LLM analyzes the code and replies,</p>
 <blockquote>
 <p><em>"Looks like JavaScript. Use Jest, create a test file, and import the module."</em></p>
@@ -40,18 +40,18 @@
 <p>The agent follows the plan and uses tools like <code>file.write()</code> to get it done.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="linguinis-evolution">Linguini's Evolution<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#linguinis-evolution" class="hash-link" aria-label="Direct link to Linguini's Evolution" title="Direct link to Linguini's Evolution">​</a></h2>
-<p>But Linguini's story doesn't stop there. Even with Remy's guidance, he's still clumsy, unsure how to move through the kitchen with confidence. His boss, Chef Skinner, notices something's off. To help him improve, Linguini is paired with Colette, a seasoned cook who shows him how the kitchen works:</p>
+<p>But Linguini's story doesn't stop there. Even with Remy's guidance, he's still clumsy, unsure how to confidently move through the kitchen. His boss, Chef Skinner, notices something's off. To help him improve, Linguini is paired with Colette, a seasoned cook who shows him how the kitchen works:</p>
 <ul>
 <li>Where tools live</li>
 <li>How stations are organized</li>
 <li>How to move efficiently through space</li>
 <li>When to pivot if something's missing</li>
 </ul>
-<p>With Colette's guidance, Linguini learns to understand the kitchen as a system. When a customer orders spaghetti, Remy quickly forms a plan:</p>
+<p>With Colette's guidance, Linguini understands the kitchen as a system. When a customer orders spaghetti, Remy quickly forms a plan:</p>
 <blockquote>
 <p><em>"Boil the pasta, sauté the garlic and tomatoes, plate it with basil."</em></p>
 </blockquote>
-<p>Instead of blindly following orders, Linguini is equipped to orchestrate the entire operation by:</p>
+<p>Instead of mindlessly following orders, Linguini is equipped to orchestrate the entire operation by:</p>
 <ul>
 <li>Heading to the pasta station to get water boiling</li>
 <li>Checking the sauté station for clean pans and fresh garlic</li>
@@ -63,7 +63,7 @@
 </ul>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="built-different">Built Different<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#built-different" class="hash-link" aria-label="Direct link to Built Different" title="Direct link to Built Different">​</a></h2>
-<p>That's how it works with AI agents that follow the Model Context Protocol(MCP). MCP shifts the agent from passive executor to active orchestrator—less reliant on an LLM and more aware of the context it’s operating in.</p>
+<p>That's how it works with AI agents that follow the Model Context Protocol(MCP). MCP shifts the agent from passive executor to active orchestrator, making it less reliant on an LLM and more aware of the context in which it's operating.</p>
 <p><a href="https://block.github.io/goose/pr-preview/pr-2447/">Codename Goose</a> is a local, open source AI agent that follows the structure of MCP.</p>
 <p>MCP provides a standardized way for agents to interact with external data and services. It has three core components:</p>
 <ul>
@@ -74,7 +74,7 @@
 <p>This architecture allows Goose to discover tools dynamically, understand how to use them, and orchestrate complex workflows across multiple systems.</p>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="goose-as-an-orchestrator">Goose as an Orchestrator<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#goose-as-an-orchestrator" class="hash-link" aria-label="Direct link to Goose as an Orchestrator" title="Direct link to Goose as an Orchestrator">​</a></h2>
-<p>When a user prompts Goose to "Gather all discussions about the authentication bug from last week,” Goose orchestrates the operation. It coordinates tools, manages execution, and adapts on the fly by:</p>
+<p>When a user prompts Goose to "Gather all discussions about the authentication bug from last week," Goose orchestrates the operation. It coordinates tools, manages execution, and adapts on the fly by:</p>
 <ul>
 <li>Identifying the right MCP servers: Slack, GitHub, PostgreSQL</li>
 <li>Understanding when a tool isn't working as expected</li>
@@ -87,7 +87,7 @@
 </ul>
 <hr>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="scaling-agentic-workflows-with-recipes">Scaling Agentic Workflows with Recipes<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#scaling-agentic-workflows-with-recipes" class="hash-link" aria-label="Direct link to Scaling Agentic Workflows with Recipes" title="Direct link to Scaling Agentic Workflows with Recipes">​</a></h2>
-<p>It’s been 18 years since the movie came out, and I’d like to imagine that Linguini has surpassed his cooking era and stepped into his mentor era. Instead of inefficiently training every new cook, he’s documenting his favorite dishes to make his knowledge shareable and scalable.</p>
+<p>It's been 18 years since the movie came out, and I'd like to imagine that Linguini has surpassed his cooking era and stepped into his mentor era. Instead of training every new cook inefficiently, he's documenting his favorite dishes to make his knowledge shareable and scalable.</p>
 <p>Similarly, Goose is a forward-looking AI agent with a solution for scaling knowledge through <a href="https://block.github.io/goose/pr-preview/pr-2447/docs/guides/session-recipes">recipes</a>. Recipes are complete orchestrations you can rerun, remix, or share, passing on knowledge to anyone who needs it.</p>
 <p>Sharing a prompt doesn't always recreate the experience; AI is non-deterministic, and people may not have the same extensions or context configured. Recipes solve this by packaging your entire Goose workflow: the extensions, the setup, the goal, and example activities.</p>
 <p><strong>Let's try it:</strong>
@@ -104,10 +104,10 @@ The link below is a recipe that lets you choose your favorite platform (GitHub, 
 <p>Typically, when a developer joins a team, they spend hours setting up their environment, figuring out which platforms to use, and decoding the unspoken rules of how things get done.<br>
 <!-- -->Instead, hand them a recipe. With preloaded context and the right tools, it can automate local setup, surface relevant docs, and walk them through your team's workflows, without a single screen share.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="hosting-a-workshop">Hosting a Workshop<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#hosting-a-workshop" class="hash-link" aria-label="Direct link to Hosting a Workshop" title="Direct link to Hosting a Workshop">​</a></h3>
-<p>Workshops are always a gamble: different machines, different setups, different distractions.<br>
-<!-- -->Skip the chaos. Drop a Recipe link and let every attendee spin up the same environment, same tools, same goals, and same examples. You get more time to teach, and spend less time troubleshooting.</p>
+<p>Workshops are always a gamble: different machines, setups, and distractions.<br>
+<!-- -->Skip the chaos. Drop a Recipe link and let every attendee spin up the same environment, same tools, same goals, and same examples. You get more time to teach and spend less time troubleshooting.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="accelerating-your-team">Accelerating Your Team<a href="https://block.github.io/goose/pr-preview/pr-2447/blog/2025/05/06/recipe-for-success.md#accelerating-your-team" class="hash-link" aria-label="Direct link to Accelerating Your Team" title="Direct link to Accelerating Your Team">​</a></h3>
-<p>Your team is full of problem solvers. One teammate built a slick internal dashboard. Another nailed support ticket triage. Someone else automated changelog generation. Then there’s the question: how do we make it easy for the entire team to use? Recipes turn your team’s creations into reusable workflows that anyone can pick up. Build a shared library of Goose-powered processes and multiply your team's impact.</p>
+<p>Your team is full of problem solvers. One teammate built a slick internal dashboard. Another nailed support ticket triage. Someone else automated changelog generation. Then there's the question: how do we make it easy for the entire team to use? Recipes turn your team's creations into reusable workflows that anyone can pick up. Build a shared library of Goose-powered processes and multiply your team's impact.</p>
 <p>Grab <a href="https://block.github.io/goose/pr-preview/pr-2447/docs/getting-started/installation">Goose</a> and start cooking up some <a href="https://block.github.io/goose/pr-preview/pr-2447/docs/guides/session-recipes">recipes</a> of your own. Your future self (and team) will thank you!</p>
 ]]></content:encoded>
         </item>
