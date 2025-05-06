@@ -31,7 +31,7 @@
     "lint:check": "eslint \"src/**/*.{ts,tsx}\" --max-warnings 0 --no-warn-ignored",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
-    "prepare": "cd ../.. && husky install",
+    "prepare": "node -e \"if(process.env.CI !== 'true') require('child_process').execSync('cd ../.. && husky install')\"",
     "start-alpha-gui": "ALPHA=true npm run start-gui"
   },
   "devDependencies": {
