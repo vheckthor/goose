@@ -17,6 +17,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Rust binary
+        run: cargo build --release
+
+      - name: Copy binary to desktop app location
+        run: |
+          mkdir -p ui/desktop/src/bin
+          cp target/release/goosed ui/desktop/src/bin/
+          chmod +x ui/desktop/src/bin/goosed
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
