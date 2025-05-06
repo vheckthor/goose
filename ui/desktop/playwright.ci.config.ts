@@ -7,18 +7,30 @@ const config: PlaywrightTestConfig = {
     timeout: 10000,
   },
   fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  forbidOnly: true, // Always fail if test.only is present
+  retries: 2, // Retry failed tests twice
   workers: 1,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: 'github',
   use: {
     actionTimeout: 0,
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   outputDir: 'test-results',
   testMatch: '**/*.spec.ts',
+  // CI-specific options
+  projects: [
+    {
+      name: 'headless',
+      use: {
+        // Force headless mode
+        launchOptions: {
+          headless: true,
+        },
+      },
+    },
+  ],
 };
 
 export default config;

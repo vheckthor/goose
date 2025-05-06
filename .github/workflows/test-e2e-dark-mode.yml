@@ -1,0 +1,45 @@
+name: E2E Dark Mode Test
+
+on:
+  push:
+    paths:
+      - 'ui/desktop/**'
+  pull_request:
+    paths:
+      - 'ui/desktop/**'
+  workflow_dispatch:
+
+jobs:
+  test-e2e-dark-mode:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+
+      - name: Install dependencies
+        working-directory: ui/desktop
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: ui/desktop
+        run: npx playwright install --with-deps
+
+      - name: Run dark mode e2e tests
+        working-directory: ui/desktop
+        run: npm run test-e2e:dark-mode
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            ui/desktop/test-results
+            ui/desktop/playwright-report
+          retention-days: 30
