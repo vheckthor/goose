@@ -50,6 +50,8 @@ test.describe('Goose App Dark Mode', () => {
         ...process.env,
         ELECTRON_IS_DEV: '1',
         NODE_ENV: 'development',
+        // Suppress XPC connection warnings
+        NSDocumentRevisionsDebugMode: 'YES',
       },
       recordVideo: {
         dir: 'test-results/videos/',

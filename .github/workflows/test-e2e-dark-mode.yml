@@ -3,16 +3,20 @@ name: E2E Dark Mode Test
 on:
   push:
     paths:
-      - 'ui/desktop/**'
+      - 'ui/desktop/e2e-test/**'
+      - 'ui/desktop/src/**'
+      - 'crates/goose-server/**'
   pull_request:
     paths:
-      - 'ui/desktop/**'
+      - 'ui/desktop/e2e-test/**'
+      - 'ui/desktop/src/**'
+      - 'crates/goose-server/**'
   workflow_dispatch:
 
 jobs:
   test-e2e-dark-mode:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -21,12 +25,25 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          # Only include components we need
+          components: rustc, cargo
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+      # Cache Rust dependencies and build outputs
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # Cache the goosed binary specifically
+          key: goosed-binary
+          cache-directories: |
+            target/release/goosed
+            target/release/deps/goosed*
+            target/release/build/goosed*
 
-      - name: Build Rust binary
-        run: cargo build --release
+      # Only build goosed binary
+      - name: Build goosed binary
+        run: cargo build --release --bin goosed
+        env:
+          # Optimize for binary size and build speed
+          RUSTFLAGS: "-C opt-level=2 -C codegen-units=16"
 
       - name: Copy binary to desktop app location
         run: |
@@ -38,25 +55,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '23'
+          cache: 'npm'
+          cache-dependency-path: ui/desktop/package-lock.json
 
       - name: Install dependencies
         working-directory: ui/desktop
-        run: npm ci
+        # Only install production dependencies
+        run: npm ci --omit=dev
 
-      - name: Install Playwright browsers
+      - name: Install Playwright
         working-directory: ui/desktop
-        run: npx playwright install --with-deps
-
-      - name: Run dark mode e2e tests
+        run: npx playwright install chromium --with-deps
+        
+      - name: Run dark mode e2e test
         working-directory: ui/desktop
+        env:
+          # Suppress macOS XPC warnings
+          NSDocumentRevisionsDebugMode: YES
         run: npm run test-e2e:dark-mode
 
       - name: Upload test results
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: |
-            ui/desktop/test-results
-            ui/desktop/playwright-report
-          retention-days: 30
+          name: test-results
+          path: ui/desktop/test-results
+          retention-days: 7
