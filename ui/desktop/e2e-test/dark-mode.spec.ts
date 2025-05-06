@@ -44,7 +44,13 @@ test.describe('Goose App Dark Mode', () => {
 
     // Launch Electron for testing
     electronApp = await electron.launch({
-      args: ['.vite/build/main.js'],
+      args: [
+        '.vite/build/main.js',
+        '--no-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-software-rasterizer',
+      ],
       cwd: join(__dirname, '..'),
       env: {
         ...process.env,

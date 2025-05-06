@@ -69,7 +69,16 @@ jobs:
           CI: 'true'
           NSDocumentRevisionsDebugMode: YES
           ELECTRON_NO_SANDBOX: 1
-        run: npm run test-e2e:dark-mode
+          # Additional environment variables for GPU/display handling
+          DISPLAY: ':99'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: |
+          # Start virtual framebuffer if needed
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          fi
+          npm run test-e2e:dark-mode
 
       - name: Upload test results
         if: failure()
