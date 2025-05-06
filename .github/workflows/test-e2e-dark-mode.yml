@@ -56,9 +56,8 @@ jobs:
       - name: Install dependencies
         working-directory: ui/desktop
         env:
-          # Skip husky install in CI
-          HUSKY: '0'
-        run: npm ci --omit=dev
+          CI: 'true'
+        run: npm ci
 
       - name: Install Playwright
         working-directory: ui/desktop
@@ -67,9 +66,8 @@ jobs:
       - name: Run dark mode e2e test
         working-directory: ui/desktop
         env:
-          # Suppress macOS XPC warnings
+          CI: 'true'
           NSDocumentRevisionsDebugMode: YES
-          # Disable sandbox for Electron in CI
           ELECTRON_NO_SANDBOX: 1
         run: npm run test-e2e:dark-mode
 
