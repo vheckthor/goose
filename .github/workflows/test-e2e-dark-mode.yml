@@ -25,24 +25,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          # Only include components we need
           components: rustc, cargo
 
-      # Cache Rust dependencies and build outputs
       - uses: Swatinem/rust-cache@v2
         with:
-          # Cache the goosed binary specifically
           key: goosed-binary
           cache-directories: |
             target/release/goosed
             target/release/deps/goosed*
             target/release/build/goosed*
 
-      # Only build goosed binary
       - name: Build goosed binary
         run: cargo build --release --bin goosed
         env:
-          # Optimize for binary size and build speed
           RUSTFLAGS: "-C opt-level=2 -C codegen-units=16"
 
       - name: Copy binary to desktop app location
@@ -60,18 +55,19 @@ jobs:
 
       - name: Install dependencies
         working-directory: ui/desktop
-        # Only install production dependencies
         run: npm ci --omit=dev
 
       - name: Install Playwright
         working-directory: ui/desktop
         run: npx playwright install chromium --with-deps
-        
+
       - name: Run dark mode e2e test
         working-directory: ui/desktop
         env:
           # Suppress macOS XPC warnings
           NSDocumentRevisionsDebugMode: YES
+          # Disable sandbox for Electron in CI
+          ELECTRON_NO_SANDBOX: 1
         run: npm run test-e2e:dark-mode
 
       - name: Upload test results

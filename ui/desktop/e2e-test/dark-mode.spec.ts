@@ -53,6 +53,8 @@ test.describe('Goose App Dark Mode', () => {
         // Suppress XPC connection warnings
         NSDocumentRevisionsDebugMode: 'YES',
       },
+      // Handle sandbox configuration
+      chromiumSandbox: !process.env.ELECTRON_NO_SANDBOX,
       recordVideo: {
         dir: 'test-results/videos/',
         size: { width: 620, height: 680 }
