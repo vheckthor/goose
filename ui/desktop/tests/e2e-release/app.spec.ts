@@ -41,54 +41,86 @@ test.describe('Goose App Release Tests', () => {
     console.log('Using electron binary:', electronBinary);
 
     // Launch electron with our app
-    electronApp = await electron.launch({
-      args: ['.vite/build/main.js'],
-      cwd: join(__dirname, '../..'),
-      env: {
-        GOOSE_ALLOWLIST_BYPASS: 'true',
-        GOOSE_TEST_MODE: 'true',
-        NODE_ENV: 'development',
-        ELECTRON_IS_DEV: '1',
-        ELECTRON_ENABLE_LOGGING: '1',
-        ELECTRON_ENABLE_STACK_DUMPING: '1'
-      },
-      recordVideo: {
-        dir: 'test-results-release/videos/',
-        size: { width: 620, height: 680 }
-      }
-    });
+    try {
+      console.log('Launching electron app with main.js...');
+      electronApp = await electron.launch({
+        args: ['.vite/build/main.js'],
+        cwd: join(__dirname, '../..'),
+        env: {
+          GOOSE_ALLOWLIST_BYPASS: 'true',
+          GOOSE_TEST_MODE: 'true',
+          NODE_ENV: 'development',
+          ELECTRON_IS_DEV: '1',
+          ELECTRON_ENABLE_LOGGING: '1',
+          ELECTRON_ENABLE_STACK_DUMPING: '1',
+          DEBUG: '*'
+        },
+        recordVideo: {
+          dir: 'test-results-release/videos/',
+          size: { width: 1024, height: 768 }
+        }
+      });
+      console.log('Electron app launched successfully');
+    } catch (error) {
+      console.error('Failed to launch electron app:', error);
+      throw error;
+    }
 
     // Get the main window
-    mainWindow = await electronApp.firstWindow();
-    await mainWindow.waitForLoadState('domcontentloaded');
-    await mainWindow.waitForLoadState('networkidle');
+    try {
+      console.log('Waiting for main window...');
+      mainWindow = await electronApp.firstWindow();
+      console.log('Main window obtained');
 
-    // Take initial screenshot
-    await mainWindow.screenshot({ path: 'test-results-release/initial-state.png' });
+      console.log('Waiting for domcontentloaded...');
+      await mainWindow.waitForLoadState('domcontentloaded');
+      console.log('domcontentloaded complete');
 
-    // Log current HTML to see what's available
-    const html = await mainWindow.evaluate(() => document.documentElement.outerHTML);
-    console.log('Current page HTML:', html);
+      console.log('Waiting for networkidle...');
+      await mainWindow.waitForLoadState('networkidle');
+      console.log('networkidle complete');
 
-    // Ensure window is visible and focused
-    await mainWindow.bringToFront();
-    
-    // Set window bounds to ensure it's visible
-    await mainWindow.setViewportSize({ width: 1024, height: 768 });
+      // Take initial screenshot
+      await mainWindow.screenshot({ path: 'test-results-release/initial-state.png' });
 
-    // Wait for React app to be ready by looking for any of the known elements
-    await Promise.race([
-      mainWindow.waitForSelector('[data-testid="provider-selection-heading"]', { timeout: 30000 }),
-      mainWindow.waitForSelector('[data-testid="chat-input"]', { timeout: 30000 }),
-      mainWindow.waitForSelector('[data-testid="more-options-button"]', { timeout: 30000 })
-    ]);
+      // Log current HTML to help debug selectors
+      const html = await mainWindow.evaluate(() => document.documentElement.outerHTML);
+      console.log('Current page HTML:', html);
 
-    // Take another screenshot after waiting
-    await mainWindow.screenshot({ path: 'test-results-release/after-wait.png' });
+      // Ensure window is visible and focused
+      await mainWindow.bringToFront();
+      
+      // Set window bounds to ensure it's visible
+      await mainWindow.setViewportSize({ width: 1024, height: 768 });
+
+      // Wait for React app to be ready by looking for any of the known elements
+      console.log('Waiting for app elements...');
+      await Promise.race([
+        mainWindow.waitForSelector('[data-testid="provider-selection-heading"]', { timeout: 30000 }),
+        mainWindow.waitForSelector('[data-testid="chat-input"]', { timeout: 30000 }),
+        mainWindow.waitForSelector('[data-testid="more-options-button"]', { timeout: 30000 })
+      ]);
+      console.log('Found app elements');
+
+      // Take another screenshot after waiting
+      await mainWindow.screenshot({ path: 'test-results-release/after-wait.png' });
+    } catch (error) {
+      console.error('Error during window initialization:', error);
+      // Take screenshot of the current state if we have a window
+      if (mainWindow) {
+        await mainWindow.screenshot({ path: 'test-results-release/init-error.png' });
+      }
+      throw error;
+    }
   });
 
   test.afterAll(async () => {
     console.log('Final cleanup...');
+
+    // Take final screenshot if we have a window
+    if (mainWindow) {
+      await mainWindow.screenshot({ path: 'test-results-release/final-state.png' }).catch(console.error);
+    }
 
     // Close the test instance
     if (electronApp) {
@@ -132,6 +164,7 @@ test.describe('Goose App Release Tests', () => {
         state: 'visible'
       });
       await menuButton.click();
+      await mainWindow.screenshot({ path: 'test-results-release/menu-open.png' });
   
       // Find and click the dark mode toggle button
       const darkModeButton = await mainWindow.waitForSelector('[data-testid="dark-mode-button"]');
@@ -156,16 +189,19 @@ test.describe('Goose App Release Tests', () => {
         await mainWindow.waitForTimeout(1000);
         const newDarkMode = await mainWindow.evaluate(() => document.documentElement.classList.contains('dark'));
         expect(newDarkMode).toBe(!isDarkMode);
+        await mainWindow.screenshot({ path: 'test-results-release/dark-mode-toggle.png' });
       }
 
       // check that system mode is clickable
       await systemModeButton.click();
+      await mainWindow.screenshot({ path: 'test-results-release/system-mode.png' });
   
       // Toggle back to light mode
       await lightModeButton.click();
       
       // Pause to show return to original state
       await mainWindow.waitForTimeout(2000);
+      await mainWindow.screenshot({ path: 'test-results-release/final-mode.png' });
   
       // Close menu with ESC key
       await mainWindow.keyboard.press('Escape');

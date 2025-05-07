@@ -32,24 +32,36 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ui/desktop
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
       - name: Build app
         working-directory: ui/desktop
         run: npm run make
 
       - name: Run release tests
+        id: run_tests
         working-directory: ui/desktop
         run: npm run test-e2e:release
         env:
           HEADED: false  # Ensure headless mode in CI
           CI: true      # Enable CI mode for reporter configuration
+          DEBUG: pw:api  # Enable Playwright debug logging
 
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - name: Upload test results
+        if: always()  # Run even if the tests fail
+        uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
           path: |
             ui/desktop/test-results-release/
             ui/desktop/out/
+            ui/desktop/test-results/
+          retention-days: 30
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: ui/desktop/playwright-report/
           retention-days: 30
