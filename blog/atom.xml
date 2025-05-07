@@ -12,7 +12,7 @@
         <id>https://block.github.io/goose/blog/2025/05/06/recipe-for-success</id>
         <link href="https://block.github.io/goose/blog/2025/05/06/recipe-for-success"/>
         <updated>2025-05-06T00:00:00.000Z</updated>
-        <summary type="html"><![CDATA[A fresh look at AI agents, orchestration, and repeatability told through the metaphor of a rat who can cook. - rizel]]></summary>
+        <summary type="html"><![CDATA[A fresh look at AI agents, orchestration, and repeatability told through the metaphor of a rat who can cook.]]></summary>
         <content type="html"><![CDATA[<p><img decoding="async" loading="lazy" alt="blog cover" src="https://block.github.io/goose/assets/images/cookingwithgoose-9114cf03cec76df4792fc58361ebe20b.png" width="2240" height="1260" class="img_ev3q"></p>
 <p>Ratatouille isn't just a heartwarming (and slightly unhygienic) film about a rat chef. It's also analogous to a popular tech trend: AI agents and the <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener noreferrer">Model Context Protocol (MCP)</a>.</p>
 <hr>
@@ -109,6 +109,9 @@ The link below is a recipe that lets you choose your favorite platform (GitHub, 
 <p>Your team is full of problem solvers. One teammate built a slick internal dashboard. Another nailed support ticket triage. Someone else automated changelog generation. Then there's the question: how do we make it easy for the entire team to use? Recipes turn your team's creations into reusable workflows that anyone can pick up. Build a shared library of Goose-powered processes and multiply your team's impact.</p>
 <p>Grab <a href="https://block.github.io/goose/docs/getting-started/installation">Goose</a> and start cooking up some <a href="https://block.github.io/goose/docs/guides/session-recipes">recipes</a> of your own. Your future self (and team) will thank you!</p>
 ]]></content>
+        <author>
+            <name>Rizel Scarlett</name>
+        </author>
     </entry>
     <entry>
         <title type="html"><![CDATA[4 Things You Need to Know Before Using Goose]]></title>
