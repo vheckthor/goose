@@ -4,6 +4,9 @@ on:
   workflow_dispatch:  # Manual trigger
   schedule:
     - cron: '0 0 * * *'  # Run daily at midnight UTC
+  pull_request:
+    paths:
+      - 'ui/desktop/**'  # Only run when desktop UI files change
 
 jobs:
   test:
