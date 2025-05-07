@@ -10,8 +10,11 @@ use tokio::io::{stdin, stdout};
 use std::sync::Arc;
 use tokio::sync::Notify;
 
+#[cfg(unix)]
 use nix::unistd::getpgrp;
+#[cfg(unix)]
 use nix::sys::signal::{kill, Signal};
+#[cfg(unix)]
 use nix::unistd::Pid;
 
 pub async fn run_server(name: &str) -> Result<()> {

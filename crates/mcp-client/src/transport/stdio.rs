@@ -8,6 +8,12 @@ use mcp_core::protocol::JsonRpcMessage;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, Mutex};
 
+// Import nix crate components instead of libc
+#[cfg(unix)]
+use nix::unistd::{Pid, getpgid, setpgid};
+#[cfg(unix)]
+use nix::sys::signal::{kill, Signal};
+
 use super::{send_message, Error, PendingRequests, Transport, TransportHandle, TransportMessage};
 
 // Global to track process groups we've created
@@ -31,16 +37,14 @@ impl Drop for StdioActor {
         // Get the process group ID before attempting cleanup
         #[cfg(unix)]
         if let Some(pid) = self.process.id() {
-            unsafe {
-                let pgid = libc::getpgid(pid as libc::pid_t);
-                if pgid > 0 {
-                    // Send SIGTERM to the entire process group
-                    let _ = libc::kill(-pgid, libc::SIGTERM);
-                    // Give processes a moment to cleanup
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    // Force kill if still running
-                    let _ = libc::kill(-pgid, libc::SIGKILL);
-                }
+            // Use nix instead of unsafe libc calls
+            if let Ok(pgid) = getpgid(Some(Pid::from_raw(pid as i32))) {
+                // Send SIGTERM to the entire process group
+                let _ = kill(Pid::from_raw(-pgid.as_raw()), Signal::SIGTERM);
+                // Give processes a moment to cleanup
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                // Force kill if still running
+                let _ = kill(Pid::from_raw(-pgid.as_raw()), Signal::SIGKILL);
             }
         }
     }
@@ -245,15 +249,21 @@ impl StdioTransport {
 
         // Set process group and ensure signal handling on Unix systems
         #[cfg(unix)]
-        unsafe {
+        {
             use std::os::unix::process::CommandExt;
-            command.pre_exec(|| {
-                // Create a new process group and become its leader
-                if libc::setpgid(0, 0) != 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(())
-            });
+            // pre_exec is unsafe because the closure executes in a raw forked process
+            unsafe {
+                command.pre_exec(|| {
+                    // Create a new process group and become its leader using nix
+                    if let Err(e) = setpgid(Pid::from_raw(0), Pid::from_raw(0)) {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("Failed to set process group: {}", e),
+                        ));
+                    }
+                    Ok(())
+                });
+            }
         }
 
         // Hide console window on Windows
@@ -282,11 +292,9 @@ impl StdioTransport {
         // Store the process group ID for cleanup
         #[cfg(unix)]
         if let Some(pid) = process.id() {
-            unsafe {
-                let pgid = libc::getpgid(pid as libc::pid_t);
-                if pgid > 0 {
-                    PROCESS_GROUP.store(pgid, Ordering::SeqCst);
-                }
+            // Use nix instead of unsafe libc calls
+            if let Ok(pgid) = getpgid(Some(Pid::from_raw(pid as i32))) {
+                PROCESS_GROUP.store(pgid.as_raw(), Ordering::SeqCst);
             }
         }
 
@@ -326,14 +334,13 @@ impl Transport for StdioTransport {
         // Attempt to clean up the process group on close
         #[cfg(unix)]
         if let Some(pgid) = PROCESS_GROUP.load(Ordering::SeqCst).checked_abs() {
-            unsafe {
-                // Try SIGTERM first
-                let _ = libc::kill(-pgid, libc::SIGTERM);
-                // Give processes a moment to cleanup
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                // Force kill if still running
-                let _ = libc::kill(-pgid, libc::SIGKILL);
-            }
+            // Use nix instead of unsafe libc calls
+            // Try SIGTERM first
+            let _ = kill(Pid::from_raw(-pgid), Signal::SIGTERM);
+            // Give processes a moment to cleanup
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            // Force kill if still running
+            let _ = kill(Pid::from_raw(-pgid), Signal::SIGKILL);
         }
         Ok(())
     }
