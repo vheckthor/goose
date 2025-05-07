@@ -36,6 +36,14 @@ test.describe('Goose App Release Tests', () => {
   test.beforeAll(async () => {
     console.log('Starting Electron app...');
 
+    // Create screenshots directory
+    const fs = require('fs');
+    const screenshotsDir = join(__dirname, '../../test-results-release');
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true });
+    }
+    console.log('Screenshots directory:', screenshotsDir);
+
     // Get electron binary from node_modules
     const electronBinary = require('electron');
     console.log('Using electron binary:', electronBinary);

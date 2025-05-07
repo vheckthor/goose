@@ -38,6 +38,10 @@ jobs:
         working-directory: ui/desktop
         run: npm run make
 
+      - name: Create test results directory
+        working-directory: ui/desktop
+        run: mkdir -p test-results-release
+
       - name: Run release tests
         id: run_tests
         working-directory: ui/desktop
@@ -47,15 +51,34 @@ jobs:
           CI: true      # Enable CI mode for reporter configuration
           DEBUG: pw:api  # Enable Playwright debug logging
 
+      - name: List test artifacts
+        if: always()
+        working-directory: ui/desktop
+        run: |
+          echo "Test Results Release directory:"
+          ls -la test-results-release || true
+          echo "Playwright Report directory:"
+          ls -la playwright-report || true
+          echo "Test Results directory:"
+          ls -la test-results || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.os }}
+          path: ui/desktop/test-results-release/*.png
+          retention-days: 30
+
       - name: Upload test results
-        if: always()  # Run even if the tests fail
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.os }}
           path: |
             ui/desktop/test-results-release/
-            ui/desktop/out/
             ui/desktop/test-results/
+            ui/desktop/out/
           retention-days: 30
 
       - name: Upload Playwright report
