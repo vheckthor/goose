@@ -6614,7 +6614,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4dcd1d240101ba3b9d7532ae86d9cb64d9a7ff63e13a2b7b9e94a32a601d8233"
 dependencies = [
  "anyhow",
+ "camino",
  "cargo_metadata",
+ "clap 4.5.31",
  "uniffi_bindgen",
  "uniffi_core",
  "uniffi_macros",
