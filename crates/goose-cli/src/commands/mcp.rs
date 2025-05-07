@@ -10,6 +10,10 @@ use tokio::io::{stdin, stdout};
 use std::sync::Arc;
 use tokio::sync::Notify;
 
+use nix::unistd::getpgrp;
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
+
 pub async fn run_server(name: &str) -> Result<()> {
     // Initialize logging
     crate::logging::setup_logging(Some(&format!("mcp-{name}")), None)?;
@@ -33,7 +37,7 @@ pub async fn run_server(name: &str) -> Result<()> {
     let shutdown = Arc::new(Notify::new());
     let shutdown_clone = shutdown.clone();
 
-    // Spawn signal handler
+    // Spawn shutdown signal handler
     tokio::spawn(async move {
         crate::signal::shutdown_signal().await;
         shutdown_clone.notify_one();
@@ -47,21 +51,17 @@ pub async fn run_server(name: &str) -> Result<()> {
 
     tokio::select! {
         result = server.run(transport) => {
-            tracing::info!("Server completed normally");
             Ok(result?)
         }
-        _ = shutdown.notified() => {
-            tracing::info!("Received shutdown signal");
-            
+        _ = shutdown.notified() => {            
             // On Unix systems, kill the entire process group
             #[cfg(unix)]
-            unsafe {
-                let pgid = libc::getpgid(0);
-                if pgid > 0 {
-                    tracing::debug!("Sending SIGTERM to process group {}", pgid);
-                    libc::kill(-pgid, libc::SIGTERM);
-                }
+            fn terminate_process_group() {
+                let pgid = getpgrp();
+                kill(Pid::from_raw(-pgid.as_raw()), Signal::SIGTERM)
+                    .expect("Failed to send SIGTERM to process group");
             }
+            terminate_process_group();
             
             Ok(())
         }
