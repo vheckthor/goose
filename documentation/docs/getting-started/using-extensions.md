@@ -103,6 +103,7 @@ You can also add any other [MCP Server](#mcp-servers) as a Goose extension, even
 
 Extensions can be installed directly via the [extensions directory][extensions-directory], CLI, or UI.
 
+
 ### MCP Servers
 
 You can install any MCP server as a Goose extension. 
@@ -148,9 +149,9 @@ See available servers in the **[MCP Server Directory](https://www.pulsemcp.com/s
 
   #### Example of adding the [Knowledge Graph Memory MCP Server](https://github.com/modelcontextprotocol/servers/tree/main/src/memory):
 
-<Tabs groupId="extensions">
+  <Tabs groupId="extensions">
    <TabItem value="node" label="Node">
-  ```
+```
  ┌   goose-configure 
  │
  ◇  What would you like to configure?
@@ -172,9 +173,9 @@ See available servers in the **[MCP Server Directory](https://www.pulsemcp.com/s
  │  No 
  │
  └  Added Knowledge Graph Memory extension
- ```
+```
 
-   </TabItem>
+  </TabItem>
    <TabItem value="python" label="Python">
 
   ```
@@ -240,25 +241,8 @@ Note: Java and Kotlin extensions are only support on Linux and macOS
  ```
 
    </TabItem>
-  </Tabs>
+</Tabs>
 
-  </TabItem>
-  <TabItem value="ui" label="Goose Desktop">
- 
-  1. Click `...` in the top right corner of the Goose Desktop.
-  2. Select `Advanced Settings` from the menu.
-  3. Under `Extensions`, click `Add custom extension`.
-  4. On the `Add custom extension` modal, enter the necessary details
-     - If adding an environment variable, click `Add` button to the right of the variable
-     - The `Timeout` field lets you set how long Goose should wait for a tool call from this extension to complete
-  5. Click `Add` button
-  
-  #### Example of adding the [Knowledge Graph Memory MCP Server](https://github.com/modelcontextprotocol/servers/tree/main/src/memory):
-    * **Type**: `Standard IO`
-    * **ID**: `kgm-mcp` (_set this to whatever you want_)
-    * **Name**: `Knowledge Graph Memory` (_set this to whatever you want_)
-    * **Description**: `maps and stores complex relationships between concepts` (_set this to whatever you want_)
-    * **Command**: `npx -y @modelcontextprotocol/server-memory`
   </TabItem>
 </Tabs>
 
@@ -276,22 +260,29 @@ extensions:
     type: stdio
     timeout: 300
 ```
-#### SSE server example
 
-```yaml
-  pieces:
-    bundled: null
-    description: Provides access to your Pieces Long-Term Memory. You need to have Pieces installed to use this.
-    enabled: false
-    env_keys: []
-    envs: {}
-    name: pieces
-    timeout: 300
-    type: sse
-    uri: http://localhost:39300/model_context_protocol/2024-11-05/sse
+### Deep Links
+Extensions can also be added via special deep links, which support command-line and SSE-based extensions. Deep links allow one-click installation of extensions directly from websites or documentation.
 
+:::info
+Special characters in URL parameters need to be URL encoded. For example, the space character converts to %20 and the @ character converts to %40.
+Most extension providers will give you a properly encoded deep link to use. For more information see, the w3 Schools page: [HTML URL Encoding Reference](https://www.w3schools.com/tags/ref_urlencode.ASP)
+:::
+
+<Tabs groupId="deep-links">
+  <TabItem value="cli" label="Command-line Extensions" default>
+  This example provids the CLI command as the `cmd={command}` parameter:
 ```
-    
+goose://extension?cmd={command}&arg={arg1}&arg={arg2}&id={extension-id}&name={extension-name}&description={extension-description}
+```
+  </TabItem>
+  <TabItem value="remote" label="Remote Extensions">
+  This example provides the deep link URL as the `url={sse-endpoint-url}` parameter:
+```
+goose://extension?url={sse-endpoint-url}&id={extension-id}&name={extension-name}&description={extension-description}
+```
+  </TabItem>
+</Tabs>
 
 ## Enabling/Disabling Extensions
 
