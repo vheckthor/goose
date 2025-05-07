@@ -2432,7 +2432,7 @@ dependencies = [
 
 [[package]]
 name = "goose"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2451,7 +2451,7 @@ dependencies = [
  "fs2",
  "futures",
  "include_dir",
- "indoc",
+ "indoc 2.0.6",
  "jsonwebtoken",
  "keyring",
  "lazy_static",
@@ -2488,7 +2488,7 @@ dependencies = [
 
 [[package]]
 name = "goose-bench"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2511,7 +2511,7 @@ dependencies = [
 
 [[package]]
 name = "goose-cli"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2529,6 +2529,7 @@ dependencies = [
  "mcp-client",
  "mcp-core",
  "mcp-server",
+ "minijinja",
  "once_cell",
  "rand 0.8.5",
  "regex",
@@ -2550,28 +2551,11 @@ dependencies = [
 
 [[package]]
 name = "goose-ffi"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "cbindgen",
  "chrono",
- "futures",
- "goose",
- "goose-llm",
- "libc",
- "mcp-core",
- "once_cell",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "goose-ffi2"
-version = "1.0.20"
-dependencies = [
- "anyhow",
- "cbindgen",
  "futures",
  "goose",
  "goose-llm",
@@ -2585,23 +2569,35 @@ dependencies = [
 
 [[package]]
 name = "goose-llm"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "base64 0.21.7",
  "chrono",
- "goose",
+ "criterion",
+ "ctor",
+ "dotenv",
  "include_dir",
- "mcp-core",
+ "indoc 1.0.9",
+ "lazy_static",
  "minijinja",
  "once_cell",
+ "regex",
+ "reqwest 0.12.15",
  "serde",
  "serde_json",
+ "smallvec",
+ "tempfile",
+ "thiserror 1.0.69",
  "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
 name = "goose-mcp"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2616,7 +2612,7 @@ dependencies = [
  "ignore",
  "image 0.24.9",
  "include_dir",
- "indoc",
+ "indoc 2.0.6",
  "keyring",
  "kill_tree",
  "lazy_static",
@@ -2647,7 +2643,7 @@ dependencies = [
 
 [[package]]
 name = "goose-server"
-version = "1.0.20"
+version = "1.0.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3327,6 +3323,12 @@ dependencies = [
  "unicode-width 0.2.0",
  "web-time",
 ]
+
+[[package]]
+name = "indoc"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa799dd5ed20a7e349f3b4639aa80d74549c81716d9ec4f994c9b5815598306"
 
 [[package]]
 name = "indoc"
@@ -5676,6 +5678,9 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smawk"
