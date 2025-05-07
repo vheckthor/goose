@@ -14,6 +14,7 @@ import { ToastContainer } from 'react-toastify';
 import { toastService } from './toasts';
 import { settingsV2Enabled } from './flags';
 import { extractExtensionName } from './components/settings/extensions/utils';
+import { ToolCallViewProvider } from './components/ToolCallViewMode';
 import { GoosehintsModal } from './components/GoosehintsModal';
 import { SessionDetails } from './sessions';
 
@@ -738,117 +739,119 @@ export default function App() {
           onCancel={handleCancel}
         />
       )}
-      <div className="relative w-screen h-screen overflow-hidden bg-bgApp flex flex-col">
-        <div className="titlebar-drag-region" />
-        <div>
-          {view === 'loading' && <SuspenseLoader />}
-          {view === 'welcome' &&
-            (settingsV2Enabled ? (
-              <ProviderSettings onClose={() => setView('chat')} isOnboarding={true} />
-            ) : (
-              <WelcomeView
-                onSubmit={() => {
-                  setView('chat');
-                }}
-              />
-            ))}
-          {view === 'settings' &&
-            (settingsV2Enabled ? (
-              <SettingsViewV2
+      <ToolCallViewProvider>
+        <div className="relative w-screen h-screen overflow-hidden bg-bgApp flex flex-col">
+          <div className="titlebar-drag-region" />
+          <div>
+            {view === 'loading' && <SuspenseLoader />}
+            {view === 'welcome' &&
+              (settingsV2Enabled ? (
+                <ProviderSettings onClose={() => setView('chat')} isOnboarding={true} />
+              ) : (
+                <WelcomeView
+                  onSubmit={() => {
+                    setView('chat');
+                  }}
+                />
+              ))}
+            {view === 'settings' &&
+              (settingsV2Enabled ? (
+                <SettingsViewV2
+                  onClose={() => {
+                    setView('chat');
+                  }}
+                  setView={setView}
+                  viewOptions={viewOptions as SettingsViewOptions}
+                />
+              ) : (
+                <SettingsView
+                  onClose={() => {
+                    setView('chat');
+                  }}
+                  setView={setView}
+                  viewOptions={viewOptions as SettingsViewOptions}
+                />
+              ))}
+            {view === 'moreModels' && (
+              <MoreModelsView
                 onClose={() => {
-                  setView('chat');
+                  setView('settings');
                 }}
                 setView={setView}
-                viewOptions={viewOptions as SettingsViewOptions}
               />
-            ) : (
-              <SettingsView
+            )}
+            {view === 'configureProviders' && (
+              <ConfigureProvidersView
                 onClose={() => {
-                  setView('chat');
+                  setView('settings');
                 }}
-                setView={setView}
-                viewOptions={viewOptions as SettingsViewOptions}
               />
-            ))}
-          {view === 'moreModels' && (
-            <MoreModelsView
-              onClose={() => {
-                setView('settings');
-              }}
-              setView={setView}
-            />
-          )}
-          {view === 'configureProviders' && (
-            <ConfigureProvidersView
-              onClose={() => {
-                setView('settings');
-              }}
-            />
-          )}
-          {view === 'ConfigureProviders' && (
-            <ProviderSettings onClose={() => setView('chat')} isOnboarding={false} />
-          )}
-          {view === 'chat' && !isLoadingSession && (
-            <ChatView
-              chat={chat}
-              setChat={setChat}
-              setView={setView}
-              setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
-            />
-          )}
-          {view === 'sessions' && <SessionsView setView={setView} />}
-          {view === 'sharedSession' && (
-            <SharedSessionView
-              session={viewOptions?.sessionDetails}
-              isLoading={isLoadingSharedSession}
-              error={viewOptions?.error || sharedSessionError}
-              onBack={() => setView('sessions')}
-              onRetry={async () => {
-                if (viewOptions?.shareToken && viewOptions?.baseUrl) {
-                  setIsLoadingSharedSession(true);
-                  try {
-                    await openSharedSessionFromDeepLink(
-                      `goose://sessions/${viewOptions.shareToken}`,
-                      setView,
-                      viewOptions.baseUrl
-                    );
-                  } catch (error) {
-                    console.error('Failed to retry loading shared session:', error);
-                  } finally {
-                    setIsLoadingSharedSession(false);
+            )}
+            {view === 'ConfigureProviders' && (
+              <ProviderSettings onClose={() => setView('chat')} isOnboarding={false} />
+            )}
+            {view === 'chat' && !isLoadingSession && (
+              <ChatView
+                chat={chat}
+                setChat={setChat}
+                setView={setView}
+                setIsGoosehintsModalOpen={setIsGoosehintsModalOpen}
+              />
+            )}
+            {view === 'sessions' && <SessionsView setView={setView} />}
+            {view === 'sharedSession' && (
+              <SharedSessionView
+                session={viewOptions?.sessionDetails}
+                isLoading={isLoadingSharedSession}
+                error={viewOptions?.error || sharedSessionError}
+                onBack={() => setView('sessions')}
+                onRetry={async () => {
+                  if (viewOptions?.shareToken && viewOptions?.baseUrl) {
+                    setIsLoadingSharedSession(true);
+                    try {
+                      await openSharedSessionFromDeepLink(
+                        `goose://sessions/${viewOptions.shareToken}`,
+                        setView,
+                        viewOptions.baseUrl
+                      );
+                    } catch (error) {
+                      console.error('Failed to retry loading shared session:', error);
+                    } finally {
+                      setIsLoadingSharedSession(false);
+                    }
                   }
-                }
-              }}
-            />
-          )}
-          {view === 'recipeEditor' && (
-            <RecipeEditor
-              key={viewOptions?.config ? 'with-config' : 'no-config'}
-              config={viewOptions?.config || window.electron.getConfig().recipeConfig}
-              onClose={() => setView('chat')}
-              setView={setView}
-              onSave={(config) => {
-                console.log('Saving recipe config:', config);
-                window.electron.createChatWindow(
-                  undefined,
-                  undefined,
-                  undefined,
-                  undefined,
-                  config,
-                  'recipeEditor',
-                  { config }
-                );
-                setView('chat');
-              }}
-            />
-          )}
-          {view === 'permission' && (
-            <PermissionSettingsView
-              onClose={() => setView((viewOptions as { parentView: View }).parentView)}
-            />
-          )}
+                }}
+              />
+            )}
+            {view === 'recipeEditor' && (
+              <RecipeEditor
+                key={viewOptions?.config ? 'with-config' : 'no-config'}
+                config={viewOptions?.config || window.electron.getConfig().recipeConfig}
+                onClose={() => setView('chat')}
+                setView={setView}
+                onSave={(config) => {
+                  console.log('Saving recipe config:', config);
+                  window.electron.createChatWindow(
+                    undefined,
+                    undefined,
+                    undefined,
+                    undefined,
+                    config,
+                    'recipeEditor',
+                    { config }
+                  );
+                  setView('chat');
+                }}
+              />
+            )}
+            {view === 'permission' && (
+              <PermissionSettingsView
+                onClose={() => setView((viewOptions as { parentView: View }).parentView)}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      </ToolCallViewProvider>
       {isGoosehintsModalOpen && (
         <GoosehintsModal
           directory={window.appConfig.get('GOOSE_WORKING_DIR') as string}

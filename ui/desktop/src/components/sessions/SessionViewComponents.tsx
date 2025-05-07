@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import BackButton from '../ui/BackButton';
 import { ScrollArea } from '../ui/scroll-area';
 import MarkdownContent from '../MarkdownContent';
-import ToolCallWithResponse from '../ToolCallWithResponse';
+import AdaptiveToolCallWithResponse from '../AdaptiveToolCallWithResponse';
 import { ToolRequestMessageContent, ToolResponseMessageContent } from '../../types/message';
 import { type Message } from '../../types/message';
 import { formatMessageTimestamp } from '../../utils/timeUtils';
@@ -158,7 +158,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
                         {toolRequests.length > 0 && (
                           <div className="goose-message-tool bg-bgApp border border-borderSubtle dark:border-gray-700 rounded-b-2xl px-4 pt-4 pb-2 mt-1">
                             {toolRequests.map((toolRequest) => (
-                              <ToolCallWithResponse
+                              <AdaptiveToolCallWithResponse
                                 // In the session history page, if no tool response found for given request, it means the tool call
                                 // is broken or cancelled.
                                 isCancelledMessage={

@@ -4,7 +4,7 @@ import GooseResponseForm from './GooseResponseForm';
 import { extractUrls } from '../utils/urlUtils';
 import { formatMessageTimestamp } from '../utils/timeUtils';
 import MarkdownContent from './MarkdownContent';
-import ToolCallWithResponse from './ToolCallWithResponse';
+import AdaptiveToolCallWithResponse from './AdaptiveToolCallWithResponse';
 import {
   Message,
   getTextContent,
@@ -128,7 +128,7 @@ export default function GooseMessage({
           <div className="relative flex flex-col w-full">
             <div className={`goose-message-tool bg-bgSubtle rounded px-2 py-2 mt-2`}>
               {toolRequests.map((toolRequest) => (
-                <ToolCallWithResponse
+                <AdaptiveToolCallWithResponse
                   // If the message is resumed and not matched tool response, it means the tool is broken or cancelled.
                   isCancelledMessage={
                     messageIndex < messageHistoryIndex &&

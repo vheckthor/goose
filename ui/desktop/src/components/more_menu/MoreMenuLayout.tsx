@@ -3,6 +3,7 @@ import MoreMenu from './MoreMenu';
 import type { View, ViewOptions } from '../../App';
 import { Document } from '../icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/Tooltip';
+import { ToolCallViewToggle } from '../ToolCallViewMode';
 
 export default function MoreMenuLayout({
   hasMessages,
@@ -48,7 +49,10 @@ export default function MoreMenuLayout({
             </Tooltip>
           </TooltipProvider>
 
-          <MoreMenu setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
+          <div className="flex items-center gap-2">
+            <ToolCallViewToggle />
+            <MoreMenu setView={setView} setIsGoosehintsModalOpen={setIsGoosehintsModalOpen} />
+          </div>
         </div>
       )}
     </div>
