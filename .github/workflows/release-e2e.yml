@@ -14,7 +14,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            arch: arm64
+            app_path: out/Goose-darwin-arm64
       fail-fast: false
 
     steps:
@@ -34,13 +37,26 @@ jobs:
         working-directory: ui/desktop
         run: npx playwright install --with-deps chromium
 
-      - name: Build app
-        working-directory: ui/desktop
-        run: npm run make
-
       - name: Create test results directory
         working-directory: ui/desktop
         run: mkdir -p test-results-release
+
+      - name: Build app
+        working-directory: ui/desktop
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            npm run make -- --arch=${{ matrix.arch }}
+          else
+            npm run make -- --platform=win32 --arch=${{ matrix.arch }}
+          fi
+
+      - name: List build artifacts
+        working-directory: ui/desktop
+        run: |
+          echo "Out directory contents:"
+          ls -la out || dir out
+          echo "\nApp directory contents:"
+          ls -la ${{ matrix.app_path }} || dir ${{ matrix.app_path }}
 
       - name: Run release tests
         id: run_tests
@@ -49,26 +65,28 @@ jobs:
         env:
           HEADED: false  # Ensure headless mode in CI
           CI: true      # Enable CI mode for reporter configuration
-          DEBUG: pw:api  # Enable Playwright debug logging
+          DEBUG: pw:api,electron:*  # Enable Playwright and Electron debug logging
 
       - name: List test artifacts
         if: always()
         working-directory: ui/desktop
         run: |
           echo "Test Results Release directory:"
-          ls -la test-results-release || true
-          echo "Playwright Report directory:"
-          ls -la playwright-report || true
-          echo "Test Results directory:"
-          ls -la test-results || true
+          ls -la test-results-release || dir test-results-release
+          echo "\nPlaywright Report directory:"
+          ls -la playwright-report || dir playwright-report
+          echo "\nTest Results directory:"
+          ls -la test-results || dir test-results
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-${{ matrix.os }}
-          path: ui/desktop/test-results-release/*.png
-          retention-days: 30
+          path: |
+            ui/desktop/test-results-release/*.png
+            ui/desktop/test-results-release/**/*.png
+          if-no-files-found: warn
 
       - name: Upload test results
         if: always()
@@ -79,7 +97,7 @@ jobs:
             ui/desktop/test-results-release/
             ui/desktop/test-results/
             ui/desktop/out/
-          retention-days: 30
+          if-no-files-found: warn
 
       - name: Upload Playwright report
         if: always()
@@ -87,4 +105,4 @@ jobs:
         with:
           name: playwright-report-${{ matrix.os }}
           path: ui/desktop/playwright-report/
-          retention-days: 30
+          if-no-files-found: warn

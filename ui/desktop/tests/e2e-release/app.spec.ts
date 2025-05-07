@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { _electron as electron } from '@playwright/test';
 import { join } from 'path';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -29,6 +29,21 @@ const test = base.extend<TestFixtures>({
 
 // Store mainWindow reference
 let mainWindow;
+// Store screenshots directory
+let screenshotsDir;
+
+// Helper function to take a screenshot with error handling
+async function takeScreenshot(name: string) {
+  if (!mainWindow || !screenshotsDir) return;
+  try {
+    const path = join(screenshotsDir, `${name}.png`);
+    console.log(`Taking screenshot: ${path}`);
+    await mainWindow.screenshot({ path });
+    console.log(`Screenshot saved: ${path}`);
+  } catch (error) {
+    console.error(`Failed to take screenshot ${name}:`, error);
+  }
+}
 
 test.describe('Goose App Release Tests', () => {
   let electronApp;
@@ -38,35 +53,57 @@ test.describe('Goose App Release Tests', () => {
 
     // Create screenshots directory
     const fs = require('fs');
-    const screenshotsDir = join(__dirname, '../../test-results-release');
+    screenshotsDir = join(__dirname, '../../test-results-release');
     if (!fs.existsSync(screenshotsDir)) {
       fs.mkdirSync(screenshotsDir, { recursive: true });
     }
     console.log('Screenshots directory:', screenshotsDir);
 
-    // Get electron binary from node_modules
-    const electronBinary = require('electron');
-    console.log('Using electron binary:', electronBinary);
+    // Get paths to the built app
+    const appPath = join(__dirname, '../../out/Goose-darwin-arm64/Goose.app');
+    const macOSBinary = join(appPath, 'Contents/MacOS/Goose');
+    const resourcesPath = join(appPath, 'Contents/Resources');
+    const asarPath = join(resourcesPath, 'app.asar');
+
+    // Log paths and existence
+    console.log('Checking paths:');
+    console.log('App path:', appPath, 'exists:', fs.existsSync(appPath));
+    console.log('MacOS binary:', macOSBinary, 'exists:', fs.existsSync(macOSBinary));
+    console.log('Resources path:', resourcesPath, 'exists:', fs.existsSync(resourcesPath));
+    console.log('Asar path:', asarPath, 'exists:', fs.existsSync(asarPath));
+
+    // List contents of out directory
+    console.log('\nContents of out directory:');
+    const outDir = join(__dirname, '../../out');
+    if (fs.existsSync(outDir)) {
+      console.log(execSync('ls -la ' + outDir, { encoding: 'utf8' }));
+    } else {
+      console.log('out directory does not exist');
+    }
+
+    // List contents of app bundle
+    if (fs.existsSync(appPath)) {
+      console.log('\nContents of app bundle:');
+      console.log(execSync('ls -la ' + appPath, { encoding: 'utf8' }));
+    }
 
     // Launch electron with our app
     try {
-      console.log('Launching electron app with main.js...');
+      console.log('\nLaunching electron app...');
+      const macOSBinary = join(__dirname, '../../out/Goose-darwin-arm64/Goose.app/Contents/MacOS/Goose');
+      
       electronApp = await electron.launch({
-        args: ['.vite/build/main.js'],
-        cwd: join(__dirname, '../..'),
+        executablePath: macOSBinary,
         env: {
           GOOSE_ALLOWLIST_BYPASS: 'true',
           GOOSE_TEST_MODE: 'true',
-          NODE_ENV: 'development',
-          ELECTRON_IS_DEV: '1',
           ELECTRON_ENABLE_LOGGING: '1',
           ELECTRON_ENABLE_STACK_DUMPING: '1',
-          DEBUG: '*'
+          DEBUG: '*',
+          ELECTRON_IS_PACKAGED: 'true', // Tell the app it's packaged
+          GOOSE_E2E_TEST: 'true' // Custom flag for E2E testing of packaged app
         },
-        recordVideo: {
-          dir: 'test-results-release/videos/',
-          size: { width: 1024, height: 768 }
-        }
+        timeout: 45000 // Increase timeout for packaged app launch
       });
       console.log('Electron app launched successfully');
     } catch (error) {
@@ -77,7 +114,7 @@ test.describe('Goose App Release Tests', () => {
     // Get the main window
     try {
       console.log('Waiting for main window...');
-      mainWindow = await electronApp.firstWindow();
+      mainWindow = await electronApp.firstWindow({ timeout: 45000 });
       console.log('Main window obtained');
 
       console.log('Waiting for domcontentloaded...');
@@ -89,7 +126,7 @@ test.describe('Goose App Release Tests', () => {
       console.log('networkidle complete');
 
       // Take initial screenshot
-      await mainWindow.screenshot({ path: 'test-results-release/initial-state.png' });
+      await takeScreenshot('initial-state');
 
       // Log current HTML to help debug selectors
       const html = await mainWindow.evaluate(() => document.documentElement.outerHTML);
@@ -103,6 +140,25 @@ test.describe('Goose App Release Tests', () => {
 
       // Wait for React app to be ready by looking for any of the known elements
       console.log('Waiting for app elements...');
+      
+      // Wait for root element to exist
+      console.log('Waiting for root element...');
+      await mainWindow.waitForSelector('#root', { timeout: 30000 });
+      console.log('Root element found');
+
+      // Wait for root to be populated
+      console.log('Waiting for root element to be populated...');
+      await mainWindow.waitForFunction(() => {
+        const root = document.getElementById('root');
+        return root && root.children.length > 0;
+      }, { timeout: 30000 });
+      console.log('Root element populated');
+
+      // Take screenshot after root is populated
+      await takeScreenshot('root-populated');
+
+      // Wait for any of our known elements
+      console.log('Waiting for app UI elements...');
       await Promise.race([
         mainWindow.waitForSelector('[data-testid="provider-selection-heading"]', { timeout: 30000 }),
         mainWindow.waitForSelector('[data-testid="chat-input"]', { timeout: 30000 }),
@@ -110,13 +166,13 @@ test.describe('Goose App Release Tests', () => {
       ]);
       console.log('Found app elements');
 
-      // Take another screenshot after waiting
-      await mainWindow.screenshot({ path: 'test-results-release/after-wait.png' });
+      // Take another screenshot
+      await takeScreenshot('after-wait');
     } catch (error) {
       console.error('Error during window initialization:', error);
       // Take screenshot of the current state if we have a window
       if (mainWindow) {
-        await mainWindow.screenshot({ path: 'test-results-release/init-error.png' });
+        await takeScreenshot('init-error');
       }
       throw error;
     }
@@ -127,7 +183,7 @@ test.describe('Goose App Release Tests', () => {
 
     // Take final screenshot if we have a window
     if (mainWindow) {
-      await mainWindow.screenshot({ path: 'test-results-release/final-state.png' }).catch(console.error);
+      await takeScreenshot('final-state');
     }
 
     // Close the test instance
@@ -154,7 +210,7 @@ test.describe('Goose App Release Tests', () => {
       console.log('Testing dark mode toggle...');
 
       // Take initial screenshot to see what state we're in
-      await mainWindow.screenshot({ path: 'test-results-release/initial-test-state.png' });
+      await takeScreenshot('initial-test-state');
 
       try {
         // Select the default provider
@@ -162,7 +218,7 @@ test.describe('Goose App Release Tests', () => {
       } catch (error) {
         console.error('Error selecting provider:', error);
         // Take error screenshot
-        await mainWindow.screenshot({ path: 'test-results-release/provider-select-error.png' });
+        await takeScreenshot('provider-select-error');
         throw error;
       }
   
@@ -172,7 +228,7 @@ test.describe('Goose App Release Tests', () => {
         state: 'visible'
       });
       await menuButton.click();
-      await mainWindow.screenshot({ path: 'test-results-release/menu-open.png' });
+      await takeScreenshot('menu-open');
   
       // Find and click the dark mode toggle button
       const darkModeButton = await mainWindow.waitForSelector('[data-testid="dark-mode-button"]');
@@ -190,26 +246,26 @@ test.describe('Goose App Release Tests', () => {
         const newDarkMode = await mainWindow.evaluate(() => document.documentElement.classList.contains('dark'));
         expect(newDarkMode).toBe(!isDarkMode);
         // Take screenshot to verify and pause to show the change
-        await mainWindow.screenshot({ path: 'test-results-release/dark-mode-toggle.png' });
+        await takeScreenshot('dark-mode-toggle');
       } else {
         // Click to toggle to dark mode
         await darkModeButton.click();
         await mainWindow.waitForTimeout(1000);
         const newDarkMode = await mainWindow.evaluate(() => document.documentElement.classList.contains('dark'));
         expect(newDarkMode).toBe(!isDarkMode);
-        await mainWindow.screenshot({ path: 'test-results-release/dark-mode-toggle.png' });
+        await takeScreenshot('dark-mode-toggle');
       }
 
       // check that system mode is clickable
       await systemModeButton.click();
-      await mainWindow.screenshot({ path: 'test-results-release/system-mode.png' });
+      await takeScreenshot('system-mode');
   
       // Toggle back to light mode
       await lightModeButton.click();
       
       // Pause to show return to original state
       await mainWindow.waitForTimeout(2000);
-      await mainWindow.screenshot({ path: 'test-results-release/final-mode.png' });
+      await takeScreenshot('final-mode');
   
       // Close menu with ESC key
       await mainWindow.keyboard.press('Escape');
@@ -222,7 +278,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
   console.log(`Selecting provider: ${provider.name}`);
   
   // Take screenshot of initial state
-  await mainWindow.screenshot({ path: 'test-results-release/provider-select-start.png' });
+  await takeScreenshot('provider-select-start');
 
   // If we're already in the chat interface, we need to reset providers
   console.log('Checking for chat interface...');
@@ -232,7 +288,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
 
   if (chatTextarea) {
     console.log('Found chat interface, resetting provider...');
-    await mainWindow.screenshot({ path: 'test-results-release/provider-select-chat-found.png' });
+    await takeScreenshot('provider-select-chat-found');
 
     // Click menu button to reset providers
     console.log('Opening menu to reset providers...');
@@ -244,7 +300,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
 
     // Wait for menu to appear and be interactive
     await mainWindow.waitForTimeout(1000);
-    await mainWindow.screenshot({ path: 'test-results-release/provider-select-menu-open.png' });
+    await takeScreenshot('provider-select-menu-open');
 
     // Click Reset Provider and Model
     console.log('Clicking Reset provider and model...');
@@ -253,7 +309,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
       state: 'visible'
     });
     await resetButton.click();
-    await mainWindow.screenshot({ path: 'test-results-release/provider-select-after-reset.png' });
+    await takeScreenshot('provider-select-after-reset');
   }
 
   // Wait for React app to be ready and animations to complete
@@ -267,7 +323,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
   console.log('Found provider selection heading:', await providerHeading.textContent());
 
   // Take screenshot before looking for provider card
-  await mainWindow.screenshot({ path: 'test-results-release/provider-select-before-card.png' });
+  await takeScreenshot('provider-select-before-card');
 
   // Find and verify the provider card container
   console.log(`Looking for ${provider.name} card...`);
@@ -280,7 +336,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
     console.log('Found provider card');
   } catch (error) {
     console.error(`Provider card not found for ${provider.name}. This could indicate a missing or incorrectly configured provider.`);
-    await mainWindow.screenshot({ path: 'test-results-release/provider-select-card-error.png' });
+    await takeScreenshot('provider-select-card-error');
     throw error;
   }
 
@@ -293,7 +349,7 @@ async function selectProvider(mainWindow: any, provider: Provider) {
   console.log('Found launch button');
 
   // Take screenshot before clicking
-  await mainWindow.screenshot({ path: 'test-results-release/provider-select-before-launch.png' });
+  await takeScreenshot('provider-select-before-launch');
 
   // Click the Launch button
   await launchButton.click();
@@ -308,5 +364,5 @@ async function selectProvider(mainWindow: any, provider: Provider) {
   console.log('Found chat interface');
 
   // Take screenshot of chat interface
-  await mainWindow.screenshot({ path: 'test-results-release/provider-select-complete.png' });
+  await takeScreenshot('provider-select-complete');
 }
