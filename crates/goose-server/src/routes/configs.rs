@@ -239,13 +239,16 @@ mod tests {
     #[tokio::test]
     async fn test_get_model_limits() {
         // Create test state and headers
-        let state = Arc::new(AppState::default());
+        let test_state = AppState::new(
+            Arc::new(goose::agents::Agent::default()),
+            "test".to_string()
+        ).await;
         let mut headers = HeaderMap::new();
         headers.insert("X-Secret-Key", "test".parse().unwrap());
 
         // Execute
         let result = get_config(
-            State(state),
+            State(test_state),
             headers,
             Query(GetConfigQuery {
                 key: "model-limits".to_string(),
