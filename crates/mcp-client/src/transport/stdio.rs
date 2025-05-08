@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
-use std::sync::atomic::{AtomicI32, Ordering};
 
 use async_trait::async_trait;
 use mcp_core::protocol::JsonRpcMessage;
@@ -10,9 +10,9 @@ use tokio::sync::{mpsc, Mutex};
 
 // Import nix crate components instead of libc
 #[cfg(unix)]
-use nix::unistd::{Pid, getpgid};
-#[cfg(unix)]
 use nix::sys::signal::{kill, Signal};
+#[cfg(unix)]
+use nix::unistd::{getpgid, Pid};
 
 use super::{send_message, Error, PendingRequests, Transport, TransportHandle, TransportMessage};
 
@@ -58,11 +58,8 @@ impl StdioActor {
         let receiver = self.receiver.take().expect("receiver should be available");
 
         let incoming = Self::handle_incoming_messages(stdout, self.pending_requests.clone());
-        let outgoing = Self::handle_outgoing_messages(
-            receiver,
-            stdin,
-            self.pending_requests.clone(),
-        );
+        let outgoing =
+            Self::handle_outgoing_messages(receiver, stdin, self.pending_requests.clone());
 
         // take ownership of futures for tokio::select
         pin!(incoming);

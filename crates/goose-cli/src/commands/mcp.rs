@@ -11,9 +11,9 @@ use std::sync::Arc;
 use tokio::sync::Notify;
 
 #[cfg(unix)]
-use nix::unistd::getpgrp;
-#[cfg(unix)]
 use nix::sys::signal::{kill, Signal};
+#[cfg(unix)]
+use nix::unistd::getpgrp;
 #[cfg(unix)]
 use nix::unistd::Pid;
 
@@ -56,7 +56,7 @@ pub async fn run_server(name: &str) -> Result<()> {
         result = server.run(transport) => {
             Ok(result?)
         }
-        _ = shutdown.notified() => {            
+        _ = shutdown.notified() => {
             // On Unix systems, kill the entire process group
             #[cfg(unix)]
             fn terminate_process_group() {
@@ -65,7 +65,7 @@ pub async fn run_server(name: &str) -> Result<()> {
                     .expect("Failed to send SIGTERM to process group");
             }
             terminate_process_group();
-            
+
             Ok(())
         }
     }

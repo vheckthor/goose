@@ -1,6 +1,6 @@
-use tokio::signal;
 use std::future::Future;
 use std::pin::Pin;
+use tokio::signal;
 
 #[cfg(unix)]
 pub fn shutdown_signal() -> Pin<Box<dyn Future<Output = ()> + Send>> {

@@ -493,37 +493,7 @@ const createChat = async (
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
     if (goosedProcess) {
-      try {
-        log.info(`Window closed, terminating goosed process ${goosedProcess.pid}`);
-        if (process.platform === 'win32') {
-          // On Windows, use taskkill to forcefully terminate the process tree
-          spawn('taskkill', ['/pid', goosedProcess.pid.toString(), '/T', '/F']);
-        } else {
-          // On Unix platforms, first try sending SIGTERM to the entire process group
-          try {
-            log.info(`Sending SIGTERM to process group -${goosedProcess.pid}`);
-            process.kill(-goosedProcess.pid, 'SIGTERM');
-
-            // Give processes a moment to clean up gracefully
-            setTimeout(() => {
-              try {
-                // Force kill any remaining processes with SIGKILL
-                log.info(`Sending SIGKILL to process group -${goosedProcess.pid}`);
-                process.kill(-goosedProcess.pid, 'SIGKILL');
-              } catch (e) {
-                // Process group likely already terminated
-                log.info('Process group already terminated (SIGKILL):', e);
-              }
-            }, 200);
-          } catch (e) {
-            // Fall back to regular kill if the process group approach fails
-            log.info('Process group kill failed, falling back to regular kill:', e);
-            goosedProcess.kill();
-          }
-        }
-      } catch (error) {
-        log.error('Error while terminating goosed process:', error);
-      }
+      goosedProcess.kill();
     }
   });
   return mainWindow;

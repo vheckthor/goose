@@ -138,9 +138,8 @@ export const startGoosed = async (
     stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'],
     // Hide terminal window on Windows
     windowsHide: true,
-    // Run detached on all platforms to create a new process group
-    // This allows us to send signals to the entire process group later
-    detached: true,
+    // Run detached on Windows only to avoid terminal windows
+    detached: isWindows,
     // Never use shell to avoid terminal windows
     shell: false,
   };
@@ -183,24 +182,7 @@ export const startGoosed = async (
         // On Windows, use taskkill to forcefully terminate the process tree
         spawn('taskkill', ['/pid', goosedProcess.pid.toString(), '/T', '/F']);
       } else {
-        // On Unix platforms, terminate the entire process group
-        try {
-          log.info(`Sending SIGTERM to process group -${goosedProcess.pid}`);
-          process.kill(-goosedProcess.pid, 'SIGTERM');
-
-          // Immediately follow with SIGKILL since the server failed to start
-          setTimeout(() => {
-            try {
-              process.kill(-goosedProcess.pid, 'SIGKILL');
-            } catch (e) {
-              // Process group likely already terminated
-            }
-          }, 100);
-        } catch (e) {
-          // Fall back to regular kill if the process group approach fails
-          log.info('Process group kill failed, falling back to regular kill:', e);
-          goosedProcess.kill();
-        }
+        goosedProcess.kill();
       }
     } catch (error) {
       log.error('Error while terminating goosed process:', error);
@@ -217,27 +199,7 @@ export const startGoosed = async (
         // On Windows, use taskkill to forcefully terminate the process tree
         spawn('taskkill', ['/pid', goosedProcess.pid.toString(), '/T', '/F']);
       } else {
-        // On Unix platforms, first try sending SIGTERM to the entire process group
-        try {
-          log.info(`Sending SIGTERM to process group -${goosedProcess.pid}`);
-          process.kill(-goosedProcess.pid, 'SIGTERM');
-
-          // Give processes a moment to clean up gracefully
-          setTimeout(() => {
-            try {
-              // Force kill any remaining processes with SIGKILL
-              log.info(`Sending SIGKILL to process group -${goosedProcess.pid}`);
-              process.kill(-goosedProcess.pid, 'SIGKILL');
-            } catch (e) {
-              // Process group likely already terminated
-              log.info('Process group already terminated (SIGKILL):', e);
-            }
-          }, 200);
-        } catch (e) {
-          // Fall back to regular kill if the process group approach fails
-          log.info('Process group kill failed, falling back to regular kill:', e);
-          goosedProcess.kill();
-        }
+        goosedProcess.kill();
       }
     } catch (error) {
       log.error('Error while terminating goosed process:', error);
