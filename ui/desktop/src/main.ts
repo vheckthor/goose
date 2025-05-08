@@ -493,7 +493,37 @@ const createChat = async (
   mainWindow.on('closed', () => {
     windowMap.delete(windowId);
     if (goosedProcess) {
-      goosedProcess.kill();
+      try {
+        log.info(`Window closed, terminating goosed process ${goosedProcess.pid}`);
+        if (process.platform === 'win32') {
+          // On Windows, use taskkill to forcefully terminate the process tree
+          spawn('taskkill', ['/pid', goosedProcess.pid.toString(), '/T', '/F']);
+        } else {
+          // On Unix platforms, first try sending SIGTERM to the entire process group
+          try {
+            log.info(`Sending SIGTERM to process group -${goosedProcess.pid}`);
+            process.kill(-goosedProcess.pid, 'SIGTERM');
+
+            // Give processes a moment to clean up gracefully
+            setTimeout(() => {
+              try {
+                // Force kill any remaining processes with SIGKILL
+                log.info(`Sending SIGKILL to process group -${goosedProcess.pid}`);
+                process.kill(-goosedProcess.pid, 'SIGKILL');
+              } catch (e) {
+                // Process group likely already terminated
+                log.info('Process group already terminated (SIGKILL):', e);
+              }
+            }, 200);
+          } catch (e) {
+            // Fall back to regular kill if the process group approach fails
+            log.info('Process group kill failed, falling back to regular kill:', e);
+            goosedProcess.kill();
+          }
+        }
+      } catch (error) {
+        log.error('Error while terminating goosed process:', error);
+      }
     }
   });
   return mainWindow;
@@ -1134,6 +1164,41 @@ async function getAllowList(): Promise<string[]> {
 app.on('will-quit', () => {
   // Unregister all shortcuts when quitting
   globalShortcut.unregisterAll();
+
+  // Final cleanup of any MCP processes that might still be running
+  log.info('App quitting, ensuring all MCP processes are terminated');
+
+  // Windows cleanup - use taskkill to find and kill any goosed processes
+  if (process.platform === 'win32') {
+    try {
+      // Find and kill any remaining goosed processes
+      spawn('taskkill', ['/F', '/IM', 'goosed.exe', '/T']);
+    } catch (error) {
+      log.error('Error while terminating remaining goosed processes:', error);
+    }
+  } else {
+    // Unix cleanup - use pkill to find and kill any goosed or MCP processes
+    try {
+      // Try to kill any remaining goosed processes with SIGTERM
+      spawn('pkill', ['-TERM', '-f', 'goosed']);
+
+      // Try to kill any remaining MCP processes with SIGTERM
+      spawn('pkill', ['-TERM', '-f', 'mcp']);
+
+      // Give processes a moment to clean up gracefully
+      setTimeout(() => {
+        try {
+          // Force kill any remaining processes with SIGKILL
+          spawn('pkill', ['-KILL', '-f', 'goosed']);
+          spawn('pkill', ['-KILL', '-f', 'mcp']);
+        } catch (e) {
+          // Processes likely already terminated
+        }
+      }, 200);
+    } catch (error) {
+      log.error('Error while terminating remaining goosed/MCP processes:', error);
+    }
+  }
 });
 
 // Quit when all windows are closed, except on macOS or if we have a tray icon.

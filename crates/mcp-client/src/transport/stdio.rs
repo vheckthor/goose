@@ -10,7 +10,7 @@ use tokio::sync::{mpsc, Mutex};
 
 // Import nix crate components instead of libc
 #[cfg(unix)]
-use nix::unistd::{Pid, getpgid, setpgid};
+use nix::unistd::{Pid, getpgid};
 #[cfg(unix)]
 use nix::sys::signal::{kill, Signal};
 
