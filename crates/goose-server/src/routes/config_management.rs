@@ -158,7 +158,9 @@ pub async fn read_config(
     // Special handling for model-limits
     if query.key == "model-limits" {
         let limits = ModelConfig::get_all_model_limits();
-        return Ok(Json(serde_json::to_value(limits).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?));
+        return Ok(Json(
+            serde_json::to_value(limits).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+        ));
     }
 
     let config = Config::global();

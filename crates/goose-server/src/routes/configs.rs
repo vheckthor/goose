@@ -160,7 +160,7 @@ pub async fn get_config(
         "model-limits" => {
             let limits = ModelConfig::get_all_model_limits();
             Some(serde_json::to_string(&limits).unwrap_or_default())
-        },
+        }
         // Standard config handling
         _ => {
             let config = Config::global();
@@ -241,8 +241,9 @@ mod tests {
         // Create test state and headers
         let test_state = AppState::new(
             Arc::new(goose::agents::Agent::default()),
-            "test".to_string()
-        ).await;
+            "test".to_string(),
+        )
+        .await;
         let mut headers = HeaderMap::new();
         headers.insert("X-Secret-Key", "test".parse().unwrap());
 
