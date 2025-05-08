@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use std::{iter::FromIterator, ops::Deref};
 use thiserror::Error;
 
-use crate::tool_result_serde;
+use crate::{tool_result_serde, JsonValueFfi};
 
 #[derive(Error, Debug, Clone, Deserialize, Serialize, PartialEq, uniffi::Error)]
 pub enum ToolError {
@@ -26,7 +26,7 @@ pub type ToolResult<T> = std::result::Result<T, ToolError>;
 #[serde(rename_all = "camelCase")]
 pub struct ToolCall {
     pub name: String,
-    pub params: serde_json::Value,
+    pub params: JsonValueFfi,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Enum)]
@@ -138,7 +138,6 @@ uniffi::custom_type!(Contents, Vec<MessageContent>, {
 pub struct Message {
     pub role: Role,
     pub created: i64,
-    // pub content: Vec<MessageContent>,
     pub content: Contents,
 }
 
@@ -191,3 +190,46 @@ uniffi::custom_type!(ToolResponseToolResult, String, {
         Ok(ToolResponseToolResult(result))
     },
 });
+
+// --- Completion Types ---
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolConfig {
+    pub name: String,
+    pub input_schema: serde_json::Value,
+}
+
+impl ToolConfig {
+    pub fn new(name: &str, input_schema: serde_json::Value) -> Self {
+        Self {
+            name: name.to_string(),
+            input_schema,
+        }
+    }
+}
+
+uniffi::custom_type!(ToolConfig, String, {
+    lower: |tc: &ToolConfig| {
+        serde_json::to_string(&tc).unwrap()
+    },
+    try_lift: |s: String| {
+        Ok(serde_json::from_str(&s).unwrap())
+    },
+});
+
+#[uniffi::export]
+pub fn create_tool_config(name: &str, input_schema: JsonValueFfi) -> ToolConfig {
+    ToolConfig::new(name, input_schema.into())
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+pub struct ExtensionConfig {
+    name: String,
+    tools: Vec<ToolConfig>,
+}
+
+impl ExtensionConfig {
+    pub fn new(name: String, tools: Vec<ToolConfig>) -> Self {
+        Self { name, tools }
+    }
+}
