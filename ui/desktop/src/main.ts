@@ -1164,41 +1164,6 @@ async function getAllowList(): Promise<string[]> {
 app.on('will-quit', () => {
   // Unregister all shortcuts when quitting
   globalShortcut.unregisterAll();
-
-  // Final cleanup of any MCP processes that might still be running
-  log.info('App quitting, ensuring all MCP processes are terminated');
-
-  // Windows cleanup - use taskkill to find and kill any goosed processes
-  if (process.platform === 'win32') {
-    try {
-      // Find and kill any remaining goosed processes
-      spawn('taskkill', ['/F', '/IM', 'goosed.exe', '/T']);
-    } catch (error) {
-      log.error('Error while terminating remaining goosed processes:', error);
-    }
-  } else {
-    // Unix cleanup - use pkill to find and kill any goosed or MCP processes
-    try {
-      // Try to kill any remaining goosed processes with SIGTERM
-      spawn('pkill', ['-TERM', '-f', 'goosed']);
-
-      // Try to kill any remaining MCP processes with SIGTERM
-      spawn('pkill', ['-TERM', '-f', 'mcp']);
-
-      // Give processes a moment to clean up gracefully
-      setTimeout(() => {
-        try {
-          // Force kill any remaining processes with SIGKILL
-          spawn('pkill', ['-KILL', '-f', 'goosed']);
-          spawn('pkill', ['-KILL', '-f', 'mcp']);
-        } catch (e) {
-          // Processes likely already terminated
-        }
-      }, 200);
-    } catch (error) {
-      log.error('Error while terminating remaining goosed/MCP processes:', error);
-    }
-  }
 });
 
 // Quit when all windows are closed, except on macOS or if we have a tray icon.
