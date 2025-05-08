@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json;
-use thiserror::Error;
-use serde_json::ser::Serializer;
 use serde_json::de::Deserializer;
+use serde_json::ser::Serializer;
+use thiserror::Error;
 
 use crate::tool_result_serde;
 
@@ -59,9 +59,8 @@ pub struct ToolRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ToolResponse {
     pub id: String,
-    pub tool_result: ToolResponseToolResult
+    pub tool_result: ToolResponseToolResult,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -70,7 +69,6 @@ pub struct Message {
     pub created: i64,
     pub content: Vec<MessageContent>,
 }
-
 
 // — Newtype wrappers (local structs) so we satisfy Rust’s orphan rules —
 // We need these because we can’t implement UniFFI’s FfiConverter directly on a type alias.
