@@ -10,6 +10,7 @@ use etcetera::{choose_app_strategy, AppStrategy, AppStrategyArgs};
 use goose::config::Config;
 use goose::config::{extensions::name_to_key, PermissionManager};
 use goose::config::{ExtensionConfigManager, ExtensionEntry};
+use goose::model::ModelConfig;
 use goose::providers::base::ProviderMetadata;
 use goose::providers::providers as get_providers;
 use goose::{agents::ExtensionConfig, config::permission::PermissionLevel};
@@ -153,6 +154,12 @@ pub async fn read_config(
     Json(query): Json<ConfigKeyQuery>,
 ) -> Result<Json<Value>, StatusCode> {
     verify_secret_key(&headers, &state)?;
+
+    // Special handling for model-limits
+    if query.key == "model-limits" {
+        let limits = ModelConfig::get_all_model_limits();
+        return Ok(Json(serde_json::to_value(limits).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?));
+    }
 
     let config = Config::global();
 

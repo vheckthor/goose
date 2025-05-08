@@ -6,6 +6,7 @@ use axum::{
     Json, Router,
 };
 use goose::config::Config;
+use goose::model::ModelConfig;
 use http::{HeaderMap, StatusCode};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -154,15 +155,23 @@ pub async fn get_config(
 ) -> Result<Json<GetConfigResponse>, StatusCode> {
     verify_secret_key(&headers, &state)?;
 
-    // Fetch the configuration value. Right now we don't allow get a secret.
-    let config = Config::global();
-    let value = if let Ok(config_value) = config.get_param::<String>(&query.key) {
-        Some(config_value)
-    } else {
-        std::env::var(&query.key).ok()
+    let value = match query.key.as_str() {
+        // Special handling for model-limits
+        "model-limits" => {
+            let limits = ModelConfig::get_all_model_limits();
+            Some(serde_json::to_string(&limits).unwrap_or_default())
+        },
+        // Standard config handling
+        _ => {
+            let config = Config::global();
+            if let Ok(config_value) = config.get_param::<String>(&query.key) {
+                Some(config_value)
+            } else {
+                std::env::var(&query.key).ok()
+            }
+        }
     };
 
-    // Return the value
     Ok(Json(GetConfigResponse { value }))
 }
 
@@ -225,5 +234,38 @@ mod tests {
             .expect("Provider should exist");
         assert!(!provider_status.supported);
         assert!(provider_status.config_status.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_get_model_limits() {
+        // Create test state and headers
+        let state = Arc::new(AppState::default());
+        let mut headers = HeaderMap::new();
+        headers.insert("X-Secret-Key", "test".parse().unwrap());
+
+        // Execute
+        let result = get_config(
+            State(state),
+            headers,
+            Query(GetConfigQuery {
+                key: "model-limits".to_string(),
+            }),
+        )
+        .await;
+
+        // Assert
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.0.value.is_some());
+
+        // Parse the response and check the contents
+        let limits: Vec<goose::model::ModelLimitConfig> =
+            serde_json::from_str(&response.0.value.unwrap()).unwrap();
+        assert!(!limits.is_empty());
+
+        // Check for some expected patterns
+        let gpt4_limit = limits.iter().find(|l| l.pattern == "gpt-4o");
+        assert!(gpt4_limit.is_some());
+        assert_eq!(gpt4_limit.unwrap().context_limit, 128_000);
     }
 }
