@@ -248,20 +248,7 @@ impl StdioTransport {
 
         // Set process group and ensure signal handling on Unix systems
         #[cfg(unix)]
-        {
-            unsafe {
-                command.pre_exec(|| {
-                    // Create a new process group and become its leader using nix
-                    if let Err(e) = setpgid(Pid::from_raw(0), Pid::from_raw(0)) {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            format!("Failed to set process group: {}", e),
-                        ));
-                    }
-                    Ok(())
-                });
-            }
-        }
+        command.process_group(0);
 
         // Hide console window on Windows
         #[cfg(windows)]
