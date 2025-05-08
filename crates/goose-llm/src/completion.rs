@@ -32,7 +32,7 @@ pub async fn completion(req: CompletionRequest<'_>) -> Result<CompletionResponse
     let mut response = provider
         .complete(&system_prompt, req.messages, &tools)
         .await?;
-    let provider_elapsed_ms = start_provider.elapsed().as_millis();
+    let provider_elapsed_sec = start_provider.elapsed().as_secs_f32();
     let usage_tokens = response.usage.total_tokens;
 
     let tool_configs = collect_prefixed_tool_configs(req.extensions);
@@ -42,7 +42,7 @@ pub async fn completion(req: CompletionRequest<'_>) -> Result<CompletionResponse
         response.message,
         response.model,
         response.usage,
-        calculate_runtime_metrics(start_total, provider_elapsed_ms, usage_tokens),
+        calculate_runtime_metrics(start_total, provider_elapsed_sec, usage_tokens),
     ))
 }
 
@@ -117,16 +117,16 @@ fn collect_prefixed_tool_configs(extensions: &[ExtensionConfig]) -> HashMap<Stri
 /// Compute runtime metrics for the request.
 fn calculate_runtime_metrics(
     total_start: Instant,
-    provider_elapsed_ms: u128,
+    provider_elapsed_sec: f32,
     token_count: Option<i32>,
 ) -> RuntimeMetrics {
-    let total_ms = total_start.elapsed().as_millis();
+    let total_sec = total_start.elapsed().as_secs_f32();
     let tokens_per_sec = token_count.and_then(|toks| {
-        if provider_elapsed_ms > 0 {
-            Some(toks as f64 / (provider_elapsed_ms as f64 / 1_000.0))
+        if provider_elapsed_sec > 0.0 {
+            Some(toks as f32 / (provider_elapsed_sec))
         } else {
             None
         }
     });
-    RuntimeMetrics::new(total_ms, provider_elapsed_ms, tokens_per_sec)
+    RuntimeMetrics::new(total_sec, provider_elapsed_sec, tokens_per_sec)
 }

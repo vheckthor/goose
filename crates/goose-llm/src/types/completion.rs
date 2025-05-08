@@ -80,20 +80,20 @@ impl CompletionResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeMetrics {
-    pub total_time_ms: u128,
-    pub total_time_ms_provider: u128,
-    pub tokens_per_second: Option<f64>,
+    pub total_sec: f32,
+    pub total_time_sec_provider: f32,
+    pub tokens_per_second: Option<f32>,
 }
 
 impl RuntimeMetrics {
     pub fn new(
-        total_time_ms: u128,
-        total_time_ms_provider: u128,
-        tokens_per_second: Option<f64>,
+        total_sec: f32,
+        total_time_sec_provider: f32,
+        tokens_per_second: Option<f32>,
     ) -> Self {
         Self {
-            total_time_ms,
-            total_time_ms_provider,
+            total_sec,
+            total_time_sec_provider,
             tokens_per_second,
         }
     }
