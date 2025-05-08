@@ -1,6 +1,6 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use once_cell::sync::Lazy;
 
 const DEFAULT_CONTEXT_LIMIT: usize = 128_000;
 
@@ -20,14 +20,14 @@ static MODEL_SPECIFIC_LIMITS: Lazy<HashMap<&'static str, usize>> = Lazy::new(|| 
     map.insert("o3-mini", 200_000);
     map.insert("gpt-4.1", 1_000_000);
     map.insert("gpt-4-1", 1_000_000);
-    
+
     // Anthropic models
     map.insert("claude-3", 200_000);
-    
+
     // Google models
     map.insert("gemini-2.5", 1_000_000);
     map.insert("gemini-2-5", 1_000_000);
-    
+
     // Meta Llama models
     map.insert("llama3.2", 128_000);
     map.insert("llama3.3", 128_000);
@@ -249,7 +249,7 @@ mod tests {
     fn test_get_all_model_limits() {
         let limits = ModelConfig::get_all_model_limits();
         assert!(!limits.is_empty());
-        
+
         // Test that we can find specific patterns
         let gpt4_limit = limits.iter().find(|l| l.pattern == "gpt-4o");
         assert!(gpt4_limit.is_some());
