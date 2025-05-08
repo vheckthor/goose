@@ -41,6 +41,7 @@ export interface ChatType {
   title: string;
   messageHistoryIndex: number;
   messages: Message[];
+  isResumed?: boolean;
 }
 
 // Helper function to determine if a message is a user message
@@ -97,6 +98,7 @@ function ChatContent({
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
 
   const scrollRef = useRef<ScrollAreaHandle>(null);
+  const isResumed = chat.isResumed;
 
   const {
     summaryContent,
@@ -530,6 +532,7 @@ function ChatContent({
                           chatId={chat.id}
                           workingDir={window.appConfig.get('GOOSE_WORKING_DIR') as string}
                           contextType={getContextHandlerType(message)}
+                          isResumed={isResumed}
                         />
                       ) : (
                         <UserMessage message={message} />
@@ -545,6 +548,7 @@ function ChatContent({
                           chatId={chat.id}
                           workingDir={window.appConfig.get('GOOSE_WORKING_DIR') as string}
                           contextType={getContextHandlerType(message)}
+                          isResumed={isResumed}
                         />
                       ) : (
                         <GooseMessage

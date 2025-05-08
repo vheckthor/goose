@@ -8,6 +8,7 @@ interface ContextHandlerProps {
   chatId: string;
   workingDir: string;
   contextType: 'contextLengthExceeded' | 'summarizationRequested';
+  isResumed: boolean;
 }
 
 export const ContextHandler: React.FC<ContextHandlerProps> = ({
@@ -16,6 +17,7 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
   chatId,
   workingDir,
   contextType,
+  isResumed,
 }) => {
   const {
     summaryContent,
@@ -53,10 +55,11 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
 
   useEffect(() => {
     if (
-      !summaryContent &&
-      !hasFetchStarted &&
-      shouldAllowSummaryInteraction &&
-      !fetchStartedRef.current
+      !summaryContent && // trigger CLE if no summary content
+      !hasFetchStarted && // trigger CLE if fetch isn't in process
+      shouldAllowSummaryInteraction && // trigger CLE if last message in list
+      !fetchStartedRef.current && // trigger CLE if fetch isn't in progress
+      !isResumed // trigger CLE if this session is not from resuming an old session
     ) {
       // Use the wrapper function instead of calling the async function directly
       triggerContextLengthExceeded();
@@ -164,10 +167,7 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
           onClick={openSummaryModal}
           className="text-xs text-textStandard hover:text-textSubtle transition-colors mt-1 flex items-center"
         >
-          View or edit summary{' '}
-          {isContextLengthExceeded
-            ? '(you may continue your conversation based on the summary)'
-            : ''}
+          View or edit summary (you may continue your conversation based on the summary)
         </button>
       )}
     </>
@@ -198,6 +198,10 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
       }
     }
 
+    if (isResumed) {
+      return;
+    }
+
     // Fallback to showing at least the persistent marker
     return renderPersistentMarker();
   };
@@ -205,10 +209,12 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
   return (
     <div className="flex flex-col items-start mt-1 pl-4">
       {/* Horizontal line with text in the middle - shown regardless of loading state */}
-      <div className="relative flex items-center py-2 w-full">
-        <div className="flex-grow border-t border-gray-300"></div>
-        <div className="flex-grow border-t border-gray-300"></div>
-      </div>
+      {!isCurrentMessageLatest && !isResumed && (
+        <div className="relative flex items-center py-2 w-full">
+          <div className="flex-grow border-t border-gray-300"></div>
+          <div className="flex-grow border-t border-gray-300"></div>
+        </div>
+      )}
 
       {isLoadingSummary && shouldAllowSummaryInteraction
         ? renderLoadingState()

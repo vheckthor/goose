@@ -36,6 +36,7 @@ export const useChat = ({ setIsLoadingSession, setView }: UseChatArgs) => {
             title: sessionDetails.metadata?.description || `ID: ${sessionDetails.session_id}`,
             messages: sessionDetails.messages,
             messageHistoryIndex: sessionDetails.messages.length,
+            isResumed: true,
           });
           setView('chat');
         } else {
