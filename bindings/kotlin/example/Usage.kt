@@ -6,7 +6,7 @@ fun main() = runBlocking {
         Message(
             role    = Role.USER,
             created = System.currentTimeMillis() / 1000,
-            content = listOf(MessageContent.Text(TextContent("Hello, how are you?")))
+            content = listOf(MessageContent.Text(TextContent("Add 2 + 3")))
         ),
         Message(
             role    = Role.ASSISTANT,
