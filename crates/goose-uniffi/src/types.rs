@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::de::Deserializer;
 use serde_json::ser::Serializer;
+use smallvec::SmallVec;
+use std::{iter::FromIterator, ops::Deref};
 use thiserror::Error;
 
 use crate::tool_result_serde;
@@ -38,8 +40,29 @@ pub enum Role {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum MessageContent {
     Text(TextContent),
-    ToolReq(ToolRequest),
-    ToolResp(ToolResponse),
+    ToolReq(ToolRequest), // both enum variant and struct cannot have the same name ToolRequest
+    ToolResp(ToolResponse), // both enum variant and struct cannot have the same name Tool
+}
+
+impl MessageContent {
+    pub fn text<S: Into<String>>(text: S) -> Self {
+        MessageContent::Text(TextContent { text: text.into() })
+    }
+
+    pub fn tool_request<S: Into<String>>(id: S, tool_call: ToolRequestToolCall) -> Self {
+        MessageContent::ToolReq(ToolRequest {
+            id: id.into(),
+            tool_call,
+        })
+    }
+
+    /// Get the text content if this is a TextContent variant
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            MessageContent::Text(text) => Some(&text.text),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
@@ -62,12 +85,61 @@ pub struct ToolResponse {
     pub tool_result: ToolResponseToolResult,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(transparent)]
+pub struct Contents(SmallVec<[MessageContent; 2]>);
+
+impl Contents {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, MessageContent> {
+        self.0.iter_mut()
+    }
+
+    pub fn texts(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().filter_map(|c| c.as_text())
+    }
+
+    pub fn concat_text_str(&self) -> String {
+        self.texts().collect::<Vec<_>>().join("\n")
+    }
+}
+
+impl From<Vec<MessageContent>> for Contents {
+    fn from(v: Vec<MessageContent>) -> Self {
+        Contents(SmallVec::from_vec(v))
+    }
+}
+
+impl FromIterator<MessageContent> for Contents {
+    fn from_iter<I: IntoIterator<Item = MessageContent>>(iter: I) -> Self {
+        Contents(SmallVec::from_iter(iter))
+    }
+}
+
+impl Deref for Contents {
+    type Target = [MessageContent];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+// — Register the contents type with UniFFI, converting to/from Vec<MessageContent> —
+// We need to do this because UniFFI’s FFI layer supports only primitive buffers (here Vec<u8>),
+uniffi::custom_type!(Contents, Vec<MessageContent>, {
+    lower: |contents: &Contents| {
+        contents.0.to_vec()
+    },
+    try_lift: |contents: Vec<MessageContent>| {
+        Ok(Contents::from(contents))
+    },
+});
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub role: Role,
     pub created: i64,
-    pub content: Vec<MessageContent>,
+    // pub content: Vec<MessageContent>,
+    pub content: Contents,
 }
 
 // — Newtype wrappers (local structs) so we satisfy Rust’s orphan rules —

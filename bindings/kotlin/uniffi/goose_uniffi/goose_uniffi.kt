@@ -1070,7 +1070,7 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 data class Message (
     var `role`: Role, 
     var `created`: kotlin.Long, 
-    var `content`: List<MessageContent>
+    var `content`: Contents
 ) {
     
     companion object
@@ -1084,20 +1084,20 @@ public object FfiConverterTypeMessage: FfiConverterRustBuffer<Message> {
         return Message(
             FfiConverterTypeRole.read(buf),
             FfiConverterLong.read(buf),
-            FfiConverterSequenceTypeMessageContent.read(buf),
+            FfiConverterTypeContents.read(buf),
         )
     }
 
     override fun allocationSize(value: Message) = (
             FfiConverterTypeRole.allocationSize(value.`role`) +
             FfiConverterLong.allocationSize(value.`created`) +
-            FfiConverterSequenceTypeMessageContent.allocationSize(value.`content`)
+            FfiConverterTypeContents.allocationSize(value.`content`)
     )
 
     override fun write(value: Message, buf: ByteBuffer) {
             FfiConverterTypeRole.write(value.`role`, buf)
             FfiConverterLong.write(value.`created`, buf)
-            FfiConverterSequenceTypeMessageContent.write(value.`content`, buf)
+            FfiConverterTypeContents.write(value.`content`, buf)
     }
 }
 
@@ -1490,6 +1490,16 @@ public object FfiConverterSequenceTypeMessageContent: FfiConverterRustBuffer<Lis
         }
     }
 }
+
+
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ * It's also what we have an external type that references a custom type.
+ */
+public typealias Contents = List<MessageContent>
+public typealias FfiConverterTypeContents = FfiConverterSequenceTypeMessageContent
 
 
 
