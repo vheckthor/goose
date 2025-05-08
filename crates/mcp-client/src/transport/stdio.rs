@@ -37,7 +37,6 @@ impl Drop for StdioActor {
         // Get the process group ID before attempting cleanup
         #[cfg(unix)]
         if let Some(pid) = self.process.id() {
-            // Use nix instead of unsafe libc calls
             if let Ok(pgid) = getpgid(Some(Pid::from_raw(pid as i32))) {
                 // Send SIGTERM to the entire process group
                 let _ = kill(Pid::from_raw(-pgid.as_raw()), Signal::SIGTERM);
@@ -250,8 +249,6 @@ impl StdioTransport {
         // Set process group and ensure signal handling on Unix systems
         #[cfg(unix)]
         {
-            use std::os::unix::process::CommandExt;
-            // pre_exec is unsafe because the closure executes in a raw forked process
             unsafe {
                 command.pre_exec(|| {
                     // Create a new process group and become its leader using nix
