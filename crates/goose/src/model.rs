@@ -11,7 +11,7 @@ pub const CLAUDE_TOKENIZER: &str = "Xenova--claude-tokenizer";
 // Define the model limits as a static HashMap for reuse
 static MODEL_SPECIFIC_LIMITS: Lazy<HashMap<&'static str, usize>> = Lazy::new(|| {
     let mut map = HashMap::new();
-    // OpenAI models
+    // OpenAI models, https://platform.openai.com/docs/models#models-overview
     map.insert("gpt-4o", 128_000);
     map.insert("gpt-4-turbo", 128_000);
     map.insert("o1-mini", 128_000);
@@ -21,14 +21,14 @@ static MODEL_SPECIFIC_LIMITS: Lazy<HashMap<&'static str, usize>> = Lazy::new(|| 
     map.insert("gpt-4.1", 1_000_000);
     map.insert("gpt-4-1", 1_000_000);
 
-    // Anthropic models
+    // Anthropic models, https://docs.anthropic.com/en/docs/about-claude/models
     map.insert("claude-3", 200_000);
 
-    // Google models
+    // Google models, https://ai.google/get-started/our-models/
     map.insert("gemini-2.5", 1_000_000);
     map.insert("gemini-2-5", 1_000_000);
 
-    // Meta Llama models
+    // Meta Llama models, https://github.com/meta-llama/llama-models/tree/main?tab=readme-ov-file#llama-models-1
     map.insert("llama3.2", 128_000);
     map.insert("llama3.3", 128_000);
     map
