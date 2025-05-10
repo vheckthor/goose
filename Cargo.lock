@@ -2589,6 +2589,7 @@ dependencies = [
  "umya-spreadsheet",
  "url",
  "urlencoding",
+ "uuid",
  "webbrowser",
  "xcap",
 ]
