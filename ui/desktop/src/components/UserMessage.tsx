@@ -38,7 +38,7 @@ export default function UserMessage({ message }: UserMessageProps) {
             <div className="absolute right-0 text-xs text-textSubtle pt-1 transition-all duration-200 group-hover:-translate-y-4 group-hover:opacity-0">
               {timestamp}
             </div>
-            <div className="absolute right-0 pt-1">
+            <div className="absolute right-0 pt-1 z-10">
               <MessageCopyLink text={textContent} contentRef={contentRef} />
             </div>
           </div>

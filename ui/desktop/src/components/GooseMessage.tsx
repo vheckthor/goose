@@ -116,7 +116,7 @@ export default function GooseMessage({
                 </div>
               )}
               {textContent && message.content.every((content) => content.type === 'text') && (
-                <div className="absolute left-0 pt-1">
+                <div className="absolute left-0 pt-1 z-10">
                   <MessageCopyLink text={textContent} contentRef={contentRef} />
                 </div>
               )}
