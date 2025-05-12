@@ -14,7 +14,7 @@
             <guid>https://block.github.io/goose/pr-preview/pr-2508/blog/2025/05/12/local-goose-qwen3</guid>
             <pubDate>Mon, 12 May 2025 00:00:00 GMT</pubDate>
             <description><![CDATA[Qwen3 and tool calling with goose, an example local workflow]]></description>
-            <content:encoded><![CDATA[<p>A couple of weeks back <img decoding="async" loading="lazy" src="https://qwenlm.github.io/blog/qwen3/" alt="Qwen 3" class="img_ev3q"> launched with a raft of capabilities and sizes.</p>
+            <content:encoded><![CDATA[<p>A couple of weeks back Qwen 3 (<a href="https://qwenlm.github.io/blog/qwen3/" target="_blank" rel="noopener noreferrer">https://qwenlm.github.io/blog/qwen3/</a>) launched with a raft of capabilities and sizes.</p>
 <p>This model showed promise and even in very compact form, such as 8B parameters and 4bit quantisation, was able to do tool calling successfully with goose.
 Even multi turn tool calling.</p>
 <p>I haven't seen this work at such a scaled down model so far, so this is really impressive and bodes well for both this model, but also future open weight models both large and small.
