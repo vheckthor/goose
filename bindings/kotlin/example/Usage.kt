@@ -76,7 +76,7 @@ fun main() = runBlocking {
     printMessages(msgs)
     println("---\n")
 
-    val calculatorTool = createToolConfig(
+    val calculatorTool = ToolConfig(
         name = "calculator",
         inputSchema = """
             {

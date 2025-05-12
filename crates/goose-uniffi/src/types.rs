@@ -22,7 +22,7 @@ pub enum ToolError {
 
 pub type ToolResult<T> = std::result::Result<T, ToolError>;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolCall {
     pub name: String,
@@ -193,33 +193,19 @@ uniffi::custom_type!(ToolResponseToolResult, String, {
 
 // --- Completion Types ---
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct ToolConfig {
     pub name: String,
-    pub input_schema: serde_json::Value,
+    pub input_schema: JsonValueFfi,
 }
 
 impl ToolConfig {
-    pub fn new(name: &str, input_schema: serde_json::Value) -> Self {
+    pub fn new(name: &str, input_schema: JsonValueFfi) -> Self {
         Self {
             name: name.to_string(),
             input_schema,
         }
     }
-}
-
-uniffi::custom_type!(ToolConfig, String, {
-    lower: |tc: &ToolConfig| {
-        serde_json::to_string(&tc).unwrap()
-    },
-    try_lift: |s: String| {
-        Ok(serde_json::from_str(&s).unwrap())
-    },
-});
-
-#[uniffi::export]
-pub fn create_tool_config(name: &str, input_schema: JsonValueFfi) -> ToolConfig {
-    ToolConfig::new(name, input_schema.into())
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]

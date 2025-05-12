@@ -769,8 +769,6 @@ internal interface IntegrityCheckingUniffiLib : Library {
     // Integrity check functions only
     fun uniffi_goose_uniffi_checksum_func_async_print(): Short
 
-    fun uniffi_goose_uniffi_checksum_func_create_tool_config(): Short
-
     fun uniffi_goose_uniffi_checksum_func_print_messages(): Short
 
     fun ffi_goose_uniffi_uniffi_contract_version(): Int
@@ -819,12 +817,6 @@ internal interface UniffiLib : Library {
         `messages`: RustBuffer.ByValue,
         `extensions`: RustBuffer.ByValue,
     ): Long
-
-    fun uniffi_goose_uniffi_fn_func_create_tool_config(
-        `name`: RustBuffer.ByValue,
-        `inputSchema`: RustBuffer.ByValue,
-        uniffi_out_err: UniffiRustCallStatus,
-    ): RustBuffer.ByValue
 
     fun uniffi_goose_uniffi_fn_func_print_messages(
         `messages`: RustBuffer.ByValue,
@@ -1061,9 +1053,6 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_goose_uniffi_checksum_func_async_print() != 19317.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_goose_uniffi_checksum_func_create_tool_config() != 54314.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_goose_uniffi_checksum_func_print_messages() != 10382.toShort()) {
@@ -1365,6 +1354,70 @@ public object FfiConverterTypeTextContent : FfiConverterRustBuffer<TextContent> 
         buf: ByteBuffer,
     ) {
         FfiConverterString.write(value.`text`, buf)
+    }
+}
+
+data class ToolCall(
+    var `name`: kotlin.String,
+    var `params`: Value,
+) {
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeToolCall : FfiConverterRustBuffer<ToolCall> {
+    override fun read(buf: ByteBuffer): ToolCall =
+        ToolCall(
+            FfiConverterString.read(buf),
+            FfiConverterTypeValue.read(buf),
+        )
+
+    override fun allocationSize(value: ToolCall) =
+        (
+            FfiConverterString.allocationSize(value.`name`) +
+                FfiConverterTypeValue.allocationSize(value.`params`)
+        )
+
+    override fun write(
+        value: ToolCall,
+        buf: ByteBuffer,
+    ) {
+        FfiConverterString.write(value.`name`, buf)
+        FfiConverterTypeValue.write(value.`params`, buf)
+    }
+}
+
+data class ToolConfig(
+    var `name`: kotlin.String,
+    var `inputSchema`: Value,
+) {
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeToolConfig : FfiConverterRustBuffer<ToolConfig> {
+    override fun read(buf: ByteBuffer): ToolConfig =
+        ToolConfig(
+            FfiConverterString.read(buf),
+            FfiConverterTypeValue.read(buf),
+        )
+
+    override fun allocationSize(value: ToolConfig) =
+        (
+            FfiConverterString.allocationSize(value.`name`) +
+                FfiConverterTypeValue.allocationSize(value.`inputSchema`)
+        )
+
+    override fun write(
+        value: ToolConfig,
+        buf: ByteBuffer,
+    ) {
+        FfiConverterString.write(value.`name`, buf)
+        FfiConverterTypeValue.write(value.`inputSchema`, buf)
     }
 }
 
@@ -1724,34 +1777,6 @@ public object FfiConverterSequenceTypeMessage : FfiConverterRustBuffer<List<Mess
 /**
  * @suppress
  */
-public object FfiConverterSequenceTypeMessageContent : FfiConverterRustBuffer<List<MessageContent>> {
-    override fun read(buf: ByteBuffer): List<MessageContent> {
-        val len = buf.getInt()
-        return List<MessageContent>(len) {
-            FfiConverterTypeMessageContent.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<MessageContent>): ULong {
-        val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterTypeMessageContent.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(
-        value: List<MessageContent>,
-        buf: ByteBuffer,
-    ) {
-        buf.putInt(value.size)
-        value.iterator().forEach {
-            FfiConverterTypeMessageContent.write(it, buf)
-        }
-    }
-}
-
-/**
- * @suppress
- */
 public object FfiConverterSequenceTypeToolConfig : FfiConverterRustBuffer<List<ToolConfig>> {
     override fun read(buf: ByteBuffer): List<ToolConfig> {
         val len = buf.getInt()
@@ -1778,28 +1803,40 @@ public object FfiConverterSequenceTypeToolConfig : FfiConverterRustBuffer<List<T
 }
 
 /**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeMessageContent : FfiConverterRustBuffer<List<MessageContent>> {
+    override fun read(buf: ByteBuffer): List<MessageContent> {
+        val len = buf.getInt()
+        return List<MessageContent>(len) {
+            FfiConverterTypeMessageContent.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<MessageContent>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeMessageContent.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(
+        value: List<MessageContent>,
+        buf: ByteBuffer,
+    ) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeMessageContent.write(it, buf)
+        }
+    }
+}
+
+/**
  * Typealias from the type name used in the UDL file to the builtin type.  This
  * is needed because the UDL type name is used in function/method signatures.
  * It's also what we have an external type that references a custom type.
  */
 public typealias Contents = List<MessageContent>
 public typealias FfiConverterTypeContents = FfiConverterSequenceTypeMessageContent
-
-/**
- * Typealias from the type name used in the UDL file to the builtin type.  This
- * is needed because the UDL type name is used in function/method signatures.
- * It's also what we have an external type that references a custom type.
- */
-public typealias JsonValueFfi = kotlin.String
-public typealias FfiConverterTypeJsonValueFfi = FfiConverterString
-
-/**
- * Typealias from the type name used in the UDL file to the builtin type.  This
- * is needed because the UDL type name is used in function/method signatures.
- * It's also what we have an external type that references a custom type.
- */
-public typealias ToolConfig = kotlin.String
-public typealias FfiConverterTypeToolConfig = FfiConverterString
 
 /**
  * Typealias from the type name used in the UDL file to the builtin type.  This
@@ -1816,6 +1853,14 @@ public typealias FfiConverterTypeToolRequestToolCall = FfiConverterString
  */
 public typealias ToolResponseToolResult = kotlin.String
 public typealias FfiConverterTypeToolResponseToolResult = FfiConverterString
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ * It's also what we have an external type that references a custom type.
+ */
+public typealias Value = kotlin.String
+public typealias FfiConverterTypeValue = FfiConverterString
 
 @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 suspend fun `asyncPrint`(
@@ -1834,20 +1879,6 @@ suspend fun `asyncPrint`(
     // Error FFI converter
     UniffiNullRustCallStatusErrorHandler,
 )
-
-fun `createToolConfig`(
-    `name`: kotlin.String,
-    `inputSchema`: JsonValueFfi,
-): ToolConfig =
-    FfiConverterTypeToolConfig.lift(
-        uniffiRustCall { _status ->
-            UniffiLib.INSTANCE.uniffi_goose_uniffi_fn_func_create_tool_config(
-                FfiConverterString.lower(`name`),
-                FfiConverterTypeJsonValueFfi.lower(`inputSchema`),
-                _status,
-            )
-        },
-    )
 
 fun `printMessages`(`messages`: List<Message>) =
     uniffiRustCall { _status ->
