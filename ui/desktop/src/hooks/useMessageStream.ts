@@ -324,7 +324,10 @@ export function useMessageStream({
 
         if (!response.ok) {
           const text = await response.text();
-          throw new Error(text || `Error ${response.status}: ${response.statusText}`);
+          const errorMessage = text.includes('length limit exceeded')
+            ? 'Conversation has too much data for databricks to process'
+            : text;
+          throw new Error(errorMessage || `Error ${response.status}: ${response.statusText}`);
         }
 
         // Process the SSE stream

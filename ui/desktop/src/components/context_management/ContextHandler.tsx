@@ -44,6 +44,7 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
 
   // Function to trigger the async operation properly
   const triggerContextLengthExceeded = () => {
+    console.log('he');
     setHasFetchStarted(true);
     fetchStartedRef.current = true;
 
@@ -198,7 +199,8 @@ export const ContextHandler: React.FC<ContextHandlerProps> = ({
       }
     }
 
-    if (isResumed) {
+    // if resuming the session and this message that we are process is from summary request... do not show anything
+    if (isResumed && !isContextLengthExceeded) {
       return;
     }
 
