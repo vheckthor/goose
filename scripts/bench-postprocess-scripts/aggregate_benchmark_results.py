@@ -39,19 +39,31 @@ def process_csv_files(csv_files: List[Path]) -> pd.DataFrame:
         try:
             df = pd.read_csv(csv_file)
             
-            # Check if required columns exist
-            required_columns = [
+            # Define all possible columns we want to track
+            all_possible_columns = [
                 'provider', 'model_name', 'score_mean', 
                 'prompt_execution_time_seconds_mean', 'total_tool_calls_mean', 'total_tokens_mean'
             ]
             
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            # Check which columns are available
+            missing_columns = [col for col in all_possible_columns if col not in df.columns]
             if missing_columns:
                 print(f"Warning: {csv_file} is missing columns: {missing_columns}")
-                continue
+                
+                # Essential columns that must be present
+                essential_columns = ['provider', 'model_name', 'score_mean']
+                if any(col in missing_columns for col in essential_columns):
+                    print(f"Error: {csv_file} is missing essential columns. Skipping this file.")
+                    continue
+                    
+                # For non-essential columns, fill with NaN
+                for col in missing_columns:
+                    if col not in essential_columns:
+                        df[col] = float('nan')
             
-            # Select only the required columns
-            df_subset = df[required_columns]
+            # Select only the columns we care about
+            available_columns = [col for col in all_possible_columns if col in df.columns]
+            df_subset = df[available_columns]
             all_data.append(df_subset)
             
         except Exception as e:
@@ -64,23 +76,23 @@ def process_csv_files(csv_files: List[Path]) -> pd.DataFrame:
     combined_df = pd.concat(all_data, ignore_index=True)
     
     # Group by provider and model_name, then calculate averages
-    aggregated_df = combined_df.groupby(['provider', 'model_name']).agg({
-        'score_mean': 'mean',
-        'prompt_execution_time_seconds_mean': 'mean',
-        'total_tool_calls_mean': 'mean',
-        'total_tokens_mean': 'mean'
-    }).reset_index()
+    agg_columns = {}
+    for col in combined_df.columns:
+        if col not in ['provider', 'model_name']:
+            agg_columns[col] = 'mean'
+    
+    # Perform the aggregation, skipping NaN values
+    aggregated_df = combined_df.groupby(['provider', 'model_name']).agg(agg_columns).reset_index()
     
     # Rename columns to indicate they are averages
-    aggregated_df.columns = [
-        'provider', 'model_name', 
-        'avg_score_mean', 'avg_prompt_execution_time_seconds_mean', 
-        'avg_total_tool_calls_mean',
-        'avg_total_tokens_mean'
-    ]
+    new_columns = ['provider', 'model_name']
+    for col in aggregated_df.columns[2:]:  # Skip provider and model_name
+        new_columns.append(f"avg_{col}")
     
-    # Sort by provider and model_name for better readability
-    aggregated_df = aggregated_df.sort_values(['provider', 'model_name'])
+    aggregated_df.columns = new_columns
+    
+    # Sort by avg_score_mean in descending order (highest scores first)
+    aggregated_df = aggregated_df.sort_values('avg_score_mean', ascending=False)
     
     return aggregated_df
 
