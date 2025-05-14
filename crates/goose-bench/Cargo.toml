@@ -27,6 +27,8 @@ regex = "1.11.1"
 toml = "0.8.20"
 csv = "1.1"
 polars = { version = "0.35", features = ["lazy", "json", "csv"] }
+thiserror = "1.0"
+lazy_static = "1.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["wincred"] }
