@@ -1,9 +1,8 @@
 import { Popover, PopoverContent, PopoverPortal, PopoverTrigger } from '../ui/popover';
 import React, { useEffect, useState } from 'react';
-import { ChatSmart, Idea, More, Refresh, Time, Send } from '../icons';
+import { ChatSmart, Idea, Refresh, Time, Send, Settings } from '../icons';
 import { FolderOpen, Moon, Sliders, Sun } from 'lucide-react';
 import { useConfig } from '../ConfigContext';
-import { settingsV2Enabled } from '../../flags';
 import { ViewOptions, View } from '../../App';
 
 interface MenuButtonProps {
@@ -13,6 +12,7 @@ interface MenuButtonProps {
   className?: string;
   danger?: boolean;
   icon?: React.ReactNode;
+  testId?: string;
 }
 
 const MenuButton: React.FC<MenuButtonProps> = ({
@@ -22,9 +22,11 @@ const MenuButton: React.FC<MenuButtonProps> = ({
   className = '',
   danger = false,
   icon,
+  testId = '',
 }) => (
   <button
     onClick={onClick}
+    data-testid={testId}
     className={`w-full text-left px-4 py-3 min-h-[64px] text-sm hover:bg-bgSubtle transition-[background] border-b border-borderSubtle ${
       danger ? 'text-red-400' : ''
     } ${className}`}
@@ -166,10 +168,10 @@ export default function MoreMenu({
       <PopoverTrigger asChild>
         <button
           data-testid="more-options-button"
-          className={`z-[100] absolute top-2 right-4 w-[20px] h-[20px] transition-colors cursor-pointer no-drag hover:text-textProminent ${open ? 'text-textProminent' : 'text-textSubtle'}`}
+          className={`z-[100] w-7 h-7 p-1 rounded-full border border-borderSubtle transition-colors cursor-pointer no-drag hover:text-textStandard hover:border-borderStandard ${open ? 'text-textStandard' : 'text-textSubtle'}`}
           role="button"
         >
-          <More />
+          <Settings />
         </button>
       </PopoverTrigger>
 
@@ -259,6 +261,7 @@ export default function MoreMenu({
                 }}
                 subtitle="View all settings and options"
                 icon={<Sliders className="w-4 h-4 rotate-90" />}
+                testId="advanced-settings-button"
               >
                 Advanced settings
                 <span className="text-textSubtle ml-1">⌘,</span>
@@ -266,40 +269,21 @@ export default function MoreMenu({
 
               <ThemeSelect themeMode={themeMode} onThemeChange={handleThemeChange} />
 
-              {settingsV2Enabled && (
-                <MenuButton
-                  data-testid="reset-provider-button"
-                  onClick={async () => {
-                    await remove('GOOSE_PROVIDER', false);
-                    await remove('GOOSE_MODEL', false);
-                    setOpen(false);
-                    setView('welcome');
-                  }}
-                  danger
-                  subtitle="Clear selected model and restart (alpha)"
-                  icon={<Refresh className="w-4 h-4 text-textStandard" />}
-                  className="border-b-0"
-                >
-                  Reset provider and model
-                </MenuButton>
-              )}
-
-              {!settingsV2Enabled && (
-                <MenuButton
-                  data-testid="reset-provider-button"
-                  onClick={() => {
-                    localStorage.removeItem('GOOSE_PROVIDER');
-                    setOpen(false);
-                    window.electron.createChatWindow();
-                  }}
-                  danger
-                  subtitle="Clear selected model and restart"
-                  icon={<Refresh className="w-4 h-4 text-textStandard" />}
-                  className="border-b-0"
-                >
-                  Reset provider and model
-                </MenuButton>
-              )}
+              <MenuButton
+                data-testid="reset-provider-button"
+                onClick={async () => {
+                  await remove('GOOSE_PROVIDER', false);
+                  await remove('GOOSE_MODEL', false);
+                  setOpen(false);
+                  setView('welcome');
+                }}
+                danger
+                subtitle="Clear selected model and restart (alpha)"
+                icon={<Refresh className="w-4 h-4 text-textStandard" />}
+                className="border-b-0"
+              >
+                Reset provider and model
+              </MenuButton>
             </div>
           </PopoverContent>
         </>
