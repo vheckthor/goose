@@ -415,7 +415,7 @@ const createChat = async (
   mainWindow.webContents.on('did-finish-load', () => {
     const configStr = JSON.stringify(windowConfig).replace(/'/g, "\\'");
     mainWindow.webContents.executeJavaScript(`
-      localStorage.setItem('gooseConfig', '${configStr}')
+      localStorage.setItem('gooseConfig', ${configStr})
     `);
   });
 
