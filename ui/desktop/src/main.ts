@@ -763,6 +763,14 @@ const registerGlobalHotkey = (accelerator: string) => {
 
 // Configure auto updater
 const configureAutoUpdater = () => {
+  console.log('Configuring auto updater...');
+
+  // Skip auto-updater initialization in development
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    console.log('Skipping auto-updater initialization in development mode');
+    return;
+  }
+
   // Configure logging
   autoUpdater.logger = log;
   autoUpdater.autoDownload = true;
@@ -770,37 +778,61 @@ const configureAutoUpdater = () => {
 
   // Handle update events
   autoUpdater.on('checking-for-update', () => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.log('Checking for update...');
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('check-for-update');
     });
   });
 
   autoUpdater.on('update-available', (info) => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.log('Update available:', info);
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('update-available', info);
     });
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.log('Update not available, showing notification...', info);
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('update-not-available', info);
     });
+
+    // Show notification that app is up to date
+    try {
+      const notification = new Notification({
+        title: 'Goose is Up to Date',
+        body: 'You are running the latest version of Goose.',
+      });
+      notification.show();
+      console.log('Notification shown successfully');
+    } catch (error) {
+      console.error('Error showing notification:', error);
+      // Fallback to dialog if notification fails
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Goose is Up to Date',
+        message: 'You are running the latest version of Goose.',
+      });
+    }
   });
 
   autoUpdater.on('error', (err) => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.error('Update error:', err);
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('update-error', err.message);
     });
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.log('Download progress:', progressObj);
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('download-progress', progressObj);
     });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    BrowserWindow.getAllWindows().forEach(window => {
+    console.log('Update downloaded:', info);
+    BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('update-downloaded', info);
     });
 
@@ -815,13 +847,17 @@ const configureAutoUpdater = () => {
   // Check for updates every hour
   const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
   setInterval(() => {
-    autoUpdater.checkForUpdates().catch(err => {
+    console.log('Running scheduled update check...');
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('Error in scheduled update check:', err);
       log.error('Error checking for updates:', err);
     });
   }, CHECK_INTERVAL);
 
   // Initial check for updates
-  autoUpdater.checkForUpdates().catch(err => {
+  console.log('Running initial update check...');
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.error('Error in initial update check:', err);
     log.error('Error checking for updates:', err);
   });
 };
@@ -829,7 +865,7 @@ const configureAutoUpdater = () => {
 app.whenReady().then(async () => {
   // Configure auto updater
   configureAutoUpdater();
-  
+
   // Register the default global hotkey
   registerGlobalHotkey('CommandOrControl+Alt+Shift+G');
 
@@ -859,10 +895,47 @@ app.whenReady().then(async () => {
   // App menu
   const appMenu = menu?.items.find((item) => item.label === 'Goose');
   if (appMenu?.submenu) {
-    // add Settings to app menu after About
+    // Add Check for Updates and Settings to app menu after About
     appMenu.submenu.insert(1, new MenuItem({ type: 'separator' }));
     appMenu.submenu.insert(
       1,
+      new MenuItem({
+        label: 'Check for Updates...',
+        click: async () => {
+          console.log('Check for Updates clicked, checking...');
+
+          // Check if we're in development mode
+          if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+            console.log('In development mode, showing info dialog');
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'Updates in Development',
+              message: 'Update checking is only available in the packaged application.',
+              detail:
+                'This is a development build of Goose. Please use the packaged version to check for updates.',
+            });
+            return;
+          }
+
+          try {
+            await autoUpdater.checkForUpdates();
+            console.log('checkForUpdates() completed');
+          } catch (err) {
+            console.error('Error checking for updates:', err);
+            log.error('Error checking for updates:', err);
+            dialog.showMessageBox({
+              type: 'error',
+              title: 'Update Error',
+              message: 'Failed to check for updates.',
+              detail: err.message,
+            });
+          }
+        },
+      })
+    );
+    appMenu.submenu.insert(2, new MenuItem({ type: 'separator' }));
+    appMenu.submenu.insert(
+      3,
       new MenuItem({
         label: 'Settings',
         accelerator: 'CmdOrCtrl+,',
@@ -872,7 +945,7 @@ app.whenReady().then(async () => {
         },
       })
     );
-    appMenu.submenu.insert(1, new MenuItem({ type: 'separator' }));
+    appMenu.submenu.insert(4, new MenuItem({ type: 'separator' }));
   }
 
   // Add Find submenu to Edit menu

@@ -1,18 +1,5 @@
 import { ipcRenderer } from 'electron';
 
-interface UpdateInfo {
-  version: string;
-  releaseNotes?: string;
-}
-
-export interface UpdateStatus {
-  checking: boolean;
-  available: boolean;
-  downloading: boolean;
-  downloaded: boolean;
-  error?: string;
-}
-
 // Event names for update events
 export const UPDATE_EVENTS = {
   CHECK_FOR_UPDATE: 'check-for-update',
@@ -23,6 +10,16 @@ export const UPDATE_EVENTS = {
   DOWNLOAD_PROGRESS: 'download-progress',
 };
 
+export interface UpdateStatus {
+  checking: boolean;
+  available: boolean;
+  downloading: boolean;
+  downloaded: boolean;
+  error?: string;
+}
+
+type UpdateCallback = (...args: unknown[]) => void;
+
 class AutoUpdater {
   private status: UpdateStatus = {
     checking: false,
@@ -31,7 +28,7 @@ class AutoUpdater {
     downloaded: false,
   };
 
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<UpdateCallback>> = new Map();
 
   constructor() {
     this.setupEventListeners();
@@ -39,7 +36,7 @@ class AutoUpdater {
 
   private setupEventListeners() {
     // Listen for update events from the main process
-    Object.values(UPDATE_EVENTS).forEach(eventName => {
+    Object.values(UPDATE_EVENTS).forEach((eventName) => {
       ipcRenderer.on(eventName, (_, ...args) => {
         this.emit(eventName, ...args);
       });
@@ -56,24 +53,24 @@ class AutoUpdater {
     return { ...this.status };
   }
 
-  public on(event: string, callback: Function) {
+  public on(event: string, callback: UpdateCallback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)?.add(callback);
   }
 
-  public off(event: string, callback: Function) {
+  public off(event: string, callback: UpdateCallback) {
     this.listeners.get(event)?.delete(callback);
   }
 
-  private emit(event: string, ...args: any[]) {
-    this.listeners.get(event)?.forEach(callback => callback(...args));
+  private emit(event: string, ...args: unknown[]) {
+    this.listeners.get(event)?.forEach((callback) => callback(...args));
   }
 
   public destroy() {
     // Clean up event listeners
-    Object.values(UPDATE_EVENTS).forEach(eventName => {
+    Object.values(UPDATE_EVENTS).forEach((eventName) => {
       ipcRenderer.removeAllListeners(eventName);
     });
     this.listeners.clear();
