@@ -12,6 +12,7 @@ import {
   App,
   globalShortcut,
 } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { Buffer } from 'node:buffer';
 import started from 'electron-squirrel-startup';
 import path from 'node:path';
@@ -760,7 +761,75 @@ const registerGlobalHotkey = (accelerator: string) => {
   }
 };
 
+// Configure auto updater
+const configureAutoUpdater = () => {
+  // Configure logging
+  autoUpdater.logger = log;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  // Handle update events
+  autoUpdater.on('checking-for-update', () => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('check-for-update');
+    });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('update-available', info);
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('update-not-available', info);
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('update-error', err.message);
+    });
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('download-progress', progressObj);
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send('update-downloaded', info);
+    });
+
+    // Show notification
+    const notification = new Notification({
+      title: 'Update Ready',
+      body: 'A new version of Goose has been downloaded. It will be installed when you quit the application.',
+    });
+    notification.show();
+  });
+
+  // Check for updates every hour
+  const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      log.error('Error checking for updates:', err);
+    });
+  }, CHECK_INTERVAL);
+
+  // Initial check for updates
+  autoUpdater.checkForUpdates().catch(err => {
+    log.error('Error checking for updates:', err);
+  });
+};
+
 app.whenReady().then(async () => {
+  // Configure auto updater
+  configureAutoUpdater();
+  
   // Register the default global hotkey
   registerGlobalHotkey('CommandOrControl+Alt+Shift+G');
 
