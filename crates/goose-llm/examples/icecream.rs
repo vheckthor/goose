@@ -33,9 +33,20 @@ async fn main() -> Result<()> {
 
         let serialized = serde_json::to_string_pretty(&completion_response)?;
 
-        if i % 10 == 0 {
+        // Check for "type" & "text" in the response
+        let concat_text = &completion_response.message.content.concat_text_str();
+        if concat_text.contains("type") && concat_text.contains("text") {
+            println!("Suspected JSON response: {}", concat_text);
             println!(
                 "\n{} Completion: {}\n",
+                i,
+                serialized
+            );
+        }
+
+        if i % 10 == 0 {
+            println!(
+                "\n{} [log] Completion: {}\n",
                 i,
                 serialized
             );
