@@ -30,11 +30,16 @@ async fn main() -> Result<()> {
             vec![].clone(),
         ))
         .await?;
-        println!(
-            "\n{} Completion: {}\n",
-            i,
-            serde_json::to_string_pretty(&completion_response.message.content)?
-        );
+
+        let serialized = serde_json::to_string_pretty(&completion_response)?;
+
+        if i % 10 == 0 {
+            println!(
+                "\n{} Completion: {}\n",
+                i,
+                serialized
+            );
+        }
     }
 
     Ok(())
