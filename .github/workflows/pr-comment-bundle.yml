@@ -33,12 +33,18 @@ jobs:
       pr_sha: ${{ steps.get_pr_info.outputs.sha }}
     steps:
       - name: Debug workflow source
+        env:
+          WORKFLOW_PATH: ${{ github.workflow }}
+          WORKFLOW_REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          echo "Workflow file path: ${{ github.workflow }}"
-          echo "Workflow ref: ${{ github.ref }}"
-          echo "Event name: ${{ github.event_name }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Repository: ${{ github.repository }}"
+          echo "Workflow file path: ${WORKFLOW_PATH}"
+          echo "Workflow ref: ${WORKFLOW_REF}"
+          echo "Event name: ${EVENT_NAME}"
+          echo "Actor: ${ACTOR}"
+          echo "Repository: ${REPOSITORY}"
 
       - if: ${{ github.event_name == 'issue_comment' }}
         uses: github/command@319d5236cc34ed2cb72a47c058a363db0b628ebe # pin@v1.3.0
@@ -115,13 +121,16 @@ jobs:
           path: arm64-dist
 
       - name: Comment on PR with ARM64 download link
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # pin@v4
         with:
           issue-number: ${{ needs.trigger-on-command.outputs.pr_number }}
           body: |
             ### macOS ARM64 Desktop App (Apple Silicon)
 
-            [📱 Download macOS Desktop App (arm64, signed)](https://nightly.link/${{ github.repository }}/actions/runs/${{ github.run_id }}/Goose-darwin-arm64.zip)
+            [📱 Download macOS Desktop App (arm64, signed)](https://nightly.link/${REPOSITORY}/actions/runs/${RUN_ID}/Goose-darwin-arm64.zip)
 
             **Instructions:**
             After downloading, unzip the file and drag the Goose.app to your Applications folder. The app is signed and notarized for macOS.
