@@ -22,13 +22,10 @@ on:
         default: true
         type: boolean
       ref:
-        description: 'Git ref to checkout (branch, tag, or SHA)'
+        description: 'Git ref to checkout (branch, tag, or SHA). Defaults to main branch if not specified.'
         required: false
         type: string
-      pr_number:
-        description: 'PR number to fetch'
-        required: false
-        type: string
+        default: ''
     secrets:
       CERTIFICATE_OSX_APPLICATION:
         description: 'Certificate for macOS application signing'
@@ -56,28 +53,26 @@ jobs:
       # Debug information about the workflow and inputs
       - name: Debug workflow info
         env:
-          WORKFLOW_FILE: ${{ github.workflow }}
+          WORKFLOW_NAME: ${{ github.workflow }}
           WORKFLOW_REF: ${{ github.ref }}
           EVENT_NAME: ${{ github.event_name }}
           REPOSITORY: ${{ github.repository }}
           INPUT_REF: ${{ inputs.ref }}
-          INPUT_PR: ${{ inputs.pr_number }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_SIGNING: ${{ inputs.signing }}
           INPUT_QUICK_TEST: ${{ inputs.quick_test }}
         run: |
-          echo "Workflow source info:"
-          echo "  Workflow file: ${WORKFLOW_FILE}"
-          echo "  Workflow ref: ${WORKFLOW_REF}"
-          echo "  Event name: ${EVENT_NAME}"
-          echo "  Repository: ${REPOSITORY}"
+          echo "=== Workflow Information ==="
+          echo "Workflow: ${WORKFLOW_NAME}"
+          echo "Ref: ${WORKFLOW_REF}"
+          echo "Event: ${EVENT_NAME}"
+          echo "Repo: ${REPOSITORY}"
           echo ""
-          echo "Input parameters:"
-          echo "  Requested ref: ${INPUT_REF}"
-          echo "  PR number: ${INPUT_PR}"
-          echo "  Version: ${INPUT_VERSION}"
-          echo "  Signing enabled: ${INPUT_SIGNING}"
-          echo "  Quick test enabled: ${INPUT_QUICK_TEST}"
+          echo "=== Input Parameters ==="
+          echo "Build ref: ${INPUT_REF:-<default branch>}"
+          echo "Version: ${INPUT_VERSION:-not set}"
+          echo "Signing: ${INPUT_SIGNING:-false}"
+          echo "Quick test: ${INPUT_QUICK_TEST:-true}"
 
       # Check initial disk space
       - name: Check initial disk space
@@ -86,49 +81,48 @@ jobs:
       # Validate Signing Secrets if signing is enabled
       - name: Validate Signing Secrets
         if: ${{ inputs.signing }}
-        shell: bash
+        env:
+          HAS_CERT: ${{ secrets.CERTIFICATE_OSX_APPLICATION != '' }}
+          HAS_CERT_PASS: ${{ secrets.CERTIFICATE_PASSWORD != '' }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_APPLE_PASS: ${{ secrets.APPLE_ID_PASSWORD != '' }}
+          HAS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
         run: |
-          missing_secrets=()
+          missing=()
+          [[ "${HAS_CERT}" != "true" ]] && missing+=("CERTIFICATE_OSX_APPLICATION")
+          [[ "${HAS_CERT_PASS}" != "true" ]] && missing+=("CERTIFICATE_PASSWORD")
+          [[ "${HAS_APPLE_ID}" != "true" ]] && missing+=("APPLE_ID")
+          [[ "${HAS_APPLE_PASS}" != "true" ]] && missing+=("APPLE_ID_PASSWORD")
+          [[ "${HAS_TEAM_ID}" != "true" ]] && missing+=("APPLE_TEAM_ID")
           
-          [ -z "$CERT" ] && missing_secrets+=("CERTIFICATE_OSX_APPLICATION")
-          [ -z "$CERT_PASS" ] && missing_secrets+=("CERTIFICATE_PASSWORD")
-          [ -z "$APPLE_ID" ] && missing_secrets+=("APPLE_ID")
-          [ -z "$APPLE_PASS" ] && missing_secrets+=("APPLE_ID_PASSWORD")
-          [ -z "$TEAM_ID" ] && missing_secrets+=("APPLE_TEAM_ID")
-          
-          if [ ${#missing_secrets[@]} -ne 0 ]; then
-            echo "Error: The following required secrets are missing:"
-            printf '%s\n' "${missing_secrets[@]}"
+          if (( ${#missing[@]} > 0 )); then
+            echo "Error: Missing required signing secrets:"
+            printf '%s\n' "${missing[@]}"
             exit 1
           fi
           
           echo "All required signing secrets are present."
-        env:
-          CERT: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
-          CERT_PASS: ${{ secrets.CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASS: ${{ secrets.APPLE_ID_PASSWORD }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ inputs.ref }}
-          fetch-depth: 0  # Fetch all history
-          submodules: recursive
+          # Only pass ref if it's explicitly set, otherwise let checkout action use its default behavior
+          ref: ${{ inputs.ref != '' && inputs.ref || '' }}
+          fetch-depth: 0
 
       - name: Debug git status
         run: |
-          echo "Git status after checkout:"
+          echo "=== Git Status ==="
           git status
           echo ""
-          echo "Current commit:"
+          echo "=== Current Commit ==="
           git rev-parse HEAD
+          git rev-parse --abbrev-ref HEAD
           echo ""
-          echo "Recent commits:"
+          echo "=== Recent Commits ==="
           git log --oneline -n 5
           echo ""
-          echo "Remote branches:"
+          echo "=== Remote Branches ==="
           git branch -r
 
       # Update versions before build

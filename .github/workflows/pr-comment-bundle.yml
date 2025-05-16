@@ -28,21 +28,23 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       continue: ${{ steps.command.outputs.continue || github.event_name == 'workflow_dispatch' }}
-      # Cannot use github.event.pull_request.number since the trigger is 'issue_comment'
       pr_number: ${{ steps.command.outputs.issue_number || github.event.inputs.pr_number }}
       pr_sha: ${{ steps.get_pr_info.outputs.sha }}
     steps:
-      - name: Debug workflow source
+      - name: Debug workflow trigger
         env:
-          WORKFLOW_PATH: ${{ github.workflow }}
+          WORKFLOW_NAME: ${{ github.workflow }}
           WORKFLOW_REF: ${{ github.ref }}
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
           ACTOR: ${{ github.actor }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          echo "Workflow file path: ${WORKFLOW_PATH}"
-          echo "Workflow ref: ${WORKFLOW_REF}"
-          echo "Event name: ${EVENT_NAME}"
+          echo "=== Workflow Trigger Info ==="
+          echo "Workflow: ${WORKFLOW_NAME}"
+          echo "Ref: ${WORKFLOW_REF}"
+          echo "Event: ${EVENT_NAME}"
+          echo "Action: ${EVENT_ACTION}"
           echo "Actor: ${ACTOR}"
           echo "Repository: ${REPOSITORY}"
 
@@ -73,15 +75,17 @@ jobs:
               pull_number: parseInt(prNumber, 10)
             });
             
-            console.log('PR Info:', {
+            console.log('PR Details:', {
               number: pr.number,
               head: {
                 ref: pr.head.ref,
-                sha: pr.head.sha
+                sha: pr.head.sha,
+                label: pr.head.label
               },
               base: {
                 ref: pr.base.ref,
-                sha: pr.base.sha
+                sha: pr.base.sha,
+                label: pr.base.label
               }
             });
             
@@ -92,7 +96,6 @@ jobs:
             }
 
   bundle-desktop:
-    # Only run this if ".bundle" command is detected.
     needs: [trigger-on-command]
     if: ${{ needs.trigger-on-command.outputs.continue == 'true' }}
     uses: ./.github/workflows/bundle-desktop.yml
@@ -124,6 +127,7 @@ jobs:
         env:
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
+          PR_NUMBER: ${{ needs.trigger-on-command.outputs.pr_number }}
         uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # pin@v4
         with:
           issue-number: ${{ needs.trigger-on-command.outputs.pr_number }}
