@@ -21,6 +21,10 @@ on:
         required: false
         default: true
         type: boolean
+      ref:
+        description: 'Git ref to checkout (branch, tag, or SHA)'
+        required: false
+        type: string
     secrets:
       CERTIFICATE_OSX_APPLICATION:
         description: 'Certificate for macOS application signing'
@@ -77,6 +81,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.ref }}
 
       # Update versions before build
       - name: Update versions

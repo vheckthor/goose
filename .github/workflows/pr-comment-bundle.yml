@@ -69,25 +69,16 @@ jobs:
     # Only run this if ".bundle" command is detected.
     needs: [trigger-on-command]
     if: ${{ needs.trigger-on-command.outputs.continue == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      # Checkout the PR's code first
-      - name: Checkout PR
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.trigger-on-command.outputs.pr_ref }}
-
-      # Call the reusable workflow from the checked out code
-      - name: Bundle Desktop App
-        uses: ./.github/workflows/bundle-desktop.yml
-        with:
-          signing: true
-        secrets:
-          CERTIFICATE_OSX_APPLICATION: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    uses: ./.github/workflows/bundle-desktop.yml
+    with:
+      signing: true
+      ref: ${{ needs.trigger-on-command.outputs.pr_ref }}
+    secrets:
+      CERTIFICATE_OSX_APPLICATION: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
+      CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   pr-comment-arm64:
     name: PR Comment with macOS ARM64 App
