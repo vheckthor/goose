@@ -19,7 +19,6 @@ export default defineConfig({
       external: [
         'electron',
         'electron-squirrel-startup',
-        'electron-updater',
         'path',
         'fs',
         'os',
