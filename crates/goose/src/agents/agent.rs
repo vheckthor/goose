@@ -33,6 +33,7 @@ use mcp_core::{
 
 use super::platform_tools;
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
+use crate::agents::tool_selector::ToolSelector;
 
 /// The main goose Agent
 pub struct Agent {
@@ -46,6 +47,7 @@ pub struct Agent {
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
     pub(super) tool_result_rx: ToolResultReceiver,
     pub(super) tool_monitor: Mutex<Option<ToolMonitor>>,
+    pub(super) tool_selector: Mutex<Option<ToolSelector>>,
 }
 
 impl Agent {
@@ -65,6 +67,7 @@ impl Agent {
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
             tool_monitor: Mutex::new(None),
+            tool_selector: Mutex::new(Some(ToolSelector::new(None))),
         }
     }
 
@@ -304,6 +307,7 @@ impl Agent {
             // Add platform tools
             prefixed_tools.push(platform_tools::search_available_extensions_tool());
             prefixed_tools.push(platform_tools::manage_extensions_tool());
+            prefixed_tools.push(platform_tools::tool_selector_tool()); // TODO: uncomment when implemented
 
             // Add resource tools if supported
             if extension_manager.supports_resources() {

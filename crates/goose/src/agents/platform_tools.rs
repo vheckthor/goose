@@ -7,6 +7,7 @@ pub const PLATFORM_LIST_RESOURCES_TOOL_NAME: &str = "platform__list_resources";
 pub const PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME: &str =
     "platform__search_available_extensions";
 pub const PLATFORM_MANAGE_EXTENSIONS_TOOL_NAME: &str = "platform__manage_extensions";
+pub const PLATFORM_TOOL_SELECTOR_TOOL_NAME: &str = "platform__tool_selector";
 
 pub fn read_resource_tool() -> Tool {
     Tool::new(
@@ -106,6 +107,33 @@ pub fn manage_extensions_tool() -> Tool {
         Some(ToolAnnotations {
             title: Some("Enable or disable an extension".to_string()),
             read_only_hint: false,
+            destructive_hint: false,
+            idempotent_hint: false,
+            open_world_hint: false,
+        }),
+    )
+}
+
+pub fn tool_selector_tool() -> Tool {
+    Tool::new(
+        PLATFORM_TOOL_SELECTOR_TOOL_NAME.to_string(),
+        "Selects the tools to use based on the user messages and available tools.
+        Mitigates clouding of context by selecting the most relevant tools based on the user's message.
+        Tool selection strategies are either default or vector-based.
+        Default strategy uses a predefined list of tools.
+        Vector strategy uses a vector database to select the most relevant tools based on the user's message.".to_string(),
+        json!({
+            "type": "object",
+            "required": ["input", "available_tools"],
+            "properties": {
+                "input": {"type": "string", "description": "The input to select the tools for"},
+                "available_tools": {"type": "array", "description": "The available tools to select from"},
+                "type": {"type": "string", "description": "The type of tool selection strategy to use", "enum": ["default", "vector"]}
+            }
+        }),
+        Some(ToolAnnotations {
+            title: Some("Select tools".to_string()),
+            read_only_hint: true,
             destructive_hint: false,
             idempotent_hint: false,
             open_world_hint: false,
