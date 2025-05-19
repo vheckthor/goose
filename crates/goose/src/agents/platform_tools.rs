@@ -124,12 +124,8 @@ pub fn tool_selector_tool() -> Tool {
         Vector strategy uses a vector database to select the most relevant tools based on the user's message.".to_string(),
         json!({
             "type": "object",
-            "required": ["input", "available_tools"],
-            "properties": {
-                "input": {"type": "string", "description": "The input to select the tools for"},
-                "available_tools": {"type": "array", "description": "The available tools to select from"},
-                "type": {"type": "string", "description": "The type of tool selection strategy to use", "enum": ["default", "vector"]}
-            }
+            "required": [],
+            "properties": {},
         }),
         Some(ToolAnnotations {
             title: Some("Select tools".to_string()),

@@ -7,9 +7,9 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use tokio::sync::Mutex;
 
+use crate::agents::tool_selector::ToolSelectorContext;
 use crate::config::permission::PermissionLevel;
 use crate::config::PermissionManager;
-use crate::agents::tool_selector::ToolSelectorContext;
 use crate::message::{Message, ToolRequest};
 use crate::permission::Permission;
 use mcp_core::{Content, ToolError};

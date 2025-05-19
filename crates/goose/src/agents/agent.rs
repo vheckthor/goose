@@ -23,7 +23,7 @@ use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
     PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_MANAGE_EXTENSIONS_TOOL_NAME,
     PLATFORM_READ_RESOURCE_TOOL_NAME, PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
-    PLATFORM_TOOL_SELECTOR_TOOL_NAME
+    PLATFORM_TOOL_SELECTOR_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::SessionConfig;
@@ -34,7 +34,9 @@ use mcp_core::{
 
 use super::platform_tools;
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
-use crate::agents::tool_selector::{ToolSelector, ToolSelectorContext, ToolSelectorStrategy, create_tool_selector};
+use crate::agents::tool_selector::{
+    create_tool_selector, ToolSelector, ToolSelectorContext, ToolSelectorStrategy,
+};
 
 /// The main goose Agent
 pub struct Agent {
@@ -58,15 +60,13 @@ impl Agent {
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
         // Get tool selector strategy from environment
-        let tool_selector_strategy = std::env::var("GOOSE_TOOL_SELECTOR")
-            .ok()
-            .and_then(|s| {
-                if s.eq_ignore_ascii_case("vector") {
-                    Some(ToolSelectorStrategy::Vector)
-                } else {
-                    Some(ToolSelectorStrategy::Default)
-                }
-            });
+        let tool_selector_strategy = std::env::var("GOOSE_TOOL_SELECTOR").ok().and_then(|s| {
+            if s.eq_ignore_ascii_case("vector") {
+                Some(ToolSelectorStrategy::Vector)
+            } else {
+                Some(ToolSelectorStrategy::Default)
+            }
+        });
 
         Self {
             provider: Mutex::new(None),
@@ -200,7 +200,9 @@ impl Agent {
             if let Some(selector) = tool_selector.as_ref() {
                 selector.select_tools(&tool_selector_ctx).await
             } else {
-                Err(ToolError::ExecutionError("Tool selector not initialized".to_string()))
+                Err(ToolError::ExecutionError(
+                    "Tool selector not initialized".to_string(),
+                ))
             }
         } else if self.is_frontend_tool(&tool_call.name).await {
             // For frontend tools, return an error indicating we need frontend execution
@@ -316,13 +318,6 @@ impl Agent {
         Ok(())
     }
 
-    pub async fn update_available_tools(&self, tools: Vec<String>) {
-        let mut tool_selector = self.tool_selector.lock().await;
-        if let Some(selector) = tool_selector.as_mut() {
-            selector.update_available_tools(tools);
-        }
-    }
-
     pub async fn list_tools(&self, extension_name: Option<String>) -> Vec<Tool> {
         let extension_manager = self.extension_manager.lock().await;
         let mut prefixed_tools = extension_manager
@@ -334,7 +329,8 @@ impl Agent {
             // Add platform tools
             prefixed_tools.push(platform_tools::search_available_extensions_tool());
             prefixed_tools.push(platform_tools::manage_extensions_tool());
-            prefixed_tools.push(platform_tools::tool_selector_tool()); // TODO: uncomment when implemented
+            // TODO: uncomment when implemented
+            prefixed_tools.push(platform_tools::tool_selector_tool());
 
             // Add resource tools if supported
             if extension_manager.supports_resources() {
@@ -505,6 +501,7 @@ impl Agent {
                                 tool_futures_arc.clone(),
                                 &mut permission_manager,
                                 message_tool_response.clone(),
+                                tool_selector_ctx.clone()
                             );
 
                             // We have a stream of tool_approval_requests to handle

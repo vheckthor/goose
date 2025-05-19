@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use crate::message::Message;
-use mcp_core::{Tool, ToolError, Content};
+use async_trait::async_trait;
+use mcp_core::{Content, Tool, ToolError};
 
 pub enum ToolSelectorStrategy {
     Default,
@@ -29,7 +29,9 @@ pub struct DefaultToolSelector;
 #[async_trait]
 impl ToolSelector for DefaultToolSelector {
     async fn select_tools(&self, ctx: &ToolSelectorContext) -> Result<Vec<Content>, ToolError> {
-        Ok(ctx.tools.iter()
+        Ok(ctx
+            .tools
+            .iter()
             .map(|tool| Content::text(tool.name.clone()))
             .collect())
     }
@@ -41,7 +43,7 @@ pub struct VectorToolSelector;
 impl ToolSelector for VectorToolSelector {
     async fn select_tools(&self, ctx: &ToolSelectorContext) -> Result<Vec<Content>, ToolError> {
         let mut selected_tools = Vec::new();
-        
+        // TODO: placeholder for vector tool selection
         if let Some(last_message) = ctx.messages.last() {
             if let Some(content) = last_message.content.first().and_then(|c| c.as_text()) {
                 for tool in &ctx.tools {
@@ -51,10 +53,8 @@ impl ToolSelector for VectorToolSelector {
                 }
             }
         }
-        
-        Ok(selected_tools.into_iter()
-            .map(Content::text)
-            .collect())
+
+        Ok(selected_tools.into_iter().map(Content::text).collect())
     }
 }
 
