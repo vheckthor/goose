@@ -79,6 +79,15 @@
       "prettier --write"
     ]
   },
+  "build": {
+    "appId": "com.block.goose",
+    "productName": "Goose",
+    "publish": [{
+      "provider": "github",
+      "owner": "block",
+      "repo": "goose"
+    }]
+  },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.72",
     "@ai-sdk/ui-utils": "^1.0.2",

@@ -4,7 +4,7 @@ const { resolve } = require('path');
 
 let cfg = {
   asar: true,
-  extraResource: ['src/bin', 'src/images'],
+  extraResource: ['src/bin', 'src/images', 'app-update.yml'],
   icon: 'src/images/icon',
   // Windows specific configuration
   win32: {
@@ -35,12 +35,12 @@ let cfg = {
     teamId: process.env['APPLE_TEAM_ID']
   },
   // Auto-update configuration
-  publish: {
+  publish: [{
     provider: 'github',
     owner: 'block',
-    repo: 'goose',
-    private: true,
-  },
+    repo: 'goose'
+  }],
+  generateUpdatesFilesForAllChannels: true,
 }
 
 if (process.env['APPLE_ID'] === undefined) {
