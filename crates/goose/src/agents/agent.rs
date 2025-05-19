@@ -33,7 +33,7 @@ use mcp_core::{
 
 use super::platform_tools;
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
-use crate::agents::tool_selector::ToolSelector;
+use crate::agents::tool_selector::{DefaultToolSelector, ToolSelector, ToolSelectionStrategy, create_tool_selector};
 
 /// The main goose Agent
 pub struct Agent {
@@ -47,7 +47,7 @@ pub struct Agent {
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
     pub(super) tool_result_rx: ToolResultReceiver,
     pub(super) tool_monitor: Mutex<Option<ToolMonitor>>,
-    pub(super) tool_selector: Mutex<Option<ToolSelector>>,
+    pub(super) tool_selector: Mutex<Option<Box<dyn ToolSelector>>>,
 }
 
 impl Agent {
@@ -55,6 +55,17 @@ impl Agent {
         // Create channels with buffer size 32 (adjust if needed)
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
+
+        // Get tool selector strategy from environment
+        let tool_selector_strategy = std::env::var("GOOSE_TOOL_SELECTOR")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(ToolSelectionStrategy::Vector)
+                } else {
+                    Some(ToolSelectionStrategy::Default)
+                }
+            });
 
         Self {
             provider: Mutex::new(None),
@@ -67,7 +78,7 @@ impl Agent {
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
             tool_monitor: Mutex::new(None),
-            tool_selector: Mutex::new(Some(ToolSelector::new(None))),
+            tool_selector: Mutex::new(Some(create_tool_selector(tool_selector_strategy))),
         }
     }
 
