@@ -4,7 +4,7 @@ const { resolve } = require('path');
 
 let cfg = {
   asar: true,
-  extraResource: ['src/bin', 'src/images', 'app-update.yml'],
+  extraResource: ['src/bin', 'src/images', 'app-update.yml', 'dist/latest-mac.yml'],
   icon: 'src/images/icon',
   // Windows specific configuration
   win32: {
@@ -38,9 +38,19 @@ let cfg = {
   publish: [{
     provider: 'github',
     owner: 'block',
-    repo: 'goose'
+    repo: 'goose',
+    releaseType: 'release'
   }],
   generateUpdatesFilesForAllChannels: true,
+  config: {
+    mac: {
+      target: ['zip', 'dmg'],
+      category: 'public.app-category.developer-tools'
+    },
+    win: {
+      target: ['nsis', 'zip']
+    }
+  },
 }
 
 if (process.env['APPLE_ID'] === undefined) {
