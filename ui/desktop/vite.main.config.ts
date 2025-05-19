@@ -22,8 +22,7 @@ export default defineConfig({
         'fs',
         'os',
         'child_process',
-        'crypto',
-        'yaml'
+        'crypto'
       ],
       output: {
         format: 'cjs',
