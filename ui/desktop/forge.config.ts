@@ -4,7 +4,7 @@ const { resolve } = require('path');
 
 let cfg = {
   asar: true,
-  extraResource: ['src/bin', 'src/images', 'app-update.yml', 'dist/latest-mac.yml'],
+  extraResource: ['src/bin', 'src/images'],
   icon: 'src/images/icon',
   // Windows specific configuration
   win32: {
@@ -42,6 +42,16 @@ let cfg = {
     releaseType: 'release'
   }],
   generateUpdatesFilesForAllChannels: true,
+  updateConfig: {
+    mac: {
+      url: 'https://github.com/block/goose/releases/latest/download',
+      updateInfoPath: 'latest-mac.yml'
+    },
+    win: {
+      url: 'https://github.com/block/goose/releases/latest/download',
+      updateInfoPath: 'latest-win.yml'
+    }
+  },
   config: {
     mac: {
       target: ['zip', 'dmg'],
