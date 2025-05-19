@@ -9,10 +9,10 @@ use tokio::sync::Mutex;
 
 use crate::config::permission::PermissionLevel;
 use crate::config::PermissionManager;
+use crate::agents::tool_selector::ToolSelectorContext;
 use crate::message::{Message, ToolRequest};
 use crate::permission::Permission;
 use mcp_core::{Content, ToolError};
-
 // Type alias for ToolFutures - used in the agent loop to join all futures together
 pub(crate) type ToolFuture<'a> =
     Pin<Box<dyn Future<Output = (String, Result<Vec<Content>, ToolError>)> + Send + 'a>>;
@@ -40,6 +40,7 @@ impl Agent {
         tool_futures: ToolFuturesVec<'a>,
         permission_manager: &'a mut PermissionManager,
         message_tool_response: Arc<Mutex<Message>>,
+        tool_selector_ctx: ToolSelectorContext,
     ) -> BoxStream<'a, anyhow::Result<Message>> {
         try_stream! {
             for request in tool_requests {
@@ -56,7 +57,7 @@ impl Agent {
                     while let Some((req_id, confirmation)) = rx.recv().await {
                         if req_id == request.id {
                             if confirmation.permission == Permission::AllowOnce || confirmation.permission == Permission::AlwaysAllow {
-                                let tool_future = self.dispatch_tool_call(tool_call.clone(), request.id.clone());
+                                let tool_future = self.dispatch_tool_call(tool_call.clone(), request.id.clone(), tool_selector_ctx.clone());
                                 let mut futures = tool_futures.lock().await;
                                 futures.push(Box::pin(tool_future));
 

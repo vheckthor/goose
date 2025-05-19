@@ -23,6 +23,7 @@ use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
     PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_MANAGE_EXTENSIONS_TOOL_NAME,
     PLATFORM_READ_RESOURCE_TOOL_NAME, PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
+    PLATFORM_TOOL_SELECTOR_TOOL_NAME
 };
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::types::SessionConfig;
@@ -33,7 +34,7 @@ use mcp_core::{
 
 use super::platform_tools;
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
-use crate::agents::tool_selector::{DefaultToolSelector, ToolSelector, ToolSelectionStrategy, create_tool_selector};
+use crate::agents::tool_selector::{ToolSelector, ToolSelectorContext, ToolSelectorStrategy, create_tool_selector};
 
 /// The main goose Agent
 pub struct Agent {
@@ -61,9 +62,9 @@ impl Agent {
             .ok()
             .and_then(|s| {
                 if s.eq_ignore_ascii_case("vector") {
-                    Some(ToolSelectionStrategy::Vector)
+                    Some(ToolSelectorStrategy::Vector)
                 } else {
-                    Some(ToolSelectionStrategy::Default)
+                    Some(ToolSelectorStrategy::Default)
                 }
             });
 
@@ -148,6 +149,7 @@ impl Agent {
         &self,
         tool_call: mcp_core::tool::ToolCall,
         request_id: String,
+        tool_selector_ctx: ToolSelectorContext,
     ) -> (String, Result<Vec<Content>, ToolError>) {
         // Check if this tool call should be allowed based on repetition monitoring
         if let Some(monitor) = self.tool_monitor.lock().await.as_mut() {
@@ -193,6 +195,13 @@ impl Agent {
                 .await
         } else if tool_call.name == PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME {
             extension_manager.search_available_extensions().await
+        } else if tool_call.name == PLATFORM_TOOL_SELECTOR_TOOL_NAME {
+            let tool_selector = self.tool_selector.lock().await;
+            if let Some(selector) = tool_selector.as_ref() {
+                selector.select_tools(&tool_selector_ctx).await
+            } else {
+                Err(ToolError::ExecutionError("Tool selector not initialized".to_string()))
+            }
         } else if self.is_frontend_tool(&tool_call.name).await {
             // For frontend tools, return an error indicating we need frontend execution
             Err(ToolError::ExecutionError(
@@ -307,6 +316,13 @@ impl Agent {
         Ok(())
     }
 
+    pub async fn update_available_tools(&self, tools: Vec<String>) {
+        let mut tool_selector = self.tool_selector.lock().await;
+        if let Some(selector) = tool_selector.as_mut() {
+            selector.update_available_tools(tools);
+        }
+    }
+
     pub async fn list_tools(&self, extension_name: Option<String>) -> Vec<Tool> {
         let extension_manager = self.extension_manager.lock().await;
         let mut prefixed_tools = extension_manager
@@ -372,6 +388,8 @@ impl Agent {
         // Setup tools and prompt
         let (mut tools, mut toolshim_tools, mut system_prompt) =
             self.prepare_tools_and_prompt().await?;
+
+        let tool_selector_ctx = ToolSelectorContext::new(tools.clone(), messages.clone());
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
@@ -465,7 +483,7 @@ impl Agent {
                             // Skip the confirmation for approved tools
                             for request in &permission_check_result.approved {
                                 if let Ok(tool_call) = request.tool_call.clone() {
-                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone());
+                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone(), tool_selector_ctx.clone());
                                     tool_futures.push(Box::pin(tool_future));
                                 }
                             }
