@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(unix)]
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use tokio::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command};
@@ -16,7 +17,8 @@ use nix::unistd::{getpgid, Pid};
 
 use super::{send_message, Error, PendingRequests, Transport, TransportHandle, TransportMessage};
 
-// Global to track process groups we've created
+
+#[cfg(unix)]// Global to track process groups we've created
 static PROCESS_GROUP: AtomicI32 = AtomicI32::new(-1);
 
 /// A `StdioTransport` uses a child process's stdin/stdout as a communication channel.
