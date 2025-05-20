@@ -45,6 +45,9 @@ pub enum BenchError {
 
     #[error("Other error: {0}")]
     Other(String),
+
+    #[error("Failed to load config .env file: {0}")]
+    DotenvyError(dotenvy::Error)
 }
 
 /// Result type for benchmark operations

@@ -1,14 +1,13 @@
 use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
-use crate::dataframe_handler::DataFrameHandler;
 use crate::errors::{BenchError, BenchResult};
 use crate::eval_suites::EvaluationSuite;
 use crate::logging;
 use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd};
+use dotenvy::from_path_iter;
 use std::collections::HashMap;
-use std::fs::{self, read_to_string};
-use std::io::{self, BufRead};
+use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::process::Child;
 use std::thread;
@@ -25,8 +24,47 @@ impl ModelRunner {
         Ok(ModelRunner { config })
     }
 
+    /// Generate CSV files from benchmark directory by calling the generate_leaderboard.py script
     pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> BenchResult<()> {
-        DataFrameHandler::generate_csv_from_benchmark_dir(benchmark_dir)
+        let script_path = std::env::current_dir()
+            .map_err(|e| BenchError::IoError(e))?
+            .join("scripts")
+            .join("bench-postprocess-scripts")
+            .join("generate_leaderboard.py");
+
+        if !script_path.exists() {
+            return Err(BenchError::FileNotFound(script_path));
+        }
+
+        use std::process::Command;
+
+        logging::info(&format!(
+            "Generating CSV from benchmark directory: {}",
+            benchmark_dir.display()
+        ));
+
+        let output = Command::new(&script_path)
+            .arg("--benchmark-dir")
+            .arg(benchmark_dir)
+            .arg("--leaderboard-output")
+            .arg("leaderboard.csv")
+            .arg("--union-output")
+            .arg("all_metrics.csv")
+            .output()
+            .map_err(|e| BenchError::IoError(e))?;
+
+        if !output.status.success() {
+            let error_message = String::from_utf8_lossy(&output.stderr);
+            return Err(BenchError::BenchmarkError(format!(
+                "Failed to generate CSV: {}",
+                error_message
+            )));
+        }
+
+        let success_message = String::from_utf8_lossy(&output.stdout);
+        logging::info(&success_message);
+
+        Ok(())
     }
 
     pub fn run(&self) -> BenchResult<()> {
@@ -59,77 +97,7 @@ impl ModelRunner {
             }
         }
 
-        // Create DataFrame from results and generate reports
-        if let Ok(df) = DataFrameHandler::results_to_dataframe(&all_runs_results, model) {
-            // Determine output directory
-            if let Some(eval_results_dir) =
-                self.determine_output_directory(&all_runs_results, model)
-            {
-                fs::create_dir_all(&eval_results_dir).map_err(|e| BenchError::IoError(e))?;
-
-                DataFrameHandler::generate_eval_csvs(&df, &eval_results_dir).map_err(|e| {
-                    BenchError::ResultsProcessingError(format!("CSV generation failed: {}", e))
-                })?;
-
-                DataFrameHandler::generate_aggregate_metrics(&df, &eval_results_dir).map_err(
-                    |e| {
-                        BenchError::ResultsProcessingError(format!(
-                            "Metrics generation failed: {}",
-                            e
-                        ))
-                    },
-                )?;
-            }
-        }
-
         Ok(())
-    }
-
-    fn determine_output_directory(
-        &self,
-        results: &[BenchmarkResults],
-        model: &BenchModel,
-    ) -> Option<PathBuf> {
-        if let Some(first_run) = results.first() {
-            if let Some(first_suite) = first_run.suites.first() {
-                if let Some(first_eval) = first_suite.evaluations.first() {
-                    let eval_path = EvalRunner::path_for_eval(
-                        model,
-                        &BenchEval {
-                            selector: format!("{}:{}", first_suite.name, first_eval.name),
-                            post_process_cmd: None,
-                            parallel_safe: true,
-                        },
-                        "0".to_string(),
-                    );
-                    // eval_path is like: databricks-goose/run-0/core/developer_list_files
-                    // We need to find the parent directory that contains the run-x directories
-                    let mut current_path = eval_path.as_path();
-                    let mut model_dir = None;
-
-                    while let Some(parent) = current_path.parent() {
-                        if parent
-                            .file_name()
-                            .and_then(|name| name.to_str())
-                            .map_or(false, |name| name.starts_with("run-"))
-                        {
-                            // Found a run-x directory, so its parent is the model directory
-                            model_dir = parent.parent().map(|p| p.to_path_buf());
-                            break;
-                        }
-                        current_path = parent;
-                    }
-
-                    model_dir.map(|dir| dir.join("eval-results"))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        }
     }
 
     fn run_benchmark(
@@ -143,7 +111,7 @@ impl ModelRunner {
         // Load environment variables from file if specified
         let mut envs = self.toolshim_envs();
         if let Some(env_file) = &self.config.env_file {
-            let env_vars = self.load_env_file(env_file).map_err(|e| {
+            let env_vars = ModelRunner::load_env_file(env_file).map_err(|e| {
                 BenchError::EnvironmentError(format!("Failed to load environment file: {}", e))
             })?;
             envs.extend(env_vars);
@@ -300,33 +268,11 @@ impl ModelRunner {
         shim_envs
     }
 
-    fn load_env_file(&self, path: &PathBuf) -> BenchResult<Vec<(String, String)>> {
-        let file = std::fs::File::open(path).map_err(|e| BenchError::IoError(e))?;
-
-        let reader = io::BufReader::new(file);
-        let mut env_vars = Vec::new();
-
-        for line in reader.lines() {
-            let line = line.map_err(|e| BenchError::IoError(e))?;
-
-            // Skip empty lines and comments
-            if line.trim().is_empty() || line.trim_start().starts_with('#') {
-                continue;
-            }
-
-            // Split on first '=' only
-            if let Some((key, value)) = line.split_once('=') {
-                let key = key.trim().to_string();
-                // Remove quotes if present
-                let value = value
-                    .trim()
-                    .trim_matches('"')
-                    .trim_matches('\'')
-                    .to_string();
-                env_vars.push((key, value));
-            }
-        }
-
+    fn load_env_file(path: &PathBuf) -> BenchResult<Vec<(String, String)>> {
+        let iter = from_path_iter(path).map_err(|e| BenchError::DotenvyError(e))?;
+        let env_vars = iter
+            .map(|item| item.map_err(|e| BenchError::DotenvyError(e)))
+            .collect::<Result<_, _>>()?;
         Ok(env_vars)
     }
 }

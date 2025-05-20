@@ -631,6 +631,8 @@ pub async fn cli() -> Result<()> {
                     EvalRunner::from(config)?.run(agent_generator).await?
                 }
                 BenchCommand::GenerateCsv { benchmark_dir } => {
+                    // Uses the Python script in scripts/bench-postprocess-scripts/generate_leaderboard.py
+                    // to process all eval-results/aggregate_metrics.csv files
                     ModelRunner::generate_csv_from_benchmark_dir(&benchmark_dir)?
                 }
             }
