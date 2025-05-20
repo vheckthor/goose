@@ -6,11 +6,17 @@ import { getSubtitle, getFriendlyTitle } from './ExtensionList';
 
 interface ExtensionItemProps {
   extension: FixedExtensionEntry;
-  onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void>;
-  onConfigure: (extension: FixedExtensionEntry) => void;
+  onToggle: (extension: FixedExtensionEntry) => Promise<boolean | void> | void;
+  onConfigure?: (extension: FixedExtensionEntry) => void;
+  isStatic?: boolean; // to not allow users to edit configuration
 }
 
-export default function ExtensionItem({ extension, onToggle, onConfigure }: ExtensionItemProps) {
+export default function ExtensionItem({
+  extension,
+  onToggle,
+  onConfigure,
+  isStatic,
+}: ExtensionItemProps) {
   // Add local state to track the visual toggle state
   const [visuallyEnabled, setVisuallyEnabled] = useState(extension.enabled);
   // Track if we're in the process of toggling
@@ -46,38 +52,52 @@ export default function ExtensionItem({ extension, onToggle, onConfigure }: Exte
     }
   }, [extension.enabled, isToggling]);
 
-  const renderFormattedSubtitle = () => {
-    const subtitle = getSubtitle(extension);
-    return subtitle.split('\n').map((part, index) => (
-      <React.Fragment key={index}>
-        {index === 0 ? part : <span className="font-mono text-xs">{part}</span>}
-        {index < subtitle.split('\n').length - 1 && <br />}
-      </React.Fragment>
-    ));
+  const renderSubtitle = () => {
+    const { description, command } = getSubtitle(extension);
+    return (
+      <>
+        {description && <span>{description}</span>}
+        {description && command && <br />}
+        {command && <span className="font-mono text-xs">{command}</span>}
+      </>
+    );
   };
 
+  // Bundled extensions and builtins are not editable
+  // Over time we can take the first part of the conditional away as people have bundled: true in their config.yaml entries
+
+  // allow configuration editing if extension is not a builtin/bundled extension AND isStatic = false
+  const editable = !(extension.type === 'builtin' || extension.bundled) && !isStatic;
+
   return (
-    <div className="rounded-lg border border-borderSubtle p-4 mb-2">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-medium text-textStandard">{getFriendlyTitle(extension)}</h3>
-        <div className="flex items-center gap-2">
-          {/* Only show config button for non-builtin extensions */}
-          {extension.type !== 'builtin' && (
-            <button
-              className="text-textSubtle hover:text-textStandard"
-              onClick={() => onConfigure(extension)}
-            >
-              <Gear className="h-4 w-4" />
-            </button>
-          )}
-          <Switch
-            checked={(isToggling && visuallyEnabled) || extension.enabled}
-            onCheckedChange={() => handleToggle(extension)}
-            variant="mono"
-          />
-        </div>
+    <div
+      className="flex justify-between rounded-lg transition-colors border border-borderSubtle p-4 pt-3 hover:border-borderProminent hover:cursor-pointer"
+      onClick={() => handleToggle(extension)}
+    >
+      <div className="flex flex-col w-max-[90%] word-break">
+        <h3 className="text-textStandard">{getFriendlyTitle(extension)}</h3>
+        <p className="text-xs text-textSubtle">{renderSubtitle()}</p>
       </div>
-      <p className="text-sm text-textSubtle">{renderFormattedSubtitle()}</p>
+
+      <div
+        className="flex items-center justify-end gap-2 w-max-[10%]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {editable && (
+          <button
+            className="text-textSubtle hover:text-textStandard"
+            onClick={() => (onConfigure ? onConfigure(extension) : () => {})}
+          >
+            <Gear className="h-4 w-4" />
+          </button>
+        )}
+        <Switch
+          checked={(isToggling && visuallyEnabled) || extension.enabled}
+          onCheckedChange={() => handleToggle(extension)}
+          disabled={isToggling}
+          variant="mono"
+        />
+      </div>
     </div>
   );
 }

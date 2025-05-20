@@ -22,20 +22,24 @@ export function ErrorUI({ error }) {
           <AlertTriangle className="w-8 h-8 text-destructive" />
         </div>
 
-        <h1 className="text-2xl font-semibold text-foreground">
-          Honk!
-        </h1>
+        <h1 className="text-2xl font-semibold text-foreground dark:text-white">Honk!</h1>
 
-        <p className="text-base text-textSubtle mb-2">
-          An error occurred.
-        </p>
+        {window?.appConfig?.get('GOOSE_VERSION') !== undefined ? (
+          <p className="text-base text-textSubtle dark:text-muted-foreground mb-2">
+            An error occurred in Goose v{window?.appConfig?.get('GOOSE_VERSION') as string}.
+          </p>
+        ) : (
+          <p className="text-base text-textSubtle dark:text-muted-foreground mb-2">
+            An error occurred.
+          </p>
+        )}
 
-        <pre className="text-destructive text-sm p-4 bg-muted rounded-lg w-full overflow-auto border border-border">
+        <pre className="text-destructive text-sm dark:text-white p-4 bg-muted rounded-lg w-full overflow-auto border border-border">
           {error.message}
         </pre>
 
         <Button
-          className="flex items-center gap-2 flex-1 justify-center text-white dark:text-textSubtle bg-black dark:bg-white hover:bg-subtle"
+          className="flex items-center gap-2 flex-1 justify-center text-white dark:text-background bg-black dark:bg-foreground hover:bg-subtle dark:hover:bg-muted"
           onClick={() => window.electron.reloadApp()}
         >
           Reload
@@ -47,7 +51,7 @@ export function ErrorUI({ error }) {
 
 export class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { error: Error, hasError: boolean }
+  { error: Error; hasError: boolean }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -65,7 +69,7 @@ export class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      return <ErrorUI error={this.state.error} />
+      return <ErrorUI error={this.state.error} />;
     }
     return this.props.children;
   }

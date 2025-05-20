@@ -1,11 +1,11 @@
 import React from 'react';
 import { Button } from '../../../ui/button';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Edit } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { cn } from '../../../../utils';
 
 interface EnvVarsSectionProps {
-  envVars: { key: string; value: string }[];
+  envVars: { key: string; value: string; isEdited?: boolean }[];
   onAdd: (key: string, value: string) => void;
   onRemove: (index: number) => void;
   onChange: (index: number, field: 'key' | 'value', value: string) => void;
@@ -68,18 +68,33 @@ export default function EnvVarsSection({
     return value === '';
   };
 
+  const handleEdit = (index: number) => {
+    // Mark this env var as edited
+    onChange(index, 'value', envVars[index].value === '••••••••' ? '' : envVars[index].value);
+
+    // Mark as edited in the parent component
+    const updatedEnvVar = {
+      ...envVars[index],
+      isEdited: true,
+    };
+
+    // Update the envVars array with the edited flag
+    const newEnvVars = [...envVars];
+    newEnvVars[index] = updatedEnvVar;
+  };
+
   return (
     <div>
       <div className="relative mb-2">
         <label className="text-sm font-medium text-textStandard mb-2 block">
           Environment Variables
         </label>
-        <p className="text-xs text-textSubtle mb-2">
+        <p className="text-xs text-textSubtle mb-4">
           Add key-value pairs for environment variables. Click the "+" button to add after filling
-          both fields.
+          both fields. For existing secret values, click the edit button to modify.
         </p>
       </div>
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+      <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center">
         {/* Existing environment variables */}
         {envVars.map((envVar, index) => (
           <React.Fragment key={index}>
@@ -89,7 +104,7 @@ export default function EnvVarsSection({
                 onChange={(e) => onChange(index, 'key', e.target.value)}
                 placeholder="Variable name"
                 className={cn(
-                  'w-full border-borderSubtle text-textStandard',
+                  'w-full text-textStandard border-borderSubtle hover:border-borderStandard',
                   isFieldInvalid(index, 'key') && 'border-red-500 focus:border-red-500'
                 )}
               />
@@ -97,18 +112,39 @@ export default function EnvVarsSection({
             <div className="relative">
               <Input
                 value={envVar.value}
-                onChange={(e) => onChange(index, 'value', e.target.value)}
+                readOnly={envVar.value === '••••••••' && !envVar.isEdited}
+                onChange={(e) => {
+                  // If this is the first edit of a placeholder value, clear it
+                  const newValue =
+                    envVar.value === '••••••••' && !envVar.isEdited ? '' : e.target.value;
+                  onChange(index, 'value', newValue);
+                }}
                 placeholder="Value"
                 className={cn(
-                  'w-full border-borderSubtle text-textStandard',
+                  'w-full border-borderSubtle',
+                  envVar.value === '••••••••' && !envVar.isEdited
+                    ? 'text-textSubtle opacity-60 cursor-not-allowed hover:border-borderSubtle'
+                    : 'text-textStandard hover:border-borderStandard',
                   isFieldInvalid(index, 'value') && 'border-red-500 focus:border-red-500'
                 )}
               />
             </div>
+            {envVar.value === '••••••••' && !envVar.isEdited && (
+              <Button
+                onClick={() => handleEdit(index)}
+                variant="ghost"
+                className="group p-2 h-auto text-iconSubtle hover:bg-transparent"
+              >
+                <Edit className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all" />
+              </Button>
+            )}
+            {(envVar.value !== '••••••••' || envVar.isEdited) && (
+              <div className="w-8 h-8"></div> /* Empty div to maintain grid spacing */
+            )}
             <Button
               onClick={() => onRemove(index)}
               variant="ghost"
-              className="group p-2 h-auto text-iconSubtle hover:bg-transparent min-w-[60px] flex justify-start"
+              className="group p-2 h-auto text-iconSubtle hover:bg-transparent"
             >
               <X className="h-3 w-3 text-gray-400 group-hover:text-white group-hover:drop-shadow-sm transition-all" />
             </Button>
@@ -124,7 +160,7 @@ export default function EnvVarsSection({
           }}
           placeholder="Variable name"
           className={cn(
-            'w-full border-borderStandard text-textStandard',
+            'w-full text-textStandard border-borderSubtle hover:border-borderStandard',
             invalidFields.key && 'border-red-500 focus:border-red-500'
           )}
         />
@@ -136,17 +172,19 @@ export default function EnvVarsSection({
           }}
           placeholder="Value"
           className={cn(
-            'w-full border-borderStandard text-textStandard',
+            'w-full text-textStandard border-borderSubtle hover:border-borderStandard',
             invalidFields.value && 'border-red-500 focus:border-red-500'
           )}
         />
-        <Button
-          onClick={handleAdd}
-          variant="ghost"
-          className="flex items-center justify-start gap-1 px-2 pr-4 text-s font-medium rounded-full dark:bg-slate-400 dark:text-gray-300 bg-gray-300 dark:bg-slate text-slate-400 dark:hover:bg-slate-300 hover:bg-gray-500 hover:text-white dark:hover:text-gray-900 transition-colors min-w-[60px] h-9"
-        >
-          <Plus className="h-3 w-3" /> Add
-        </Button>
+        <div className="col-span-2">
+          <Button
+            onClick={handleAdd}
+            variant="ghost"
+            className="flex items-center justify-start gap-1 px-2 pr-4 text-sm rounded-full text-textStandard bg-bgApp border border-borderSubtle hover:border-borderStandard transition-colors min-w-[60px] h-9 [&>svg]:!size-4"
+          >
+            <Plus /> Add
+          </Button>
+        </div>
       </div>
       {validationError && <div className="mt-2 text-red-500 text-sm">{validationError}</div>}
     </div>

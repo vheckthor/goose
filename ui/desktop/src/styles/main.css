@@ -99,7 +99,9 @@
     --background-standard: var(--grey-90);
     --background-subtle: var(--grey-95);
     --background-app-inverse: var(--constant-black);
+    --background-subtle-inverse: var(--dark-grey-15);
     --background-standard-inverse: var(--dark-grey-25);
+    --background-prominent-inverse: var(--dark-grey-40);
 
     --border-divider: var(--grey-90);
     --border-inverse: var(--constant-white);
@@ -128,6 +130,8 @@
       --background-standard: var(--dark-grey-25);
       --background-subtle: var(--dark-grey-15);
       --background-app-inverse: var(--constant-white);
+      --background-subtle-inverse: var(--grey-95);
+      --background-standard-inverse: var(--grey-90);
       --background-prominent-inverse: var(--grey-80);
 
       --border-divider: var(--dark-grey-25);
@@ -240,6 +244,10 @@
       background: var(--dark-grey-60);
     }
   }
+
+  body {
+    background-color: var(--background-app);
+  }
 }
 
 @layer components {
@@ -266,9 +274,7 @@
 
   .bg-inline-code {
     border-radius: 4px;
-    color: rgb(255 119 43);
-    background-color: var(--background-app);
-    border: 1px solid var(--border-subtle);
+    color: var(--grey-80);
     font-family: 'Cash Sans Mono', monospace;
     font-size: 12px;
     font-style: normal;
@@ -279,14 +285,15 @@
   .bg-inline-code:before {
     content: '';
   }
+
   pre:has(> code.bg-inline-code) {
     padding: 1em;
   }
 
-  *:has(> code.bg-inline-code) {
-    .bg-inline-code {
-      padding: 2px 4px;
-    }
+  li > code.bg-inline-code,
+  p > code.bg-inline-code {
+    color: var(--block-orange);
+    padding: 2px 4px;
   }
 
   .bg-inline-code:after {
@@ -295,5 +302,9 @@
 
   .user-message p {
     margin-bottom: 0 !important;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
   }
 }

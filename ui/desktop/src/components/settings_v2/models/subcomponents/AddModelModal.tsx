@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ExternalLink, Plus } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { ArrowLeftRight, ExternalLink } from 'lucide-react';
 
 import Modal from '../../../Modal';
 import { Button } from '../../../ui/button';
@@ -10,8 +10,9 @@ import { useConfig } from '../../../ConfigContext';
 import { changeModel } from '../index';
 import type { View } from '../../../../App';
 import Model, { getProviderMetadata } from '../modelInterface';
+import { useModel } from '../../../settings/models/ModelContext';
 
-const ModalButtons = ({ onSubmit, onCancel, isValid, validationErrors }) => (
+const ModalButtons = ({ onSubmit, onCancel, _isValid, _validationErrors }) => (
   <div>
     <Button
       type="submit"
@@ -37,7 +38,8 @@ type AddModelModalProps = {
   setView: (view: View) => void;
 };
 export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
-  const { getProviders, upsert, getExtensions, addExtension } = useConfig();
+  const { getProviders, upsert } = useConfig();
+  const { switchModel } = useModel();
   const [providerOptions, setProviderOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
   const [provider, setProvider] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   // Validate form data
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const errors = {
       provider: '',
       model: '',
@@ -71,7 +73,7 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
     setValidationErrors(errors);
     setIsValid(formIsValid);
     return formIsValid;
-  };
+  }, [model, provider]);
 
   const onSubmit = async () => {
     setAttemptedSubmit(true);
@@ -81,12 +83,16 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
       const providerMetaData = await getProviderMetadata(provider, getProviders);
       const providerDisplayName = providerMetaData.display_name;
 
+      const modelObj = { name: model, provider: provider, subtext: providerDisplayName } as Model;
+
       await changeModel({
-        model: { name: model, provider: provider, subtext: providerDisplayName } as Model, // pass in a Model object
+        model: modelObj,
         writeToConfig: upsert,
-        getExtensions,
-        addExtension,
       });
+
+      // Update the model context
+      switchModel(modelObj);
+
       onClose();
     }
   };
@@ -96,7 +102,7 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
     if (attemptedSubmit) {
       validateForm();
     }
-  }, [provider, model, attemptedSubmit]);
+  }, [attemptedSubmit, validateForm]);
 
   useEffect(() => {
     (async () => {
@@ -120,7 +126,7 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
         activeProviders.forEach(({ metadata, name }) => {
           if (metadata.known_models && metadata.known_models.length > 0) {
             formattedModelOptions.push({
-              options: metadata.known_models.map((modelName) => ({
+              options: metadata.known_models.map(({ name: modelName }) => ({
                 value: modelName,
                 label: modelName,
                 provider: name,
@@ -221,10 +227,10 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
         }
       >
         <div className="flex flex-col items-center gap-8">
-          <div className="flex flex-col items-center gap-3">
-            <Plus size={24} className="text-textStandard" />
+          <div className="flex flex-col gap-3">
+            <ArrowLeftRight size={24} className="text-textStandard" />
             <div className="text-textStandard font-medium text-base">Switch models</div>
-            <div className="text-textSubtle text-center text-md">
+            <div className="text-textSubtle text-md">
               Configure your AI model providers by adding their API keys. Your keys are stored
               securely and encrypted locally.
             </div>
@@ -233,7 +239,7 @@ export const AddModelModal = ({ onClose, setView }: AddModelModalProps) => {
                 href={QUICKSTART_GUIDE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center text-textStandard font-medium text-sm"
+                className="flex items-center text-textStandard font-medium text-sm"
               >
                 <ExternalLink size={16} className="mr-1" />
                 View quick start guide

@@ -4,21 +4,10 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { oneLight } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Check, Copy } from './icons';
-import { visit } from 'unist-util-visit';
 
-function rehypeinlineCodeProperty() {
-  return function (tree) {
-    if (!tree) return;
-    visit(tree, 'element', function (node, index, parent) {
-      if (node.tagName == 'code' && parent && parent.tagName === 'pre') {
-        node.properties.inlinecode = 'false';
-      } else {
-        node.properties.inlinecode = 'true';
-      }
-    });
-  };
+interface CodeProps extends React.ClassAttributes<HTMLElement>, React.HTMLAttributes<HTMLElement> {
+  inline?: boolean;
 }
 
 interface MarkdownContentProps {
@@ -74,14 +63,26 @@ const CodeBlock = ({ language, children }: { language: string; children: string 
   );
 };
 
+const MarkdownCode = React.forwardRef(function MarkdownCode(
+  { inline, className, children, ...props }: CodeProps,
+  ref: React.Ref<HTMLElement>
+) {
+  const match = /language-(\w+)/.exec(className || '');
+  return !inline && match ? (
+    <CodeBlock language={match[1]}>{String(children).replace(/\n$/, '')}</CodeBlock>
+  ) : (
+    <code ref={ref} {...props} className="break-all bg-inline-code whitespace-pre-wrap">
+      {children}
+    </code>
+  );
+});
+
 export default function MarkdownContent({ content, className = '' }: MarkdownContentProps) {
-  // Determine whether dark mode is enabled
-  const isDarkMode = document.documentElement.classList.contains('dark');
   return (
     <div className="w-full overflow-x-hidden">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeinlineCodeProperty, rehypeRaw]}
+        rehypePlugins={[rehypeRaw]}
         className={`prose prose-sm text-textStandard dark:prose-invert w-full max-w-full word-break
           prose-pre:p-0 prose-pre:m-0 !p-0
           prose-code:break-all prose-code:whitespace-pre-wrap
@@ -100,20 +101,8 @@ export default function MarkdownContent({ content, className = '' }: MarkdownCon
 
           ${className}`}
         components={{
-          a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-          code({ node, className, children, inlinecode, ...props }) {
-            const match = /language-(\w+)/.exec(className || 'language-text');
-            return inlinecode == 'false' && match ? (
-              <CodeBlock language={match[1]}>{String(children).replace(/\n$/, '')}</CodeBlock>
-            ) : (
-              <code
-                {...props}
-                className={`break-all bg-inline-code dark:bg-inline-code-dark whitespace-pre-wrap`}
-              >
-                {children}
-              </code>
-            );
-          },
+          a: ({ ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+          code: MarkdownCode,
         }}
       >
         {content}
