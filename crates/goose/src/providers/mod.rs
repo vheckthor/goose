@@ -19,6 +19,5 @@ pub mod openrouter;
 pub mod toolshim;
 pub mod utils;
 pub mod utils_universal_openai_stream;
-pub mod venice;
 
 pub use factory::{create, providers};
