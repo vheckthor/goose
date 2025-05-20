@@ -1,7 +1,6 @@
 use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
 use crate::errors::{BenchError, BenchResult};
 use crate::eval_suites::EvaluationSuite;
-use crate::logging;
 use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd};
@@ -11,6 +10,7 @@ use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::process::Child;
 use std::thread;
+use tracing;
 
 #[derive(Clone)]
 pub struct ModelRunner {
@@ -24,7 +24,7 @@ impl ModelRunner {
         Ok(ModelRunner { config })
     }
 
-    /// Generate CSV files from benchmark directory by calling the generate_leaderboard.py script
+    /// Generate leaderboard and metrics CSV files from benchmark directory
     pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> BenchResult<()> {
         let script_path = std::env::current_dir()
             .map_err(|e| BenchError::IoError(e))?
@@ -38,10 +38,10 @@ impl ModelRunner {
 
         use std::process::Command;
 
-        logging::info(&format!(
-            "Generating CSV from benchmark directory: {}",
+        tracing::info!(
+            "Generating leaderboard from benchmark directory: {}",
             benchmark_dir.display()
-        ));
+        );
 
         let output = Command::new(&script_path)
             .arg("--benchmark-dir")
@@ -56,13 +56,13 @@ impl ModelRunner {
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
             return Err(BenchError::BenchmarkError(format!(
-                "Failed to generate CSV: {}",
+                "Failed to generate leaderboard: {}",
                 error_message
             )));
         }
 
         let success_message = String::from_utf8_lossy(&output.stdout);
-        logging::info(&success_message);
+        tracing::info!("{}", success_message);
 
         Ok(())
     }
@@ -92,7 +92,7 @@ impl ModelRunner {
             match self.collect_run_results(model.clone(), suites.clone(), i.to_string()) {
                 Ok(run_results) => all_runs_results.push(run_results),
                 Err(e) => {
-                    logging::error(&format!("Failed to collect results for run {}: {}", i, e))
+                    tracing::error!("Failed to collect results for run {}: {}", i, e)
                 }
             }
         }

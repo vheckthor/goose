@@ -4,7 +4,6 @@ pub mod bench_work_dir;
 pub mod error_capture;
 pub mod errors;
 pub mod eval_suites;
-pub mod logging;
 pub mod reporting;
 pub mod runners;
 pub mod utilities;

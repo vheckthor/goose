@@ -3,7 +3,6 @@ use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::errors::{BenchError, BenchResult};
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
-use crate::logging;
 use crate::reporting::EvaluationResult;
 use crate::utilities::await_process_exits;
 use std::env;
@@ -12,6 +11,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tracing;
 
 #[derive(Clone)]
 pub struct EvalRunner {
@@ -77,10 +77,7 @@ impl EvalRunner {
 
         // create entire dir subtree for eval and cd into dir for running eval
         work_dir.set_eval(&bench_eval.selector, run_id);
-        logging::info(&format!(
-            "Set evaluation directory for {}",
-            bench_eval.selector
-        ));
+        tracing::info!("Set evaluation directory for {}", bench_eval.selector);
 
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
             let now_stamp = SystemTime::now()
@@ -89,31 +86,28 @@ impl EvalRunner {
                 .as_nanos();
 
             let session_id = format!("{}-{}", bench_eval.selector.clone(), now_stamp);
-            logging::info(&format!("Created session ID: {}", session_id));
+            tracing::info!("Created session ID: {}", session_id);
 
             let mut agent = agent_generator(eval.required_extensions(), session_id).await;
-            logging::info(&format!("Agent created for {}", eval.name()));
+            tracing::info!("Agent created for {}", eval.name());
 
             let mut result = EvaluationResult::new(eval.name().to_string());
 
             match eval.run(&mut agent, &mut work_dir).await {
                 Ok(metrics) => {
-                    logging::info(&format!(
-                        "Evaluation run successful with {} metrics",
-                        metrics.len()
-                    ));
+                    tracing::info!("Evaluation run successful with {} metrics", metrics.len());
                     for (name, metric) in metrics {
                         result.add_metric(name, metric);
                     }
                 }
                 Err(e) => {
-                    logging::error(&format!("Evaluation run failed: {}", e));
+                    tracing::error!("Evaluation run failed: {}", e);
                 }
             }
 
             // Add any errors that occurred
             let errors = agent.get_errors().await;
-            logging::info(&format!("Agent reported {} errors", errors.len()));
+            tracing::info!("Agent reported {} errors", errors.len());
             for error in errors {
                 result.add_error(error);
             }
@@ -128,17 +122,17 @@ impl EvalRunner {
 
             fs::write(&eval_results_file, &eval_results).map_err(|e| BenchError::IoError(e))?;
 
-            logging::info(&format!(
+            tracing::info!(
                 "Wrote evaluation results to {}",
                 eval_results_file.display()
-            ));
+            );
 
             self.config.save("config.cfg".to_string());
             work_dir.save();
 
             // handle running post-process cmd if configured
             if let Some(cmd) = &bench_eval.post_process_cmd {
-                logging::info(&format!("Running post-process command: {:?}", cmd));
+                tracing::info!("Running post-process command: {:?}", cmd);
 
                 let handle = Command::new(cmd)
                     .arg(&eval_results_file)
@@ -157,12 +151,9 @@ impl EvalRunner {
             BenchmarkWorkDir::deep_copy(agent.session_file().as_path(), here.as_path(), false)
                 .map_err(|e| BenchError::IoError(e))?;
 
-            logging::info("Evaluation completed successfully");
+            tracing::info!("Evaluation completed successfully");
         } else {
-            logging::error(&format!(
-                "No evaluation found for selector: {}",
-                bench_eval.selector
-            ));
+            tracing::error!("No evaluation found for selector: {}", bench_eval.selector);
             return Err(BenchError::EvaluationError(format!(
                 "No evaluation found for selector: {}",
                 bench_eval.selector
