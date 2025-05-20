@@ -1,9 +1,11 @@
 use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
-use crate::errors::{BenchError, BenchResult};
+// Using anyhow directly for error handling
 use crate::eval_suites::EvaluationSuite;
 use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd};
+use anyhow::Result as BenchResult;
+use anyhow::{bail, ensure, Context, Result};
 use dotenvy::from_path_iter;
 use std::collections::HashMap;
 use std::fs::read_to_string;
@@ -19,22 +21,24 @@ pub struct ModelRunner {
 
 impl ModelRunner {
     pub fn from(config: String) -> BenchResult<ModelRunner> {
-        let config = BenchRunConfig::from_string(config)
-            .map_err(|e| BenchError::ConfigError(format!("Failed to parse config: {}", e)))?;
+        let config =
+            BenchRunConfig::from_string(config).context("Failed to parse configuration")?;
         Ok(ModelRunner { config })
     }
 
     /// Generate leaderboard and metrics CSV files from benchmark directory
     pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> BenchResult<()> {
         let script_path = std::env::current_dir()
-            .map_err(|e| BenchError::IoError(e))?
+            .context("Failed to get current working directory")?
             .join("scripts")
             .join("bench-postprocess-scripts")
             .join("generate_leaderboard.py");
 
-        if !script_path.exists() {
-            return Err(BenchError::FileNotFound(script_path));
-        }
+        ensure!(
+            script_path.exists(),
+            "Script not found: {}",
+            script_path.display()
+        );
 
         use std::process::Command;
 
@@ -51,14 +55,11 @@ impl ModelRunner {
             .arg("--union-output")
             .arg("all_metrics.csv")
             .output()
-            .map_err(|e| BenchError::IoError(e))?;
+            .context("Failed to execute generate_leaderboard.py script")?;
 
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
-            return Err(BenchError::BenchmarkError(format!(
-                "Failed to generate leaderboard: {}",
-                error_message
-            )));
+            bail!("Failed to generate leaderboard: {}", error_message);
         }
 
         let success_message = String::from_utf8_lossy(&output.stdout);
@@ -68,10 +69,11 @@ impl ModelRunner {
     }
 
     pub fn run(&self) -> BenchResult<()> {
-        let model =
-            self.config.models.first().ok_or_else(|| {
-                BenchError::ConfigError("No model specified in config".to_string())
-            })?;
+        let model = self
+            .config
+            .models
+            .first()
+            .context("No model specified in config")?;
         let suites = self.collect_evals_for_run();
 
         let mut handles = vec![];
@@ -111,9 +113,10 @@ impl ModelRunner {
         // Load environment variables from file if specified
         let mut envs = self.toolshim_envs();
         if let Some(env_file) = &self.config.env_file {
-            let env_vars = ModelRunner::load_env_file(env_file).map_err(|e| {
-                BenchError::EnvironmentError(format!("Failed to load environment file: {}", e))
-            })?;
+            let env_vars = ModelRunner::load_env_file(env_file).context(format!(
+                "Failed to load environment file: {}",
+                env_file.display()
+            ))?;
             envs.extend(env_vars);
         }
         envs.push(("GOOSE_MODEL".to_string(), model.clone().name));
@@ -143,9 +146,9 @@ impl ModelRunner {
                     let mut config_copy = self.config.clone();
                     config_copy.run_id = Some(run_id.clone());
                     config_copy.evals = vec![(*eval_selector).clone()];
-                    let cfg = config_copy.to_string().map_err(|e| {
-                        BenchError::ConfigError(format!("Failed to serialize config: {}", e))
-                    })?;
+                    let cfg = config_copy
+                        .to_string()
+                        .context("Failed to serialize configuration")?;
 
                     let handle = parallel_bench_cmd("exec-eval".to_string(), cfg, envs.clone());
                     results_handles.get_mut(suite).unwrap().push(handle);
@@ -157,9 +160,9 @@ impl ModelRunner {
                 let mut config_copy = self.config.clone();
                 config_copy.run_id = Some(run_id.clone());
                 config_copy.evals = vec![(*eval_selector).clone()];
-                let cfg = config_copy.to_string().map_err(|e| {
-                    BenchError::ConfigError(format!("Failed to serialize config: {}", e))
-                })?;
+                let cfg = config_copy
+                    .to_string()
+                    .context("Failed to serialize configuration")?;
 
                 let handle = parallel_bench_cmd("exec-eval".to_string(), cfg, envs.clone());
 
@@ -194,10 +197,15 @@ impl ModelRunner {
                     EvalRunner::path_for_eval(&model, eval_selector, run_id.clone());
                 eval_path.push(self.config.eval_result_filename.clone());
 
-                let content = read_to_string(&eval_path).map_err(|e| BenchError::IoError(e))?;
+                let content = read_to_string(&eval_path).with_context(|| {
+                    format!(
+                        "Failed to read evaluation results from {}",
+                        eval_path.display()
+                    )
+                })?;
 
-                let eval_result =
-                    serde_json::from_str(&content).map_err(|e| BenchError::JsonParseError(e))?;
+                let eval_result = serde_json::from_str(&content)
+                    .context("Failed to parse evaluation results JSON")?;
 
                 suite_result.add_evaluation(eval_result);
 
@@ -223,9 +231,14 @@ impl ModelRunner {
             run_summary.push(&self.config.run_summary_filename);
 
             let output_str = serde_json::to_string_pretty(&results)
-                .map_err(|e| BenchError::JsonParseError(e))?;
+                .context("Failed to serialize benchmark results to JSON")?;
 
-            std::fs::write(run_summary, &output_str).map_err(|e| BenchError::IoError(e))?;
+            std::fs::write(&run_summary, &output_str).with_context(|| {
+                format!(
+                    "Failed to write results summary to {}",
+                    run_summary.display()
+                )
+            })?;
         }
 
         Ok(results)
@@ -269,9 +282,10 @@ impl ModelRunner {
     }
 
     fn load_env_file(path: &PathBuf) -> BenchResult<Vec<(String, String)>> {
-        let iter = from_path_iter(path).map_err(|e| BenchError::DotenvyError(e))?;
+        let iter =
+            from_path_iter(path).context("Failed to read environment variables from file")?;
         let env_vars = iter
-            .map(|item| item.map_err(|e| BenchError::DotenvyError(e)))
+            .map(|item| item.context("Failed to parse environment variable"))
             .collect::<Result<_, _>>()?;
         Ok(env_vars)
     }

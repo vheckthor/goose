@@ -1,10 +1,12 @@
 use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
 use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
-use crate::errors::{BenchError, BenchResult};
+// Using anyhow directly for error handling
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
 use crate::reporting::EvaluationResult;
 use crate::utilities::await_process_exits;
+use anyhow::Result as BenchResult;
+use anyhow::{bail, Context};
 use std::env;
 use std::fs;
 use std::future::Future;
@@ -21,7 +23,7 @@ pub struct EvalRunner {
 impl EvalRunner {
     pub fn from(config: String) -> BenchResult<EvalRunner> {
         let config = BenchRunConfig::from_string(config)
-            .map_err(|e| BenchError::ConfigError(format!("Failed to parse config: {}", e)))?;
+            .context("Failed to parse evaluation configuration")?;
         Ok(EvalRunner { config })
     }
 
@@ -29,7 +31,7 @@ impl EvalRunner {
         let goose_model = config
             .models
             .first()
-            .ok_or_else(|| BenchError::ConfigError("No model specified in config".to_string()))?;
+            .context("No model specified in configuration")?;
         let model_name = goose_model.name.clone();
         let provider_name = goose_model.provider.clone();
 
@@ -60,13 +62,15 @@ impl EvalRunner {
         F: Fn(ExtensionRequirements, String) -> Fut,
         Fut: Future<Output = BenchAgent> + Send,
     {
-        let mut work_dir = self.create_work_dir(&self.config).map_err(|e| {
-            BenchError::BenchmarkError(format!("Failed to create work directory: {}", e))
-        })?;
+        let mut work_dir = self
+            .create_work_dir(&self.config)
+            .context("Failed to create evaluation work directory")?;
 
-        let bench_eval = self.config.evals.first().ok_or_else(|| {
-            BenchError::ConfigError("No evaluations specified in config".to_string())
-        })?;
+        let bench_eval = self
+            .config
+            .evals
+            .first()
+            .context("No evaluations specified in configuration")?;
 
         let run_id = &self
             .config
@@ -82,7 +86,7 @@ impl EvalRunner {
         if let Some(eval) = EvaluationSuite::from(&bench_eval.selector) {
             let now_stamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .map_err(|e| BenchError::Other(format!("Failed to get timestamp: {}", e)))?
+                .context("Failed to get current timestamp")?
                 .as_nanos();
 
             let session_id = format!("{}-{}", bench_eval.selector.clone(), now_stamp);
@@ -113,14 +117,19 @@ impl EvalRunner {
             }
 
             // Write results to file
-            let eval_results =
-                serde_json::to_string_pretty(&result).map_err(|e| BenchError::JsonParseError(e))?;
+            let eval_results = serde_json::to_string_pretty(&result)
+                .context("Failed to serialize evaluation results to JSON")?;
 
             let eval_results_file = env::current_dir()
-                .map_err(|e| BenchError::IoError(e))?
+                .context("Failed to get current directory")?
                 .join(&self.config.eval_result_filename);
 
-            fs::write(&eval_results_file, &eval_results).map_err(|e| BenchError::IoError(e))?;
+            fs::write(&eval_results_file, &eval_results).with_context(|| {
+                format!(
+                    "Failed to write evaluation results to {}",
+                    eval_results_file.display()
+                )
+            })?;
 
             tracing::info!(
                 "Wrote evaluation results to {}",
@@ -137,27 +146,26 @@ impl EvalRunner {
                 let handle = Command::new(cmd)
                     .arg(&eval_results_file)
                     .spawn()
-                    .map_err(|e| BenchError::IoError(e))?;
+                    .with_context(|| {
+                        format!("Failed to execute post-process command: {:?}", cmd)
+                    })?;
 
                 await_process_exits(&mut [handle], Vec::new());
             }
 
             // copy session file into eval-dir
             let here = env::current_dir()
-                .map_err(|e| BenchError::IoError(e))?
+                .context("Failed to get current directory")?
                 .canonicalize()
-                .map_err(|e| BenchError::IoError(e))?;
+                .context("Failed to canonicalize current directory path")?;
 
             BenchmarkWorkDir::deep_copy(agent.session_file().as_path(), here.as_path(), false)
-                .map_err(|e| BenchError::IoError(e))?;
+                .context("Failed to copy session file to evaluation directory")?;
 
             tracing::info!("Evaluation completed successfully");
         } else {
             tracing::error!("No evaluation found for selector: {}", bench_eval.selector);
-            return Err(BenchError::EvaluationError(format!(
-                "No evaluation found for selector: {}",
-                bench_eval.selector
-            )));
+            bail!("No evaluation found for selector: {}", bench_eval.selector);
         }
 
         Ok(())

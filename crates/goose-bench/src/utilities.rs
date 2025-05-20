@@ -1,4 +1,5 @@
-use crate::errors::BenchResult;
+// Using anyhow directly for error handling
+use anyhow::Result as BenchResult;
 use std::env;
 use std::process::{Child, Command};
 use std::thread::JoinHandle;
