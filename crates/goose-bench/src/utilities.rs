@@ -1,14 +1,11 @@
 // Using anyhow directly for error handling
-use anyhow::Result as BenchResult;
+use anyhow::Result;
 use std::env;
 use std::process::{Child, Command};
 use std::thread::JoinHandle;
 use tracing;
 
-pub fn await_process_exits(
-    child_processes: &mut [Child],
-    handles: Vec<JoinHandle<BenchResult<()>>>,
-) {
+pub fn await_process_exits(child_processes: &mut [Child], handles: Vec<JoinHandle<Result<()>>>) {
     for child in child_processes.iter_mut() {
         match child.wait() {
             Ok(status) => tracing::info!("Child exited with status: {}", status),

@@ -5,8 +5,7 @@ use crate::bench_work_dir::BenchmarkWorkDir;
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
 use crate::reporting::EvaluationResult;
 use crate::utilities::await_process_exits;
-use anyhow::Result as BenchResult;
-use anyhow::{bail, Context};
+use anyhow::{bail, Context, Result};
 use std::env;
 use std::fs;
 use std::future::Future;
@@ -21,13 +20,13 @@ pub struct EvalRunner {
 }
 
 impl EvalRunner {
-    pub fn from(config: String) -> BenchResult<EvalRunner> {
+    pub fn from(config: String) -> Result<EvalRunner> {
         let config = BenchRunConfig::from_string(config)
             .context("Failed to parse evaluation configuration")?;
         Ok(EvalRunner { config })
     }
 
-    fn create_work_dir(&self, config: &BenchRunConfig) -> BenchResult<BenchmarkWorkDir> {
+    fn create_work_dir(&self, config: &BenchRunConfig) -> Result<BenchmarkWorkDir> {
         let goose_model = config
             .models
             .first()
@@ -57,7 +56,7 @@ impl EvalRunner {
         Ok(work_dir)
     }
 
-    pub async fn run<F, Fut>(&mut self, agent_generator: F) -> BenchResult<()>
+    pub async fn run<F, Fut>(&mut self, agent_generator: F) -> Result<()>
     where
         F: Fn(ExtensionRequirements, String) -> Fut,
         Fut: Future<Output = BenchAgent> + Send,

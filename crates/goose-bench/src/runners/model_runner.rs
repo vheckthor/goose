@@ -4,7 +4,6 @@ use crate::eval_suites::EvaluationSuite;
 use crate::reporting::{BenchmarkResults, SuiteResult};
 use crate::runners::eval_runner::EvalRunner;
 use crate::utilities::{await_process_exits, parallel_bench_cmd};
-use anyhow::Result as BenchResult;
 use anyhow::{bail, ensure, Context, Result};
 use dotenvy::from_path_iter;
 use std::collections::HashMap;
@@ -20,14 +19,14 @@ pub struct ModelRunner {
 }
 
 impl ModelRunner {
-    pub fn from(config: String) -> BenchResult<ModelRunner> {
+    pub fn from(config: String) -> Result<ModelRunner> {
         let config =
             BenchRunConfig::from_string(config).context("Failed to parse configuration")?;
         Ok(ModelRunner { config })
     }
 
     /// Generate leaderboard and metrics CSV files from benchmark directory
-    pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> BenchResult<()> {
+    pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> Result<()> {
         let script_path = std::env::current_dir()
             .context("Failed to get current working directory")?
             .join("scripts")
@@ -68,7 +67,7 @@ impl ModelRunner {
         Ok(())
     }
 
-    pub fn run(&self) -> BenchResult<()> {
+    pub fn run(&self) -> Result<()> {
         let model = self
             .config
             .models
@@ -82,7 +81,7 @@ impl ModelRunner {
             let self_copy = self.clone();
             let model_clone = model.clone();
             let suites_clone = suites.clone();
-            let handle = thread::spawn(move || -> BenchResult<()> {
+            let handle = thread::spawn(move || -> Result<()> {
                 self_copy.run_benchmark(&model_clone, suites_clone, i.to_string())
             });
             handles.push(handle);
@@ -107,7 +106,7 @@ impl ModelRunner {
         model: &BenchModel,
         suites: HashMap<String, Vec<BenchEval>>,
         run_id: String,
-    ) -> BenchResult<()> {
+    ) -> Result<()> {
         let mut results_handles = HashMap::<String, Vec<Child>>::new();
 
         // Load environment variables from file if specified
@@ -185,7 +184,7 @@ impl ModelRunner {
         model: BenchModel,
         suites: HashMap<String, Vec<BenchEval>>,
         run_id: String,
-    ) -> BenchResult<BenchmarkResults> {
+    ) -> Result<BenchmarkResults> {
         let mut results = BenchmarkResults::new(model.provider.clone());
 
         let mut summary_path: Option<PathBuf> = None;
@@ -281,7 +280,7 @@ impl ModelRunner {
         shim_envs
     }
 
-    fn load_env_file(path: &PathBuf) -> BenchResult<Vec<(String, String)>> {
+    fn load_env_file(path: &PathBuf) -> Result<Vec<(String, String)>> {
         let iter =
             from_path_iter(path).context("Failed to read environment variables from file")?;
         let env_vars = iter
