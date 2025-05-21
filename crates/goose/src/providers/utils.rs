@@ -411,6 +411,21 @@ mod tests {
         // Test non-existent file
         let result = load_image_file("nonexistent.png");
         assert!(result.is_err());
+
+        // Create a GIF file with valid header bytes
+        let gif_path = temp_dir.path().join("test.gif");
+        // Minimal GIF89a header
+        let gif_data = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
+        std::fs::write(&gif_path, &gif_data).unwrap();
+        let gif_path_str = gif_path.to_str().unwrap();
+
+        // Test loading unsupported GIF format
+        let result = load_image_file(gif_path_str);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported image format"));
     }
 
     #[test]
