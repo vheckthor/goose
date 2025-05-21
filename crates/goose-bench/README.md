@@ -85,12 +85,12 @@ Benchmark configuration is provided through a JSON file. Here's a sample configu
     },
     {
       "selector": "vibes:blog_summary",
-      "post_process_cmd": "/Users/ahau/Development/goose-1.0/goose/scripts/bench-postprocess-scripts/run_vibes_judge.sh",
+      "post_process_cmd": "/Users/ahau/Development/goose-1.0/goose/scripts/bench-postprocess-scripts/llm-judges/run_vibes_judge.sh",
       "parallel_safe": true
     },
     {
       "selector": "vibes:restaurant_research",
-      "post_process_cmd": "/Users/ahau/Development/goose-1.0/goose/scripts/bench-postprocess-scripts/run_vibes_judge.sh",
+      "post_process_cmd": "/Users/ahau/Development/goose-1.0/goose/scripts/bench-postprocess-scripts/llm-judges/run_vibes_judge.sh",
       "parallel_safe": true
     }
   ],
@@ -164,7 +164,7 @@ Results are organized in a directory structure that follows this pattern:
 │       │   └── {evaluation}/
 │       │       ├── eval-results.json    # Individual evaluation results
 │       │       ├── {eval_name}.jsonl    # Session logs
-│       │       └── work_dir/            # Working directory for evaluation
+│       │       └── work_dir.json        # Info about evaluation working dir
 │       └── run-results-summary.json     # Summary of all evaluations in this run
 ├── leaderboard.csv                      # Final leaderboard comparing all models
 └── all_metrics.csv                      # Union of all metrics across all models
@@ -239,7 +239,7 @@ Example of creating a config to re-run failed evaluations:
   "evals": [
     {
       "selector": "vibes:blog_summary",
-      "post_process_cmd": "/path/to/run_vibes_judge.sh",
+      "post_process_cmd": "/path/to/scripts/bench-postprocess-scripts/llm-judges/run_vibes_judge.sh",
       "parallel_safe": false
     }
   ],

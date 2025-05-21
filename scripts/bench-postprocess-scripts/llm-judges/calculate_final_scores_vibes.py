@@ -37,10 +37,9 @@ def calculate_score(eval_name, metrics):
     valid_markdown_format = 1.0 if valid_markdown_format else 0.0
     
     if eval_name == "blog_summary":
-        # (llm_judge_score + used_fetch_tool + valid_markdown_format) / 4
+        # max score is 4.0 as llm_judge_score is between [0,2] and used_fetch_tool/valid_markedown_format have values [0,1]
         score = (llm_judge_score + used_fetch_tool + valid_markdown_format) / 4.0
     elif eval_name == "restaurant_research":
-        # (llm_judge_score + valid_markdown_format + used_fetch_tool) / 4
         score = (llm_judge_score + valid_markdown_format + used_fetch_tool) / 4.0
     else:
         raise ValueError(f"Unknown evaluation type: {eval_name}")

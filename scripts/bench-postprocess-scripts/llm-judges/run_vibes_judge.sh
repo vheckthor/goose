@@ -39,7 +39,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Calculate the final score
-python3 "$SCRIPT_DIR/calculate_final_score.py" "$EVAL_NAME"
+python3 "$SCRIPT_DIR/calculate_final_scores_vibes.py" "$EVAL_NAME"
 
 # Check if score calculation succeeded
 if [ $? -ne 0 ]; then

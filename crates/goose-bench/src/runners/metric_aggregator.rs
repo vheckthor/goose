@@ -9,12 +9,12 @@ impl MetricAggregator {
     pub fn generate_csv_from_benchmark_dir(benchmark_dir: &PathBuf) -> Result<()> {
         use std::process::Command;
 
-        // Step 1: Run prepare_aggregate_metrics_with_errors.py to create aggregate_metrics.csv files
+        // Step 1: Run prepare_aggregate_metrics.py to create aggregate_metrics.csv files
         let prepare_script_path = std::env::current_dir()
             .context("Failed to get current working directory")?
             .join("scripts")
             .join("bench-postprocess-scripts")
-            .join("prepare_aggregate_metrics_with_errors.py");
+            .join("prepare_aggregate_metrics.py");
 
         ensure!(
             prepare_script_path.exists(),
@@ -31,7 +31,7 @@ impl MetricAggregator {
             .arg("--benchmark-dir")
             .arg(benchmark_dir)
             .output()
-            .context("Failed to execute prepare_aggregate_metrics_with_errors.py script")?;
+            .context("Failed to execute prepare_aggregate_metrics.py script")?;
 
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
@@ -41,12 +41,12 @@ impl MetricAggregator {
         let success_message = String::from_utf8_lossy(&output.stdout);
         tracing::info!("{}", success_message);
 
-        // Step 2: Run generate_leaderboard_with_errors.py to create the final leaderboard
+        // Step 2: Run generate_leaderboard.py to create the final leaderboard
         let leaderboard_script_path = std::env::current_dir()
             .context("Failed to get current working directory")?
             .join("scripts")
             .join("bench-postprocess-scripts")
-            .join("generate_leaderboard_with_errors.py");
+            .join("generate_leaderboard.py");
 
         ensure!(
             leaderboard_script_path.exists(),
@@ -67,7 +67,7 @@ impl MetricAggregator {
             .arg("--union-output")
             .arg("all_metrics.csv")
             .output()
-            .context("Failed to execute generate_leaderboard_with_errors.py script")?;
+            .context("Failed to execute generate_leaderboard.py script")?;
 
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
@@ -75,7 +75,7 @@ impl MetricAggregator {
         }
 
         let success_message = String::from_utf8_lossy(&output.stdout);
-        tracing::info!("{}", success_message); 
+        tracing::info!("{}", success_message);
         Ok(())
     }
 }

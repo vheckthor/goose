@@ -53,7 +53,7 @@ def process_csv_files(csv_files: list) -> tuple:
         'total_tokens_mean', 
         'score_mean', 
         'prompt_error_mean',
-        'server_error_mean'  # Add server error column
+        'server_error_mean' 
     ]
     
     all_data = []
@@ -96,7 +96,7 @@ def process_csv_files(csv_files: list) -> tuple:
         'total_tokens_mean', 
         'score_mean', 
         'prompt_error_mean',
-        'server_error_mean'  # Include server errors in aggregation
+        'server_error_mean'
     ]
     
     # Group by provider and model_name, then calculate averages for numeric columns
@@ -133,7 +133,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Convert path to Path object and validate it exists
     benchmark_dir = Path(args.benchmark_dir)
     if not benchmark_dir.exists() or not benchmark_dir.is_dir():
         print(f"Error: Benchmark directory {benchmark_dir} does not exist or is not a directory")

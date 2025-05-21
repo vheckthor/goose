@@ -20,9 +20,6 @@ import json
 import pandas as pd
 from pathlib import Path
 import sys
-import os
-import glob
-import re
 
 def extract_provider_model(model_dir):
     """Extract provider and model name from directory name."""
@@ -300,3 +297,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
