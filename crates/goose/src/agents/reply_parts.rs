@@ -26,12 +26,15 @@ impl Agent {
                 if s.eq_ignore_ascii_case("vector") {
                     Some(RouterToolSelectionStrategy::Vector)
                 } else {
-                    Some(RouterToolSelectionStrategy::Default)
+                    None
                 }
             });
         // Get tools from extension manager
         let mut tools = match tool_selection_strategy {
-            Some(RouterToolSelectionStrategy::Vector) => self.list_tools_for_router().await,
+            Some(RouterToolSelectionStrategy::Vector) => {
+                self.list_tools_for_router(Some(RouterToolSelectionStrategy::Vector))
+                    .await
+            }
             _ => self.list_tools(None).await,
         };
         // Add frontend tools
@@ -55,6 +58,7 @@ impl Agent {
             self.frontend_instructions.lock().await.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
             Some(model_name),
+            tool_selection_strategy,
         );
 
         // Handle toolshim if enabled

@@ -7,7 +7,6 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use tokio::sync::Mutex;
 
-use crate::agents::router_tool_selector::RouterToolSelectorContext;
 use crate::config::permission::PermissionLevel;
 use crate::config::PermissionManager;
 use crate::message::{Message, ToolRequest};
@@ -41,7 +40,6 @@ impl Agent {
         tool_futures: ToolFuturesVec<'a>,
         permission_manager: &'a mut PermissionManager,
         message_tool_response: Arc<Mutex<Message>>,
-        router_tool_selector_ctx: RouterToolSelectorContext,
     ) -> BoxStream<'a, anyhow::Result<Message>> {
         try_stream! {
             for request in tool_requests {
@@ -58,7 +56,7 @@ impl Agent {
                     while let Some((req_id, confirmation)) = rx.recv().await {
                         if req_id == request.id {
                             if confirmation.permission == Permission::AllowOnce || confirmation.permission == Permission::AlwaysAllow {
-                                let tool_future = self.dispatch_tool_call(tool_call.clone(), request.id.clone(), router_tool_selector_ctx.clone());
+                                let tool_future = self.dispatch_tool_call(tool_call.clone(), request.id.clone());
                                 let mut futures = tool_futures.lock().await;
                                 futures.push(Box::pin(tool_future));
 

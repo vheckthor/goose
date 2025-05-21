@@ -1,52 +1,25 @@
-use crate::message::Message;
-use async_trait::async_trait;
 use mcp_core::{Content, ToolError};
 
+use async_trait::async_trait;
+use serde_json::Value;
+
 pub enum RouterToolSelectionStrategy {
-    Default,
     Vector,
-}
-
-#[derive(Debug, Clone)]
-pub struct RouterToolSelectorContext {
-    pub messages: Vec<Message>,
-}
-
-impl RouterToolSelectorContext {
-    pub fn new(messages: Vec<Message>) -> Self {
-        Self { messages }
-    }
 }
 
 #[async_trait]
 pub trait RouterToolSelector: Send + Sync {
-    async fn select_tools(
-        &self,
-        ctx: &RouterToolSelectorContext,
-    ) -> Result<Vec<Content>, ToolError>;
-}
-
-pub struct DefaultToolSelector;
-
-#[async_trait]
-impl RouterToolSelector for DefaultToolSelector {
-    async fn select_tools(
-        &self,
-        _ctx: &RouterToolSelectorContext,
-    ) -> Result<Vec<Content>, ToolError> {
-        Ok(Vec::new())
-    }
+    async fn select_tools(&self, params: Value) -> Result<Vec<Content>, ToolError>;
 }
 
 pub struct VectorToolSelector;
 
 #[async_trait]
 impl RouterToolSelector for VectorToolSelector {
-    async fn select_tools(
-        &self,
-        _ctx: &RouterToolSelectorContext,
-    ) -> Result<Vec<Content>, ToolError> {
-        let mut selected_tools = Vec::new();
+    async fn select_tools(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+        let query = params.get("query").and_then(|v| v.as_str());
+        println!("query: {:?}", query);
+        let selected_tools = Vec::new();
         // TODO: placeholder for vector tool selection
         Ok(selected_tools)
     }
@@ -58,6 +31,6 @@ pub fn create_tool_selector(
 ) -> Box<dyn RouterToolSelector> {
     match strategy {
         Some(RouterToolSelectionStrategy::Vector) => Box::new(VectorToolSelector),
-        _ => Box::new(DefaultToolSelector),
+        _ => panic!("ToolSelector not implemented"),
     }
 }

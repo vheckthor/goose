@@ -27,7 +27,6 @@ use crate::agents::platform_tools::{
 use crate::agents::prompt_manager::PromptManager;
 use crate::agents::router_tool_selector::{
     create_tool_selector, RouterToolSelectionStrategy, RouterToolSelector,
-    RouterToolSelectorContext,
 };
 use crate::agents::router_tools::ROUTER_VECTOR_SEARCH_TOOL_NAME;
 use crate::agents::types::SessionConfig;
@@ -67,7 +66,7 @@ impl Agent {
                 if s.eq_ignore_ascii_case("vector") {
                     Some(RouterToolSelectionStrategy::Vector)
                 } else {
-                    Some(RouterToolSelectionStrategy::Default)
+                    None
                 }
             });
 
@@ -154,7 +153,6 @@ impl Agent {
         &self,
         tool_call: mcp_core::tool::ToolCall,
         request_id: String,
-        tool_selector_ctx: RouterToolSelectorContext,
     ) -> (String, Result<Vec<Content>, ToolError>) {
         // Check if this tool call should be allowed based on repetition monitoring
         if let Some(monitor) = self.tool_monitor.lock().await.as_mut() {
@@ -208,7 +206,7 @@ impl Agent {
         } else if tool_call.name == ROUTER_VECTOR_SEARCH_TOOL_NAME {
             let router_tool_selector = self.router_tool_selector.lock().await;
             if let Some(selector) = router_tool_selector.as_ref() {
-                selector.select_tools(&tool_selector_ctx).await
+                selector.select_tools(tool_call.arguments.clone()).await
             } else {
                 Err(ToolError::ExecutionError(
                     "Encountered vector search error.".to_string(),
@@ -345,14 +343,23 @@ impl Agent {
         prefixed_tools
     }
 
-    pub async fn list_tools_for_router(&self) -> Vec<Tool> {
+    pub async fn list_tools_for_router(
+        &self,
+        strategy: Option<RouterToolSelectionStrategy>,
+    ) -> Vec<Tool> {
         let extension_manager = self.extension_manager.lock().await;
 
-        let mut prefixed_tools = vec![
-            router_tools::vector_search_tool(),
-            platform_tools::search_available_extensions_tool(),
-            platform_tools::manage_extensions_tool(),
-        ];
+        let mut prefixed_tools = vec![];
+        match strategy {
+            Some(RouterToolSelectionStrategy::Vector) => {
+                prefixed_tools.push(router_tools::vector_search_tool());
+            }
+            None => {
+                prefixed_tools.push(router_tools::vector_search_tool());
+            }
+        }
+        prefixed_tools.push(platform_tools::search_available_extensions_tool());
+        prefixed_tools.push(platform_tools::manage_extensions_tool());
 
         if extension_manager.supports_resources() {
             prefixed_tools.push(platform_tools::read_resource_tool());
@@ -403,8 +410,6 @@ impl Agent {
         // Setup tools and prompt
         let (mut tools, mut toolshim_tools, mut system_prompt) =
             self.prepare_tools_and_prompt().await?;
-
-        let router_tool_selector_ctx = RouterToolSelectorContext::new(messages.clone());
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
@@ -498,7 +503,7 @@ impl Agent {
                             // Skip the confirmation for approved tools
                             for request in &permission_check_result.approved {
                                 if let Ok(tool_call) = request.tool_call.clone() {
-                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone(), router_tool_selector_ctx.clone());
+                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone());
                                     tool_futures.push(Box::pin(tool_future));
                                 }
                             }
@@ -519,8 +524,7 @@ impl Agent {
                                 &permission_check_result.needs_approval,
                                 tool_futures_arc.clone(),
                                 &mut permission_manager,
-                                message_tool_response.clone(),
-                                router_tool_selector_ctx.clone(),
+                                message_tool_response.clone()
                             );
 
                             // We have a stream of tool_approval_requests to handle
@@ -675,6 +679,7 @@ impl Agent {
             self.frontend_instructions.lock().await.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
             Some(model_name),
+            None,
         );
 
         let recipe_prompt = prompt_manager.get_recipe_prompt().await;
