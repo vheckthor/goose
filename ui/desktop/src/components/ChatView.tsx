@@ -97,7 +97,6 @@ function ChatContent({
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
 
   const scrollRef = useRef<ScrollAreaHandle>(null);
-  const hasSentPromptRef = useRef(false);
 
   const {
     summaryContent,
@@ -278,14 +277,6 @@ function ChatContent({
       setHasMessages(true);
     }
   }, [messages]);
-
-  useEffect(() => {
-    const prompt = recipeConfig?.prompt;
-    if (prompt && !hasSentPromptRef.current) {
-      append(prompt);
-      hasSentPromptRef.current = true;
-    }
-  }, [recipeConfig?.prompt, append]);
 
   // Handle submit
   const handleSubmit = (e: React.FormEvent) => {
@@ -485,6 +476,7 @@ function ChatContent({
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
+
   return (
     <div className="flex flex-col w-full h-screen items-center justify-center">
       {/* Loader when generating recipe */}

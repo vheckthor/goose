@@ -41,7 +41,6 @@ pub async fn agent_generator(
         extensions_override: None,
         additional_system_prompt: None,
         debug: false,
-        max_tool_repetitions: None,
     })
     .await;
 

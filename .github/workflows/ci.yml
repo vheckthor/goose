@@ -1,8 +1,12 @@
 on:
   push:
+    paths-ignore:
+      - "documentation/**"
     branches:
       - main
   pull_request:
+    paths-ignore:
+      - "documentation/**"
     branches:
       - main
   workflow_dispatch:

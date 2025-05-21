@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { FaCircle } from 'react-icons/fa';
+import { IoIosCloseCircle } from 'react-icons/io';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { cn } from '../../utils';
 import { Alert, AlertType } from '../alerts';
@@ -90,12 +91,13 @@ export default function BottomMenuAlertPopover({ alerts }: AlertPopoverProps) {
 
   // Determine the icon and styling based on the alerts
   const hasError = alerts.some((alert) => alert.type === AlertType.Error);
-  const hasInfo = alerts.some((alert) => alert.type === AlertType.Info);
-  const triggerColor = hasError
-    ? 'text-[#d7040e]' // Red color for error alerts
-    : hasInfo
-      ? 'text-[#00b300]' // Green color for info alerts
-      : 'text-[#cc4b03]'; // Orange color for warning alerts
+  const TriggerIcon = hasError ? IoIosCloseCircle : FaCircle;
+  const triggerColor = hasError ? 'text-[#d7040e]' : 'text-[#cc4b03]';
+
+  // Different styling for error icon vs notification dot
+  const iconStyles = hasError
+    ? 'h-5 w-5' // Keep error icon larger
+    : 'h-2.5 w-2.5'; // Smaller notification dot
 
   return (
     <div ref={popoverRef}>
@@ -104,6 +106,13 @@ export default function BottomMenuAlertPopover({ alerts }: AlertPopoverProps) {
           <PopoverTrigger asChild>
             <div
               className="cursor-pointer flex items-center justify-center min-w-5 min-h-5 translate-y-[1px]"
+              onClick={() => {
+                if (hideTimerRef.current) {
+                  clearTimeout(hideTimerRef.current);
+                }
+                setWasAutoShown(false);
+                setIsOpen(!isOpen);
+              }}
               onMouseEnter={() => {
                 setIsOpen(true);
                 setIsHovered(true);
@@ -113,18 +122,10 @@ export default function BottomMenuAlertPopover({ alerts }: AlertPopoverProps) {
                 }
               }}
               onMouseLeave={() => {
-                // Start a short timer to allow moving to content
-                hideTimerRef.current = setTimeout(() => {
-                  if (!isHovered) {
-                    setIsHovered(false);
-                    setIsOpen(false);
-                  }
-                }, 100);
+                setIsHovered(false);
               }}
             >
-              <div className={cn('relative', '-right-1', triggerColor)}>
-                <FaCircle size={5} />
-              </div>
+              <TriggerIcon className={cn(iconStyles, triggerColor)} />
             </div>
           </PopoverTrigger>
 
@@ -157,7 +158,6 @@ export default function BottomMenuAlertPopover({ alerts }: AlertPopoverProps) {
             }}
             onMouseLeave={() => {
               setIsHovered(false);
-              setIsOpen(false);
             }}
           >
             <div className="flex flex-col">

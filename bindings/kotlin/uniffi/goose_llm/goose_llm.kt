@@ -775,8 +775,6 @@ internal interface IntegrityCheckingUniffiLib : Library {
 
     fun uniffi_goose_llm_checksum_func_generate_session_name(): Short
 
-    fun uniffi_goose_llm_checksum_func_generate_structured_outputs(): Short
-
     fun uniffi_goose_llm_checksum_func_generate_tooltip(): Short
 
     fun uniffi_goose_llm_checksum_func_print_messages(): Short
@@ -847,14 +845,6 @@ internal interface UniffiLib : Library {
         `providerName`: RustBuffer.ByValue,
         `providerConfig`: RustBuffer.ByValue,
         `messages`: RustBuffer.ByValue,
-    ): Long
-
-    fun uniffi_goose_llm_fn_func_generate_structured_outputs(
-        `providerName`: RustBuffer.ByValue,
-        `providerConfig`: RustBuffer.ByValue,
-        `systemPrompt`: RustBuffer.ByValue,
-        `messages`: RustBuffer.ByValue,
-        `schema`: RustBuffer.ByValue,
     ): Long
 
     fun uniffi_goose_llm_fn_func_generate_tooltip(
@@ -1100,19 +1090,16 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_goose_llm_checksum_func_completion() != 47457.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_goose_llm_checksum_func_create_completion_request() != 39068.toShort()) {
+    if (lib.uniffi_goose_llm_checksum_func_create_completion_request() != 51008.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_goose_llm_checksum_func_create_tool_config() != 49910.toShort()) {
+    if (lib.uniffi_goose_llm_checksum_func_create_tool_config() != 22809.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_goose_llm_checksum_func_generate_session_name() != 64087.toShort()) {
+    if (lib.uniffi_goose_llm_checksum_func_generate_session_name() != 9810.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_goose_llm_checksum_func_generate_structured_outputs() != 43426.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_goose_llm_checksum_func_generate_tooltip() != 41121.toShort()) {
+    if (lib.uniffi_goose_llm_checksum_func_generate_tooltip() != 15466.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_goose_llm_checksum_func_print_messages() != 30278.toShort()) {
@@ -1639,54 +1626,6 @@ public object FfiConverterTypeProviderCompleteResponse : FfiConverterRustBuffer<
     }
 }
 
-/**
- * Response from a structured‐extraction call
- */
-data class ProviderExtractResponse(
-    /**
-     * The extracted JSON object
-     */
-    var `data`: Value,
-    /**
-     * Which model produced it
-     */
-    var `model`: kotlin.String,
-    /**
-     * Token usage stats
-     */
-    var `usage`: Usage,
-) {
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeProviderExtractResponse : FfiConverterRustBuffer<ProviderExtractResponse> {
-    override fun read(buf: ByteBuffer): ProviderExtractResponse =
-        ProviderExtractResponse(
-            FfiConverterTypeValue.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterTypeUsage.read(buf),
-        )
-
-    override fun allocationSize(value: ProviderExtractResponse) =
-        (
-            FfiConverterTypeValue.allocationSize(value.`data`) +
-                FfiConverterString.allocationSize(value.`model`) +
-                FfiConverterTypeUsage.allocationSize(value.`usage`)
-        )
-
-    override fun write(
-        value: ProviderExtractResponse,
-        buf: ByteBuffer,
-    ) {
-        FfiConverterTypeValue.write(value.`data`, buf)
-        FfiConverterString.write(value.`model`, buf)
-        FfiConverterTypeUsage.write(value.`usage`, buf)
-    }
-}
-
 data class RedactedThinkingContent(
     var `data`: kotlin.String,
 ) {
@@ -1808,46 +1747,6 @@ public object FfiConverterTypeThinkingContent : FfiConverterRustBuffer<ThinkingC
     ) {
         FfiConverterString.write(value.`thinking`, buf)
         FfiConverterString.write(value.`signature`, buf)
-    }
-}
-
-data class ToolConfig(
-    var `name`: kotlin.String,
-    var `description`: kotlin.String,
-    var `inputSchema`: Value,
-    var `approvalMode`: ToolApprovalMode,
-) {
-    companion object
-}
-
-/**
- * @suppress
- */
-public object FfiConverterTypeToolConfig : FfiConverterRustBuffer<ToolConfig> {
-    override fun read(buf: ByteBuffer): ToolConfig =
-        ToolConfig(
-            FfiConverterString.read(buf),
-            FfiConverterString.read(buf),
-            FfiConverterTypeValue.read(buf),
-            FfiConverterTypeToolApprovalMode.read(buf),
-        )
-
-    override fun allocationSize(value: ToolConfig) =
-        (
-            FfiConverterString.allocationSize(value.`name`) +
-                FfiConverterString.allocationSize(value.`description`) +
-                FfiConverterTypeValue.allocationSize(value.`inputSchema`) +
-                FfiConverterTypeToolApprovalMode.allocationSize(value.`approvalMode`)
-        )
-
-    override fun write(
-        value: ToolConfig,
-        buf: ByteBuffer,
-    ) {
-        FfiConverterString.write(value.`name`, buf)
-        FfiConverterString.write(value.`description`, buf)
-        FfiConverterTypeValue.write(value.`inputSchema`, buf)
-        FfiConverterTypeToolApprovalMode.write(value.`approvalMode`, buf)
     }
 }
 
@@ -2841,34 +2740,6 @@ public object FfiConverterSequenceTypeMessage : FfiConverterRustBuffer<List<Mess
 /**
  * @suppress
  */
-public object FfiConverterSequenceTypeToolConfig : FfiConverterRustBuffer<List<ToolConfig>> {
-    override fun read(buf: ByteBuffer): List<ToolConfig> {
-        val len = buf.getInt()
-        return List<ToolConfig>(len) {
-            FfiConverterTypeToolConfig.read(buf)
-        }
-    }
-
-    override fun allocationSize(value: List<ToolConfig>): ULong {
-        val sizeForLength = 4UL
-        val sizeForItems = value.map { FfiConverterTypeToolConfig.allocationSize(it) }.sum()
-        return sizeForLength + sizeForItems
-    }
-
-    override fun write(
-        value: List<ToolConfig>,
-        buf: ByteBuffer,
-    ) {
-        buf.putInt(value.size)
-        value.iterator().forEach {
-            FfiConverterTypeToolConfig.write(it, buf)
-        }
-    }
-}
-
-/**
- * @suppress
- */
 public object FfiConverterSequenceTypeMessageContent : FfiConverterRustBuffer<List<MessageContent>> {
     override fun read(buf: ByteBuffer): List<MessageContent> {
         val len = buf.getInt()
@@ -2895,6 +2766,34 @@ public object FfiConverterSequenceTypeMessageContent : FfiConverterRustBuffer<Li
 }
 
 /**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeToolConfig : FfiConverterRustBuffer<List<ToolConfig>> {
+    override fun read(buf: ByteBuffer): List<ToolConfig> {
+        val len = buf.getInt()
+        return List<ToolConfig>(len) {
+            FfiConverterTypeToolConfig.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<ToolConfig>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeToolConfig.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(
+        value: List<ToolConfig>,
+        buf: ByteBuffer,
+    ) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeToolConfig.write(it, buf)
+        }
+    }
+}
+
+/**
  * Typealias from the type name used in the UDL file to the builtin type.  This
  * is needed because the UDL type name is used in function/method signatures.
  * It's also what we have an external type that references a custom type.
@@ -2915,6 +2814,22 @@ public typealias FfiConverterTypeContents = FfiConverterSequenceTypeMessageConte
  * is needed because the UDL type name is used in function/method signatures.
  * It's also what we have an external type that references a custom type.
  */
+public typealias JsonValueFfi = kotlin.String
+public typealias FfiConverterTypeJsonValueFfi = FfiConverterString
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ * It's also what we have an external type that references a custom type.
+ */
+public typealias ToolConfig = kotlin.String
+public typealias FfiConverterTypeToolConfig = FfiConverterString
+
+/**
+ * Typealias from the type name used in the UDL file to the builtin type.  This
+ * is needed because the UDL type name is used in function/method signatures.
+ * It's also what we have an external type that references a custom type.
+ */
 public typealias ToolRequestToolCall = kotlin.String
 public typealias FfiConverterTypeToolRequestToolCall = FfiConverterString
 
@@ -2925,14 +2840,6 @@ public typealias FfiConverterTypeToolRequestToolCall = FfiConverterString
  */
 public typealias ToolResponseToolResult = kotlin.String
 public typealias FfiConverterTypeToolResponseToolResult = FfiConverterString
-
-/**
- * Typealias from the type name used in the UDL file to the builtin type.  This
- * is needed because the UDL type name is used in function/method signatures.
- * It's also what we have an external type that references a custom type.
- */
-public typealias Value = kotlin.String
-public typealias FfiConverterTypeValue = FfiConverterString
 
 /**
  * Public API for the Goose LLM completion function
@@ -2953,7 +2860,7 @@ suspend fun `completion`(`req`: CompletionRequest): CompletionResponse =
 
 fun `createCompletionRequest`(
     `providerName`: kotlin.String,
-    `providerConfig`: Value,
+    `providerConfig`: JsonValueFfi,
     `modelConfig`: ModelConfig,
     `systemPreamble`: kotlin.String,
     `messages`: List<Message>,
@@ -2963,7 +2870,7 @@ fun `createCompletionRequest`(
         uniffiRustCall { _status ->
             UniffiLib.INSTANCE.uniffi_goose_llm_fn_func_create_completion_request(
                 FfiConverterString.lower(`providerName`),
-                FfiConverterTypeValue.lower(`providerConfig`),
+                FfiConverterTypeJsonValueFfi.lower(`providerConfig`),
                 FfiConverterTypeModelConfig.lower(`modelConfig`),
                 FfiConverterString.lower(`systemPreamble`),
                 FfiConverterSequenceTypeMessage.lower(`messages`),
@@ -2976,7 +2883,7 @@ fun `createCompletionRequest`(
 fun `createToolConfig`(
     `name`: kotlin.String,
     `description`: kotlin.String,
-    `inputSchema`: Value,
+    `inputSchema`: JsonValueFfi,
     `approvalMode`: ToolApprovalMode,
 ): ToolConfig =
     FfiConverterTypeToolConfig.lift(
@@ -2984,7 +2891,7 @@ fun `createToolConfig`(
             UniffiLib.INSTANCE.uniffi_goose_llm_fn_func_create_tool_config(
                 FfiConverterString.lower(`name`),
                 FfiConverterString.lower(`description`),
-                FfiConverterTypeValue.lower(`inputSchema`),
+                FfiConverterTypeJsonValueFfi.lower(`inputSchema`),
                 FfiConverterTypeToolApprovalMode.lower(`approvalMode`),
                 _status,
             )
@@ -2998,13 +2905,13 @@ fun `createToolConfig`(
 @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 suspend fun `generateSessionName`(
     `providerName`: kotlin.String,
-    `providerConfig`: Value,
+    `providerConfig`: JsonValueFfi,
     `messages`: List<Message>,
 ): kotlin.String =
     uniffiRustCallAsync(
         UniffiLib.INSTANCE.uniffi_goose_llm_fn_func_generate_session_name(
             FfiConverterString.lower(`providerName`),
-            FfiConverterTypeValue.lower(`providerConfig`),
+            FfiConverterTypeJsonValueFfi.lower(`providerConfig`),
             FfiConverterSequenceTypeMessage.lower(`messages`),
         ),
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_goose_llm_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -3017,36 +2924,6 @@ suspend fun `generateSessionName`(
     )
 
 /**
- * Generates a structured output based on the provided schema,
- * system prompt and user messages.
- */
-@Throws(ProviderException::class)
-@Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-suspend fun `generateStructuredOutputs`(
-    `providerName`: kotlin.String,
-    `providerConfig`: Value,
-    `systemPrompt`: kotlin.String,
-    `messages`: List<Message>,
-    `schema`: Value,
-): ProviderExtractResponse =
-    uniffiRustCallAsync(
-        UniffiLib.INSTANCE.uniffi_goose_llm_fn_func_generate_structured_outputs(
-            FfiConverterString.lower(`providerName`),
-            FfiConverterTypeValue.lower(`providerConfig`),
-            FfiConverterString.lower(`systemPrompt`),
-            FfiConverterSequenceTypeMessage.lower(`messages`),
-            FfiConverterTypeValue.lower(`schema`),
-        ),
-        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_goose_llm_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.INSTANCE.ffi_goose_llm_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.INSTANCE.ffi_goose_llm_rust_future_free_rust_buffer(future) },
-        // lift function
-        { FfiConverterTypeProviderExtractResponse.lift(it) },
-        // Error FFI converter
-        ProviderException.ErrorHandler,
-    )
-
-/**
  * Generates a tooltip summarizing the last two messages in the session,
  * including any tool calls or results.
  */
@@ -3054,13 +2931,13 @@ suspend fun `generateStructuredOutputs`(
 @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
 suspend fun `generateTooltip`(
     `providerName`: kotlin.String,
-    `providerConfig`: Value,
+    `providerConfig`: JsonValueFfi,
     `messages`: List<Message>,
 ): kotlin.String =
     uniffiRustCallAsync(
         UniffiLib.INSTANCE.uniffi_goose_llm_fn_func_generate_tooltip(
             FfiConverterString.lower(`providerName`),
-            FfiConverterTypeValue.lower(`providerConfig`),
+            FfiConverterTypeJsonValueFfi.lower(`providerConfig`),
             FfiConverterSequenceTypeMessage.lower(`messages`),
         ),
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_goose_llm_rust_future_poll_rust_buffer(future, callback, continuation) },

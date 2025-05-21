@@ -52,7 +52,7 @@ pub fn create_completion_request(
 ) -> CompletionRequest {
     CompletionRequest::new(
         provider_name.to_string(),
-        provider_config,
+        provider_config.into(),
         model_config,
         system_preamble.to_string(),
         messages,
@@ -141,11 +141,11 @@ pub enum ToolApprovalMode {
     Smart,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ToolConfig {
     pub name: String,
     pub description: String,
-    pub input_schema: JsonValueFfi,
+    pub input_schema: serde_json::Value,
     pub approval_mode: ToolApprovalMode,
 }
 
@@ -153,7 +153,7 @@ impl ToolConfig {
     pub fn new(
         name: &str,
         description: &str,
-        input_schema: JsonValueFfi,
+        input_schema: serde_json::Value,
         approval_mode: ToolApprovalMode,
     ) -> Self {
         Self {
@@ -182,8 +182,17 @@ pub fn create_tool_config(
     input_schema: JsonValueFfi,
     approval_mode: ToolApprovalMode,
 ) -> ToolConfig {
-    ToolConfig::new(name, description, input_schema, approval_mode)
+    ToolConfig::new(name, description, input_schema.into(), approval_mode)
 }
+
+uniffi::custom_type!(ToolConfig, String, {
+    lower: |tc: &ToolConfig| {
+        serde_json::to_string(&tc).unwrap()
+    },
+    try_lift: |s: String| {
+        Ok(serde_json::from_str(&s).unwrap())
+    },
+});
 
 // — Register the newtypes with UniFFI, converting via JSON strings —
 

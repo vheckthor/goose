@@ -44,7 +44,7 @@ impl ProviderCompleteResponse {
 }
 
 /// Response from a structured‐extraction call
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone)]
 pub struct ProviderExtractResponse {
     /// The extracted JSON object
     pub data: serde_json::Value,

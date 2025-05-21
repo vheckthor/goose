@@ -1,5 +1,6 @@
-use crate::generate_structured_outputs;
 use crate::message::{Message, MessageContent};
+use crate::model::ModelConfig;
+use crate::providers::create;
 use crate::providers::errors::ProviderError;
 use crate::types::core::{Content, Role};
 use crate::types::json_value_ffi::JsonValueFfi;
@@ -58,7 +59,16 @@ pub async fn generate_tooltip(
     provider_config: JsonValueFfi,
     messages: &[Message],
 ) -> Result<String, ProviderError> {
-    // Need at least two messages to generate a tooltip
+    // Use OpenAI models specifically for this task
+    let model_name = if provider_name == "databricks" {
+        "goose-gpt-4-1"
+    } else {
+        "gpt-4.1"
+    };
+    let model_cfg = ModelConfig::new(model_name.to_string()).with_temperature(Some(0.0));
+    let provider = create(provider_name, provider_config.into(), model_cfg)?;
+
+    // Need at least two messages to summarize
     if messages.len() < 2 {
         return Err(ProviderError::ExecutionError(
             "Need at least two messages to generate a tooltip".to_string(),
@@ -141,15 +151,11 @@ pub async fn generate_tooltip(
         "additionalProperties": false
     });
 
-    // Get the structured outputs
-    let resp = generate_structured_outputs(
-        provider_name,
-        provider_config,
-        &system_prompt,
-        &[Message::user().with_text(&user_msg_text)],
-        schema,
-    )
-    .await?;
+    // Call extract
+    let user_msg = Message::user().with_text(&user_msg_text);
+    let resp = provider
+        .extract(&system_prompt, &[user_msg], &schema)
+        .await?;
 
     // Pull out the tooltip field
     let obj = resp
