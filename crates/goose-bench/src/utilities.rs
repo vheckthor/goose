@@ -1,4 +1,3 @@
-// Using anyhow directly for error handling
 use anyhow::Result;
 use std::env;
 use std::process::{Child, Command};

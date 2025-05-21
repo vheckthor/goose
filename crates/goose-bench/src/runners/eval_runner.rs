@@ -1,7 +1,6 @@
 use crate::bench_config::{BenchEval, BenchModel, BenchRunConfig};
 use crate::bench_session::BenchAgent;
 use crate::bench_work_dir::BenchmarkWorkDir;
-// Using anyhow directly for error handling
 use crate::eval_suites::{EvaluationSuite, ExtensionRequirements};
 use crate::reporting::EvaluationResult;
 use crate::utilities::await_process_exits;
@@ -89,8 +88,6 @@ impl EvalRunner {
                 .as_nanos();
 
             let session_id = format!("{}-{}", bench_eval.selector.clone(), now_stamp);
-            tracing::info!("Created session ID: {}", session_id);
-
             let mut agent = agent_generator(eval.required_extensions(), session_id).await;
             tracing::info!("Agent created for {}", eval.name());
 

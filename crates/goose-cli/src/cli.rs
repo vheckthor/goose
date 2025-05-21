@@ -17,6 +17,7 @@ use crate::session::{build_session, SessionBuilderConfig};
 use goose_bench::bench_config::BenchRunConfig;
 use goose_bench::runners::bench_runner::BenchRunner;
 use goose_bench::runners::eval_runner::EvalRunner;
+use goose_bench::runners::metric_aggregator::MetricAggregator;
 use goose_bench::runners::model_runner::ModelRunner;
 use std::io::Read;
 use std::path::PathBuf;
@@ -631,9 +632,7 @@ pub async fn cli() -> Result<()> {
                     EvalRunner::from(config)?.run(agent_generator).await?
                 }
                 BenchCommand::GenerateLeaderboard { benchmark_dir } => {
-                    // Uses the aggregate_benchmark_results.py script to process benchmark results
-                    // and generate aggregated CSV files
-                    ModelRunner::generate_csv_from_benchmark_dir(&benchmark_dir)?
+                    MetricAggregator::generate_csv_from_benchmark_dir(&benchmark_dir)?
                 }
             }
             return Ok(());
