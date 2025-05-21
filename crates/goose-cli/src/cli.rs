@@ -144,7 +144,7 @@ pub enum BenchCommand {
     },
 
     #[command(
-        name = "generateLeaderboard",
+        name = "generate-leaderboard",
         about = "Generate a leaderboard CSV from benchmark results"
     )]
     GenerateLeaderboard {
@@ -631,8 +631,8 @@ pub async fn cli() -> Result<()> {
                     EvalRunner::from(config)?.run(agent_generator).await?
                 }
                 BenchCommand::GenerateLeaderboard { benchmark_dir } => {
-                    // Uses the Python script in scripts/bench-postprocess-scripts/generate_leaderboard.py
-                    // to process all eval-results/aggregate_metrics.csv files
+                    // Uses the aggregate_benchmark_results.py script to process benchmark results
+                    // and generate aggregated CSV files
                     ModelRunner::generate_csv_from_benchmark_dir(&benchmark_dir)?
                 }
             }

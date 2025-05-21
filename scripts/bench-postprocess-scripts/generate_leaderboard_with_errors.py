@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # Compatible with Python 3.6+
 """
-Generate a leaderboard CSV from benchmark results.
+Generate a leaderboard CSV from benchmark results, including server error information.
 
 This script:
 1. Looks for model folders in the benchmark directory
 2. Finds eval-results/aggregate_metrics.csv in each model folder
-3. Extracts key metrics (provider, model_name, eval_suite, eval_name, tool calls, execution time, tokens, score, prompt error)
+3. Extracts key metrics (provider, model_name, eval_suite, eval_name, tool calls, execution time, tokens, score, prompt error, server error)
 4. Creates a union of all CSVs with these columns
 5. Creates a leaderboard.csv grouping by provider and model_name, averaging numeric columns
 
 Usage:
-    python generate_leaderboard.py --benchmark-dir /path/to/benchmark-dir
+    python generate_leaderboard_with_errors.py --benchmark-dir /path/to/benchmark-dir
 """
 
 import argparse
@@ -52,7 +52,8 @@ def process_csv_files(csv_files: list) -> tuple:
         'prompt_execution_time_mean', 
         'total_tokens_mean', 
         'score_mean', 
-        'prompt_error_mean'
+        'prompt_error_mean',
+        'server_error_mean'  # Add server error column
     ]
     
     all_data = []
@@ -71,7 +72,7 @@ def process_csv_files(csv_files: list) -> tuple:
                     df[col] = float('nan')
             
             # Select only the columns we care about
-            df_subset = df[selected_columns]
+            df_subset = df[selected_columns].copy()  # Create a copy to avoid SettingWithCopyWarning
             
             # Add model folder name as additional context
             model_folder = csv_file.parent.parent.name
@@ -94,7 +95,8 @@ def process_csv_files(csv_files: list) -> tuple:
         'prompt_execution_time_mean', 
         'total_tokens_mean', 
         'score_mean', 
-        'prompt_error_mean'
+        'prompt_error_mean',
+        'server_error_mean'  # Include server errors in aggregation
     ]
     
     # Group by provider and model_name, then calculate averages for numeric columns
@@ -108,7 +110,7 @@ def process_csv_files(csv_files: list) -> tuple:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate a leaderboard CSV from benchmark results"
+        description="Generate a leaderboard CSV from benchmark results, including server error information"
     )
     parser.add_argument(
         "--benchmark-dir",
@@ -162,7 +164,17 @@ def main():
         
         # Print a summary of the leaderboard
         print("\nLeaderboard Summary:")
+        pd.set_option('display.max_columns', None)  # Show all columns
         print(leaderboard_df.to_string(index=False))
+        
+        # Highlight models with server errors
+        if 'server_error_mean' in leaderboard_df.columns:
+            models_with_errors = leaderboard_df[leaderboard_df['server_error_mean'] > 0]
+            if not models_with_errors.empty:
+                print("\nWARNING - Models with server errors detected:")
+                for _, row in models_with_errors.iterrows():
+                    print(f"  * {row['provider']} {row['model_name']} - {row['server_error_mean']*100:.1f}% of evaluations had server errors")
+                print("\nThese models may need to be re-run to get accurate results.")
         
     except Exception as e:
         print(f"Error: {str(e)}")
