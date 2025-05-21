@@ -1,6 +1,6 @@
 use crate::message::Message;
 use async_trait::async_trait;
-use mcp_core::{Content, Tool, ToolError};
+use mcp_core::{Content, ToolError};
 
 pub enum RouterToolSelectionStrategy {
     Default,
@@ -9,13 +9,12 @@ pub enum RouterToolSelectionStrategy {
 
 #[derive(Debug, Clone)]
 pub struct RouterToolSelectorContext {
-    pub tools: Vec<Tool>,
     pub messages: Vec<Message>,
 }
 
 impl RouterToolSelectorContext {
-    pub fn new(tools: Vec<Tool>, messages: Vec<Message>) -> Self {
-        Self { tools, messages }
+    pub fn new(messages: Vec<Message>) -> Self {
+        Self { messages }
     }
 }
 
@@ -33,13 +32,9 @@ pub struct DefaultToolSelector;
 impl RouterToolSelector for DefaultToolSelector {
     async fn select_tools(
         &self,
-        ctx: &RouterToolSelectorContext,
+        _ctx: &RouterToolSelectorContext,
     ) -> Result<Vec<Content>, ToolError> {
-        Ok(ctx
-            .tools
-            .iter()
-            .map(|tool| Content::text(tool.name.clone()))
-            .collect())
+        Ok(Vec::new())
     }
 }
 
@@ -49,21 +44,11 @@ pub struct VectorToolSelector;
 impl RouterToolSelector for VectorToolSelector {
     async fn select_tools(
         &self,
-        ctx: &RouterToolSelectorContext,
+        _ctx: &RouterToolSelectorContext,
     ) -> Result<Vec<Content>, ToolError> {
         let mut selected_tools = Vec::new();
         // TODO: placeholder for vector tool selection
-        if let Some(last_message) = ctx.messages.last() {
-            if let Some(content) = last_message.content.first().and_then(|c| c.as_text()) {
-                for tool in &ctx.tools {
-                    if content.contains(&tool.name) {
-                        selected_tools.push(tool.name.clone());
-                    }
-                }
-            }
-        }
-
-        Ok(selected_tools.into_iter().map(Content::text).collect())
+        Ok(selected_tools)
     }
 }
 

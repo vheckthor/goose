@@ -29,7 +29,7 @@ use crate::agents::router_tool_selector::{
     create_tool_selector, RouterToolSelectionStrategy, RouterToolSelector,
     RouterToolSelectorContext,
 };
-use crate::agents::router_tools::{ROUTER_ACTIVATE_TOOL_NAME, ROUTER_VECTOR_SEARCH_TOOL_NAME};
+use crate::agents::router_tools::ROUTER_VECTOR_SEARCH_TOOL_NAME;
 use crate::agents::types::SessionConfig;
 use crate::agents::types::{FrontendTool, ToolResultReceiver};
 use mcp_core::{
@@ -206,7 +206,6 @@ impl Agent {
                 "Frontend tool execution required".to_string(),
             ))
         } else if tool_call.name == ROUTER_VECTOR_SEARCH_TOOL_NAME {
-            // TODO: Implement vector search tool
             let router_tool_selector = self.router_tool_selector.lock().await;
             if let Some(selector) = router_tool_selector.as_ref() {
                 selector.select_tools(&tool_selector_ctx).await
@@ -215,12 +214,6 @@ impl Agent {
                     "Encountered vector search error.".to_string(),
                 ))
             }
-        } else if tool_call.name == ROUTER_ACTIVATE_TOOL_NAME {
-            // Activate tool
-            // TODO: Implement activate tool
-            Err(ToolError::ExecutionError(
-                "Activate tool execution required".to_string(),
-            ))
         } else {
             extension_manager
                 .dispatch_tool_call(tool_call.clone())
@@ -357,7 +350,6 @@ impl Agent {
 
         let mut prefixed_tools = vec![
             router_tools::vector_search_tool(),
-            router_tools::activate_tool(),
             platform_tools::search_available_extensions_tool(),
             platform_tools::manage_extensions_tool(),
         ];
@@ -412,9 +404,7 @@ impl Agent {
         let (mut tools, mut toolshim_tools, mut system_prompt) =
             self.prepare_tools_and_prompt().await?;
 
-        // TODO: find a way to pass all_tools
-        let router_tool_selector_ctx =
-            RouterToolSelectorContext::new(tools.clone(), messages.clone());
+        let router_tool_selector_ctx = RouterToolSelectorContext::new(messages.clone());
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
