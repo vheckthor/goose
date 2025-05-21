@@ -8,7 +8,7 @@ use std::process::Command;
 use std::process::Stdio;
 use tar::Archive;
 
-use crate::recipes::recipe::RECIPE_FILE_EXTENSIONS;
+use crate::recipe::RECIPE_FILE_EXTENSIONS;
 
 pub const GOOSE_RECIPE_GITHUB_REPO_CONFIG_KEY: &str = "GOOSE_RECIPE_GITHUB_REPO";
 pub fn retrieve_recipe_from_github(

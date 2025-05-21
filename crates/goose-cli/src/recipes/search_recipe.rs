@@ -3,7 +3,7 @@ use goose::config::Config;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-use crate::recipes::recipe::RECIPE_FILE_EXTENSIONS;
+use crate::recipe::RECIPE_FILE_EXTENSIONS;
 
 use super::github_recipe::{retrieve_recipe_from_github, GOOSE_RECIPE_GITHUB_REPO_CONFIG_KEY};
 

@@ -9,6 +9,8 @@ use std::collections::HashMap;
 
 use crate::recipes::search_recipe::retrieve_recipe_file;
 
+pub const RECIPE_FILE_EXTENSIONS: &[&str] = &["yaml", "json"];
+
 /// Loads and validates a recipe from a YAML or JSON file
 ///
 /// # Arguments
@@ -33,19 +35,24 @@ pub fn load_recipe(
     log: bool,
     params: Option<Vec<(String, String)>>,
 ) -> Result<Recipe> {
-    let content = retrieve_recipe_file(recipe_name)?;
+    let (file_content_string, _recipe_parent_dir) = retrieve_recipe_file(recipe_name)?;
 
-    // Check if any parameters were provided
-    let rendered_content = match params {
-        None => content,
-        Some(params) => render_content_with_params(&content, &params)?,
+    let recipe_text_to_parse: String;
+
+    match params {
+        None => {
+            recipe_text_to_parse = file_content_string;
+        }
+        Some(p) => {
+            recipe_text_to_parse = render_content_with_params(&file_content_string, &p)?;
+        }
     };
 
     let recipe: Recipe;
-    if serde_json::from_str::<JsonValue>(&rendered_content).is_ok() {
-        recipe = serde_json::from_str(&rendered_content)?
-    } else if serde_yaml::from_str::<YamlValue>(&rendered_content).is_ok() {
-        recipe = serde_yaml::from_str(&rendered_content)?
+    if serde_json::from_str::<JsonValue>(&recipe_text_to_parse).is_ok() {
+        recipe = serde_json::from_str(&recipe_text_to_parse)?
+    } else if serde_yaml::from_str::<YamlValue>(&recipe_text_to_parse).is_ok() {
+        recipe = serde_yaml::from_str(&recipe_text_to_parse)?
     } else {
         return Err(anyhow::anyhow!(
             "Unsupported file format for recipe file. Expected .yaml or .json"
