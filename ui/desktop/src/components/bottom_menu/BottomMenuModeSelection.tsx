@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { getApiUrl, getSecretKey } from '../../config';
 import { all_goose_modes, ModeSelectionItem } from '../settings_v2/mode/ModeSelectionItem';
 import { useConfig } from '../ConfigContext';
+import { settingsV2Enabled } from '../../flags';
 import { View, ViewOptions } from '../../App';
 import { Orbit } from 'lucide-react';
 
@@ -16,8 +18,23 @@ export const BottomMenuModeSelection = ({ setView }: BottomMenuModeSelectionProp
 
   const fetchCurrentMode = useCallback(async () => {
     try {
-      const mode = (await read('GOOSE_MODE', false)) as string;
-      if (mode) {
+      if (!settingsV2Enabled) {
+        const response = await fetch(getApiUrl('/configs/get?key=GOOSE_MODE'), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Secret-Key': getSecretKey(),
+          },
+        });
+
+        if (response.ok) {
+          const { value } = await response.json();
+          if (value) {
+            setGooseMode(value);
+          }
+        }
+      } else {
+        const mode = (await read('GOOSE_MODE', false)) as string;
         setGooseMode(mode);
       }
     } catch (error) {
@@ -69,12 +86,29 @@ export const BottomMenuModeSelection = ({ setView }: BottomMenuModeSelectionProp
       return;
     }
 
-    try {
+    if (!settingsV2Enabled) {
+      const storeResponse = await fetch(getApiUrl('/configs/store'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Secret-Key': getSecretKey(),
+        },
+        body: JSON.stringify({
+          key: 'GOOSE_MODE',
+          value: newMode,
+          isSecret: false,
+        }),
+      });
+
+      if (!storeResponse.ok) {
+        const errorText = await storeResponse.text();
+        console.error('Store response error:', errorText);
+        throw new Error(`Failed to store new goose mode: ${newMode}`);
+      }
+      setGooseMode(newMode);
+    } else {
       await upsert('GOOSE_MODE', newMode, false);
       setGooseMode(newMode);
-    } catch (error) {
-      console.error('Error updating goose mode:', error);
-      throw new Error(`Failed to store new goose mode: ${newMode}`);
     }
   };
 
@@ -91,6 +125,14 @@ export const BottomMenuModeSelection = ({ setView }: BottomMenuModeSelectionProp
       >
         <span className="pr-1.5">{getValueByKey(gooseMode).toLowerCase()}</span>
         <Orbit />
+        {/*<span className="truncate max-w-[170px] md:max-w-[200px] lg:max-w-[380px]">*/}
+        {/*  Goose Mode: {getValueByKey(gooseMode)}*/}
+        {/*</span>*/}
+        {/*{isGooseModeMenuOpen ? (*/}
+        {/*  <ChevronDown className="w-4 h-4 ml-1" />*/}
+        {/*) : (*/}
+        {/*  <ChevronUp className="w-4 h-4 ml-1" />*/}
+        {/*)}*/}
       </button>
 
       {/* Dropdown Menu */}
