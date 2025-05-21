@@ -25,6 +25,11 @@ use crate::agents::platform_tools::{
     PLATFORM_READ_RESOURCE_TOOL_NAME, PLATFORM_SEARCH_AVAILABLE_EXTENSIONS_TOOL_NAME,
 };
 use crate::agents::prompt_manager::PromptManager;
+use crate::agents::router_tool_selector::{
+    create_tool_selector, RouterToolSelectionStrategy, RouterToolSelector,
+    RouterToolSelectorContext,
+};
+use crate::agents::router_tools::{ROUTER_ACTIVATE_TOOL_NAME, ROUTER_VECTOR_SEARCH_TOOL_NAME};
 use crate::agents::types::SessionConfig;
 use crate::agents::types::{FrontendTool, ToolResultReceiver};
 use mcp_core::{
@@ -32,6 +37,7 @@ use mcp_core::{
 };
 
 use super::platform_tools;
+use super::router_tools;
 use super::tool_execution::{ToolFuture, CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
 
 /// The main goose Agent
@@ -46,6 +52,7 @@ pub struct Agent {
     pub(super) tool_result_tx: mpsc::Sender<(String, ToolResult<Vec<Content>>)>,
     pub(super) tool_result_rx: ToolResultReceiver,
     pub(super) tool_monitor: Mutex<Option<ToolMonitor>>,
+    pub(super) router_tool_selector: Mutex<Option<Box<dyn RouterToolSelector>>>,
 }
 
 impl Agent {
@@ -53,6 +60,16 @@ impl Agent {
         // Create channels with buffer size 32 (adjust if needed)
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
+
+        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(RouterToolSelectionStrategy::Vector)
+                } else {
+                    Some(RouterToolSelectionStrategy::Default)
+                }
+            });
 
         Self {
             provider: Mutex::new(None),
@@ -65,6 +82,9 @@ impl Agent {
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
             tool_monitor: Mutex::new(None),
+            router_tool_selector: Mutex::new(Some(create_tool_selector(
+                router_tool_selection_strategy,
+            ))),
         }
     }
 
@@ -134,6 +154,7 @@ impl Agent {
         &self,
         tool_call: mcp_core::tool::ToolCall,
         request_id: String,
+        tool_selector_ctx: RouterToolSelectorContext,
     ) -> (String, Result<Vec<Content>, ToolError>) {
         // Check if this tool call should be allowed based on repetition monitoring
         if let Some(monitor) = self.tool_monitor.lock().await.as_mut() {
@@ -183,6 +204,22 @@ impl Agent {
             // For frontend tools, return an error indicating we need frontend execution
             Err(ToolError::ExecutionError(
                 "Frontend tool execution required".to_string(),
+            ))
+        } else if tool_call.name == ROUTER_VECTOR_SEARCH_TOOL_NAME {
+            // TODO: Implement vector search tool
+            let router_tool_selector = self.router_tool_selector.lock().await;
+            if let Some(selector) = router_tool_selector.as_ref() {
+                selector.select_tools(&tool_selector_ctx).await
+            } else {
+                Err(ToolError::ExecutionError(
+                    "Encountered vector search error.".to_string(),
+                ))
+            }
+        } else if tool_call.name == ROUTER_ACTIVATE_TOOL_NAME {
+            // Activate tool
+            // TODO: Implement activate tool
+            Err(ToolError::ExecutionError(
+                "Activate tool execution required".to_string(),
             ))
         } else {
             extension_manager
@@ -315,6 +352,23 @@ impl Agent {
         prefixed_tools
     }
 
+    pub async fn list_tools_for_router(&self) -> Vec<Tool> {
+        let extension_manager = self.extension_manager.lock().await;
+
+        let mut prefixed_tools = vec![
+            router_tools::vector_search_tool(),
+            router_tools::activate_tool(),
+            platform_tools::search_available_extensions_tool(),
+            platform_tools::manage_extensions_tool(),
+        ];
+
+        if extension_manager.supports_resources() {
+            prefixed_tools.push(platform_tools::read_resource_tool());
+            prefixed_tools.push(platform_tools::list_resources_tool());
+        }
+        prefixed_tools
+    }
+
     pub async fn remove_extension(&self, name: &str) {
         let mut extension_manager = self.extension_manager.lock().await;
         extension_manager
@@ -357,6 +411,10 @@ impl Agent {
         // Setup tools and prompt
         let (mut tools, mut toolshim_tools, mut system_prompt) =
             self.prepare_tools_and_prompt().await?;
+
+        // TODO: find a way to pass all_tools
+        let router_tool_selector_ctx =
+            RouterToolSelectorContext::new(tools.clone(), messages.clone());
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
@@ -450,7 +508,7 @@ impl Agent {
                             // Skip the confirmation for approved tools
                             for request in &permission_check_result.approved {
                                 if let Ok(tool_call) = request.tool_call.clone() {
-                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone());
+                                    let tool_future = self.dispatch_tool_call(tool_call, request.id.clone(), router_tool_selector_ctx.clone());
                                     tool_futures.push(Box::pin(tool_future));
                                 }
                             }
@@ -472,6 +530,7 @@ impl Agent {
                                 tool_futures_arc.clone(),
                                 &mut permission_manager,
                                 message_tool_response.clone(),
+                                router_tool_selector_ctx.clone(),
                             );
 
                             // We have a stream of tool_approval_requests to handle

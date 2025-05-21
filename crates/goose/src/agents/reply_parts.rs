@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::agents::router_tool_selector::RouterToolSelectionStrategy;
 use crate::message::{Message, MessageContent, ToolRequest};
 use crate::providers::base::{Provider, ProviderUsage};
 use crate::providers::errors::ProviderError;
@@ -18,9 +19,21 @@ impl Agent {
     pub(crate) async fn prepare_tools_and_prompt(
         &self,
     ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
+        // Get tool selection strategy
+        let tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(RouterToolSelectionStrategy::Vector)
+                } else {
+                    Some(RouterToolSelectionStrategy::Default)
+                }
+            });
         // Get tools from extension manager
-        let mut tools = self.list_tools(None).await;
-
+        let mut tools = match tool_selection_strategy {
+            Some(RouterToolSelectionStrategy::Vector) => self.list_tools_for_router().await,
+            _ => self.list_tools(None).await,
+        };
         // Add frontend tools
         let frontend_tools = self.frontend_tools.lock().await;
         for frontend_tool in frontend_tools.values() {
