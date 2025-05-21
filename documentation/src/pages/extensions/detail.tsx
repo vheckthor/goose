@@ -6,7 +6,7 @@ import { getGooseInstallLink } from "@site/src/utils/install-links";
 import { useLocation } from "@docusaurus/router";
 import { useEffect, useState } from "react";
 import type { MCPServer } from "@site/src/types/server";
-import { fetchMCPServers } from "@site/src/utils/mcp-servers";
+import { fetchServerDetails } from "@site/src/utils/mcp-servers";
 import Link from "@docusaurus/Link";
 
 function ExtensionDetail({ server }: { server: MCPServer }) {
@@ -165,7 +165,6 @@ export default function DetailPage(): JSX.Element {
       try {
         setLoading(true);
         setError(null);
-        const servers = await fetchMCPServers();
         // Get the ID from the query parameter
         const params = new URLSearchParams(location.search);
         const id = params.get("id");
@@ -173,12 +172,8 @@ export default function DetailPage(): JSX.Element {
           setError("No extension ID provided");
           return;
         }
-        const foundServer = servers.find((s) => s.id === id);
-        if (foundServer) {
-          setServer(foundServer);
-        } else {
-          setError("Extension not found");
-        }
+        const serverDetails = await fetchServerDetails(id);
+        setServer(serverDetails);
       } catch (err) {
         setError("Failed to load extension details");
         console.error(err);
