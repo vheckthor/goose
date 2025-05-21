@@ -527,8 +527,6 @@ fn shorten_path(path: &str, debug: bool) -> String {
 pub fn display_session_info(resume: bool, provider: &str, model: &str, session_file: &Path) {
     let start_session_msg = if resume {
         "resuming session |"
-    } else if session_file.to_str() == Some("/dev/null") || session_file.to_str() == Some("NUL") {
-        "running without session |"
     } else {
         "starting session |"
     };
@@ -540,15 +538,11 @@ pub fn display_session_info(resume: bool, provider: &str, model: &str, session_f
         style("model:").dim(),
         style(model).cyan().dim(),
     );
-
-    if session_file.to_str() != Some("/dev/null") && session_file.to_str() != Some("NUL") {
-        println!(
-            "    {} {}",
-            style("logging to").dim(),
-            style(session_file.display()).dim().cyan(),
-        );
-    }
-
+    println!(
+        "    {} {}",
+        style("logging to").dim(),
+        style(session_file.display()).dim().cyan(),
+    );
     println!(
         "    {} {}",
         style("working directory:").dim(),
