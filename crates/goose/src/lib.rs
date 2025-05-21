@@ -9,5 +9,4 @@ pub mod providers;
 pub mod recipe;
 pub mod session;
 pub mod token_counter;
-pub mod tool_monitor;
 pub mod tracing;
