@@ -320,7 +320,8 @@ enum Command {
             long = "no-session",
             help = "Run without storing a session file",
             long_help = "Execute commands without creating or using a session file. Useful for automated runs.",
-            conflicts_with_all = ["resume", "name", "path"] 
+            conflicts_with = "resume",
+            conflicts_with = "identifier"
         )]
         no_session: bool,
 
