@@ -48,57 +48,34 @@ impl MetricAggregator {
             .join("bench-postprocess-scripts")
             .join("generate_leaderboard_with_errors.py");
 
-        if leaderboard_script_path.exists() {
-            tracing::info!(
-                "Generating leaderboard from benchmark directory: {}",
-                benchmark_dir.display()
-            );
+        ensure!(
+            leaderboard_script_path.exists(),
+            "Leaderboard script not found: {}",
+            leaderboard_script_path.display()
+        );
 
-            let output = Command::new(&leaderboard_script_path)
-                .arg("--benchmark-dir")
-                .arg(benchmark_dir)
-                .arg("--leaderboard-output")
-                .arg("leaderboard.csv")
-                .arg("--union-output")
-                .arg("all_metrics.csv")
-                .output()
-                .context("Failed to execute generate_leaderboard_with_errors.py script")?;
+        tracing::info!(
+            "Generating leaderboard from benchmark directory: {}",
+            benchmark_dir.display()
+        );
 
-            if !output.status.success() {
-                let error_message = String::from_utf8_lossy(&output.stderr);
-                bail!("Failed to generate leaderboard: {}", error_message);
-            }
+        let output = Command::new(&leaderboard_script_path)
+            .arg("--benchmark-dir")
+            .arg(benchmark_dir)
+            .arg("--leaderboard-output")
+            .arg("leaderboard.csv")
+            .arg("--union-output")
+            .arg("all_metrics.csv")
+            .output()
+            .context("Failed to execute generate_leaderboard_with_errors.py script")?;
 
-            let success_message = String::from_utf8_lossy(&output.stdout);
-            tracing::info!("{}", success_message);
-        } else {
-            // Fallback to aggregate_benchmark_results.py if generate_leaderboard_with_errors.py doesn't exist
-            let aggregate_script_path = std::env::current_dir()
-                .context("Failed to get current working directory")?
-                .join("scripts")
-                .join("bench-postprocess-scripts")
-                .join("aggregate_benchmark_results.py");
-
-            if aggregate_script_path.exists() {
-                tracing::info!("Using fallback aggregation script");
-
-                let output = Command::new(&aggregate_script_path)
-                    .arg(benchmark_dir)
-                    .arg("--output")
-                    .arg("aggregated_benchmark_results.csv")
-                    .output()
-                    .context("Failed to execute aggregate_benchmark_results.py script")?;
-
-                if !output.status.success() {
-                    let error_message = String::from_utf8_lossy(&output.stderr);
-                    bail!("Failed to aggregate benchmark results: {}", error_message);
-                }
-
-                let success_message = String::from_utf8_lossy(&output.stdout);
-                tracing::info!("{}", success_message);
-            }
+        if !output.status.success() {
+            let error_message = String::from_utf8_lossy(&output.stderr);
+            bail!("Failed to generate leaderboard: {}", error_message);
         }
 
+        let success_message = String::from_utf8_lossy(&output.stdout);
+        tracing::info!("{}", success_message); 
         Ok(())
     }
 }
