@@ -354,9 +354,7 @@ impl Agent {
             Some(RouterToolSelectionStrategy::Vector) => {
                 prefixed_tools.push(router_tools::vector_search_tool());
             }
-            None => {
-                prefixed_tools.push(router_tools::vector_search_tool());
-            }
+            None => {}
         }
         prefixed_tools.push(platform_tools::search_available_extensions_tool());
         prefixed_tools.push(platform_tools::manage_extensions_tool());
