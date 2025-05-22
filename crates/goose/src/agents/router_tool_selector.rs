@@ -31,6 +31,6 @@ pub fn create_tool_selector(
 ) -> Box<dyn RouterToolSelector> {
     match strategy {
         Some(RouterToolSelectionStrategy::Vector) => Box::new(VectorToolSelector),
-        _ => panic!("ToolSelector not implemented"),
+        _ => Box::new(VectorToolSelector), // Default to VectorToolSelector
     }
 }
