@@ -62,14 +62,13 @@ impl Agent {
 
         let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
             .ok()
-            .map(|s| {
+            .and_then(|s| {
                 if s.eq_ignore_ascii_case("vector") {
                     Some(RouterToolSelectionStrategy::Vector)
                 } else {
                     None
                 }
-            })
-            .flatten();
+            });
 
         Self {
             provider: Mutex::new(None),

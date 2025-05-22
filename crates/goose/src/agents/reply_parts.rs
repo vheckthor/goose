@@ -22,14 +22,13 @@ impl Agent {
         // Get tool selection strategy
         let tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
             .ok()
-            .map(|s| {
+            .and_then(|s| {
                 if s.eq_ignore_ascii_case("vector") {
                     Some(RouterToolSelectionStrategy::Vector)
                 } else {
                     None
                 }
-            })
-            .flatten();
+            });
         // Get tools from extension manager
         let mut tools = match tool_selection_strategy {
             Some(RouterToolSelectionStrategy::Vector) => {
