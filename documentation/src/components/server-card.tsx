@@ -3,12 +3,31 @@ import { Badge } from "@site/src/components/ui/badge";
 import { Button } from "@site/src/components/ui/button";
 import type { MCPServer } from "@site/src/types/server";
 import Link from "@docusaurus/Link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getGooseInstallLink } from "@site/src/utils/install-links";
+import { fetchServerDetails } from "@site/src/utils/mcp-servers";
 
-export function ServerCard({ server }: { server: MCPServer }) {
+export function ServerCard({ server: initialServer }: { server: MCPServer }) {
   const [isCommandVisible, setIsCommandVisible] = useState(false);
+  const [server, setServer] = useState(initialServer);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadFullServerDetails = async () => {
+      try {
+        setIsLoading(true);
+        const details = await fetchServerDetails(server.id);
+        setServer(details);
+      } catch (error) {
+        console.error("Error fetching server details:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadFullServerDetails();
+  }, [server.id]);
 
   return (
     <div className="extension-title h-full">

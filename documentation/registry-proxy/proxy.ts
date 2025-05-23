@@ -62,12 +62,7 @@ const serverFilterPlugin: Plugin = (proxyServer) => {
 
         // If the response has an array of servers, filter based on allowed extensions
         if (Array.isArray(responseData)) {
-          const filteredServers = responseData.filter(server => {
-            if (allowedExtensions.has(server.name)) {
-              console.log(server.name);
-            }
-            return allowedExtensions.has(server.name)
-          });
+          const filteredServers = responseData.filter(server => allowedExtensions.has(server.name));
           cache.set(SERVERS_CACHE_KEY, filteredServers);
           res.end(JSON.stringify({ ...parsedBody, servers: filteredServers }));
         } else {
