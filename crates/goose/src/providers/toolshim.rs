@@ -251,15 +251,6 @@ impl ToolInterpreter for OllamaInterpreter {
   ]
 }}
 
-Otherwise, if no JSON tool requests are provided, use the no-op tool:
-{{
-  \"tool_calls\": [
-    {{
-    \"name\": \"noop\",
-      \"arguments\": {{
-      }}
-    }}]
-}}
 ";
 
         // Create enhanced content with instruction to output tool calls as JSON
@@ -271,11 +262,13 @@ Otherwise, if no JSON tool requests are provided, use the no-op tool:
         // Determine which model to use for interpretation (from env var or default)
         let interpreter_model = std::env::var("GOOSE_TOOLSHIM_OLLAMA_MODEL")
             .unwrap_or_else(|_| DEFAULT_INTERPRETER_MODEL_OLLAMA.to_string());
-
+        tracing::warn!("format instruction: {}", format_instruction);
         // Make a call to ollama with structured output
         let interpreter_response = self
             .post_structured("", &format_instruction, format_schema, &interpreter_model)
             .await?;
+
+        tracing::warn!("interpreter_response: {}", serde_json::to_string_pretty(&interpreter_response).unwrap_or_default());
 
         // Process the interpreter response to get tool calls directly
         let tool_calls = OllamaInterpreter::process_interpreter_response(&interpreter_response)?;
@@ -346,7 +339,7 @@ pub async fn augment_message_with_tool_calls<T: ToolInterpreter>(
 
     // Use the interpreter to convert the content to tool calls
     let tool_calls = interpreter.interpret_to_tool_calls(content, tools).await?;
-
+    tracing::warn!("tool_calls: {}", serde_json::to_string_pretty(&tool_calls).unwrap_or_default());
     // If no tool calls were detected, return the original message
     if tool_calls.is_empty() {
         return Ok(message);
@@ -361,6 +354,8 @@ pub async fn augment_message_with_tool_calls<T: ToolInterpreter>(
             final_message = final_message.with_tool_request(id, Ok(tool_call));
         }
     }
+
+    tracing::warn!("final_message with tools: {}", serde_json::to_string_pretty(&final_message).unwrap_or_default());
 
     Ok(final_message)
 }

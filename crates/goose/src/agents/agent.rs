@@ -392,7 +392,8 @@ impl Agent {
                             remaining_requests,
                             filtered_response) =
                             self.categorize_tool_requests(&response).await;
-
+                        
+                        tracing::warn!("remaining_requests: {}", serde_json::to_string_pretty(&remaining_requests).unwrap_or_default());
 
                         // Yield the assistant's response with frontend tool requests filtered out
                         yield filtered_response.clone();
@@ -491,6 +492,7 @@ impl Agent {
 
                             // Wait for all tool calls to complete
                             let results = futures::future::join_all(tool_futures).await;
+                            tracing::warn!("tool results: {}", serde_json::to_string_pretty(&results).unwrap_or_default());
                             let mut all_install_successful = true;
 
                             for (request_id, output) in results.into_iter() {
@@ -498,7 +500,8 @@ impl Agent {
                                     all_install_successful = false;
                                 }
                                 let mut response = message_tool_response.lock().await;
-                                *response = response.clone().with_tool_response(request_id, output);
+                                // *response = response.clone().with_tool_response(request_id, output);
+                                *response = response.clone().with_text(output.unwrap().first().unwrap().as_text().unwrap().to_string());
                             }
 
                             // Update system prompt and tools if installations were successful
@@ -511,7 +514,9 @@ impl Agent {
                         yield final_message_tool_resp.clone();
 
                         messages.push(response);
-                        messages.push(final_message_tool_resp);
+                        messages.push(final_message_tool_resp.clone());
+
+                        tracing::warn!("final toool response: {}", serde_json::to_string_pretty(&final_message_tool_resp).unwrap_or_default());
                     },
                     Err(ProviderError::ContextLengthExceeded(_)) => {
                         // At this point, the last message should be a user message
