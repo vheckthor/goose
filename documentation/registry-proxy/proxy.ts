@@ -10,8 +10,8 @@ import { IncomingMessage, ServerResponse } from 'http';
 const app = express();
 const port = 3001;
 
-const REGISTRY_API_BASE = 'https://demo.registry.azure-mcp.net';
-// const REGISTRY_API_BASE = 'http://localhost:8080';
+// const REGISTRY_API_BASE = 'https://demo.registry.azure-mcp.net';
+const REGISTRY_API_BASE = 'http://localhost:8080';
 
 // Initialize cache with 5 minute TTL
 const cache = new NodeCache({ stdTTL: 300 });
