@@ -1,0 +1,292 @@
+use anyhow::{Context, Result};
+use arrow::array::{StringArray, FixedSizeListBuilder};
+use arrow::datatypes::{DataType, Field, Schema};
+use lancedb::connection::Connection;
+use lancedb::query::{ExecutableQuery, QueryBase};
+use lancedb::connect;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use etcetera::BaseStrategy;
+use futures::TryStreamExt;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolRecord {
+    pub tool_name: String,
+    pub description: String,
+    pub schema: String,
+    pub vector: Vec<f32>,
+}
+
+pub struct ToolVectorDB {
+    connection: Arc<RwLock<Connection>>,
+    table_name: String,
+}
+
+impl ToolVectorDB {
+    pub async fn new() -> Result<Self> {
+        let db_path = Self::get_db_path()?;
+        
+        // Ensure the directory exists
+        if let Some(parent) = db_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .context("Failed to create database directory")?;
+        }
+
+        let connection = connect(db_path.to_str().unwrap())
+            .execute()
+            .await
+            .context("Failed to connect to LanceDB")?;
+
+        let tool_db = Self {
+            connection: Arc::new(RwLock::new(connection)),
+            table_name: "tools".to_string(),
+        };
+
+        // Initialize the table if it doesn't exist
+        tool_db.init_table().await?;
+
+        Ok(tool_db)
+    }
+
+    fn get_db_path() -> Result<PathBuf> {
+        let data_dir = etcetera::choose_base_strategy()
+            .context("Failed to determine base strategy")?
+            .data_dir();
+        
+        Ok(data_dir.join("goose").join("tool_db"))
+    }
+
+    async fn init_table(&self) -> Result<()> {
+        let connection = self.connection.read().await;
+        
+        // Check if table exists
+        let table_names = connection
+            .table_names()
+            .execute()
+            .await
+            .context("Failed to list tables")?;
+
+        if !table_names.contains(&self.table_name) {
+            // Create the table schema
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("tool_name", DataType::Utf8, false),
+                Field::new("description", DataType::Utf8, false),
+                Field::new("schema", DataType::Utf8, false),
+                Field::new("vector", DataType::FixedSizeList(
+                    Arc::new(Field::new("item", DataType::Float32, true)),
+                    1536, // OpenAI embedding dimension
+                ), false),
+            ]));
+
+            // Create empty table
+            let tool_names = StringArray::from(vec![] as Vec<&str>);
+            let descriptions = StringArray::from(vec![] as Vec<&str>);
+            let schemas = StringArray::from(vec![] as Vec<&str>);
+            
+            // Create empty fixed size list array for vectors
+            let mut vectors_builder = FixedSizeListBuilder::new(arrow::array::Float32Builder::new(), 1536);
+            let vectors = vectors_builder.finish();
+
+            let batch = arrow::record_batch::RecordBatch::try_new(
+                schema.clone(),
+                vec![
+                    Arc::new(tool_names),
+                    Arc::new(descriptions),
+                    Arc::new(schemas),
+                    Arc::new(vectors),
+                ],
+            )
+            .context("Failed to create record batch")?;
+            // Create an empty table with the schema
+            // LanceDB will create the table from the RecordBatch
+            drop(connection);
+            let connection = self.connection.write().await;
+            
+            // Use the RecordBatch directly
+            let reader = arrow::record_batch::RecordBatchIterator::new(
+                vec![Ok(batch)].into_iter(),
+                schema.clone(),
+            );
+            
+            connection
+                .create_table(&self.table_name, Box::new(reader))
+                .execute()
+                .await
+                .context("Failed to create tools table")?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn clear_tools(&self) -> Result<()> {
+        let connection = self.connection.write().await;
+        
+        // Drop the table if it exists
+        let table_names = connection
+            .table_names()
+            .execute()
+            .await
+            .context("Failed to list tables")?;
+
+        if table_names.contains(&self.table_name) {
+            connection
+                .drop_table(&self.table_name)
+                .await
+                .context("Failed to drop tools table")?;
+        }
+
+        drop(connection);
+        
+        // Reinitialize the table
+        self.init_table().await?;
+        
+        Ok(())
+    }
+
+    pub async fn index_tools(&self, tools: Vec<ToolRecord>) -> Result<()> {
+        if tools.is_empty() {
+            return Ok(());
+        }
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.tool_name.as_str()).collect();
+        let descriptions: Vec<&str> = tools.iter().map(|t| t.description.as_str()).collect();
+        let schemas: Vec<&str> = tools.iter().map(|t| t.schema.as_str()).collect();
+        
+        let vectors_data: Vec<Option<Vec<Option<f32>>>> = tools.iter()
+            .map(|t| Some(t.vector.iter().map(|&v| Some(v)).collect()))
+            .collect();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("tool_name", DataType::Utf8, false),
+            Field::new("description", DataType::Utf8, false),
+            Field::new("schema", DataType::Utf8, false),
+            Field::new("vector", DataType::FixedSizeList(
+                Arc::new(Field::new("item", DataType::Float32, true)),
+                1536,
+            ), false),
+        ]));
+
+        let tool_names_array = StringArray::from(tool_names);
+        let descriptions_array = StringArray::from(descriptions);
+        let schemas_array = StringArray::from(schemas);
+        // Build vectors array
+        let mut vectors_builder = FixedSizeListBuilder::new(arrow::array::Float32Builder::new(), 1536);
+        for vector_opt in vectors_data {
+            if let Some(vector) = vector_opt {
+                let values = vectors_builder.values();
+                for val_opt in vector {
+                    if let Some(val) = val_opt {
+                        values.append_value(val);
+                    } else {
+                        values.append_null();
+                    }
+                }
+                vectors_builder.append(true);
+            } else {
+                vectors_builder.append(false);
+            }
+        }
+        let vectors_array = vectors_builder.finish();
+
+        let batch = arrow::record_batch::RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(tool_names_array),
+                Arc::new(descriptions_array),
+                Arc::new(schemas_array),
+                Arc::new(vectors_array),
+            ],
+        )
+        .context("Failed to create record batch")?;
+
+        let connection = self.connection.read().await;
+        let table = connection
+            .open_table(&self.table_name)
+            .execute()
+            .await
+            .context("Failed to open tools table")?;
+
+        // Add batch to table using RecordBatchIterator
+        let reader = arrow::record_batch::RecordBatchIterator::new(
+            vec![Ok(batch)].into_iter(),
+            schema.clone(),
+        );
+        
+        table
+            .add(Box::new(reader))
+            .execute()
+            .await
+            .context("Failed to add tools to table")?;
+
+        Ok(())
+    }
+
+    pub async fn search_tools(&self, query_vector: Vec<f32>, limit: usize) -> Result<Vec<ToolRecord>> {
+        let connection = self.connection.read().await;
+        
+        let table = connection
+            .open_table(&self.table_name)
+            .execute()
+            .await
+            .context("Failed to open tools table")?;
+
+        let results = table
+            .vector_search(query_vector)
+            .context("Failed to create vector search")?
+            .limit(limit)
+            .execute()
+            .await
+            .context("Failed to execute vector search")?;
+
+        let batches: Vec<_> = results.try_collect().await?;
+        
+        let mut tools = Vec::new();
+        for batch in batches {
+            let tool_names = batch
+                .column_by_name("tool_name")
+                .context("Missing tool_name column")?
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .context("Invalid tool_name column type")?;
+
+            let descriptions = batch
+                .column_by_name("description")
+                .context("Missing description column")?
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .context("Invalid description column type")?;
+
+            let schemas = batch
+                .column_by_name("schema")
+                .context("Missing schema column")?
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .context("Invalid schema column type")?;
+
+            for i in 0..batch.num_rows() {
+                tools.push(ToolRecord {
+                    tool_name: tool_names.value(i).to_string(),
+                    description: descriptions.value(i).to_string(),
+                    schema: schemas.value(i).to_string(),
+                    vector: vec![], // We don't need to return the vector
+                });
+            }
+        }
+
+        Ok(tools)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tool_vectordb_creation() {
+        let db = ToolVectorDB::new().await.unwrap();
+        assert_eq!(db.table_name, "tools");
+    }
+}

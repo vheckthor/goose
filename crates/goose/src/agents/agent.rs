@@ -18,7 +18,7 @@ use serde_json::Value;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, instrument};
 
-use crate::agents::extension::{ExtensionConfig, ExtensionResult, ToolInfo};
+use crate::agents::extension::{ExtensionConfig, ExtensionError, ExtensionResult, ToolInfo};
 use crate::agents::extension_manager::{get_parameter_names, ExtensionManager};
 use crate::agents::platform_tools::{
     PLATFORM_LIST_RESOURCES_TOOL_NAME, PLATFORM_MANAGE_EXTENSIONS_TOOL_NAME,
@@ -60,16 +60,6 @@ impl Agent {
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
-        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
-            .ok()
-            .and_then(|s| {
-                if s.eq_ignore_ascii_case("vector") {
-                    Some(RouterToolSelectionStrategy::Vector)
-                } else {
-                    None
-                }
-            });
-
         Self {
             provider: Mutex::new(None),
             extension_manager: Mutex::new(ExtensionManager::new()),
@@ -81,10 +71,29 @@ impl Agent {
             tool_result_tx: tool_tx,
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
             tool_monitor: Mutex::new(None),
-            router_tool_selector: Mutex::new(Some(create_tool_selector(
-                router_tool_selection_strategy,
-            ))),
+            router_tool_selector: Mutex::new(None),
         }
+    }
+    
+    pub async fn initialize_router_tool_selector(&self) -> Result<()> {
+        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(RouterToolSelectionStrategy::Vector)
+                } else {
+                    None
+                }
+            });
+            
+        if router_tool_selection_strategy.is_some() {
+            let selector = create_tool_selector(router_tool_selection_strategy)
+                .await
+                .map_err(|e| anyhow!("Failed to create tool selector: {}", e))?;
+            *self.router_tool_selector.lock().await = Some(selector);
+        }
+        
+        Ok(())
     }
 
     pub async fn configure_tool_monitor(&self, max_repetitions: Option<u32>) {
@@ -283,6 +292,13 @@ impl Agent {
                 ))]
             })
             .map_err(|e| ToolError::ExecutionError(e.to_string()));
+        
+        // If vector tool selection is enabled, index the tools
+        if result.is_ok() {
+            if let Err(e) = self.index_tools_if_vector_enabled().await {
+                tracing::error!("Failed to index tools after adding extension: {}", e);
+            }
+        }
 
         (request_id, result)
     }
@@ -317,9 +333,16 @@ impl Agent {
             }
             _ => {
                 let mut extension_manager = self.extension_manager.lock().await;
-                extension_manager.add_extension(extension).await?;
+                extension_manager.add_extension(extension.clone()).await?;
             }
         };
+        
+        // If vector tool selection is enabled, index the tools
+        if let Err(e) = self.index_tools_if_vector_enabled().await {
+            return Err(ExtensionError::SetupError(
+                format!("Failed to index tools for extension {}: {}", extension.name(), e),
+            ));
+        }
 
         Ok(())
     }
@@ -663,6 +686,50 @@ impl Agent {
         if let Err(e) = self.tool_result_tx.send((id, result)).await {
             tracing::error!("Failed to send tool result: {}", e);
         }
+    }
+
+    async fn index_tools_if_vector_enabled(&self) -> Result<()> {
+        let router_tool_selector = self.router_tool_selector.lock().await;
+        if let Some(selector) = router_tool_selector.as_ref() {
+            // Get all tools from extension manager
+            let extension_manager = self.extension_manager.lock().await;
+            let tools = extension_manager.get_prefixed_tools(None).await?;
+            
+            // Clear existing tools and re-index all
+            selector.clear_tools().await
+                .map_err(|e| anyhow!("Failed to clear tools: {}", e))?;
+            
+            // Index each tool
+            for tool in &tools {
+                let schema_str = serde_json::to_string_pretty(&tool.input_schema)
+                    .unwrap_or_else(|_| "{}".to_string());
+                
+                selector.index_tool(
+                    tool.name.clone(),
+                    tool.description.clone(),
+                    schema_str,
+                ).await
+                    .map_err(|e| anyhow!("Failed to index tool {}: {}", tool.name, e))?;
+            }
+            
+            // Also index frontend tools
+            let frontend_tools = self.frontend_tools.lock().await;
+            for frontend_tool in frontend_tools.values() {
+                let schema_str = serde_json::to_string_pretty(&frontend_tool.tool.input_schema)
+                    .unwrap_or_else(|_| "{}".to_string());
+                
+                selector.index_tool(
+                    frontend_tool.tool.name.clone(),
+                    frontend_tool.tool.description.clone(),
+                    schema_str,
+                ).await
+                    .map_err(|e| anyhow!("Failed to index frontend tool {}: {}", frontend_tool.tool.name, e))?;
+            }
+            
+            tracing::info!("Indexed {} tools for vector search", tools.len() + frontend_tools.len());
+        }
+        
+        Ok(())
     }
 
     pub async fn create_recipe(&self, mut messages: Vec<Message>) -> Result<Recipe> {

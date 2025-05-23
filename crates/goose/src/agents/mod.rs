@@ -1,5 +1,6 @@
 mod agent;
 mod context;
+pub(crate) mod embeddings;
 pub mod extension;
 pub mod extension_manager;
 mod large_response_handler;
@@ -9,6 +10,7 @@ mod reply_parts;
 mod router_tool_selector;
 mod router_tools;
 mod tool_execution;
+pub(crate) mod tool_vectordb;
 mod types;
 
 pub use agent::Agent;
