@@ -6,6 +6,7 @@ pub mod platform_tools;
 pub mod prompt_manager;
 mod reply_parts;
 mod router_tool_selector;
+mod router_search_index;
 mod router_tools;
 mod tool_execution;
 mod types;

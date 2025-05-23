@@ -28,7 +28,7 @@ use crate::agents::prompt_manager::PromptManager;
 use crate::agents::router_tool_selector::{
     create_tool_selector, RouterToolSelectionStrategy, RouterToolSelector,
 };
-use crate::agents::router_tools::ROUTER_VECTOR_SEARCH_TOOL_NAME;
+use crate::agents::router_tools::{ROUTER_VECTOR_SEARCH_TOOL_NAME, ROUTER_TEXT_SEARCH_TOOL_NAME};
 use crate::agents::types::SessionConfig;
 use crate::agents::types::{FrontendTool, ToolResultReceiver};
 use mcp_core::{
@@ -203,13 +203,13 @@ impl Agent {
             Err(ToolError::ExecutionError(
                 "Frontend tool execution required".to_string(),
             ))
-        } else if tool_call.name == ROUTER_VECTOR_SEARCH_TOOL_NAME {
+        } else if tool_call.name == ROUTER_VECTOR_SEARCH_TOOL_NAME || tool_call.name == ROUTER_TEXT_SEARCH_TOOL_NAME {
             let router_tool_selector = self.router_tool_selector.lock().await;
             if let Some(selector) = router_tool_selector.as_ref() {
                 selector.select_tools(tool_call.arguments.clone()).await
             } else {
                 Err(ToolError::ExecutionError(
-                    "Encountered vector search error.".to_string(),
+                    "Encountered mcp router tool selection error.".to_string(),
                 ))
             }
         } else {
@@ -353,6 +353,9 @@ impl Agent {
         match strategy {
             Some(RouterToolSelectionStrategy::Vector) => {
                 prefixed_tools.push(router_tools::vector_search_tool());
+            }
+            Some(RouterToolSelectionStrategy::Text) => {
+                prefixed_tools.push(router_tools::text_search_tool());
             }
             None => {}
         }
