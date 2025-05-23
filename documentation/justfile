@@ -1,0 +1,5 @@
+# Run both the main service and proxy
+start:
+    #!/usr/bin/env bash
+    (cd registry-proxy && node proxy.ts) & \
+    yarn start
