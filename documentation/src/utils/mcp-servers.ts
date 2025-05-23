@@ -105,7 +105,7 @@ function transformDetailedServer(apiServer: APIDetailedServer): MCPServer {
 
 export async function fetchMCPServers(): Promise<MCPServer[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v0/servers`);
+    const response = await fetch(`${API_BASE_URL}/api/v0/servers?limit=1000`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }

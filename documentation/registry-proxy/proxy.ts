@@ -27,8 +27,6 @@ const allowedExtensions = new Set(
   allowedConfig.extensions.map((ext) => ext.name)
 );
 
-console.log(allowedExtensions);
-
 app.use(cors());
 
 const serverFilterPlugin: Plugin = (proxyServer) => {
@@ -38,7 +36,7 @@ const serverFilterPlugin: Plugin = (proxyServer) => {
     res: ServerResponse
   ) => {
     // Only process /api/v0/servers endpoint
-    if (req.url !== '/v0/servers') {
+    if (req.url !== '/v0/servers?limit=1000') {
       proxyRes.pipe(res);
       return;
     }
@@ -48,7 +46,6 @@ const serverFilterPlugin: Plugin = (proxyServer) => {
     // Check cache first
     const cachedServers = cache.get(SERVERS_CACHE_KEY);
     if (cachedServers) {
-      console.log('Serving servers list from cache');
       res.end(JSON.stringify({ servers: cachedServers }));
       return;
     }
@@ -66,13 +63,11 @@ const serverFilterPlugin: Plugin = (proxyServer) => {
         // If the response has an array of servers, filter based on allowed extensions
         if (Array.isArray(responseData)) {
           const filteredServers = responseData.filter(server => {
-            console.log(server.name);
-            console.log(allowedExtensions.has(server.name));
+            if (allowedExtensions.has(server.name)) {
+              console.log(server.name);
+            }
             return allowedExtensions.has(server.name)
           });
-          // Cache filtered servers and respond with:
-          //   - original data
-          //   - servers replaced with filtered servers
           cache.set(SERVERS_CACHE_KEY, filteredServers);
           res.end(JSON.stringify({ ...parsedBody, servers: filteredServers }));
         } else {
