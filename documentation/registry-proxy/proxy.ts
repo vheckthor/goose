@@ -14,7 +14,7 @@ const port = 3001;
 const REGISTRY_API_BASE = 'http://localhost:8080';
 
 // Initialize cache with 5 minute TTL
-const cache = new NodeCache({ stdTTL: 300 });
+const cache = new NodeCache({ stdTTL: 1 });
 const SERVERS_CACHE_KEY = 'servers_list';
 
 interface AllowedConfig {
@@ -26,6 +26,8 @@ const allowedConfig = yaml.load(fs.readFileSync('./allowed.yaml', 'utf8')) as Al
 const allowedExtensions = new Set(
   allowedConfig.extensions.map((ext) => ext.name)
 );
+
+console.log(allowedExtensions);
 
 app.use(cors());
 
@@ -63,7 +65,11 @@ const serverFilterPlugin: Plugin = (proxyServer) => {
 
         // If the response has an array of servers, filter based on allowed extensions
         if (Array.isArray(responseData)) {
-          const filteredServers = responseData.filter(server => allowedExtensions.has(server.name));
+          const filteredServers = responseData.filter(server => {
+            console.log(server.name);
+            console.log(allowedExtensions.has(server.name));
+            return allowedExtensions.has(server.name)
+          });
           // Cache filtered servers and respond with:
           //   - original data
           //   - servers replaced with filtered servers
