@@ -375,7 +375,11 @@ pub fn response_to_streaming_message(response: &Value) -> anyhow::Result<Message
         let id = tool_call["id"].as_str().unwrap_or_default().to_string();
         let function = &tool_call["function"];
         let name = function["name"].as_str().unwrap_or_default();
-        let arguments_str = function["arguments"].as_str().unwrap_or("{}");
+        let mut arguments_str = function["arguments"].as_str().unwrap_or("{}");
+        // If arguments is empty, we will have invalid json parsing error later.
+        if arguments_str.is_empty() {
+            arguments_str = "{}";
+        }
 
         if !is_valid_function_name(name) {
             let error = ToolError::NotFound(format!(
@@ -391,8 +395,8 @@ pub fn response_to_streaming_message(response: &Value) -> anyhow::Result<Message
                 )),
                 Err(e) => {
                     let error = ToolError::InvalidParameters(format!(
-                        "Could not interpret tool use parameters for id {}: {}",
-                        id, e
+                        "Could not interpret tool use parameters for id {}: {}. arguments_str: {}",
+                        id, e, arguments_str
                     ));
                     Some(MessageContent::tool_request(id, Err(error)))
                 }
@@ -403,9 +407,16 @@ pub fn response_to_streaming_message(response: &Value) -> anyhow::Result<Message
         let mut contents = Vec::new();
         for tool_call in tool_calls {
             let id = tool_call["id"].as_str().unwrap_or_default().to_string();
+            if id.is_empty() {
+                continue;
+            }
             let function = &tool_call["function"];
             let name = function["name"].as_str().unwrap_or_default();
-            let arguments_str = function["arguments"].as_str().unwrap_or("{}");
+            let mut arguments_str = function["arguments"].as_str().unwrap_or("{}");
+            // If arguments is empty, we will have invalid json parsing error later.
+            if arguments_str.is_empty() {
+                arguments_str = "{}";
+            }
 
             if !is_valid_function_name(name) {
                 let error = ToolError::NotFound(format!(
