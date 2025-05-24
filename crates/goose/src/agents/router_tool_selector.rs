@@ -27,7 +27,7 @@ pub struct VectorToolSelector {
 
 impl VectorToolSelector {
     pub async fn new() -> Result<Self, ToolError> {
-        let vector_db = ToolVectorDB::new()
+        let vector_db = ToolVectorDB::new(Some("tools".to_string()))
             .await
             .map_err(|e| ToolError::ExecutionError(format!("Failed to create vector DB: {}", e)))?;
         

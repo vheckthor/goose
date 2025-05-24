@@ -25,7 +25,7 @@ pub struct ToolVectorDB {
 }
 
 impl ToolVectorDB {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(table_name: Option<String>) -> Result<Self> {
         let db_path = Self::get_db_path()?;
         
         // Ensure the directory exists
@@ -42,7 +42,7 @@ impl ToolVectorDB {
 
         let tool_db = Self {
             connection: Arc::new(RwLock::new(connection)),
-            table_name: "tools".to_string(),
+            table_name: table_name.unwrap_or_else(|| "tools".to_string()),
         };
 
         // Initialize the table if it doesn't exist
@@ -275,7 +275,6 @@ impl ToolVectorDB {
                 });
             }
         }
-
         Ok(tools)
     }
 }
@@ -286,7 +285,65 @@ mod tests {
 
     #[tokio::test]
     async fn test_tool_vectordb_creation() {
-        let db = ToolVectorDB::new().await.unwrap();
-        assert_eq!(db.table_name, "tools");
+        let db = ToolVectorDB::new(Some("test_tools_vectordb_creation".to_string())).await.unwrap();
+        db.clear_tools().await.unwrap();
+        assert_eq!(db.table_name, "test_tools_vectordb_creation");
+    }
+
+    #[tokio::test]
+    async fn test_tool_vectordb_operations() -> Result<()> {
+        // Create a new database instance with a unique table name
+        let db = ToolVectorDB::new(Some("test_tool_vectordb_operations".to_string())).await?;
+        
+        // Clear any existing tools
+        db.clear_tools().await?;
+        
+        // Create test tool records
+        let test_tools = vec![
+            ToolRecord {
+                tool_name: "test_tool_1".to_string(),
+                description: "A test tool for reading files".to_string(),
+                schema: r#"{"type": "object", "properties": {"path": {"type": "string"}}}"#.to_string(),
+                vector: vec![0.1; 1536], // Mock embedding vector
+            },
+            ToolRecord {
+                tool_name: "test_tool_2".to_string(),
+                description: "A test tool for writing files".to_string(),
+                schema: r#"{"type": "object", "properties": {"path": {"type": "string"}}}"#.to_string(),
+                vector: vec![0.2; 1536], // Different mock embedding vector
+            },
+        ];
+        
+        // Index the test tools
+        db.index_tools(test_tools).await?;
+
+        // Search for tools using a query vector similar to test_tool_1
+        let query_vector = vec![0.1; 1536];
+        let results = db.search_tools(query_vector, 2).await?;
+
+        // Verify results
+        assert_eq!(results.len(), 2, "Should find both tools");
+        assert_eq!(results[0].tool_name, "test_tool_1", "First result should be test_tool_1");
+        assert_eq!(results[1].tool_name, "test_tool_2", "Second result should be test_tool_2");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_empty_db() -> Result<()> {
+        // Create a new database instance with a unique table name
+        let db = ToolVectorDB::new(Some("test_empty_db".to_string())).await?;
+        
+        // Clear any existing tools
+        db.clear_tools().await?;
+        
+        // Search in empty database
+        let query_vector = vec![0.1; 1536];
+        let results = db.search_tools(query_vector, 2).await?;
+        
+        // Verify no results returned
+        assert_eq!(results.len(), 0, "Empty database should return no results");
+        
+        Ok(())
     }
 }
