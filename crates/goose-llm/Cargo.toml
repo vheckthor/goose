@@ -13,7 +13,13 @@ name = "goose_llm"
 
 [features]
 default = ["http"]
-wasm = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:js-sys", "dep:web-sys"]
+wasm = [
+    "dep:wasm-bindgen", 
+    "dep:wasm-bindgen-futures", 
+    "dep:js-sys", 
+    "dep:web-sys",
+    "dep:console_error_panic_hook"
+]
 http = ["dep:reqwest"]
 
 [dependencies]
@@ -52,7 +58,12 @@ tokio = { version = "1.43", features = ["time", "sync"] }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 js-sys = { version = "0.3", optional = true }
-web-sys = { version = "0.3", features = ["console"], optional = true }
+web-sys = { version = "0.3", features = [
+    "console", 
+    "Performance", 
+    "Window"
+], optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"

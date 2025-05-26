@@ -1,11 +1,10 @@
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 use crate::model::ModelConfig;
-use crate::message::{Message, Contents, MessageContent};
-use crate::types::core::{Role, TextContent, ImageContent};
+use crate::message::Message;
+use crate::types::core::Role;
 use crate::types::completion::{CompletionRequest, CompletionResponse, ExtensionConfig, ToolConfig, ToolApprovalMode, RuntimeMetrics};
-use crate::providers::Usage;
-use chrono::Utc;
+use crate::providers::{Usage, mock::{MockProviderConfig, MockTokenCounts}};
 
 /// WebAssembly bindings for ModelConfig
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -459,6 +458,60 @@ impl WasmCompletionRequest {
     pub fn system_preamble(&self) -> String {
         self.inner.system_preamble.clone()
     }
+    
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn get_messages(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.messages)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize messages: {}", e)))
+    }
+    
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn get_model_config(&self) -> WasmModelConfig {
+        WasmModelConfig { inner: self.inner.model_config.clone() }
+    }
+    
+    
+    // Get the system preamble from the inner request
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn inner_system_preamble(&self) -> String {
+        self.inner.system_preamble.clone()
+    }
+    
+    // Get messages from the inner request as JSON
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn inner_messages_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.messages)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize messages: {}", e)))
+    }
+    
+    // Get model name from the inner request
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn inner_model_name(&self) -> String {
+        self.inner.model_config.model_name.clone()
+    }
+    
+    // Get provider config from the inner request as JSON
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn inner_provider_config_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner.provider_config)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize provider config: {}", e)))
+    }
+    
+    // Internal methods for non-WebAssembly use
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn inner_messages(&self) -> Vec<Message> {
+        self.inner.messages.clone()
+    }
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn inner_model_config(&self) -> ModelConfig {
+        self.inner.model_config.clone()
+    }
+    
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn inner_provider_config(&self) -> serde_json::Value {
+        self.inner.provider_config.clone()
+    }
 
     #[cfg_attr(feature = "wasm", wasm_bindgen)]
     pub fn to_json(&self) -> Result<String, JsValue> {
@@ -473,4 +526,319 @@ impl WasmCompletionRequest {
         
         Ok(WasmCompletionRequest { inner: request })
     }
+}
+
+/// WebAssembly bindings for MockProviderConfig
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub struct WasmMockProviderConfig {
+    inner: MockProviderConfig,
+}
+
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+impl WasmMockProviderConfig {
+    #[cfg_attr(feature = "wasm", wasm_bindgen(constructor))]
+    pub fn new() -> Self {
+        Self {
+            inner: MockProviderConfig::default(),
+        }
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn with_delay(self, delay_ms: f64) -> WasmMockProviderConfig {
+        let mut config = self.inner.clone();
+        config.delay_ms = Some(delay_ms as u64);
+        WasmMockProviderConfig { inner: config }
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn with_error(self, error_type: String) -> WasmMockProviderConfig {
+        let mut config = self.inner.clone();
+        config.force_error = Some(error_type);
+        WasmMockProviderConfig { inner: config }
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn with_token_counts(self, input_tokens: Option<i32>, output_tokens: Option<i32>, total_tokens: Option<i32>) -> WasmMockProviderConfig {
+        let mut config = self.inner.clone();
+        config.mock_tokens = Some(MockTokenCounts {
+            input_tokens,
+            output_tokens,
+            total_tokens,
+        });
+        WasmMockProviderConfig { inner: config }
+    }
+
+    #[cfg_attr(feature = "wasm", wasm_bindgen)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    }
+}
+
+/// Direct WebAssembly implementation of mock completion that avoids using the Provider trait
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn wasm_mock_completion(
+    system_prompt: String, 
+    user_message: String,
+    model_name: String,
+    delay_ms: Option<f64>,
+    input_tokens: Option<i32>,
+    output_tokens: Option<i32>,
+    total_tokens: Option<i32>
+) -> WasmCompletionResponse {
+    // Log the inputs for debugging
+    #[cfg(feature = "wasm")]
+    {
+        web_sys::console::log_1(&JsValue::from_str(&format!(
+            "Mock completion with: model={}, delay={}ms", 
+            model_name,
+            delay_ms.unwrap_or(0.0)
+        )));
+    }
+    
+    // Create a simple mock response
+    let response_text = format!(
+        "This is a mock response to: '{}'\n\nSystem prompt was: '{}'", 
+        user_message, 
+        system_prompt
+    );
+    
+    // Create the message
+    let message = Message::assistant().with_text(response_text);
+    
+    // Create usage statistics
+    let usage = Usage::new(input_tokens, output_tokens, total_tokens);
+    
+    // Create runtime metrics
+    let delay_sec = delay_ms.unwrap_or(0.0) / 1000.0;
+    let metrics = RuntimeMetrics::new(
+        delay_sec as f32 + 0.1, // Total time
+        delay_sec as f32,       // Provider time
+        total_tokens.map(|t| t as f64 / delay_sec.max(0.1)), // Tokens per second
+    );
+    
+    // Log the completion
+    #[cfg(feature = "wasm")]
+    {
+        web_sys::console::log_1(&JsValue::from_str(&format!(
+            "Mock completion successful: {} tokens in {}s", 
+            total_tokens.unwrap_or(0),
+            delay_sec
+        )));
+    }
+    
+    // Create and return the response
+    WasmCompletionResponse {
+        inner: CompletionResponse::new(message, model_name, usage, metrics)
+    }
+}
+
+/// WebAssembly function to complete a request using the mock provider
+/// This is a simplified version that doesn't use the async Provider trait
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn wasm_complete_with_mock(request: WasmCompletionRequest) -> Result<WasmCompletionResponse, JsValue> {
+    #[cfg(feature = "wasm")]
+    {
+        web_sys::console::log_1(&JsValue::from_str("Starting sync mock completion..."));
+        if let Ok(req_json) = request.to_json() {
+            web_sys::console::log_1(&JsValue::from_str(&format!("Request: {}", req_json)));
+        }
+    }
+
+    // Parse the mock config
+    let config: MockProviderConfig = match serde_json::from_str(&request.inner_provider_config_json()?) {
+        Ok(config) => config,
+        Err(e) => {
+            let error_msg = format!("Failed to parse mock config: {}", e);
+            #[cfg(feature = "wasm")]
+            web_sys::console::error_1(&JsValue::from_str(&error_msg));
+            return Err(JsValue::from_str(&error_msg));
+        }
+    };
+
+    // Check if we should force an error
+    if let Some(error) = &config.force_error {
+        let error_msg = match error.as_str() {
+            "auth" => format!("Authentication error: Mock authentication error"),
+            "context" => format!("Context length exceeded: Mock context length exceeded"),
+            "rate" => format!("Rate limit exceeded: Mock rate limit exceeded"),
+            "server" => format!("Server error: Mock server error"),
+            "request" => format!("Request failed: Mock request failed"),
+            "execution" => format!("Execution error: Mock execution error"),
+            "usage" => format!("Usage error: Mock usage error"),
+            "parse" => format!("Response parse error: Mock parse error"),
+            _ => format!("Unknown error type: {}", error),
+        };
+        
+        #[cfg(feature = "wasm")]
+        web_sys::console::error_1(&JsValue::from_str(&error_msg));
+        
+        return Err(JsValue::from_str(&error_msg));
+    }
+
+    // Get the system preamble and messages
+    let system_preamble = request.inner_system_preamble();
+    let model_name = request.inner_model_name();
+    let messages_json = request.inner_messages_json()?;
+    
+    // Parse messages from JSON
+    let messages: Vec<Message> = match serde_json::from_str(&messages_json) {
+        Ok(msgs) => msgs,
+        Err(e) => {
+            let error_msg = format!("Failed to parse messages: {}", e);
+            #[cfg(feature = "wasm")]
+            web_sys::console::error_1(&JsValue::from_str(&error_msg));
+            return Err(JsValue::from_str(&error_msg));
+        }
+    };
+
+    // Get the last user message
+    let user_message = messages.iter().rev()
+        .find(|m| m.role == Role::User)
+        .map(|m| m.content.concat_text_str())
+        .unwrap_or_else(|| "No user message found".to_string());
+
+    // Get token counts
+    let (input_tokens, output_tokens, total_tokens) = if let Some(tokens) = &config.mock_tokens {
+        (tokens.input_tokens, tokens.output_tokens, tokens.total_tokens)
+    } else {
+        (Some(10), Some(20), Some(30))
+    };
+
+    // Create and return the response
+    let response = wasm_mock_completion(
+        system_preamble,
+        user_message,
+        model_name,
+        config.delay_ms.map(|ms| ms as f64),
+        input_tokens,
+        output_tokens,
+        total_tokens
+    );
+
+    #[cfg(feature = "wasm")]
+    web_sys::console::log_1(&JsValue::from_str("Mock completion successful"));
+    
+    Ok(response)
+}
+
+/// Async version of the mock completion function
+/// This function demonstrates how to properly handle async in WebAssembly
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub async fn wasm_complete_with_mock_async(request: WasmCompletionRequest) -> Result<WasmCompletionResponse, JsValue> {
+    #[cfg(feature = "wasm")]
+    {
+        web_sys::console::log_1(&JsValue::from_str("Starting async mock completion..."));
+        if let Ok(req_json) = request.to_json() {
+            web_sys::console::log_1(&JsValue::from_str(&format!("Request: {}", req_json)));
+        }
+    }
+    
+    // Parse the mock config
+    let config: MockProviderConfig = match serde_json::from_str(&request.inner_provider_config_json()?) {
+        Ok(config) => config,
+        Err(e) => {
+            let error_msg = format!("Failed to parse mock config: {}", e);
+            #[cfg(feature = "wasm")]
+            web_sys::console::error_1(&JsValue::from_str(&error_msg));
+            return Err(JsValue::from_str(&error_msg));
+        }
+    };
+    
+    // Check if we should force an error
+    if let Some(error) = &config.force_error {
+        let error_msg = match error.as_str() {
+            "auth" => format!("Authentication error: Mock authentication error"),
+            "context" => format!("Context length exceeded: Mock context length exceeded"),
+            "rate" => format!("Rate limit exceeded: Mock rate limit exceeded"),
+            "server" => format!("Server error: Mock server error"),
+            "request" => format!("Request failed: Mock request failed"),
+            "execution" => format!("Execution error: Mock execution error"),
+            "usage" => format!("Usage error: Mock usage error"),
+            "parse" => format!("Response parse error: Mock parse error"),
+            _ => format!("Unknown error type: {}", error),
+        };
+        
+        #[cfg(feature = "wasm")]
+        web_sys::console::error_1(&JsValue::from_str(&error_msg));
+        
+        return Err(JsValue::from_str(&error_msg));
+    }
+    
+    // Simulate delay if configured
+    if let Some(delay_ms) = config.delay_ms {
+        #[cfg(feature = "wasm")]
+        {
+            use js_sys::Promise;
+            use wasm_bindgen_futures::JsFuture;
+            
+            let promise = Promise::new(&mut move |resolve, _| {
+                let window = web_sys::window().expect("Should have a window");
+                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    &resolve,
+                    delay_ms as i32,
+                );
+            });
+            
+            let _ = JsFuture::from(promise).await;
+        }
+    }
+    
+    let system_preamble = request.inner_system_preamble();
+    let model_name = request.inner_model_name();
+    let messages_json = request.inner_messages_json()?;
+    
+    let messages: Vec<Message> = match serde_json::from_str(&messages_json) {
+        Ok(msgs) => msgs,
+        Err(e) => {
+            let error_msg = format!("Failed to parse messages: {}", e);
+            #[cfg(feature = "wasm")]
+            web_sys::console::error_1(&JsValue::from_str(&error_msg));
+            return Err(JsValue::from_str(&error_msg));
+        }
+    };
+    
+    let user_message = messages.iter().rev()
+        .find(|m| m.role == Role::User)
+        .map(|m| m.content.concat_text_str())
+        .unwrap_or_else(|| "No user message found".to_string());
+    
+    let response_text = format!(
+        "This is a mock response to: '{}'\n\nSystem prompt was: '{}'", 
+        user_message, 
+        system_preamble
+    );
+    
+    let message = Message::assistant().with_text(response_text);
+    
+    let usage = if let Some(mock_tokens) = &config.mock_tokens {
+        Usage::new(
+            mock_tokens.input_tokens,
+            mock_tokens.output_tokens,
+            mock_tokens.total_tokens,
+        )
+    } else {
+        Usage::default()
+    };
+    
+    let delay_sec = config.delay_ms.unwrap_or(0) as f32 / 1000.0;
+    let total_time = delay_sec + 0.1; // Placeholder
+    let provider_time = delay_sec; // Placeholder
+    let tokens_per_sec = usage.total_tokens.map(|t| t as f64 / provider_time.max(0.1) as f64); // Placeholder
+    
+    let completion_response = crate::types::completion::CompletionResponse::new(
+        message,
+        model_name,
+        usage,
+        crate::types::completion::RuntimeMetrics::new(
+            total_time,
+            provider_time,
+            tokens_per_sec,
+        ),
+    );
+    
+    #[cfg(feature = "wasm")]
+    web_sys::console::log_1(&JsValue::from_str("Mock completion successful"));
+    
+    Ok(WasmCompletionResponse { inner: completion_response })
 }

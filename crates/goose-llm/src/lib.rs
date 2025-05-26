@@ -1,3 +1,14 @@
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen(start)]
+pub fn main_wasm() -> Result<(), JsValue> {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+    Ok(())
+}
+
 uniffi::setup_scaffolding!();
 
 mod completion;
@@ -10,6 +21,8 @@ mod structured_outputs;
 pub mod types;
 #[cfg(feature = "wasm")]
 mod wasm;
+#[cfg(all(feature = "wasm", feature = "http"))]
+mod wasm_providers;
 
 pub use completion::completion;
 pub use message::Message;
@@ -18,3 +31,5 @@ pub use structured_outputs::generate_structured_outputs;
 
 #[cfg(feature = "wasm")]
 pub use wasm::*;
+#[cfg(all(feature = "wasm", feature = "http"))]
+pub use wasm_providers::*;
