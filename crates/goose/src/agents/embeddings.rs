@@ -29,14 +29,15 @@ pub struct EmbeddingProvider {
 impl EmbeddingProvider {
     pub fn new() -> Result<Self> {
         // Try to get API key from environment
-        let api_key = env::var("OPENAI_API_KEY")
-            .context("No API key found for embeddings. Please set OPENAI_API_KEY environment variable")?;
+        let api_key = env::var("OPENAI_API_KEY").context(
+            "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
+        )?;
 
         let base_url = env::var("EMBEDDING_BASE_URL")
             .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
 
-        let model = env::var("EMBEDDING_MODEL")
-            .unwrap_or_else(|_| "text-embedding-3-small".to_string());
+        let model =
+            env::var("EMBEDDING_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
 
         Ok(Self {
             client: Client::new(),
@@ -103,14 +104,10 @@ impl MockEmbeddingProvider {
     pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        
+
         Ok(texts
             .into_iter()
-            .map(|_| {
-                (0..1536)
-                    .map(|_| rng.gen_range(-1.0..1.0))
-                    .collect()
-            })
+            .map(|_| (0..1536).map(|_| rng.gen_range(-1.0..1.0)).collect())
             .collect())
     }
 
@@ -128,7 +125,10 @@ pub async fn create_embedding_provider() -> Box<dyn EmbeddingProviderTrait> {
     match EmbeddingProvider::new() {
         Ok(provider) => Box::new(provider),
         Err(e) => {
-            tracing::warn!("Failed to create embedding provider: {}. Using mock provider.", e);
+            tracing::warn!(
+                "Failed to create embedding provider: {}. Using mock provider.",
+                e
+            );
             Box::new(MockEmbeddingProvider::new())
         }
     }
@@ -136,6 +136,7 @@ pub async fn create_embedding_provider() -> Box<dyn EmbeddingProviderTrait> {
 
 #[async_trait::async_trait]
 pub trait EmbeddingProviderTrait: Send + Sync {
+    #[allow(dead_code)]
     async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>>;
     async fn embed_single(&self, text: String) -> Result<Vec<f32>>;
 }
@@ -170,19 +171,19 @@ mod tests {
     #[tokio::test]
     async fn test_mock_embedding_provider() {
         let provider = MockEmbeddingProvider::new();
-        
+
         // Test single embedding
         let text = "Test text for embedding".to_string();
         let embedding = provider.embed_single(text).await.unwrap();
-        
+
         // Check dimensions
         assert_eq!(embedding.len(), 1536);
-        
+
         // Check values are within expected range (-1.0 to 1.0)
         for value in embedding {
             assert!(value >= -1.0 && value <= 1.0);
         }
-        
+
         // Test batch embedding
         let texts = vec![
             "First text".to_string(),
@@ -190,7 +191,7 @@ mod tests {
             "Third text".to_string(),
         ];
         let embeddings = provider.embed(texts).await.unwrap();
-        
+
         // Check batch results
         assert_eq!(embeddings.len(), 3);
         for embedding in embeddings {
@@ -241,7 +242,7 @@ mod tests {
         env::remove_var("OPENAI_API_KEY");
 
         let provider = create_embedding_provider().await;
-        
+
         // Test that we get a working provider (mock in this case)
         let text = "Test text".to_string();
         let embedding = provider.embed_single(text).await.unwrap();
@@ -251,17 +252,17 @@ mod tests {
     #[tokio::test]
     async fn test_mock_embedding_consistency() {
         let provider = MockEmbeddingProvider::new();
-        
+
         // Test that different texts get different embeddings
         let text1 = "First text".to_string();
         let text2 = "Second text".to_string();
-        
+
         let embedding1 = provider.embed_single(text1.clone()).await.unwrap();
         let embedding2 = provider.embed_single(text2.clone()).await.unwrap();
-        
+
         // Verify embeddings are different (random values should make this extremely likely)
         assert!(embedding1 != embedding2);
-        
+
         // Verify same text gets different embeddings (mock doesn't cache)
         let embedding1_repeat = provider.embed_single(text1).await.unwrap();
         assert!(embedding1 != embedding1_repeat);

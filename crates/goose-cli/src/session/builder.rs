@@ -56,7 +56,7 @@ pub async fn build_session(session_config: SessionBuilderConfig) -> Session {
     let agent: Agent = Agent::new();
     let new_provider = create(&provider_name, model_config).unwrap();
     let _ = agent.update_provider(new_provider).await;
-    
+
     // Initialize router tool selector if vector strategy is enabled
     if let Err(e) = agent.initialize_router_tool_selector().await {
         output::render_error(&format!("Failed to initialize router tool selector: {}", e));
