@@ -1,13 +1,14 @@
-use mcp_core::{Content, ToolError};
 use mcp_core::content::TextContent;
+use mcp_core::{Content, ToolError};
 
 use async_trait::async_trait;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::agents::tool_vectordb::ToolVectorDB;
 use crate::agents::embeddings::{create_embedding_provider, EmbeddingProviderTrait};
+use crate::agents::tool_vectordb::ToolVectorDB;
+use crate::providers::base::Provider;
 
 pub enum RouterToolSelectionStrategy {
     Vector,
@@ -16,8 +17,14 @@ pub enum RouterToolSelectionStrategy {
 #[async_trait]
 pub trait RouterToolSelector: Send + Sync {
     async fn select_tools(&self, params: Value) -> Result<Vec<Content>, ToolError>;
-    async fn index_tool(&self, tool_name: String, description: String, schema: String) -> Result<(), ToolError>;
+    async fn index_tool(
+        &self,
+        tool_name: String,
+        description: String,
+        schema: String,
+    ) -> Result<(), ToolError>;
     async fn clear_tools(&self) -> Result<(), ToolError>;
+    async fn remove_tool(&self, tool_name: &str) -> Result<(), ToolError>;
 }
 
 pub struct VectorToolSelector {
@@ -26,13 +33,13 @@ pub struct VectorToolSelector {
 }
 
 impl VectorToolSelector {
-    pub async fn new() -> Result<Self, ToolError> {
-        let vector_db = ToolVectorDB::new()
+    pub async fn new(provider: Arc<dyn Provider>) -> Result<Self, ToolError> {
+        let vector_db = ToolVectorDB::new(Some("tools".to_string()))
             .await
             .map_err(|e| ToolError::ExecutionError(format!("Failed to create vector DB: {}", e)))?;
-        
-        let embedding_provider = create_embedding_provider().await;
-        
+
+        let embedding_provider = create_embedding_provider(provider.clone()).await;
+
         Ok(Self {
             vector_db: Arc::new(RwLock::new(vector_db)),
             embedding_provider: Arc::new(embedding_provider),
@@ -47,25 +54,25 @@ impl RouterToolSelector for VectorToolSelector {
             .get("query")
             .and_then(|v| v.as_str())
             .ok_or_else(|| ToolError::InvalidParameters("Missing 'query' parameter".to_string()))?;
-        
-        let limit = params
-            .get("limit")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(10) as usize;
-        
+
+        let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+
         // Generate embedding for the query
-        let query_embedding = self.embedding_provider
+        let query_embedding = self
+            .embedding_provider
             .embed_single(query.to_string())
             .await
-            .map_err(|e| ToolError::ExecutionError(format!("Failed to generate query embedding: {}", e)))?;
-        
+            .map_err(|e| {
+                ToolError::ExecutionError(format!("Failed to generate query embedding: {}", e))
+            })?;
+
         // Search for similar tools
         let vector_db = self.vector_db.read().await;
         let tools = vector_db
             .search_tools(query_embedding, limit)
             .await
             .map_err(|e| ToolError::ExecutionError(format!("Failed to search tools: {}", e)))?;
-        
+
         // Convert tool records to Content
         let selected_tools: Vec<Content> = tools
             .into_iter()
@@ -80,20 +87,28 @@ impl RouterToolSelector for VectorToolSelector {
                 })
             })
             .collect();
-        
+
         Ok(selected_tools)
     }
-    
-    async fn index_tool(&self, tool_name: String, description: String, schema: String) -> Result<(), ToolError> {
+
+    async fn index_tool(
+        &self,
+        tool_name: String,
+        description: String,
+        schema: String,
+    ) -> Result<(), ToolError> {
         // Create text to embed
         let text_to_embed = format!("{} {} {}", tool_name, description, schema);
-        
+
         // Generate embedding
-        let embedding = self.embedding_provider
+        let embedding = self
+            .embedding_provider
             .embed_single(text_to_embed)
             .await
-            .map_err(|e| ToolError::ExecutionError(format!("Failed to generate tool embedding: {}", e)))?;
-        
+            .map_err(|e| {
+                ToolError::ExecutionError(format!("Failed to generate tool embedding: {}", e))
+            })?;
+
         // Index the tool
         let vector_db = self.vector_db.read().await;
         let tool_record = crate::agents::tool_vectordb::ToolRecord {
@@ -102,15 +117,15 @@ impl RouterToolSelector for VectorToolSelector {
             schema,
             vector: embedding,
         };
-        
+
         vector_db
             .index_tools(vec![tool_record])
             .await
             .map_err(|e| ToolError::ExecutionError(format!("Failed to index tool: {}", e)))?;
-        
+
         Ok(())
     }
-    
+
     async fn clear_tools(&self) -> Result<(), ToolError> {
         let vector_db = self.vector_db.read().await;
         vector_db
@@ -119,19 +134,28 @@ impl RouterToolSelector for VectorToolSelector {
             .map_err(|e| ToolError::ExecutionError(format!("Failed to clear tools: {}", e)))?;
         Ok(())
     }
+
+    async fn remove_tool(&self, tool_name: &str) -> Result<(), ToolError> {
+        let vector_db = self.vector_db.read().await;
+        vector_db.remove_tool(tool_name).await.map_err(|e| {
+            ToolError::ExecutionError(format!("Failed to remove tool {}: {}", tool_name, e))
+        })?;
+        Ok(())
+    }
 }
 
 // Helper function to create a boxed tool selector
 pub async fn create_tool_selector(
     strategy: Option<RouterToolSelectionStrategy>,
+    provider: Arc<dyn Provider>,
 ) -> Result<Box<dyn RouterToolSelector>, ToolError> {
     match strategy {
         Some(RouterToolSelectionStrategy::Vector) => {
-            let selector = VectorToolSelector::new().await?;
+            let selector = VectorToolSelector::new(provider).await?;
             Ok(Box::new(selector))
         }
         _ => {
-            let selector = VectorToolSelector::new().await?;
+            let selector = VectorToolSelector::new(provider).await?;
             Ok(Box::new(selector))
         }
     }
