@@ -6,6 +6,8 @@ use serde_json::{json, Value};
 use std::{
     collections::HashMap, fs, future::Future, path::PathBuf, pin::Pin, sync::Arc, sync::Mutex,
 };
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use tokio::process::Command;
 
 use mcp_core::{
@@ -742,6 +744,14 @@ impl ComputerControllerRouter {
                 fs::write(&script_path, script).map_err(|e| {
                     ToolError::ExecutionError(format!("Failed to write script: {}", e))
                 })?;
+                #[cfg(unix)]
+                fs::set_permissions(&script_path, fs::Permissions::from_mode(0o700))
+                    .map_err(|e| {
+                        ToolError::ExecutionError(format!(
+                            "Failed to set script permissions: {}",
+                            e
+                        ))
+                    })?;
 
                 script_path.display().to_string()
             }
