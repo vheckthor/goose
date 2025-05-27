@@ -188,9 +188,9 @@ pub trait Provider: Send + Sync {
 
     async fn stream(
         &self,
-        system: &str,
-        messages: &[Message],
-        tools: &[Tool],
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[Tool],
     ) -> Result<MessageStream, ProviderError> {
         Err(ProviderError::NotImplemented(
             "streaming not implemented".to_string(),

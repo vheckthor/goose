@@ -39,7 +39,6 @@ export default function GooseMessage({
 
   // Extract text content from the message
   let textContent = getTextContent(message);
-  console.log('Rendering message:', textContent);
 
   // Memoize the timestamp
   const timestamp = useMemo(() => formatMessageTimestamp(message.created), [message.created]);
