@@ -320,27 +320,34 @@ mod tests {
     }
 
     fn set_up_tool_request_message(id: &str, tool_call: ToolCall) -> Message {
-        Message::new(Role::User, 0, vec![MessageContent::tool_request(id.to_string(), Ok(tool_call))])
+        Message::new(
+            Role::User,
+            0,
+            vec![MessageContent::tool_request(id.to_string(), Ok(tool_call))],
+        )
     }
 
     fn set_up_tool_confirmation_message(id: &str, tool_call: ToolCall) -> Message {
         Message::new(
-            Role::User, 
-            0, 
+            Role::User,
+            0,
             vec![MessageContent::tool_confirmation_request(
                 id.to_string(),
                 tool_call.name.clone(),
                 tool_call.arguments.clone(),
                 Some("Goose would like to call the above tool. Allow? (y/n):".to_string()),
-            )]
+            )],
         )
     }
 
     fn set_up_tool_response_message(id: &str, tool_response: Vec<Content>) -> Message {
         Message::new(
-            Role::Assistant, 
-            0, 
-            vec![MessageContent::tool_response(id.to_string(), Ok(tool_response))]
+            Role::Assistant,
+            0,
+            vec![MessageContent::tool_response(
+                id.to_string(),
+                Ok(tool_response),
+            )],
         )
     }
 

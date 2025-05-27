@@ -272,13 +272,25 @@ mod tests {
             "You are a helpful assistant that can answer questions about the weather.";
 
         let messages = vec![
-            Message::new(Role::User, 0, vec![MessageContent::text(
-                "What's the weather like in San Francisco?",
-            )]),
-            Message::new(Role::Assistant, 1, vec![MessageContent::text(
-                "Looks like it's 60 degrees Fahrenheit in San Francisco.",
-            )]),
-            Message::new(Role::User, 2, vec![MessageContent::text("How about New York?")]),
+            Message::new(
+                Role::User,
+                0,
+                vec![MessageContent::text(
+                    "What's the weather like in San Francisco?",
+                )],
+            ),
+            Message::new(
+                Role::Assistant,
+                1,
+                vec![MessageContent::text(
+                    "Looks like it's 60 degrees Fahrenheit in San Francisco.",
+                )],
+            ),
+            Message::new(
+                Role::User,
+                2,
+                vec![MessageContent::text("How about New York?")],
+            ),
         ];
 
         let tools = vec![Tool {

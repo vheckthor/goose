@@ -200,7 +200,7 @@ mod tests {
                     vec![MessageContent::Text(TextContent {
                         text: "Summarized content".to_string(),
                         annotations: None,
-                    })]
+                    })],
                 ),
                 ProviderUsage::new("mock".to_string(), Usage::default()),
             ))
@@ -228,11 +228,22 @@ mod tests {
     }
 
     fn set_up_tool_request_message(id: &str, tool_call: ToolCall) -> Message {
-        Message::new(Role::Assistant, 0, vec![MessageContent::tool_request(id.to_string(), Ok(tool_call))])
+        Message::new(
+            Role::Assistant,
+            0,
+            vec![MessageContent::tool_request(id.to_string(), Ok(tool_call))],
+        )
     }
 
     fn set_up_tool_response_message(id: &str, tool_response: Vec<Content>) -> Message {
-        Message::new(Role::User, 0, vec![MessageContent::tool_response(id.to_string(), Ok(tool_response))])
+        Message::new(
+            Role::User,
+            0,
+            vec![MessageContent::tool_response(
+                id.to_string(),
+                Ok(tool_response),
+            )],
+        )
     }
 
     #[tokio::test]
@@ -386,7 +397,7 @@ mod tests {
             vec![MessageContent::Text(TextContent {
                 text: "Summary".to_string(),
                 annotations: None,
-            })]
+            })],
         )];
         let arguments = json!({
             "param1": "value1"

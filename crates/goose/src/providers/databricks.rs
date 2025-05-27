@@ -343,9 +343,7 @@ impl Provider for DatabricksProvider {
         let response = self.post_stream(payload.clone()).await?;
 
         // Map reqwest error to io::Error
-        let stream = response
-            .bytes_stream()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+        let stream = response.bytes_stream().map_err(io::Error::other);
 
         let model_config = self.model.clone();
         // Wrap in a line decoder and yield lines inside the stream
