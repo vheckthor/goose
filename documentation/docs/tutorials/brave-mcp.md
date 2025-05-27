@@ -5,22 +5,28 @@ description: Add Brave Search API as a Goose Extension
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import YouTubeShortEmbed from '@site/src/components/YouTubeShortEmbed';
 
+<YouTubeShortEmbed videoUrl="https://www.youtube.com/embed/kD2YA61NTLU" />
 
 This tutorial will get you started with the [Brave Search MCP Server](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search) as a Goose extension to enable interactive searches for both web and local searches.
 
-
 :::tip TLDR
-
-**Command**
-```sh
-npx @modelcontextprotocol/server-brave-search
-```
-
-**Environment Variable**
-```
-BRAVE_API_KEY: <YOUR_API_KEY>
-```
+<Tabs groupId="interface">
+  <TabItem value="ui" label="Goose Desktop" default>
+  [Launch the installer](goose://extension?cmd=npx&arg=-y&arg=%40modelcontextprotocol%2Fserver-brave-search&id=brave-search&name=Brave%20Search&description=Brave%20Search%20API&env=BRAVE_API_KEY%3DYour%20API%20Key)
+  </TabItem>
+  <TabItem value="cli" label="Goose CLI">
+  **Command**
+  ```sh
+  npx -y @modelcontextprotocol/server-brave-search
+  ```
+  </TabItem>
+</Tabs>
+  **Environment Variable**
+  ```
+  BRAVE_API_KEY: <YOUR_API_KEY>
+  ```
 :::
 
 ## Configuration
@@ -30,7 +36,14 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
 :::
 
 <Tabs groupId="interface">
-  <TabItem value="cli" label="Goose CLI" default>
+  <TabItem value="ui" label="Goose Desktop" default>
+  1. [Launch the installer](goose://extension?cmd=npx&arg=-y&arg=%40modelcontextprotocol%2Fserver-brave-search&id=brave-search&name=Brave%20Search&description=Brave%20Search%20API&env=BRAVE_API_KEY%3DYour%20API%20Key)
+  2. Press `Yes` to confirm the installation
+  3. Get your [Brave Search API Key](https://api-dashboard.search.brave.com/app/keys) and paste it in
+  4. Click `Save Configuration`
+  5. Scroll to the top and click `Exit` from the upper left corner
+  </TabItem>
+  <TabItem value="cli" label="Goose CLI">
   1. Run the `configure` command:
   ```sh
   goose configure
@@ -41,7 +54,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◆  What type of extension would you like to add?
     │  ○ Built-in Extension 
@@ -57,7 +70,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◇  What type of extension would you like to add?
     │  Command-line Extension 
@@ -74,7 +87,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◇  What type of extension would you like to add?
     │  Command-line Extension 
@@ -84,7 +97,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     │
     // highlight-start
     ◆  What command should be run?
-    │  npx @modelcontextprotocol/server-brave-search
+    │  npx -y @modelcontextprotocol/server-brave-search
     // highlight-end
     └ 
   ```  
@@ -94,7 +107,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◇  What type of extension would you like to add?
     │  Command-line Extension 
@@ -103,7 +116,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     │  brave-search
     │
     ◇  What command should be run?
-    │  npx @modelcontextprotocol/server-brave-search
+    │  npx -y @modelcontextprotocol/server-brave-search
     │
     // highlight-start
     ◆  Please set the timeout for this tool (in secs):
@@ -118,7 +131,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◇  What type of extension would you like to add?
     │  Command-line Extension 
@@ -127,7 +140,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     │  brave-search
     │
     ◇  What command should be run?
-    │  npx @modelcontextprotocol/server-brave-search
+    │  npx -y @modelcontextprotocol/server-brave-search
     │
     ◆  Please set the timeout for this tool (in secs):
     │  300
@@ -149,7 +162,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     ┌   goose-configure 
     │
     ◇  What would you like to configure?
-    │  Add Extension 
+    │  Add Extension (Connect to a new extension) 
     │
     ◇  What type of extension would you like to add?
     │  Command-line Extension 
@@ -158,7 +171,7 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     │  brave-search
     │
     ◇  What command should be run?
-    │  npx @modelcontextprotocol/server-brave-search
+    │  npx -y @modelcontextprotocol/server-brave-search
     │
     ◇  Please set the timeout for this tool (in secs):
     │  300
@@ -182,13 +195,6 @@ Note that you'll need [Node.js](https://nodejs.org/) installed on your system to
     └  Added brave-search extension
   ```  
 
-  </TabItem>
-  <TabItem value="ui" label="Goose Desktop">
-  1. [Launch the installer](goose://extension?cmd=npx&arg=-y&arg=%40modelcontextprotocol%2Fserver-brave-search&id=brave-search&name=Brave%20Search&description=Brave%20Search%20API&env=BRAVE_API_KEY%3DYour%20API%20Key)
-  2. Press `Yes` to confirm the installation
-  3. Get your [Brave Search API Key](https://api-dashboard.search.brave.com/app/keys) and paste it in
-  4. Click `Save Configuration`
-  5. Scroll to the top and click `Exit` from the upper left corner
   </TabItem>
 </Tabs>
 

@@ -1,0 +1,33 @@
+version: 1.0.0
+title: Custom recipe from chat
+description: a custom recipe instance from this chat session
+instructions: Utilize CLI tools to navigate and interact with software extensions and developer environments to accomplish various tasks. Pay attention to the output formats requested, and employ specific extensions or tools as needed to fulfill complex queries.
+extensions:
+- type: builtin
+  name: tutorial
+  display_name: Tutorial
+  timeout: 300
+  bundled: true
+- type: stdio
+  name: imagegenerator
+  cmd: uvx
+  args:
+  - mcp_imagegen@latest
+  envs: {}
+  env_keys: []
+  timeout: 300
+  description: Generate images with OpenAI models
+  bundled: true
+- type: builtin
+  name: developer
+  display_name: Developer
+  timeout: 300
+  bundled: true
+activities:
+- Toggle interface themes
+- List active extensions
+- Describe session capabilities
+- Generate image with specific attributes
+- Run shell commands in development environment
+author:
+  contact: douwe

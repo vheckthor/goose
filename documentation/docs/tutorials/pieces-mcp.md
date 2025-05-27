@@ -6,6 +6,10 @@ description: Add Pieces for Developers MCP Server as a Goose Extension
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
+import YouTubeShortEmbed from '@site/src/components/YouTubeShortEmbed';
+
+<YouTubeShortEmbed videoUrl="https://www.youtube.com/embed/V8zp9m9__t4" />
+
 This tutorial covers how to add the [Pieces for Developers MCP Server](https://docs.pieces.app/products/mcp/get-started?utm_source=goose&utm_medium=collab&utm_campaign=mcp) as a Goose extension to enable interaction with your Pieces Long-Term Memory.
 
 ## Configuration
@@ -29,7 +33,11 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
 ### Add Pieces MCP Server
 
 <Tabs groupId="interface">
-  <TabItem value="cli" label="Goose CLI" default>
+  <TabItem value="ui" label="Goose Desktop" default>
+  1. [Launch the installer](goose://extension?url=http%3A%2F%2Flocalhost%3A39300%2Fmodel_context_protocol%2F2024-11-05%2Fsse&id=pieces&name=Pieces%20for%20Developers&description=Provides%20access%20to%20your%20Pieces%20Long-Term%20Memory.%20You%20need%20to%20have%20Pieces%20installed%20to%20use%20this.)
+  2. Press `Yes` to confirm the installation
+  </TabItem>
+  <TabItem value="cli" label="Goose CLI">
   1. Run the `configure` command:
 
       ```sh
@@ -42,7 +50,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◆  What type of extension would you like to add?
         │  ○ Built-in Extension 
@@ -59,7 +67,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◇  What type of extension would you like to add?
         │  Remote Extension 
@@ -81,7 +89,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◇  What type of extension would you like to add?
         │  Remote Extension 
@@ -102,7 +110,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◇  What type of extension would you like to add?
         │  Remote Extension 
@@ -126,7 +134,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◇  What type of extension would you like to add?
         │  Remote Extension 
@@ -139,10 +147,12 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         │
         ◇  Please set the timeout for this tool (in secs):
         │  300
+        │
         // highlight-start
         ◆  Would you like to add a description?
         │  ○ Yes  / ● No 
         // highlight-end
+        │
         └ 
       ```
 
@@ -152,7 +162,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         ┌   goose-configure 
         │
         ◇  What would you like to configure?
-        │  Add Extension 
+        │  Add Extension (Connect to a new extension) 
         │
         ◇  What type of extension would you like to add?
         │  Remote Extension 
@@ -165,6 +175,7 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         │
         ◇  Please set the timeout for this tool (in secs):
         │  300
+        │
         ◇  Would you like to add a description?
         │  No 
         │
@@ -175,10 +186,6 @@ http://localhost:39300/model_context_protocol/2024-11-05/sse
         └ 
       ```
 
-  </TabItem>
-  <TabItem value="ui" label="Goose Desktop">
-  1. [Launch the installer](goose://extension?url=http%3A%2F%2Flocalhost%3A39300%2Fmodel_context_protocol%2F2024-11-05%2Fsse&id=pieces&name=Pieces%20for%20Developers&description=Provides%20access%20to%20your%20Pieces%20Long-Term%20Memory.%20You%20need%20to%20have%20Pieces%20installed%20to%20use%20this.)
-  2. Press `Yes` to confirm the installation
   </TabItem>
 </Tabs>
 

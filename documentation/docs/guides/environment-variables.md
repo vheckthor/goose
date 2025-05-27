@@ -44,6 +44,7 @@ These variables are needed when using custom endpoints, enterprise deployments, 
 export GOOSE_PROVIDER__TYPE="anthropic"
 export GOOSE_PROVIDER__HOST="https://api.anthropic.com"
 export GOOSE_PROVIDER__API_KEY="your-api-key-here"
+```
 ## Planning Mode Configuration
 
 These variables control Goose's [planning functionality](/docs/guides/creating-plans).
@@ -71,6 +72,7 @@ These variables control how Goose handles [tool permissions](/docs/guides/tool-p
 | `GOOSE_TOOLSHIM` | Enables/disables tool call interpretation | "1", "true" (case insensitive) to enable | false |
 | `GOOSE_TOOLSHIM_OLLAMA_MODEL` | Specifies the model for [tool call interpretation](/docs/guides/experimental-features/#ollama-tool-shim) | Model name (e.g. llama3.2, qwen2.5) | System default |
 | `GOOSE_CLI_MIN_PRIORITY` | Controls verbosity of [tool output](/docs/guides/adjust-tool-output) | Float between 0.0 and 1.0 | 0.0 |
+| `GOOSE_CLI_TOOL_PARAMS_TRUNCATION_MAX_LENGTH` | Maximum length for tool parameter values before truncation in CLI output (not in debug mode) | Integer | 40 |
 
 **Examples**
 
@@ -80,7 +82,8 @@ export GOOSE_TOOLSHIM=true
 export GOOSE_TOOLSHIM_OLLAMA_MODEL=llama3.2
 export GOOSE_MODE="auto"
 export GOOSE_CLI_MIN_PRIORITY=0.2  # Show only medium and high importance output
-
+export GOOSE_CLI_TOOL_PARAMS_MAX_LENGTH=100  # Show up to 100 characters for tool parameters in CLI output
+```
 ## Security Configuration
 
 These variables control security related features.
