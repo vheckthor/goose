@@ -34,5 +34,6 @@ env = {
     "RUST_LOG" = "debug", 
     "RUST_BACKTRACE" = "1", 
     "CROSS_VERBOSE" = "1",
-    "RUSTFLAGS" = "-C target-cpu=x86-64"
+    # Use baseline x86-64 instruction set for maximum compatibility
+    "RUSTFLAGS" = "-C target-cpu=x86-64 -C target-feature=-avx -C target-feature=-avx2 -C target-feature=-fma"
 }
