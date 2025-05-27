@@ -4,7 +4,8 @@ use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 #[wasm_bindgen(start)]
 pub fn main_wasm() -> Result<(), JsValue> {
-    #[cfg(feature = "console_error_panic_hook")]
+    // The console_error_panic_hook dependency is enabled by the "wasm" feature in Cargo.toml
+    // So, if this code is compiled, the dependency is available.
     console_error_panic_hook::set_once();
     Ok(())
 }
