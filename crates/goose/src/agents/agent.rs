@@ -60,16 +60,6 @@ impl Agent {
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
-        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
-            .ok()
-            .and_then(|s| {
-                if s.eq_ignore_ascii_case("vector") {
-                    Some(RouterToolSelectionStrategy::Vector)
-                } else {
-                    None
-                }
-            });
-
         Self {
             provider: Mutex::new(None),
             extension_manager: Mutex::new(ExtensionManager::new()),
@@ -383,21 +373,12 @@ impl Agent {
         &self,
         strategy: Option<RouterToolSelectionStrategy>,
     ) -> Vec<Tool> {
-        let extension_manager = self.extension_manager.lock().await;
-
         let mut prefixed_tools = vec![];
         match strategy {
             Some(RouterToolSelectionStrategy::Vector) => {
                 prefixed_tools.push(router_tools::vector_search_tool());
             }
             None => {}
-        }
-        prefixed_tools.push(platform_tools::search_available_extensions_tool());
-        prefixed_tools.push(platform_tools::manage_extensions_tool());
-
-        if extension_manager.supports_resources() {
-            prefixed_tools.push(platform_tools::read_resource_tool());
-            prefixed_tools.push(platform_tools::list_resources_tool());
         }
         prefixed_tools
     }
@@ -655,11 +636,13 @@ impl Agent {
                 }
             });
 
-        if router_tool_selection_strategy.is_some() {
-            let selector = create_tool_selector(router_tool_selection_strategy, provider)
+        if let Some(strategy) = router_tool_selection_strategy {
+            let selector = create_tool_selector(Some(strategy), provider)
                 .await
                 .map_err(|e| anyhow!("Failed to create tool selector: {}", e))?;
             *self.router_tool_selector.lock().await = Some(selector);
+
+            self.index_platform_tools().await?;
         }
 
         Ok(())
@@ -788,6 +771,9 @@ impl Agent {
                         })?;
                 }
 
+                // Index platform tools
+                self.index_platform_tools().await?;
+
                 tracing::info!("Reindexed all tools for vector search");
                 return Ok(());
             }
@@ -832,6 +818,53 @@ impl Agent {
             } else {
                 anyhow::bail!("Extension name and action required for tool indexing");
             }
+        }
+
+        Ok(())
+    }
+
+    async fn index_platform_tools(&self) -> Result<()> {
+        let router_tool_selector = self.router_tool_selector.lock().await;
+        if let Some(selector) = router_tool_selector.as_ref() {
+            let extension_manager = self.extension_manager.lock().await;
+
+            // Index the standard platform tools
+            let search_tool = platform_tools::search_available_extensions_tool();
+            let schema_str = serde_json::to_string_pretty(&search_tool.input_schema)
+                .unwrap_or_else(|_| "{}".to_string());
+            selector
+                .index_tool(search_tool.name, search_tool.description, schema_str)
+                .await
+                .map_err(|e| anyhow!("Failed to index search_available_extensions tool: {}", e))?;
+
+            let manage_tool = platform_tools::manage_extensions_tool();
+            let schema_str = serde_json::to_string_pretty(&manage_tool.input_schema)
+                .unwrap_or_else(|_| "{}".to_string());
+            selector
+                .index_tool(manage_tool.name, manage_tool.description, schema_str)
+                .await
+                .map_err(|e| anyhow!("Failed to index manage_extensions tool: {}", e))?;
+
+            // Index resource tools if supported
+            if extension_manager.supports_resources() {
+                let read_tool = platform_tools::read_resource_tool();
+                let schema_str = serde_json::to_string_pretty(&read_tool.input_schema)
+                    .unwrap_or_else(|_| "{}".to_string());
+                selector
+                    .index_tool(read_tool.name, read_tool.description, schema_str)
+                    .await
+                    .map_err(|e| anyhow!("Failed to index read_resource tool: {}", e))?;
+
+                let list_tool = platform_tools::list_resources_tool();
+                let schema_str = serde_json::to_string_pretty(&list_tool.input_schema)
+                    .unwrap_or_else(|_| "{}".to_string());
+                selector
+                    .index_tool(list_tool.name, list_tool.description, schema_str)
+                    .await
+                    .map_err(|e| anyhow!("Failed to index list_resources tool: {}", e))?;
+            }
+
+            tracing::info!("Indexed platform tools for vector search");
         }
 
         Ok(())

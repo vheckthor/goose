@@ -23,7 +23,7 @@ pub fn vector_search_tool() -> Tool {
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "The query to search for the most relevant tools based on the user's messages"},
-                "k": {"type": "integer", "description": "The number of tools to retrieve (defaults to 10)", "default": 10}
+                "k": {"type": "integer", "description": "The number of tools to retrieve (defaults to 5)", "default": 5}
             }
         }),
         Some(ToolAnnotations {
