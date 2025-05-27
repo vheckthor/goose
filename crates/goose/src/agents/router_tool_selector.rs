@@ -3,6 +3,7 @@ use mcp_core::{Content, ToolError};
 
 use async_trait::async_trait;
 use serde_json::Value;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -25,11 +26,14 @@ pub trait RouterToolSelector: Send + Sync {
     ) -> Result<(), ToolError>;
     async fn clear_tools(&self) -> Result<(), ToolError>;
     async fn remove_tool(&self, tool_name: &str) -> Result<(), ToolError>;
+    async fn record_tool_call(&self, tool_name: &str) -> Result<(), ToolError>;
+    async fn get_recent_tool_calls(&self, limit: usize) -> Result<Vec<String>, ToolError>;
 }
 
 pub struct VectorToolSelector {
     vector_db: Arc<RwLock<ToolVectorDB>>,
     embedding_provider: Arc<Box<dyn EmbeddingProviderTrait>>,
+    recent_tool_calls: Arc<RwLock<VecDeque<String>>>,
 }
 
 impl VectorToolSelector {
@@ -43,6 +47,7 @@ impl VectorToolSelector {
         Ok(Self {
             vector_db: Arc::new(RwLock::new(vector_db)),
             embedding_provider: Arc::new(embedding_provider),
+            recent_tool_calls: Arc::new(RwLock::new(VecDeque::with_capacity(100))),
         })
     }
 }
@@ -55,7 +60,7 @@ impl RouterToolSelector for VectorToolSelector {
             .and_then(|v| v.as_str())
             .ok_or_else(|| ToolError::InvalidParameters("Missing 'query' parameter".to_string()))?;
 
-        let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+        let limit = params.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
 
         // Generate embedding for the query
         let query_embedding = self
@@ -141,6 +146,20 @@ impl RouterToolSelector for VectorToolSelector {
             ToolError::ExecutionError(format!("Failed to remove tool {}: {}", tool_name, e))
         })?;
         Ok(())
+    }
+
+    async fn record_tool_call(&self, tool_name: &str) -> Result<(), ToolError> {
+        let mut recent_calls = self.recent_tool_calls.write().await;
+        if recent_calls.len() >= 100 {
+            recent_calls.pop_front();
+        }
+        recent_calls.push_back(tool_name.to_string());
+        Ok(())
+    }
+
+    async fn get_recent_tool_calls(&self, limit: usize) -> Result<Vec<String>, ToolError> {
+        let recent_calls = self.recent_tool_calls.read().await;
+        Ok(recent_calls.iter().rev().take(limit).cloned().collect())
     }
 }
 

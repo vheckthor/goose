@@ -380,6 +380,26 @@ impl Agent {
             }
             None => {}
         }
+
+        // Get recent tool calls from router tool selector if available
+        if let Some(selector) = self.router_tool_selector.lock().await.as_ref() {
+            if let Ok(recent_calls) = selector.get_recent_tool_calls(20).await {
+                let extension_manager = self.extension_manager.lock().await;
+                // Add recent tool calls to the list, avoiding duplicates
+                for tool_name in recent_calls {
+                    // Find the tool in the extension manager's tools
+                    if let Ok(extension_tools) = extension_manager.get_prefixed_tools(None).await {
+                        if let Some(tool) = extension_tools.iter().find(|t| t.name == tool_name) {
+                            // Only add if not already in prefixed_tools
+                            if !prefixed_tools.iter().any(|t| t.name == tool.name) {
+                                prefixed_tools.push(tool.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         prefixed_tools
     }
 
@@ -469,6 +489,25 @@ impl Agent {
                             filtered_response) =
                             self.categorize_tool_requests(&response).await;
 
+                        // Record tool calls in the router selector
+                        if let Some(selector) = self.router_tool_selector.lock().await.as_ref() {
+                            // Record frontend tool calls
+                            for request in &frontend_requests {
+                                if let Ok(tool_call) = &request.tool_call {
+                                    if let Err(e) = selector.record_tool_call(&tool_call.name).await {
+                                        tracing::error!("Failed to record frontend tool call: {}", e);
+                                    }
+                                }
+                            }
+                            // Record remaining tool calls
+                            for request in &remaining_requests {
+                                if let Ok(tool_call) = &request.tool_call {
+                                    if let Err(e) = selector.record_tool_call(&tool_call.name).await {
+                                        tracing::error!("Failed to record tool call: {}", e);
+                                    }
+                                }
+                            }
+                        }
 
                         // Yield the assistant's response with frontend tool requests filtered out
                         yield filtered_response.clone();
@@ -640,6 +679,12 @@ impl Agent {
             let selector = create_tool_selector(Some(strategy), provider)
                 .await
                 .map_err(|e| anyhow!("Failed to create tool selector: {}", e))?;
+
+            // Clear tools from the vector database
+            selector
+                .clear_tools()
+                .await
+                .map_err(|e| anyhow!("Failed to clear tools: {}", e))?;
             *self.router_tool_selector.lock().await = Some(selector);
 
             self.index_platform_tools().await?;

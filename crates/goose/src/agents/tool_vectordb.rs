@@ -281,9 +281,21 @@ impl ToolVectorDB {
                 .downcast_ref::<StringArray>()
                 .context("Invalid schema column type")?;
 
+            // Get the distance scores
+            let distances = batch
+                .column_by_name("_distance")
+                .context("Missing _distance column")?
+                .as_any()
+                .downcast_ref::<arrow::array::Float32Array>()
+                .context("Invalid _distance column type")?;
+
             for i in 0..batch.num_rows() {
+                let tool_name = tool_names.value(i).to_string();
+                let distance = distances.value(i);
+                eprintln!("Tool: {}, Distance Score: {}", tool_name, distance);
+
                 tools.push(ToolRecord {
-                    tool_name: tool_names.value(i).to_string(),
+                    tool_name,
                     description: descriptions.value(i).to_string(),
                     schema: schemas.value(i).to_string(),
                     vector: vec![], // We don't need to return the vector
