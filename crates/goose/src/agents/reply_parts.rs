@@ -6,7 +6,7 @@ use async_stream::try_stream;
 use futures::stream::StreamExt;
 
 use crate::message::{Message, MessageContent, ToolRequest};
-use crate::providers::base::{stream_from_single_message, MessageStream, Provider, ProviderUsage};
+use crate::providers::base::{stream_from_single_message, MessageStream, Provider};
 use crate::providers::errors::ProviderError;
 use crate::providers::toolshim::{
     augment_message_with_tool_calls, modify_system_prompt_for_tool_json, OllamaInterpreter,

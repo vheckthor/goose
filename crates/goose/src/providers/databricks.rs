@@ -347,6 +347,7 @@ impl Provider for DatabricksProvider {
             .bytes_stream()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
 
+        let model_config = self.model.clone();
         // Wrap in a line decoder and yield lines inside the stream
         Ok(Box::pin(try_stream! {
             let stream_reader = StreamReader::new(stream);
@@ -355,8 +356,8 @@ impl Provider for DatabricksProvider {
             while let Some(line) = framed.next().await {
                 let line = line
                     .map_err(|e| ProviderError::RequestFailed(format!("Line decode error: {}", e)))?;
-                if line.starts_with("data:") {
-                    let json: Value = serde_json::from_str(line[5..].trim().to_string().as_str()).map_err(|e| ProviderError::RequestFailed(format!("Failed to parse: {}", e)))?;
+                if let Some(line) = line.strip_prefix("data:") {
+                    let json: Value = serde_json::from_str(line.trim().to_string().as_str()).map_err(|e| ProviderError::RequestFailed(format!("Failed to parse: {}", e)))?;
                     let usage = match get_usage(&json) {
                         Ok(usage) => usage,
                         Err(e) => {
@@ -366,12 +367,11 @@ impl Provider for DatabricksProvider {
                     };
                     let model = get_model(&json);
                     let message = response_to_streaming_message(&json)?;
+                    super::utils::emit_debug_trace(&model_config, &payload, &json, &usage);
                     yield (message, ProviderUsage::new(model, usage));
                 }
             }
         }))
-
-        // super::utils::emit_debug_trace(&self.model, &payload, &response, &usage);
     }
 
     fn supports_streaming(&self) -> bool {
