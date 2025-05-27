@@ -28,16 +28,14 @@ pre-build = [
 ]
 
 [target.x86_64-pc-windows-gnu]
-# Try a different base image that might be more compatible
-image = "rust:latest"
-pre-build = [
-    "apt-get update && apt-get install -y mingw-w64"
-]
-# Enable verbose output for Windows builds and add CPU compatibility flags
+image = "dockcross/windows-static-x64:latest"
+# CRITICAL FIX: The internal build environment uses RUSTFLAGS="-C target-cpu=native"
+# which compiles for the build machine's specific CPU, potentially using AVX/AVX2
+# instructions not available on all target machines. Force baseline compatibility.
 env = { 
     "RUST_LOG" = "debug", 
     "RUST_BACKTRACE" = "1", 
     "CROSS_VERBOSE" = "1",
-    # Use most conservative settings to avoid illegal instructions
-    "RUSTFLAGS" = "-C target-cpu=x86-64 -C target-feature=-avx -C target-feature=-avx2 -C target-feature=-fma -C opt-level=1 -C debug-assertions=on"
+    # Override any target-cpu=native with explicit baseline compatibility
+    "RUSTFLAGS" = "-C target-cpu=x86-64 -C target-feature=-avx -C target-feature=-avx2 -C target-feature=-fma -C target-feature=-bmi1 -C target-feature=-bmi2"
 }
