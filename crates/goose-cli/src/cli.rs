@@ -556,7 +556,8 @@ pub async fn cli() -> Result<()> {
             params,
             explain,
         }) => {
-            let (input_config, session_settings) = match (instructions, input_text, recipe, explain) {
+            let (input_config, session_settings) = match (instructions, input_text, recipe, explain)
+            {
                 (Some(file), _, _, _) if file == "-" => {
                     let mut input = String::new();
                     std::io::stdin()
@@ -602,10 +603,11 @@ pub async fn cli() -> Result<()> {
                         explain_recipe_with_parameters(&recipe_name, params)?;
                         return Ok(());
                     }
-                    let recipe = load_recipe_as_template(&recipe_name, params).unwrap_or_else(|err| {
-                        eprintln!("{}: {}", console::style("Error").red().bold(), err);
-                        std::process::exit(1);
-                    });
+                    let recipe =
+                        load_recipe_as_template(&recipe_name, params).unwrap_or_else(|err| {
+                            eprintln!("{}: {}", console::style("Error").red().bold(), err);
+                            std::process::exit(1);
+                        });
                     (
                         InputConfig {
                             contents: recipe.prompt,
