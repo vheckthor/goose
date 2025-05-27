@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*"]
+exclude = ["crates/goose-ffi"]  # Temporarily exclude to test Windows build issue
 resolver = "2"
 
 [workspace.package]
