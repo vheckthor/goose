@@ -60,6 +60,16 @@ impl Agent {
         let (confirm_tx, confirm_rx) = mpsc::channel(32);
         let (tool_tx, tool_rx) = mpsc::channel(32);
 
+        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(RouterToolSelectionStrategy::Vector)
+                } else {
+                    None
+                }
+            });
+
         Self {
             provider: Mutex::new(None),
             extension_manager: Mutex::new(ExtensionManager::new()),
