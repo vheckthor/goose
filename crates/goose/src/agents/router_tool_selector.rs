@@ -8,6 +8,7 @@ use tokio::sync::RwLock;
 
 use crate::agents::embeddings::{create_embedding_provider, EmbeddingProviderTrait};
 use crate::agents::tool_vectordb::ToolVectorDB;
+use crate::providers::base::Provider;
 
 pub enum RouterToolSelectionStrategy {
     Vector,
@@ -32,12 +33,12 @@ pub struct VectorToolSelector {
 }
 
 impl VectorToolSelector {
-    pub async fn new() -> Result<Self, ToolError> {
+    pub async fn new(provider: Arc<dyn Provider>) -> Result<Self, ToolError> {
         let vector_db = ToolVectorDB::new(Some("tools".to_string()))
             .await
             .map_err(|e| ToolError::ExecutionError(format!("Failed to create vector DB: {}", e)))?;
 
-        let embedding_provider = create_embedding_provider().await;
+        let embedding_provider = create_embedding_provider(provider.clone()).await;
 
         Ok(Self {
             vector_db: Arc::new(RwLock::new(vector_db)),
@@ -146,14 +147,15 @@ impl RouterToolSelector for VectorToolSelector {
 // Helper function to create a boxed tool selector
 pub async fn create_tool_selector(
     strategy: Option<RouterToolSelectionStrategy>,
+    provider: Arc<dyn Provider>,
 ) -> Result<Box<dyn RouterToolSelector>, ToolError> {
     match strategy {
         Some(RouterToolSelectionStrategy::Vector) => {
-            let selector = VectorToolSelector::new().await?;
+            let selector = VectorToolSelector::new(provider).await?;
             Ok(Box::new(selector))
         }
         _ => {
-            let selector = VectorToolSelector::new().await?;
+            let selector = VectorToolSelector::new(provider).await?;
             Ok(Box::new(selector))
         }
     }

@@ -75,27 +75,6 @@ impl Agent {
         }
     }
 
-    pub async fn initialize_router_tool_selector(&self) -> Result<()> {
-        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
-            .ok()
-            .and_then(|s| {
-                if s.eq_ignore_ascii_case("vector") {
-                    Some(RouterToolSelectionStrategy::Vector)
-                } else {
-                    None
-                }
-            });
-
-        if router_tool_selection_strategy.is_some() {
-            let selector = create_tool_selector(router_tool_selection_strategy)
-                .await
-                .map_err(|e| anyhow!("Failed to create tool selector: {}", e))?;
-            *self.router_tool_selector.lock().await = Some(selector);
-        }
-
-        Ok(())
-    }
-
     pub async fn configure_tool_monitor(&self, max_repetitions: Option<u32>) {
         let mut tool_monitor = self.tool_monitor.lock().await;
         *tool_monitor = Some(ToolMonitor::new(max_repetitions));
@@ -650,7 +629,29 @@ impl Agent {
 
     /// Update the provider used by this agent
     pub async fn update_provider(&self, provider: Arc<dyn Provider>) -> Result<()> {
-        *self.provider.lock().await = Some(provider);
+        *self.provider.lock().await = Some(provider.clone());
+        self.update_router_tool_selector(provider).await?;
+        Ok(())
+    }
+
+    async fn update_router_tool_selector(&self, provider: Arc<dyn Provider>) -> Result<()> {
+        let router_tool_selection_strategy = std::env::var("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
+            .ok()
+            .and_then(|s| {
+                if s.eq_ignore_ascii_case("vector") {
+                    Some(RouterToolSelectionStrategy::Vector)
+                } else {
+                    None
+                }
+            });
+
+        if router_tool_selection_strategy.is_some() {
+            let selector = create_tool_selector(router_tool_selection_strategy, provider)
+                .await
+                .map_err(|e| anyhow!("Failed to create tool selector: {}", e))?;
+            *self.router_tool_selector.lock().await = Some(selector);
+        }
+
         Ok(())
     }
 

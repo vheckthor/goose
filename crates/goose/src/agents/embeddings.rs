@@ -1,7 +1,13 @@
+use crate::config::ConfigError;
+use crate::message::Message;
+use crate::model::ModelConfig;
+use crate::providers::base::Provider;
 use anyhow::{Context, Result};
+use mcp_core::tool::Tool;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EmbeddingRequest {
@@ -21,27 +27,85 @@ struct EmbeddingData {
 
 pub struct EmbeddingProvider {
     client: Client,
-    api_key: String,
+    token: String,
     base_url: String,
     model: String,
 }
 
 impl EmbeddingProvider {
-    pub fn new() -> Result<Self> {
-        // Try to get API key from environment
-        let api_key = env::var("OPENAI_API_KEY").context(
-            "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
-        )?;
+    pub fn new(provider: Arc<dyn Provider>) -> Result<Self> {
+        // Get configuration from the provider
+        let model_config = provider.get_model_config();
+        let config = crate::config::Config::global();
 
-        let base_url = env::var("EMBEDDING_BASE_URL")
-            .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+        // Check if this is a Databricks provider using the provider's metadata
+        let is_databricks = provider.get_name() == "DatabricksProvider";
+        eprintln!("Provider name: {}", provider.get_name());
+        eprintln!("Is Databricks provider: {}", is_databricks);
 
-        let model =
-            env::var("EMBEDDING_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
+        let (base_url, token) = if is_databricks {
+            let mut host: Result<String, ConfigError> = config.get_param("DATABRICKS_HOST");
+            if host.is_err() {
+                host = config.get_secret("DATABRICKS_HOST");
+            }
+            let host = host.context("No Databricks host found in config or secrets")?;
+            eprintln!("Databricks host: {}", host);
+
+            // Check if this is an internal user
+            let is_internal =
+                host.as_str() == "https://block-lakehouse-production.cloud.databricks.com";
+            eprintln!("Is internal user: {}", is_internal);
+
+            // Get auth token
+            let token = if let Ok(api_key) = config.get_secret("DATABRICKS_TOKEN") {
+                api_key
+            } else {
+                std::env::var("DATABRICKS_TOKEN").context(
+                    "No API key found for embeddings. Please set DATABRICKS_TOKEN environment variable",
+                )?
+            };
+
+            if is_internal {
+                let model = env::var("EMBEDDING_MODEL")
+                    .unwrap_or_else(|_| "text-embedding-3-small".to_string());
+                // Use internal Databricks endpoint
+                (
+                    format!("{}/serving-endpoints/{}/invocations", host, model),
+                    token,
+                )
+            } else {
+                // For external Databricks users, use OpenAI endpoint
+                let openai_key = std::env::var("OPENAI_API_KEY").context(
+                    "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
+                )?;
+
+                (
+                    env::var("EMBEDDING_BASE_URL")
+                        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string()),
+                    openai_key,
+                )
+            }
+        } else {
+            // For other providers, use OpenAI endpoint
+            let token = std::env::var("OPENAI_API_KEY").context(
+                "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
+            )?;
+
+            (
+                env::var("EMBEDDING_BASE_URL")
+                    .unwrap_or_else(|_| "https://api.openai.com/v1".to_string()),
+                token,
+            )
+        };
+
+        let model = env::var("EMBEDDING_MODEL").unwrap_or_else(|_| model_config.model_name.clone());
+
+        let log_msg = format!("Using base_url: {}, model: {}", base_url, model);
+        eprintln!("{}", log_msg);
 
         Ok(Self {
             client: Client::new(),
-            api_key,
+            token,
             base_url,
             model,
         })
@@ -59,8 +123,8 @@ impl EmbeddingProvider {
 
         let response = self
             .client
-            .post(format!("{}/embeddings", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .post(&self.base_url)
+            .header("Authorization", format!("Bearer {}", self.token))
             .header("Content-Type", "application/json")
             .json(&request)
             .send()
@@ -121,14 +185,19 @@ impl MockEmbeddingProvider {
 }
 
 // Factory function to create appropriate embedding provider
-pub async fn create_embedding_provider() -> Box<dyn EmbeddingProviderTrait> {
-    match EmbeddingProvider::new() {
-        Ok(provider) => Box::new(provider),
+pub async fn create_embedding_provider(
+    provider: Arc<dyn Provider>,
+) -> Box<dyn EmbeddingProviderTrait> {
+    eprintln!("Attempting to create embedding provider...");
+    
+    match EmbeddingProvider::new(provider) {
+        Ok(provider) => {
+            eprintln!("Successfully created real embedding provider");
+            Box::new(provider)
+        }
         Err(e) => {
-            tracing::warn!(
-                "Failed to create embedding provider: {}. Using mock provider.",
-                e
-            );
+            eprintln!("Failed to create embedding provider: {}. Using mock provider.", e);
+            eprintln!("Initializing mock embedding provider as fallback");
             Box::new(MockEmbeddingProvider::new())
         }
     }
@@ -160,6 +229,41 @@ impl EmbeddingProviderTrait for MockEmbeddingProvider {
 
     async fn embed_single(&self, text: String) -> Result<Vec<f32>> {
         self.embed_single(text).await
+    }
+}
+// Mock provider for testing
+#[derive(Debug)]
+#[allow(dead_code)]
+struct MockProvider;
+
+#[async_trait::async_trait]
+impl Provider for MockProvider {
+    fn metadata() -> crate::providers::base::ProviderMetadata {
+        crate::providers::base::ProviderMetadata::new(
+            "mock",
+            "Mock Provider",
+            "Mock provider for testing",
+            "mock-model",
+            vec![],
+            "",
+            vec![],
+        )
+    }
+
+    fn get_model_config(&self) -> ModelConfig {
+        ModelConfig::new("mock-model".to_string())
+    }
+
+    async fn complete(
+        &self,
+        _system: &str,
+        _messages: &[Message],
+        _tools: &[Tool],
+    ) -> Result<
+        (Message, crate::providers::base::ProviderUsage),
+        crate::providers::errors::ProviderError,
+    > {
+        unimplemented!()
     }
 }
 
@@ -214,19 +318,19 @@ mod tests {
     async fn test_embedding_provider_creation() {
         // Test without API key
         env::remove_var("OPENAI_API_KEY");
-        assert!(EmbeddingProvider::new().is_err());
+        assert!(EmbeddingProvider::new(Arc::new(MockProvider)).is_err());
 
         // Test with API key
         env::set_var("OPENAI_API_KEY", "test_key");
-        let provider = EmbeddingProvider::new().unwrap();
-        assert_eq!(provider.api_key, "test_key");
+        let provider = EmbeddingProvider::new(Arc::new(MockProvider)).unwrap();
+        assert_eq!(provider.token, "test_key");
         assert_eq!(provider.model, "text-embedding-3-small");
         assert_eq!(provider.base_url, "https://api.openai.com/v1");
 
         // Test with custom configuration
         env::set_var("EMBEDDING_MODEL", "custom-model");
         env::set_var("EMBEDDING_BASE_URL", "https://custom.api.com");
-        let provider = EmbeddingProvider::new().unwrap();
+        let provider = EmbeddingProvider::new(Arc::new(MockProvider)).unwrap();
         assert_eq!(provider.model, "custom-model");
         assert_eq!(provider.base_url, "https://custom.api.com");
 
@@ -241,7 +345,7 @@ mod tests {
         // Remove API key to force fallback to mock provider
         env::remove_var("OPENAI_API_KEY");
 
-        let provider = create_embedding_provider().await;
+        let provider = create_embedding_provider(Arc::new(MockProvider)).await;
 
         // Test that we get a working provider (mock in this case)
         let text = "Test text".to_string();

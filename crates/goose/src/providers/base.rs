@@ -156,6 +156,11 @@ pub trait Provider: Send + Sync {
     where
         Self: Sized;
 
+    /// Get the name of this provider
+    fn get_name(&self) -> String {
+        std::any::type_name::<Self>().split("::").last().unwrap_or("unknown").to_string()
+    }
+
     /// Generate the next message using the configured model and other parameters
     ///
     /// # Arguments
