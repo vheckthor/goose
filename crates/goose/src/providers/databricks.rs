@@ -84,6 +84,63 @@ impl Default for DatabricksProvider {
     }
 }
 
+fn handle_status(status: StatusCode, payload: Option<Value>) -> Result<Value, ProviderError> {
+    match status {
+        StatusCode::OK => payload.ok_or_else( || ProviderError::RequestFailed("Response body is not valid JSON".to_string()) ),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+            Err(ProviderError::Authentication(format!("Authentication failed. Please ensure your API keys are valid and have the required permissions. \
+                Status: {}. Response: {:?}", status, payload)))
+        }
+        StatusCode::BAD_REQUEST => {
+            // Databricks provides a generic 'error' but also includes 'external_model_message' which is provider specific
+            // We try to extract the error message from the payload and check for phrases that indicate context length exceeded
+            let payload_str = serde_json::to_string(&payload).unwrap_or_default().to_lowercase();
+            let check_phrases = [
+                "too long",
+                "context length",
+                "context_length_exceeded",
+                "reduce the length",
+                "token count",
+                "exceeds",
+            ];
+            if check_phrases.iter().any(|c| payload_str.contains(c)) {
+                return Err(ProviderError::ContextLengthExceeded(payload_str));
+            }
+
+            let mut error_msg = "Unknown error".to_string();
+            if let Some(payload) = &payload {
+                // try to convert message to string, if that fails use external_model_message
+                error_msg = payload
+                    .get("message")
+                    .and_then(|m| m.as_str())
+                    .or_else(|| {
+                        payload.get("external_model_message")
+                            .and_then(|ext| ext.get("message"))
+                            .and_then(|m| m.as_str())
+                    })
+                    .unwrap_or("Unknown error").to_string();
+            }
+
+            tracing::debug!(
+                "{}", format!("Provider request failed with status: {}. Payload: {:?}", status, payload)
+            );
+            Err(ProviderError::RequestFailed(format!("Request failed with status: {}. Message: {}", status, error_msg)))
+        }
+        StatusCode::TOO_MANY_REQUESTS => {
+            Err(ProviderError::RateLimitExceeded(format!("{:?}", payload)))
+        }
+        StatusCode::INTERNAL_SERVER_ERROR | StatusCode::SERVICE_UNAVAILABLE => {
+            Err(ProviderError::ServerError(format!("{:?}", payload)))
+        }
+        _ => {
+            tracing::debug!(
+                "{}", format!("Provider request failed with status: {}. Payload: {:?}", status, payload)
+            );
+            Err(ProviderError::RequestFailed(format!("Request failed with status: {}", status)))
+        }
+    }
+}
+
 impl DatabricksProvider {
     pub fn from_env(model: ModelConfig) -> Result<Self> {
         let config = crate::config::Config::global();
@@ -190,60 +247,7 @@ impl DatabricksProvider {
         let status = response.status();
         let payload: Option<Value> = response.json().await.ok();
 
-        match status {
-            StatusCode::OK => payload.ok_or_else( || ProviderError::RequestFailed("Response body is not valid JSON".to_string()) ),
-            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
-                Err(ProviderError::Authentication(format!("Authentication failed. Please ensure your API keys are valid and have the required permissions. \
-                    Status: {}. Response: {:?}", status, payload)))
-            }
-            StatusCode::BAD_REQUEST => {
-                // Databricks provides a generic 'error' but also includes 'external_model_message' which is provider specific
-                // We try to extract the error message from the payload and check for phrases that indicate context length exceeded
-                let payload_str = serde_json::to_string(&payload).unwrap_or_default().to_lowercase();
-                let check_phrases = [
-                    "too long",
-                    "context length",
-                    "context_length_exceeded",
-                    "reduce the length",
-                    "token count",
-                    "exceeds",
-                ];
-                if check_phrases.iter().any(|c| payload_str.contains(c)) {
-                    return Err(ProviderError::ContextLengthExceeded(payload_str));
-                }
-
-                let mut error_msg = "Unknown error".to_string();
-                if let Some(payload) = &payload {
-                    // try to convert message to string, if that fails use external_model_message
-                    error_msg = payload
-                        .get("message")
-                        .and_then(|m| m.as_str())
-                        .or_else(|| {
-                            payload.get("external_model_message")
-                                .and_then(|ext| ext.get("message"))
-                                .and_then(|m| m.as_str())
-                        })
-                        .unwrap_or("Unknown error").to_string();
-                }
-
-                tracing::debug!(
-                    "{}", format!("Provider request failed with status: {}. Payload: {:?}", status, payload)
-                );
-                Err(ProviderError::RequestFailed(format!("Request failed with status: {}. Message: {}", status, error_msg)))
-            }
-            StatusCode::TOO_MANY_REQUESTS => {
-                Err(ProviderError::RateLimitExceeded(format!("{:?}", payload)))
-            }
-            StatusCode::INTERNAL_SERVER_ERROR | StatusCode::SERVICE_UNAVAILABLE => {
-                Err(ProviderError::ServerError(format!("{:?}", payload)))
-            }
-            _ => {
-                tracing::debug!(
-                    "{}", format!("Provider request failed with status: {}. Payload: {:?}", status, payload)
-                );
-                Err(ProviderError::RequestFailed(format!("Request failed with status: {}", status)))
-            }
-        }
+        handle_status(status, payload)
     }
 
     async fn post_stream(&self, payload: Value) -> Result<reqwest::Response, ProviderError> {
@@ -341,6 +345,13 @@ impl Provider for DatabricksProvider {
             .insert("stream".to_string(), Value::Bool(true));
 
         let response = self.post_stream(payload.clone()).await?;
+
+        if let Err(e) = handle_status(
+            response.status(),
+            Some(Value::Null), // We don't expect a full response here, so just handle the status
+        ) {
+            return Err(e);
+        }
 
         // Map reqwest error to io::Error
         let stream = response.bytes_stream().map_err(io::Error::other);

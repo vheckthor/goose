@@ -9,6 +9,7 @@ use mcp_core::tool::Tool;
 use utoipa::ToSchema;
 
 use once_cell::sync::Lazy;
+use std::ops::{Add, AddAssign};
 use std::pin::Pin;
 use std::sync::Mutex;
 
@@ -127,11 +128,41 @@ impl ProviderUsage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Copy)]
 pub struct Usage {
     pub input_tokens: Option<i32>,
     pub output_tokens: Option<i32>,
     pub total_tokens: Option<i32>,
+}
+
+fn sum_optionals<T>(a: Option<T>, b: Option<T>) -> Option<T>
+where
+    T: Add<Output = T> + Default,
+{
+    match (a, b) {
+        (Some(x), Some(y)) => Some(x + y),
+        (Some(x), None) => Some(x + T::default()),
+        (None, Some(y)) => Some(T::default() + y),
+        (None, None) => None,
+    }
+}
+
+impl Add for Usage {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            input_tokens: sum_optionals(self.input_tokens, other.input_tokens),
+            output_tokens: sum_optionals(self.output_tokens, other.output_tokens),
+            total_tokens: sum_optionals(self.total_tokens, other.total_tokens),
+        }
+    }
+}
+
+impl AddAssign for Usage {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
 }
 
 impl Usage {

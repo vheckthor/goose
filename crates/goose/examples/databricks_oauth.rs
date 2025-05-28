@@ -2,7 +2,10 @@ use anyhow::Result;
 use dotenv::dotenv;
 use goose::{
     message::Message,
-    providers::{base::Provider, databricks::DatabricksProvider},
+    providers::{
+        base::{Provider, Usage},
+        databricks::DatabricksProvider,
+    },
 };
 use tokio_stream::StreamExt;
 
@@ -25,22 +28,18 @@ async fn main() -> Result<()> {
         .stream("You are a helpful assistant.", &[message], &[])
         .await?;
 
-    // Print the response
-    while let Some(Ok(msg)) = stream.next().await {
-        println!("{:?}", msg);
+    println!("\nResponse from AI:");
+    println!("---------------");
+    let mut usage = Usage::default();
+    while let Some(Ok((msg, usage_part))) = stream.next().await {
+        dbg!(msg.content);
+        usage += usage_part.usage;
     }
-
-    // // Print the response and usage statistics
-    // println!("\nResponse from AI:");
-    // println!("---------------");
-    // for content in response.content {
-    //     dbg!(content);
-    // }
-    // println!("\nToken Usage:");
-    // println!("------------");
-    // println!("Input tokens: {:?}", usage.usage.input_tokens);
-    // println!("Output tokens: {:?}", usage.usage.output_tokens);
-    // println!("Total tokens: {:?}", usage.usage.total_tokens);
+    println!("\nToken Usage:");
+    println!("------------");
+    println!("Input tokens: {:?}", usage.input_tokens);
+    println!("Output tokens: {:?}", usage.output_tokens);
+    println!("Total tokens: {:?}", usage.total_tokens);
 
     Ok(())
 }
