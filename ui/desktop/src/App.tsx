@@ -103,7 +103,7 @@ export default function App() {
     return `${cmd} ${args.join(' ')}`.trim();
   }
 
-  function extractRemoteUrl(link: string): string {
+  function extractRemoteUrl(link: string): string | null {
     const url = new URL(link);
     return url.searchParams.get('url');
   }
