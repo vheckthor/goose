@@ -1,4 +1,3 @@
-import React from 'react';
 import { Check, Plus, Settings, X, Rocket } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../ui/Tooltip';

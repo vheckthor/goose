@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useActiveKeys } from '../api_keys/ActiveKeysContext';
 import { BaseProviderGrid, getProviderDescription } from './BaseProviderGrid';
 import { supported_providers, provider_aliases, required_keys } from '../models/hardcoded_stuff';

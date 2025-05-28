@@ -1,4 +1,3 @@
-import React from 'react';
 import { Goose, Rain } from './icons/Goose';
 
 export default function GooseLogo({ className = '', size = 'default', hover = true }) {
