@@ -107,6 +107,7 @@ pub async fn create_embedding_provider_from_instance(
 
 #[async_trait::async_trait]
 pub trait EmbeddingProviderTrait: Send + Sync {
+    #[allow(dead_code)]
     async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>>;
     async fn embed_single(&self, text: String) -> Result<Vec<f32>>;
 }

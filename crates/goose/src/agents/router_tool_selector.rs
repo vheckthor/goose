@@ -1,10 +1,9 @@
 use mcp_core::content::TextContent;
-use mcp_core::{Content, ToolError};
+use mcp_core::{Content, Tool, ToolError};
 
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
-use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -21,7 +20,7 @@ pub enum RouterToolSelectionStrategy {
 
 #[async_trait]
 pub trait RouterToolSelector: Send + Sync {
-    async fn select_tools(&self, params: Value) -> Result<Vec<Content>, ToolError>;
+    async fn select_tools(&self, params: Value) -> Result<(Vec<Content>, Vec<Tool>), ToolError>;
     async fn index_tool(
         &self,
         tool_name: String,
@@ -30,14 +29,11 @@ pub trait RouterToolSelector: Send + Sync {
     ) -> Result<(), ToolError>;
     async fn clear_tools(&self) -> Result<(), ToolError>;
     async fn remove_tool(&self, tool_name: &str) -> Result<(), ToolError>;
-    async fn record_tool_call(&self, tool_name: &str) -> Result<(), ToolError>;
-    async fn get_recent_tool_calls(&self, limit: usize) -> Result<Vec<String>, ToolError>;
 }
 
 pub struct VectorToolSelector {
     vector_db: Arc<RwLock<ToolVectorDB>>,
     embedding_provider: Arc<Box<dyn EmbeddingProviderTrait>>,
-    recent_tool_calls: Arc<RwLock<VecDeque<String>>>,
 }
 
 impl VectorToolSelector {
@@ -45,25 +41,22 @@ impl VectorToolSelector {
         let vector_db = ToolVectorDB::new(Some(table_name)).await?;
 
         let embedding_provider =
-            if let Ok(embedding_provider_name) = std::env::var("EMBEDDING_MODEL_PROVIDER") {
-                // If env var is set, use the provided embedding model to create a new provider
+            if let Ok(_embedding_provider_name) = std::env::var("EMBEDDING_MODEL_PROVIDER") {
                 create_embedding_provider().await?
             } else {
-                // Otherwise fall back to using the same provider instance as used for base goose model
                 create_embedding_provider_from_instance(provider.clone()).await?
             };
 
         Ok(Self {
             vector_db: Arc::new(RwLock::new(vector_db)),
             embedding_provider: Arc::new(embedding_provider),
-            recent_tool_calls: Arc::new(RwLock::new(VecDeque::with_capacity(100))),
         })
     }
 }
 
 #[async_trait]
 impl RouterToolSelector for VectorToolSelector {
-    async fn select_tools(&self, params: Value) -> Result<Vec<Content>, ToolError> {
+    async fn select_tools(&self, params: Value) -> Result<(Vec<Content>, Vec<Tool>), ToolError> {
         eprintln!("[DEBUG] Received params: {:?}", params);
 
         let query = params
@@ -91,7 +84,7 @@ impl RouterToolSelector for VectorToolSelector {
         // Search for similar tools
         eprintln!("[DEBUG] Starting vector search...");
         let vector_db = self.vector_db.read().await;
-        let tools = vector_db
+        let tool_records = vector_db
             .search_tools(query_embedding, k)
             .await
             .map_err(|e| {
@@ -100,12 +93,11 @@ impl RouterToolSelector for VectorToolSelector {
             })?;
         eprintln!(
             "[DEBUG] Vector search completed, found {} tools",
-            tools.len()
+            tool_records.len()
         );
 
-        // Convert tool records to Content
-        let selected_tools: Vec<Content> = tools
-            .into_iter()
+        let selected_tools: Vec<Content> = tool_records
+            .iter()
             .map(|tool| {
                 let text = format!(
                     "Tool: {}\nDescription: {}\nSchema: {}",
@@ -118,11 +110,24 @@ impl RouterToolSelector for VectorToolSelector {
             })
             .collect();
 
+        // Convert tool records to Tools
+        let tools: Vec<Tool> = tool_records
+            .into_iter()
+            .map(|record| {
+                Tool::new(
+                    record.tool_name,
+                    record.description,
+                    serde_json::from_str(&record.schema).unwrap_or_default(),
+                    None,
+                )
+            })
+            .collect();
+
         eprintln!(
-            "[DEBUG] Successfully converted {} tools to Content",
+            "[DEBUG] Successfully converted {} tools to Content and Tool",
             selected_tools.len()
         );
-        Ok(selected_tools)
+        Ok((selected_tools, tools))
     }
 
     async fn index_tool(
@@ -175,20 +180,6 @@ impl RouterToolSelector for VectorToolSelector {
             ToolError::ExecutionError(format!("Failed to remove tool {}: {}", tool_name, e))
         })?;
         Ok(())
-    }
-
-    async fn record_tool_call(&self, tool_name: &str) -> Result<(), ToolError> {
-        let mut recent_calls = self.recent_tool_calls.write().await;
-        if recent_calls.len() >= 100 {
-            recent_calls.pop_front();
-        }
-        recent_calls.push_back(tool_name.to_string());
-        Ok(())
-    }
-
-    async fn get_recent_tool_calls(&self, limit: usize) -> Result<Vec<String>, ToolError> {
-        let recent_calls = self.recent_tool_calls.read().await;
-        Ok(recent_calls.iter().rev().take(limit).cloned().collect())
     }
 }
 

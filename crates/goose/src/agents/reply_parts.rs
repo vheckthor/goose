@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::agents::router_tool_candidates::RouterToolCandidates;
 use crate::agents::router_tool_selector::RouterToolSelectionStrategy;
 use crate::config::Config;
 use crate::message::{Message, MessageContent, ToolRequest};
@@ -16,21 +17,24 @@ use mcp_core::tool::Tool;
 use super::super::agents::Agent;
 
 impl Agent {
-    /// Prepares tools and system prompt for a provider request
-    pub(crate) async fn prepare_tools_and_prompt(
-        &self,
-    ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, String)> {
-        // Get tool selection strategy from config
+    /// Get the tool selection strategy from config
+    pub(crate) fn get_tool_selection_strategy() -> Option<RouterToolSelectionStrategy> {
         let config = Config::global();
         let router_tool_selection_strategy = config
             .get_param("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
             .unwrap_or_else(|_| "default".to_string());
 
-        let tool_selection_strategy = match router_tool_selection_strategy.to_lowercase().as_str() {
+        match router_tool_selection_strategy.to_lowercase().as_str() {
             "vector" => Some(RouterToolSelectionStrategy::Vector),
             _ => None,
-        };
+        }
+    }
 
+    /// Prepares tools and system prompt for a provider request
+    pub(crate) async fn prepare_tools_and_prompt(
+        &self,
+        tool_selection_strategy: &Option<RouterToolSelectionStrategy>,
+    ) -> anyhow::Result<(Vec<Tool>, Vec<Tool>, Vec<Tool>, String)> {
         // Get tools from extension manager
         let mut tools = match tool_selection_strategy {
             Some(RouterToolSelectionStrategy::Vector) => {
@@ -39,6 +43,25 @@ impl Agent {
             }
             _ => self.list_tools(None).await,
         };
+
+        // Get tools from router tool candidates
+        let tool_candidates = match tool_selection_strategy {
+            Some(RouterToolSelectionStrategy::Vector) => {
+                eprintln!("[DEBUG] Getting tools from router tool candidates with vector strategy");
+                let router_tool_candidates = self.router_tool_candidates.lock().await;
+                let tools = router_tool_candidates.as_ref().unwrap().get_tools().await;
+                eprintln!(
+                    "[DEBUG] Retrieved {} tools from router tool candidates",
+                    tools.len()
+                );
+                tools
+            }
+            _ => {
+                eprintln!("[DEBUG] No vector strategy, returning empty tool candidates");
+                vec![]
+            }
+        };
+
         // Add frontend tools
         let frontend_tools = self.frontend_tools.lock().await;
         for frontend_tool in frontend_tools.values() {
@@ -74,7 +97,7 @@ impl Agent {
             tools = vec![];
         }
 
-        Ok((tools, toolshim_tools, system_prompt))
+        Ok((tools, tool_candidates, toolshim_tools, system_prompt))
     }
 
     /// Categorize tools based on their annotations
@@ -107,11 +130,21 @@ impl Agent {
         messages: &[Message],
         tools: &[Tool],
         toolshim_tools: &[Tool],
+        tool_candidates: &[Tool],
     ) -> Result<(Message, ProviderUsage), ProviderError> {
         let config = provider.get_model_config();
 
+        // Combine and dedupe tools and tool_candidates
+        let mut all_tools = tools.to_vec();
+        all_tools.extend(tool_candidates.to_vec());
+
+        // Remove duplicates based on tool name
+        all_tools.dedup_by(|a, b| a.name == b.name);
+
         // Call the provider to get a response
-        let (mut response, usage) = provider.complete(system_prompt, messages, tools).await?;
+        let (mut response, usage) = provider
+            .complete(system_prompt, messages, &all_tools)
+            .await?;
 
         // Store the model information in the global store
         crate::providers::base::set_current_model(&usage.model);

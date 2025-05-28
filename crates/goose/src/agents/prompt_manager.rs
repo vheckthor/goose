@@ -69,7 +69,7 @@ impl PromptManager {
         frontend_instructions: Option<String>,
         suggest_disable_extensions_prompt: Value,
         model_name: Option<&str>,
-        tool_selection_strategy: Option<RouterToolSelectionStrategy>,
+        tool_selection_strategy: &Option<RouterToolSelectionStrategy>,
     ) -> String {
         let mut context: HashMap<&str, Value> = HashMap::new();
         let mut extensions_info = extensions_info.clone();

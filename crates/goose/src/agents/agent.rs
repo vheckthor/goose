@@ -5,6 +5,7 @@ use anyhow::{anyhow, Result};
 use futures::stream::BoxStream;
 use futures::TryStreamExt;
 
+use crate::agents::router_tool_candidates::RouterToolCandidates;
 use crate::config::{Config, ExtensionConfigManager, PermissionManager};
 use crate::message::Message;
 use crate::permission::permission_judge::check_tool_permissions;
@@ -53,6 +54,7 @@ pub struct Agent {
     pub(super) tool_result_rx: ToolResultReceiver,
     pub(super) tool_monitor: Mutex<Option<ToolMonitor>>,
     pub(super) router_tool_selector: Mutex<Option<Box<dyn RouterToolSelector>>>,
+    pub(super) router_tool_candidates: Mutex<Option<RouterToolCandidates>>,
 }
 
 impl Agent {
@@ -73,6 +75,7 @@ impl Agent {
             tool_result_rx: Arc::new(Mutex::new(tool_rx)),
             tool_monitor: Mutex::new(None),
             router_tool_selector: Mutex::new(None),
+            router_tool_candidates: Mutex::new(Some(RouterToolCandidates::default())),
         }
     }
 
@@ -197,7 +200,30 @@ impl Agent {
             let router_tool_selector = self.router_tool_selector.lock().await;
             eprintln!("[DEBUG] Router tool selector: ");
             if let Some(selector) = router_tool_selector.as_ref() {
-                selector.select_tools(tool_call.arguments.clone()).await
+                let result = selector.select_tools(tool_call.arguments.clone()).await;
+
+                // Store the tools in RouterToolCandidates if successful
+                if let Ok((_, tools)) = &result {
+                    eprintln!(
+                        "[DEBUG] Successfully selected {} tools from vector search",
+                        tools.len()
+                    );
+                    if let Some(router_tool_candidates) =
+                        self.router_tool_candidates.lock().await.as_ref()
+                    {
+                        if let Err(e) = router_tool_candidates.update_tools(tools.clone()).await {
+                            eprintln!("[DEBUG] Failed to update tool candidates: {}", e);
+                        } else {
+                            eprintln!("[DEBUG] Successfully updated tool candidates");
+                        }
+                    } else {
+                        eprintln!("[DEBUG] No router tool candidates available");
+                    }
+                } else {
+                    eprintln!("[DEBUG] Vector search failed to select tools");
+                }
+                // Return only the content for the reply loop
+                result.map(|(contents, _)| contents)
             } else {
                 Err(ToolError::ExecutionError(
                     "Encountered vector search error.".to_string(),
@@ -383,26 +409,6 @@ impl Agent {
             }
             None => {}
         }
-
-        // Get recent tool calls from router tool selector if available
-        if let Some(selector) = self.router_tool_selector.lock().await.as_ref() {
-            if let Ok(recent_calls) = selector.get_recent_tool_calls(20).await {
-                let extension_manager = self.extension_manager.lock().await;
-                // Add recent tool calls to the list, avoiding duplicates
-                for tool_name in recent_calls {
-                    // Find the tool in the extension manager's tools
-                    if let Ok(extension_tools) = extension_manager.get_prefixed_tools(None).await {
-                        if let Some(tool) = extension_tools.iter().find(|t| t.name == tool_name) {
-                            // Only add if not already in prefixed_tools
-                            if !prefixed_tools.iter().any(|t| t.name == tool.name) {
-                                prefixed_tools.push(tool.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         prefixed_tools
     }
 
@@ -452,10 +458,12 @@ impl Agent {
 
         // Load settings from config
         let config = Config::global();
+        let tool_selection_strategy = Self::get_tool_selection_strategy();
 
         // Setup tools and prompt
-        let (mut tools, mut toolshim_tools, mut system_prompt) =
-            self.prepare_tools_and_prompt().await?;
+        let (mut tools, mut tool_candidates, mut toolshim_tools, mut system_prompt) = self
+            .prepare_tools_and_prompt(&tool_selection_strategy)
+            .await?;
 
         let goose_mode = config.get_param("GOOSE_MODE").unwrap_or("auto".to_string());
 
@@ -479,6 +487,7 @@ impl Agent {
                     &messages,
                     &tools,
                     &toolshim_tools,
+                    &tool_candidates,
                 ).await {
                     Ok((response, usage)) => {
                         // record usage for the session in the session file
@@ -493,11 +502,11 @@ impl Agent {
                             self.categorize_tool_requests(&response).await;
 
                         // Record tool calls in the router selector
-                        if let Some(selector) = self.router_tool_selector.lock().await.as_ref() {
+                        if let Some(router_tool_candidates) = self.router_tool_candidates.lock().await.as_ref() {
                             // Record frontend tool calls
                             for request in &frontend_requests {
                                 if let Ok(tool_call) = &request.tool_call {
-                                    if let Err(e) = selector.record_tool_call(&tool_call.name).await {
+                                    if let Err(e) = router_tool_candidates.record_tool_call(&tool_call.name).await {
                                         tracing::error!("Failed to record frontend tool call: {}", e);
                                     }
                                 }
@@ -505,7 +514,7 @@ impl Agent {
                             // Record remaining tool calls
                             for request in &remaining_requests {
                                 if let Ok(tool_call) = &request.tool_call {
-                                    if let Err(e) = selector.record_tool_call(&tool_call.name).await {
+                                    if let Err(e) = router_tool_candidates.record_tool_call(&tool_call.name).await {
                                         tracing::error!("Failed to record tool call: {}", e);
                                     }
                                 }
@@ -620,8 +629,8 @@ impl Agent {
                             }
 
                             // Update system prompt and tools if installations were successful
-                            if all_install_successful {
-                                (tools, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt().await?;
+                            if all_install_successful || tool_selection_strategy.is_some() {
+                                (tools, tool_candidates, toolshim_tools, system_prompt) = self.prepare_tools_and_prompt(&tool_selection_strategy).await?;
                             }
                         }
 
@@ -668,24 +677,9 @@ impl Agent {
     }
 
     async fn update_router_tool_selector(&self, provider: Arc<dyn Provider>) -> Result<()> {
-        let config = Config::global();
-        let router_tool_selection_strategy = config
-            .get_param("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
-            .unwrap_or_else(|_| "default".to_string());
+        let tool_selection_strategy = Self::get_tool_selection_strategy();
 
-        eprintln!(
-            "[DEBUG] Router tool selection strategy from config: {}",
-            router_tool_selection_strategy
-        );
-
-        let strategy = match router_tool_selection_strategy.to_lowercase().as_str() {
-            "vector" => Some(RouterToolSelectionStrategy::Vector),
-            _ => None,
-        };
-
-        eprintln!("[DEBUG] Parsed strategy: {:?}", strategy);
-
-        if let Some(strategy) = strategy {
+        if let Some(strategy) = tool_selection_strategy {
             eprintln!("[DEBUG] Creating tool selector with vector strategy...");
             let table_name = generate_table_id();
             eprintln!("[DEBUG] Table name: {}", table_name);
@@ -695,16 +689,6 @@ impl Agent {
                     eprintln!("[DEBUG] Failed to create tool selector: {}", e);
                     anyhow!("Failed to create tool selector: {}", e)
                 })?;
-
-            eprintln!("[DEBUG] Clearing existing tools from vector database...");
-            // // Clear tools from the vector database
-            // selector
-            //     .clear_tools()
-            //     .await
-            //     .map_err(|e| {
-            //         eprintln!("[DEBUG] Failed to clear tools: {}", e);
-            //         anyhow!("Failed to clear tools: {}", e)
-            //     })?;
 
             eprintln!("[DEBUG] Setting router tool selector...");
             *self.router_tool_selector.lock().await = Some(selector);
@@ -791,12 +775,12 @@ impl Agent {
         reindex_all: bool,
     ) -> Result<()> {
         // Only proceed if vector strategy is enabled
-        let config = Config::global();
-        let router_tool_selection_strategy = config
-            .get_param("GOOSE_ROUTER_TOOL_SELECTION_STRATEGY")
-            .unwrap_or_else(|_| "default".to_string());
+        let tool_selection_strategy = Self::get_tool_selection_strategy();
 
-        let is_vector_enabled = router_tool_selection_strategy.eq_ignore_ascii_case("vector");
+        let is_vector_enabled = matches!(
+            tool_selection_strategy,
+            Some(RouterToolSelectionStrategy::Vector)
+        );
 
         if !is_vector_enabled {
             return Ok(());
@@ -961,7 +945,7 @@ impl Agent {
             self.frontend_instructions.lock().await.clone(),
             extension_manager.suggest_disable_extensions_prompt().await,
             Some(model_name),
-            None,
+            &None,
         );
 
         let recipe_prompt = prompt_manager.get_recipe_prompt().await;
