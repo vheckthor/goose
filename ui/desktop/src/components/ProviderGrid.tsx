@@ -145,12 +145,13 @@ export function ProviderGrid({ onSubmit }: ProviderGridProps) {
 
       setShowSetupModal(false);
       setSelectedId(null);
-    } catch (error) {
-      console.error('Error handling modal submit:', error);
+    } catch (err) {
+      console.error('Error handling modal submit:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       toastError({
         title: provider,
         msg: `Failed to ${providers.find((p) => p.id === selectedId)?.isConfigured ? 'update' : 'add'} configuration`,
-        traceback: error.message,
+        traceback: errorMessage,
       });
     }
   };
