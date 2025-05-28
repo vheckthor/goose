@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use arrow::array::{FixedSizeListBuilder, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
-use etcetera::BaseStrategy;
+use chrono::Local;
+use etcetera::base_strategy::{BaseStrategy, Xdg};
 use futures::TryStreamExt;
 use lancedb::connect;
 use lancedb::connection::Connection;
@@ -52,7 +53,7 @@ impl ToolVectorDB {
     }
 
     fn get_db_path() -> Result<PathBuf> {
-        let data_dir = etcetera::choose_base_strategy()
+        let data_dir = Xdg::new()
             .context("Failed to determine base strategy")?
             .data_dir();
 
@@ -120,7 +121,9 @@ impl ToolVectorDB {
                 .create_table(&self.table_name, Box::new(reader))
                 .execute()
                 .await
-                .context("Failed to create tools table")?;
+                .map_err(|e| {
+                    anyhow::anyhow!("Failed to create tools table '{}': {}", self.table_name, e)
+                })?;
         }
 
         Ok(())
@@ -129,23 +132,23 @@ impl ToolVectorDB {
     pub async fn clear_tools(&self) -> Result<()> {
         let connection = self.connection.write().await;
 
-        // Drop the table if it exists
-        let table_names = connection
-            .table_names()
-            .execute()
-            .await
-            .context("Failed to list tables")?;
-
-        if table_names.contains(&self.table_name) {
-            connection
-                .drop_table(&self.table_name)
-                .await
-                .context("Failed to drop tools table")?;
+        // Try to open the table first
+        match connection.open_table(&self.table_name).execute().await {
+            Ok(table) => {
+                // Delete all records instead of dropping the table
+                table
+                    .delete("1=1") // This will match all records
+                    .await
+                    .context("Failed to delete all records")?;
+            }
+            Err(_) => {
+                // If table doesn't exist, that's fine - we'll create it
+            }
         }
 
         drop(connection);
 
-        // Reinitialize the table
+        // Ensure table exists with correct schema
         self.init_table().await?;
 
         Ok(())
@@ -235,11 +238,7 @@ impl ToolVectorDB {
         Ok(())
     }
 
-    pub async fn search_tools(
-        &self,
-        query_vector: Vec<f32>,
-        limit: usize,
-    ) -> Result<Vec<ToolRecord>> {
+    pub async fn search_tools(&self, query_vector: Vec<f32>, k: usize) -> Result<Vec<ToolRecord>> {
         let connection = self.connection.read().await;
 
         let table = connection
@@ -251,7 +250,7 @@ impl ToolVectorDB {
         let results = table
             .vector_search(query_vector)
             .context("Failed to create vector search")?
-            .limit(limit)
+            .limit(k)
             .execute()
             .await
             .context("Failed to execute vector search")?;
@@ -292,7 +291,6 @@ impl ToolVectorDB {
             for i in 0..batch.num_rows() {
                 let tool_name = tool_names.value(i).to_string();
                 let distance = distances.value(i);
-                eprintln!("Tool: {}, Distance Score: {}", tool_name, distance);
 
                 tools.push(ToolRecord {
                     tool_name,
@@ -322,6 +320,10 @@ impl ToolVectorDB {
 
         Ok(())
     }
+}
+
+pub fn generate_table_id() -> String {
+    Local::now().format("%Y%m%d_%H%M%S").to_string()
 }
 
 #[cfg(test)]
