@@ -164,7 +164,7 @@ export default function App() {
         if (provider && model) {
           setView('chat');
           try {
-            await initializeSystem(provider, model, {
+            await initializeSystem(provider as string, model as string, {
               getExtensions,
               addExtension,
             });
@@ -231,9 +231,9 @@ export default function App() {
         setIsLoadingSharedSession(false);
       }
     };
-    window.electron.on('open-shared-session', handleOpenSharedSession);
+    window.electron.on('open-shared-session', handleOpenSharedSession as any);
     return () => {
-      window.electron.off('open-shared-session', handleOpenSharedSession);
+      window.electron.off('open-shared-session', handleOpenSharedSession as any);
     };
   }, []);
 
@@ -266,9 +266,9 @@ export default function App() {
       console.error('Is loading session:', isLoadingSession);
       setFatalError(errorMessage);
     };
-    window.electron.on('fatal-error', handleFatalError);
+    window.electron.on('fatal-error', handleFatalError as any);
     return () => {
-      window.electron.off('fatal-error', handleFatalError);
+      window.electron.off('fatal-error', handleFatalError as any);
     };
   }, [view, isLoadingSession]);
 
@@ -289,11 +289,11 @@ export default function App() {
         };
         setView(viewFromUrl, initialViewOptions);
       } else {
-        setView(viewFromUrl);
+        setView(viewFromUrl as View);
       }
     }
-    window.electron.on('set-view', handleSetView);
-    return () => window.electron.off('set-view', handleSetView);
+    window.electron.on('set-view', handleSetView as any);
+    return () => window.electron.off('set-view', handleSetView as any);
   }, []);
 
   useEffect(() => {
@@ -375,9 +375,9 @@ export default function App() {
         console.error('Error handling add-extension event:', error);
       }
     };
-    window.electron.on('add-extension', handleAddExtension);
+    window.electron.on('add-extension', handleAddExtension as any);
     return () => {
-      window.electron.off('add-extension', handleAddExtension);
+      window.electron.off('add-extension', handleAddExtension as any);
     };
   }, [STRICT_ALLOWLIST]);
 
@@ -388,9 +388,9 @@ export default function App() {
         inputField.focus();
       }
     };
-    window.electron.on('focus-input', handleFocusInput);
+    window.electron.on('focus-input', handleFocusInput as any);
     return () => {
-      window.electron.off('focus-input', handleFocusInput);
+      window.electron.off('focus-input', handleFocusInput as any);
     };
   }, []);
 
