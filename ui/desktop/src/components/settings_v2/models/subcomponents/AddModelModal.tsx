@@ -12,7 +12,7 @@ import type { View } from '../../../../App';
 import Model, { getProviderMetadata } from '../modelInterface';
 import { useModel } from '../../../settings/models/ModelContext';
 
-const ModalButtons = ({ onSubmit, onCancel, _isValid, _validationErrors }) => (
+const ModalButtons = ({ onSubmit, onCancel, _isValid: _, _validationErrors: __ }) => (
   <div>
     <Button
       type="submit"
