@@ -204,10 +204,6 @@ impl Agent {
 
                 // Store the tools in RouterToolCandidates if successful
                 if let Ok((_, tools)) = &result {
-                    eprintln!(
-                        "[DEBUG] Successfully selected {} tools from vector search",
-                        tools.len()
-                    );
                     if let Some(router_tool_candidates) =
                         self.router_tool_candidates.lock().await.as_ref()
                     {

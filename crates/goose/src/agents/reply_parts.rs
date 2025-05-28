@@ -47,19 +47,10 @@ impl Agent {
         // Get tools from router tool candidates
         let tool_candidates = match tool_selection_strategy {
             Some(RouterToolSelectionStrategy::Vector) => {
-                eprintln!("[DEBUG] Getting tools from router tool candidates with vector strategy");
                 let router_tool_candidates = self.router_tool_candidates.lock().await;
-                let tools = router_tool_candidates.as_ref().unwrap().get_tools().await;
-                eprintln!(
-                    "[DEBUG] Retrieved {} tools from router tool candidates",
-                    tools.len()
-                );
-                tools
+                router_tool_candidates.as_ref().unwrap().get_tools().await
             }
-            _ => {
-                eprintln!("[DEBUG] No vector strategy, returning empty tool candidates");
-                vec![]
-            }
+            _ => vec![],
         };
 
         // Add frontend tools
