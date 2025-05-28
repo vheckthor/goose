@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { openSharedSessionFromDeepLink } from './sessionLinks';
 import { initializeSystem } from './utils/providerUtils';
