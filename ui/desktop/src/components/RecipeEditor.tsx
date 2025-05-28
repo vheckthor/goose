@@ -54,7 +54,7 @@ export default function RecipeEditor({ config }: RecipeEditorProps) {
       }
     }
     // Fall back to config if available, using extension names
-    const exts = [];
+    const exts: string[] = [];
     return exts;
   });
   // Section visibility state

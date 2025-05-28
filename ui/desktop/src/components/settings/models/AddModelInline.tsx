@@ -61,7 +61,7 @@ export function AddModelInline() {
     setShowSuggestions(false);
   };
 
-  const handleSelectSuggestion = (suggestion) => {
+  const handleSelectSuggestion = (suggestion: { provider: string; name: string }) => {
     setModelName(suggestion.name);
     setShowSuggestions(false); // Hide suggestions after selection
   };
