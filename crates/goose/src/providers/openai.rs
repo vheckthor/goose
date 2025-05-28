@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use super::base::{ConfigKey, Provider, ProviderMetadata, ProviderUsage, Usage};
+use super::embedding::{EmbeddingCapable, EmbeddingRequest, EmbeddingResponse};
 use super::errors::ProviderError;
 use super::formats::openai::{create_request, get_usage, response_to_message};
 use super::utils::{emit_debug_trace, get_model, handle_response_openai_compat, ImageFormat};
@@ -220,4 +221,73 @@ fn parse_custom_headers(s: String) -> HashMap<String, String> {
             Some((key, value))
         })
         .collect()
+}
+
+#[async_trait]
+impl EmbeddingCapable for OpenAiProvider {
+    async fn create_embeddings(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
+        if texts.is_empty() {
+            return Ok(vec![]);
+        }
+
+        // Get embedding model from env var or use default
+        let embedding_model = std::env::var("EMBEDDING_MODEL")
+            .unwrap_or_else(|_| "text-embedding-3-small".to_string());
+
+        let request = EmbeddingRequest {
+            input: texts,
+            model: embedding_model,
+        };
+
+        // Construct embeddings endpoint URL
+        let base_url =
+            url::Url::parse(&self.host).map_err(|e| anyhow::anyhow!("Invalid base URL: {e}"))?;
+        let url = base_url
+            .join("v1/embeddings")
+            .map_err(|e| anyhow::anyhow!("Failed to construct embeddings URL: {e}"))?;
+
+        let mut req = self
+            .client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request);
+
+        // Add organization header if present
+        if let Some(org) = &self.organization {
+            req = req.header("OpenAI-Organization", org);
+        }
+
+        // Add project header if present
+        if let Some(project) = &self.project {
+            req = req.header("OpenAI-Project", project);
+        }
+
+        // Add custom headers if present
+        if let Some(headers) = &self.custom_headers {
+            for (key, value) in headers {
+                req = req.header(key, value);
+            }
+        }
+
+        let response = req
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send embedding request: {e}"))?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!("Embedding API error: {}", error_text));
+        }
+
+        let embedding_response: EmbeddingResponse = response
+            .json()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to parse embedding response: {e}"))?;
+
+        Ok(embedding_response
+            .data
+            .into_iter()
+            .map(|d| d.embedding)
+            .collect())
+    }
 }

@@ -1,119 +1,34 @@
 use crate::model::ModelConfig;
-use crate::providers::base::Provider;
-use crate::providers::databricks::DatabricksProvider;
-use crate::providers::embedding::{EmbeddingCapable, EmbeddingRequest, EmbeddingResponse};
+use crate::providers::embedding::EmbeddingCapable;
+use crate::providers::{self, base::Provider};
 use anyhow::{Context, Result};
-use reqwest::Client;
 use std::env;
 use std::sync::Arc;
 
 pub struct EmbeddingProvider {
     provider: Arc<dyn Provider>,
-    client: Client,
-    token: String,
-    base_url: String,
-    model: ModelConfig,
 }
 
 impl EmbeddingProvider {
-    pub fn new(provider: Arc<dyn Provider>) -> Result<Self> {
-        // Get configuration from the provider
-        let model_config = provider.get_model_config();
-        let config = crate::config::Config::global();
-
-        // Try to use provider's embedding capability if available
-        if let Some(embedding_provider) = provider
-            .as_ref()
-            .as_any()
-            .downcast_ref::<DatabricksProvider>()
-        {
-            eprintln!("Using provider's native embedding capability");
-            // For Databricks, we need to use a specific embedding model
-            let embedding_model = env::var("EMBEDDING_MODEL")
-                .unwrap_or_else(|_| "text-embedding-3-small".to_string());
-            return Ok(Self {
-                provider,
-                client: Client::new(),
-                token: String::new(), // Not used when using provider's capability
-                base_url: String::new(), // Not used when using provider's capability
-                model: ModelConfig::new(embedding_model),
-            });
-        }
-
-        // Check if this is a Databricks provider using the provider's metadata
-        let is_databricks = provider.get_name() == "DatabricksProvider";
-        eprintln!("Provider name: {}", provider.get_name());
-        eprintln!("Is Databricks provider: {}", is_databricks);
-
-        let (base_url, token) = if is_databricks {
-            let mut host: Result<String, crate::config::ConfigError> =
-                config.get_param("DATABRICKS_HOST");
-            if host.is_err() {
-                host = config.get_secret("DATABRICKS_HOST");
-            }
-            let host = host.context("No Databricks host found in config or secrets")?;
-            eprintln!("Databricks host: {}", host);
-
-            // Check if this is an internal user
-            let is_internal =
-                host.as_str() == "https://block-lakehouse-production.cloud.databricks.com";
-            eprintln!("Is internal user: {}", is_internal);
-
-            // Get auth token
-            let token = if let Ok(api_key) = config.get_secret("DATABRICKS_TOKEN") {
-                api_key
-            } else {
-                std::env::var("DATABRICKS_TOKEN").context(
-                    "No API key found for embeddings. Please set DATABRICKS_TOKEN environment variable",
-                )?
-            };
-
-            if is_internal {
-                let model = env::var("EMBEDDING_MODEL")
-                    .unwrap_or_else(|_| "text-embedding-3-small".to_string());
-                // Use internal Databricks endpoint
-                (
-                    format!("{}/serving-endpoints/{}/invocations", host, model),
-                    token,
-                )
-            } else {
-                // For external Databricks users, use OpenAI endpoint
-                let openai_key = std::env::var("OPENAI_API_KEY").context(
-                    "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
-                )?;
-
-                (
-                    env::var("EMBEDDING_BASE_URL")
-                        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string()),
-                    openai_key,
-                )
-            }
-        } else {
-            // For other providers, use OpenAI endpoint
-            let token = std::env::var("OPENAI_API_KEY").context(
-                "No API key found for embeddings. Please set OPENAI_API_KEY environment variable",
-            )?;
-
-            (
-                env::var("EMBEDDING_BASE_URL")
-                    .unwrap_or_else(|_| "https://api.openai.com/v1".to_string()),
-                token,
-            )
-        };
-
-        let model =
+    pub fn new() -> Result<Self> {
+        // Get embedding model and provider from environment variables
+        let embedding_model =
             env::var("EMBEDDING_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
+        let embedding_provider =
+            env::var("EMBEDDING_MODEL_PROVIDER").unwrap_or_else(|_| "openai".to_string());
 
-        let log_msg = format!("Using base_url: {}, model: {}", base_url, model);
-        eprintln!("{}", log_msg);
+        // Create the provider using the factory
+        let model_config = ModelConfig::new(embedding_model);
+        let provider = providers::create(&embedding_provider, model_config).context(format!(
+            "Failed to create {} provider for embeddings. If using OpenAI, make sure OPENAI_API_KEY env var is set or that you have configured the OpenAI provider via Goose before.",
+            embedding_provider
+        ))?;
 
-        Ok(Self {
-            provider,
-            client: Client::new(),
-            token,
-            base_url,
-            model: ModelConfig::new(model),
-        })
+        Ok(Self { provider })
+    }
+
+    pub fn from_provider(provider: Arc<dyn Provider>) -> Self {
+        Self { provider }
     }
 
     pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
@@ -121,50 +36,28 @@ impl EmbeddingProvider {
             return Ok(vec![]);
         }
 
-        // Try to use provider's embedding capability if available
-        if let Some(embedding_provider) = self
+        // Check if provider implements EmbeddingCapable
+        if let Some(embedding_capable) = self
             .provider
-            .as_ref()
             .as_any()
-            .downcast_ref::<DatabricksProvider>()
+            .downcast_ref::<crate::providers::openai::OpenAiProvider>()
         {
-            return embedding_provider.create_embeddings(texts).await;
+            return embedding_capable.create_embeddings(texts).await;
         }
 
-        // Fall back to default OpenAI-compatible implementation
-        let request = EmbeddingRequest {
-            input: texts,
-            model: self.model.model_name.clone(),
-        };
-
-        // For OpenAI, we need to append /embeddings to the base URL
-        let url = format!("{}/embeddings", self.base_url.trim_end_matches('/'));
-
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", self.token))
-            .header("Content-Type", "application/json")
-            .json(&request)
-            .send()
-            .await
-            .context("Failed to send embedding request")?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            anyhow::bail!("Embedding API error: {}", error_text);
+        if let Some(embedding_capable) =
+            self.provider
+                .as_any()
+                .downcast_ref::<crate::providers::databricks::DatabricksProvider>()
+        {
+            return embedding_capable.create_embeddings(texts).await;
         }
 
-        let embedding_response: EmbeddingResponse = response
-            .json()
-            .await
-            .context("Failed to parse embedding response")?;
-
-        Ok(embedding_response
-            .data
-            .into_iter()
-            .map(|d| d.embedding)
-            .collect())
+        // If provider doesn't support embeddings, return an error
+        Err(anyhow::anyhow!(
+            "Provider {} does not support embeddings",
+            self.provider.get_name()
+        ))
     }
 
     pub async fn embed_single(&self, text: String) -> Result<Vec<f32>> {
@@ -176,14 +69,10 @@ impl EmbeddingProvider {
     }
 }
 
-// Fallback embedding provider that generates random embeddings for testing
+// Ebedding provider that generates random embeddings for testing
 pub struct MockEmbeddingProvider;
 
 impl MockEmbeddingProvider {
-    pub fn new() -> Self {
-        Self
-    }
-
     pub async fn embed(&self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
         use rand::Rng;
         let mut rng = rand::thread_rng();
@@ -204,25 +93,16 @@ impl MockEmbeddingProvider {
 }
 
 // Factory function to create appropriate embedding provider
-pub async fn create_embedding_provider(
-    provider: Arc<dyn Provider>,
-) -> Box<dyn EmbeddingProviderTrait> {
-    eprintln!("Attempting to create embedding provider...");
+pub async fn create_embedding_provider() -> Result<Box<dyn EmbeddingProviderTrait>> {
+    let embedding_provider = EmbeddingProvider::new()?;
+    Ok(Box::new(embedding_provider))
+}
 
-    match EmbeddingProvider::new(provider) {
-        Ok(provider) => {
-            eprintln!("Successfully created real embedding provider");
-            Box::new(provider)
-        }
-        Err(e) => {
-            eprintln!(
-                "Failed to create embedding provider: {}. Using mock provider.",
-                e
-            );
-            eprintln!("Initializing mock embedding provider as fallback");
-            Box::new(MockEmbeddingProvider::new())
-        }
-    }
+// Create embedding provider from an existing provider instance
+pub async fn create_embedding_provider_from_instance(
+    provider: Arc<dyn Provider>,
+) -> Result<Box<dyn EmbeddingProviderTrait>> {
+    Ok(Box::new(EmbeddingProvider::from_provider(provider)))
 }
 
 #[async_trait::async_trait]
@@ -295,7 +175,6 @@ impl Provider for MockProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[tokio::test]
     async fn test_mock_embedding_provider() {
@@ -341,41 +220,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_embedding_provider_creation() {
-        // Test without API key
-        env::remove_var("OPENAI_API_KEY");
-        assert!(EmbeddingProvider::new(Arc::new(MockProvider)).is_err());
+        // Test that embedding provider can be created from a mock provider instance
+        let mock_provider = Arc::new(MockProvider);
+        let embedding_provider = EmbeddingProvider::from_provider(mock_provider);
 
-        // Test with API key
-        env::set_var("OPENAI_API_KEY", "test_key");
-        let provider = EmbeddingProvider::new(Arc::new(MockProvider)).unwrap();
-        assert_eq!(provider.token, "test_key");
-        assert_eq!(provider.model.model_name, "mock-model");
-        assert_eq!(provider.base_url, "https://api.openai.com/v1");
-
-        // Test with custom configuration
-        env::set_var("EMBEDDING_MODEL", "custom-model");
-        env::set_var("EMBEDDING_BASE_URL", "https://custom.api.com");
-        let provider = EmbeddingProvider::new(Arc::new(MockProvider)).unwrap();
-        assert_eq!(provider.model.model_name, "custom-model");
-        assert_eq!(provider.base_url, "https://custom.api.com");
-
-        // Cleanup
-        env::remove_var("OPENAI_API_KEY");
-        env::remove_var("EMBEDDING_MODEL");
-        env::remove_var("EMBEDDING_BASE_URL");
+        // Verify the provider was created
+        assert_eq!(embedding_provider.provider.get_name(), "MockProvider");
     }
 
     #[tokio::test]
-    async fn test_create_embedding_provider_fallback() {
-        // Remove API key to force fallback to mock provider
-        env::remove_var("OPENAI_API_KEY");
+    async fn test_create_embedding_provider_from_instance() {
+        // Test the factory function with a mock provider
+        let mock_provider = Arc::new(MockProvider);
+        let result = create_embedding_provider_from_instance(mock_provider).await;
 
-        let provider = create_embedding_provider(Arc::new(MockProvider)).await;
-
-        // Test that we get a working provider (mock in this case)
-        let text = "Test text".to_string();
-        let embedding = provider.embed_single(text).await.unwrap();
-        assert_eq!(embedding.len(), 1536);
+        assert!(result.is_ok());
+        // The embedding provider should be created successfully
     }
 
     #[tokio::test]

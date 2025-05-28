@@ -1,13 +1,16 @@
 use mcp_core::content::TextContent;
 use mcp_core::{Content, ToolError};
 
+use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::agents::embeddings::{create_embedding_provider, EmbeddingProviderTrait};
+use crate::agents::embeddings::{
+    create_embedding_provider, create_embedding_provider_from_instance, EmbeddingProviderTrait,
+};
 use crate::agents::tool_vectordb::ToolVectorDB;
 use crate::providers::base::Provider;
 
@@ -38,12 +41,17 @@ pub struct VectorToolSelector {
 }
 
 impl VectorToolSelector {
-    pub async fn new(provider: Arc<dyn Provider>, table_name: String) -> Result<Self, ToolError> {
-        let vector_db = ToolVectorDB::new(Some(table_name))
-            .await
-            .map_err(|e| ToolError::ExecutionError(format!("Failed to create vector DB: {}", e)))?;
+    pub async fn new(provider: Arc<dyn Provider>, table_name: String) -> Result<Self> {
+        let vector_db = ToolVectorDB::new(Some(table_name)).await?;
 
-        let embedding_provider = create_embedding_provider(provider.clone()).await;
+        let embedding_provider =
+            if let Ok(embedding_provider_name) = std::env::var("EMBEDDING_MODEL_PROVIDER") {
+                // If env var is set, use the provided embedding model to create a new provider
+                create_embedding_provider().await?
+            } else {
+                // Otherwise fall back to using the same provider instance as used for base goose model
+                create_embedding_provider_from_instance(provider.clone()).await?
+            };
 
         Ok(Self {
             vector_db: Arc::new(RwLock::new(vector_db)),
@@ -189,7 +197,7 @@ pub async fn create_tool_selector(
     strategy: Option<RouterToolSelectionStrategy>,
     provider: Arc<dyn Provider>,
     table_name: String,
-) -> Result<Box<dyn RouterToolSelector>, ToolError> {
+) -> Result<Box<dyn RouterToolSelector>> {
     match strategy {
         Some(RouterToolSelectionStrategy::Vector) => {
             let selector = VectorToolSelector::new(provider, table_name).await?;
