@@ -9,6 +9,9 @@ const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
 const connectionStatus = document.getElementById('connection-status');
 
+// Track if we're currently processing
+let isProcessing = false;
+
 // Generate a random session ID
 function generateSessionId() {
     return 'session_' + Math.random().toString(36).substr(2, 9);
@@ -27,9 +30,11 @@ function createMessageElement(content, role, timestamp) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
     
-    // Parse content for code blocks and format
-    const formattedContent = formatMessageContent(content);
-    messageDiv.innerHTML = formattedContent;
+    // Create content div
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    contentDiv.innerHTML = formatMessageContent(content);
+    messageDiv.appendChild(contentDiv);
     
     // Add timestamp
     const timestampDiv = document.createElement('div');
@@ -77,21 +82,30 @@ function addMessage(content, role, timestamp) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Add loading indicator
-function addLoadingIndicator() {
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'message assistant loading-message';
-    loadingDiv.innerHTML = '<span class="loading"></span> Thinking...';
-    messagesContainer.appendChild(loadingDiv);
+// Add thinking indicator
+function addThinkingIndicator() {
+    removeThinkingIndicator(); // Remove any existing one first
+    
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.id = 'thinking-indicator';
+    thinkingDiv.className = 'message thinking-message';
+    thinkingDiv.innerHTML = `
+        <div class="thinking-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <span class="thinking-text">Goose is thinking...</span>
+    `;
+    messagesContainer.appendChild(thinkingDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    return loadingDiv;
 }
 
-// Remove loading indicator
-function removeLoadingIndicator() {
-    const loadingMessage = messagesContainer.querySelector('.loading-message');
-    if (loadingMessage) {
-        loadingMessage.remove();
+// Remove thinking indicator
+function removeThinkingIndicator() {
+    const thinking = document.getElementById('thinking-indicator');
+    if (thinking) {
+        thinking.remove();
     }
 }
 
@@ -157,8 +171,15 @@ function handleServerMessage(data) {
         case 'context_exceeded':
             handleContextExceeded(data);
             break;
+        case 'cancelled':
+            handleCancelled(data);
+            break;
+        case 'complete':
+            handleComplete(data);
+            break;
         case 'error':
-            removeLoadingIndicator();
+            removeThinkingIndicator();
+            resetSendButton();
             addMessage(`Error: ${data.message}`, 'assistant', Date.now());
             break;
         default:
@@ -171,15 +192,10 @@ let currentStreamingMessage = null;
 
 // Handle streaming responses
 function handleStreamingResponse(data) {
-    removeLoadingIndicator();
+    removeThinkingIndicator();
     
-    // If this is the first chunk of a new message
-    if (!currentStreamingMessage || data.role !== currentStreamingMessage.role) {
-        // If there was a previous streaming message, finalize it
-        if (currentStreamingMessage) {
-            currentStreamingMessage = null;
-        }
-        
+    // If this is the first chunk of a new message, or we don't have a current streaming message
+    if (!currentStreamingMessage) {
         // Create a new message element
         const messageElement = createMessageElement(data.content, data.role || 'assistant', data.timestamp);
         messageElement.setAttribute('data-streaming', 'true');
@@ -195,9 +211,11 @@ function handleStreamingResponse(data) {
         // Append to existing streaming message
         currentStreamingMessage.content += data.content;
         
-        // Update the message content
-        const contentDiv = currentStreamingMessage.element.querySelector('div:first-child') || currentStreamingMessage.element;
-        contentDiv.innerHTML = formatMessageContent(currentStreamingMessage.content);
+        // Update the message content using the proper content div
+        const contentDiv = currentStreamingMessage.element.querySelector('.message-content');
+        if (contentDiv) {
+            contentDiv.innerHTML = formatMessageContent(currentStreamingMessage.content);
+        }
     }
     
     // Scroll to bottom
@@ -206,6 +224,11 @@ function handleStreamingResponse(data) {
 
 // Handle tool requests
 function handleToolRequest(data) {
+    removeThinkingIndicator(); // Remove thinking when tool starts
+    
+    // Reset streaming message so tool doesn't interfere with message flow
+    currentStreamingMessage = null;
+    
     const toolDiv = document.createElement('div');
     toolDiv.className = 'message assistant tool-message';
     
@@ -234,12 +257,28 @@ function handleToolRequest(data) {
     toolDiv.appendChild(headerDiv);
     toolDiv.appendChild(contentDiv);
     
+    // Add a "running" indicator
+    const runningDiv = document.createElement('div');
+    runningDiv.className = 'tool-running';
+    runningDiv.innerHTML = '⏳ Running...';
+    toolDiv.appendChild(runningDiv);
+    
     messagesContainer.appendChild(toolDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
 // Handle tool responses
 function handleToolResponse(data) {
+    // Remove the "running" indicator from the last tool message
+    const toolMessages = messagesContainer.querySelectorAll('.tool-message');
+    if (toolMessages.length > 0) {
+        const lastToolMessage = toolMessages[toolMessages.length - 1];
+        const runningIndicator = lastToolMessage.querySelector('.tool-running');
+        if (runningIndicator) {
+            runningIndicator.remove();
+        }
+    }
+    
     if (data.is_error) {
         const errorDiv = document.createElement('div');
         errorDiv.className = 'message tool-error';
@@ -252,13 +291,16 @@ function handleToolResponse(data) {
                 if (content.type === 'text' && content.text) {
                     const responseDiv = document.createElement('div');
                     responseDiv.className = 'message tool-result';
-                    responseDiv.innerHTML = formatMessageContent(content.text);
+                    responseDiv.innerHTML = `<pre>${escapeHtml(content.text)}</pre>`;
                     messagesContainer.appendChild(responseDiv);
                 }
             });
         }
     }
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    
+    // Reset streaming message so next assistant response creates a new message
+    currentStreamingMessage = null;
 }
 
 // Handle tool confirmations
@@ -296,6 +338,35 @@ function handleContextExceeded(data) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
+// Handle cancelled operation
+function handleCancelled(data) {
+    removeThinkingIndicator();
+    resetSendButton();
+    
+    const cancelDiv = document.createElement('div');
+    cancelDiv.className = 'message system-message cancelled';
+    cancelDiv.innerHTML = `<em>${escapeHtml(data.message)}</em>`;
+    messagesContainer.appendChild(cancelDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Handle completion of response
+function handleComplete(data) {
+    removeThinkingIndicator();
+    resetSendButton();
+    // Finalize any streaming message
+    if (currentStreamingMessage) {
+        currentStreamingMessage = null;
+    }
+}
+
+// Reset send button to normal state
+function resetSendButton() {
+    isProcessing = false;
+    sendButton.textContent = 'Send';
+    sendButton.classList.remove('cancel-mode');
+}
+
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -303,8 +374,17 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Send message
+// Send message or cancel
 function sendMessage() {
+    if (isProcessing) {
+        // Cancel the current operation
+        socket.send(JSON.stringify({
+            type: 'cancel',
+            session_id: sessionId
+        }));
+        return;
+    }
+    
     const message = messageInput.value.trim();
     if (!message || !isConnected) return;
     
@@ -315,8 +395,13 @@ function sendMessage() {
     messageInput.value = '';
     messageInput.style.height = 'auto';
     
-    // Add loading indicator
-    addLoadingIndicator();
+    // Add thinking indicator
+    addThinkingIndicator();
+    
+    // Update button to show cancel
+    isProcessing = true;
+    sendButton.textContent = 'Cancel';
+    sendButton.classList.add('cancel-mode');
     
     // Send message through WebSocket
     socket.send(JSON.stringify({

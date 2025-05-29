@@ -26,11 +26,13 @@ struct ChatMessage {
 }
 
 type SessionStore = Arc<RwLock<std::collections::HashMap<String, Arc<Mutex<Vec<ChatMessage>>>>>>;
+type CancellationStore = Arc<RwLock<std::collections::HashMap<String, tokio::task::AbortHandle>>>;
 
 #[derive(Clone)]
 struct AppState {
     agent: Arc<Agent>,
     sessions: SessionStore,
+    cancellations: CancellationStore,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,6 +44,8 @@ enum WebSocketMessage {
         session_id: String,
         timestamp: i64,
     },
+    #[serde(rename = "cancel")]
+    Cancel { session_id: String },
     #[serde(rename = "response")]
     Response {
         content: String,
@@ -73,15 +77,19 @@ enum WebSocketMessage {
     Thinking { message: String },
     #[serde(rename = "context_exceeded")]
     ContextExceeded { message: String },
+    #[serde(rename = "cancelled")]
+    Cancelled { message: String },
+    #[serde(rename = "complete")]
+    Complete { message: String },
 }
 
 pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
     // Setup logging
     crate::logging::setup_logging(Some("goose-web"), None)?;
-    
+
     // Load config and create agent just like the CLI does
     let config = goose::config::Config::global();
-    
+
     let provider_name: String = match config.get_param("GOOSE_PROVIDER") {
         Ok(p) => p,
         Err(_) => {
@@ -97,27 +105,32 @@ pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
             std::process::exit(1);
         }
     };
-    
+
     let model_config = goose::model::ModelConfig::new(model.clone());
-    
+
     // Create the agent
     let agent = Agent::new();
     let provider = goose::providers::create(&provider_name, model_config)?;
     agent.update_provider(provider).await?;
-    
+
     // Load and enable extensions from config
     let extensions = goose::config::ExtensionConfigManager::get_all()?;
     for ext_config in extensions {
         if ext_config.enabled {
             if let Err(e) = agent.add_extension(ext_config.config.clone()).await {
-                eprintln!("Warning: Failed to load extension {}: {}", ext_config.config.name(), e);
+                eprintln!(
+                    "Warning: Failed to load extension {}: {}",
+                    ext_config.config.name(),
+                    e
+                );
             }
         }
     }
-    
+
     let state = AppState {
         agent: Arc::new(agent),
         sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        cancellations: Arc::new(RwLock::new(std::collections::HashMap::new())),
     };
 
     // Build router
@@ -135,13 +148,16 @@ pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-    
+
     println!("\n🪿 Starting Goose web server");
     println!("   Provider: {} | Model: {}", provider_name, model);
-    println!("   Working directory: {}", std::env::current_dir()?.display());
+    println!(
+        "   Working directory: {}",
+        std::env::current_dir()?.display()
+    );
     println!("   Server: http://{}", addr);
     println!("   Press Ctrl+C to stop\n");
-    
+
     if open {
         // Open browser
         let url = format!("http://{}", addr);
@@ -214,36 +230,119 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(text) => {
-                    if let Ok(WebSocketMessage::Message {
-                        content,
-                        session_id,
-                        ..
-                    }) = serde_json::from_str::<WebSocketMessage>(&text.to_string())
-                    {
-                        // Get or create session
-                        let session = {
-                            let sessions = state.sessions.read().await;
-                            if let Some(session) = sessions.get(&session_id) {
-                                session.clone()
-                            } else {
-                                drop(sessions);
-                                let mut sessions = state.sessions.write().await;
-                                let new_session = Arc::new(Mutex::new(Vec::new()));
-                                sessions.insert(session_id.clone(), new_session.clone());
-                                new_session
-                            }
-                        };
+                    match serde_json::from_str::<WebSocketMessage>(&text.to_string()) {
+                        Ok(WebSocketMessage::Message {
+                            content,
+                            session_id,
+                            ..
+                        }) => {
+                            // Get or create session
+                            let session = {
+                                let sessions = state.sessions.read().await;
+                                if let Some(session) = sessions.get(&session_id) {
+                                    session.clone()
+                                } else {
+                                    drop(sessions);
+                                    let mut sessions = state.sessions.write().await;
+                                    let new_session = Arc::new(Mutex::new(Vec::new()));
+                                    sessions.insert(session_id.clone(), new_session.clone());
+                                    new_session
+                                }
+                            };
 
-                        // Clone sender for async processing
-                        let sender_clone = sender.clone();
-                        let agent = state.agent.clone();
-                        
-                        // Process message in a separate task to allow streaming
-                        tokio::spawn(async move {
-                            if let Err(e) = process_message_streaming(&agent, session, content, sender_clone).await {
-                                error!("Error processing message: {}", e);
+                            // Clone sender for async processing
+                            let sender_clone = sender.clone();
+                            let agent = state.agent.clone();
+
+                            // Process message in a separate task to allow streaming
+                            let task_handle = tokio::spawn(async move {
+                                let result = process_message_streaming(
+                                    &agent,
+                                    session,
+                                    content,
+                                    sender_clone,
+                                )
+                                .await;
+
+                                if let Err(e) = result {
+                                    error!("Error processing message: {}", e);
+                                }
+                            });
+
+                            // Store the abort handle
+                            {
+                                let mut cancellations = state.cancellations.write().await;
+                                cancellations
+                                    .insert(session_id.clone(), task_handle.abort_handle());
                             }
-                        });
+
+                            // Wait for task completion and handle abort
+                            let sender_for_abort = sender.clone();
+                            let session_id_for_cleanup = session_id.clone();
+                            let cancellations_for_cleanup = state.cancellations.clone();
+
+                            tokio::spawn(async move {
+                                match task_handle.await {
+                                    Ok(_) => {
+                                        // Task completed normally
+                                    }
+                                    Err(e) if e.is_cancelled() => {
+                                        // Task was aborted
+                                        let mut sender = sender_for_abort.lock().await;
+                                        let _ = sender
+                                            .send(Message::Text(
+                                                serde_json::to_string(
+                                                    &WebSocketMessage::Cancelled {
+                                                        message: "Operation cancelled by user"
+                                                            .to_string(),
+                                                    },
+                                                )
+                                                .unwrap()
+                                                .into(),
+                                            ))
+                                            .await;
+                                    }
+                                    Err(e) => {
+                                        error!("Task error: {}", e);
+                                    }
+                                }
+
+                                // Clean up cancellation token
+                                {
+                                    let mut cancellations = cancellations_for_cleanup.write().await;
+                                    cancellations.remove(&session_id_for_cleanup);
+                                }
+                            });
+                        }
+                        Ok(WebSocketMessage::Cancel { session_id }) => {
+                            // Cancel the active operation for this session
+                            let abort_handle = {
+                                let mut cancellations = state.cancellations.write().await;
+                                cancellations.remove(&session_id)
+                            };
+
+                            if let Some(handle) = abort_handle {
+                                handle.abort();
+
+                                // Send cancellation confirmation
+                                let mut sender = sender.lock().await;
+                                let _ = sender
+                                    .send(Message::Text(
+                                        serde_json::to_string(&WebSocketMessage::Cancelled {
+                                            message: "Operation cancelled".to_string(),
+                                        })
+                                        .unwrap()
+                                        .into(),
+                                    ))
+                                    .await;
+                            }
+                        }
+                        Ok(_) => {
+                            // Ignore other message types
+                        }
+                        Err(e) => {
+                            error!("Failed to parse WebSocket message: {}", e);
+                        }
                     }
                 }
                 Message::Close(_) => break,
@@ -261,31 +360,33 @@ async fn process_message_streaming(
     content: String,
     sender: Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
 ) -> Result<()> {
+    use futures::StreamExt;
+    use goose::agents::SessionConfig;
     use goose::message::Message as GooseMessage;
     use goose::message::MessageContent;
-    use goose::agents::SessionConfig;
     use goose::session;
-    use futures::StreamExt;
-    
-    
+
     // Create a user message
     let user_message = GooseMessage::user().with_text(content.clone());
-    
+
     // Get existing messages from session
     let mut messages = {
         let session_messages = session.lock().await;
-        session_messages.iter().map(|cm| {
-            if cm.role == "user" {
-                GooseMessage::user().with_text(cm.content.clone())
-            } else {
-                GooseMessage::assistant().with_text(cm.content.clone())
-            }
-        }).collect::<Vec<_>>()
+        session_messages
+            .iter()
+            .map(|cm| {
+                if cm.role == "user" {
+                    GooseMessage::user().with_text(cm.content.clone())
+                } else {
+                    GooseMessage::assistant().with_text(cm.content.clone())
+                }
+            })
+            .collect::<Vec<_>>()
     };
-    
+
     // Add the new user message
     messages.push(user_message);
-    
+
     // Store the user message in our session
     {
         let mut session_messages = session.lock().await;
@@ -295,7 +396,7 @@ async fn process_message_streaming(
             timestamp: chrono::Utc::now().timestamp_millis(),
         });
     }
-    
+
     // Check if provider is configured
     let provider = agent.provider().await;
     if provider.is_err() {
@@ -314,14 +415,14 @@ async fn process_message_streaming(
             .await;
         return Ok(());
     }
-    
+
     // Create a session config
     let session_config = SessionConfig {
         id: session::Identifier::Name("web-session".to_string()),
         working_dir: std::env::current_dir()?,
         schedule_id: None,
     };
-    
+
     // Get response from agent
     let mut accumulated_response = String::new();
     match agent.reply(&messages, Some(session_config)).await {
@@ -334,7 +435,7 @@ async fn process_message_streaming(
                             match content {
                                 MessageContent::Text(text) => {
                                     accumulated_response.push_str(&text.text);
-                                    
+
                                     // Send the text response
                                     let mut sender = sender.lock().await;
                                     let _ = sender
@@ -355,11 +456,13 @@ async fn process_message_streaming(
                                     if let Ok(tool_call) = &req.tool_call {
                                         let _ = sender
                                             .send(Message::Text(
-                                                serde_json::to_string(&WebSocketMessage::ToolRequest {
-                                                    id: req.id.clone(),
-                                                    tool_name: tool_call.name.clone(),
-                                                    arguments: tool_call.arguments.clone(),
-                                                })
+                                                serde_json::to_string(
+                                                    &WebSocketMessage::ToolRequest {
+                                                        id: req.id.clone(),
+                                                        tool_name: tool_call.name.clone(),
+                                                        arguments: tool_call.arguments.clone(),
+                                                    },
+                                                )
                                                 .unwrap()
                                                 .into(),
                                             ))
@@ -411,16 +514,20 @@ async fn process_message_streaming(
                                             }).collect();
                                             (serde_json::json!(json_contents), false)
                                         }
-                                        Err(e) => (serde_json::json!({"error": e.to_string()}), true)
+                                        Err(e) => {
+                                            (serde_json::json!({"error": e.to_string()}), true)
+                                        }
                                     };
-                                    
+
                                     let _ = sender
                                         .send(Message::Text(
-                                            serde_json::to_string(&WebSocketMessage::ToolResponse {
-                                                id: resp.id.clone(),
-                                                result,
-                                                is_error,
-                                            })
+                                            serde_json::to_string(
+                                                &WebSocketMessage::ToolResponse {
+                                                    id: resp.id.clone(),
+                                                    result,
+                                                    is_error,
+                                                },
+                                            )
                                             .unwrap()
                                             .into(),
                                         ))
@@ -431,17 +538,19 @@ async fn process_message_streaming(
                                     let mut sender = sender.lock().await;
                                     let _ = sender
                                         .send(Message::Text(
-                                            serde_json::to_string(&WebSocketMessage::ToolConfirmation {
-                                                id: confirmation.id.clone(),
-                                                tool_name: confirmation.tool_name.clone(),
-                                                arguments: confirmation.arguments.clone(),
-                                                needs_confirmation: true,
-                                            })
+                                            serde_json::to_string(
+                                                &WebSocketMessage::ToolConfirmation {
+                                                    id: confirmation.id.clone(),
+                                                    tool_name: confirmation.tool_name.clone(),
+                                                    arguments: confirmation.arguments.clone(),
+                                                    needs_confirmation: true,
+                                                },
+                                            )
                                             .unwrap()
                                             .into(),
                                         ))
                                         .await;
-                                    
+
                                     // For now, auto-approve in web mode
                                     // TODO: Implement proper confirmation UI
                                     agent.handle_confirmation(
@@ -470,17 +579,20 @@ async fn process_message_streaming(
                                     let mut sender = sender.lock().await;
                                     let _ = sender
                                         .send(Message::Text(
-                                            serde_json::to_string(&WebSocketMessage::ContextExceeded {
-                                                message: msg.msg.clone(),
-                                            })
+                                            serde_json::to_string(
+                                                &WebSocketMessage::ContextExceeded {
+                                                    message: msg.msg.clone(),
+                                                },
+                                            )
                                             .unwrap()
                                             .into(),
                                         ))
                                         .await;
-                                    
+
                                     // For now, auto-summarize in web mode
                                     // TODO: Implement proper UI for context handling
-                                    let (summarized_messages, _) = agent.summarize_context(&messages).await?;
+                                    let (summarized_messages, _) =
+                                        agent.summarize_context(&messages).await?;
                                     messages = summarized_messages;
                                 }
                                 _ => {
@@ -520,7 +632,7 @@ async fn process_message_streaming(
                 .await;
         }
     }
-    
+
     // Store the complete assistant response in our session
     if !accumulated_response.is_empty() {
         let mut session_messages = session.lock().await;
@@ -530,7 +642,19 @@ async fn process_message_streaming(
             timestamp: chrono::Utc::now().timestamp_millis(),
         });
     }
-    
+
+    // Send completion message
+    let mut sender = sender.lock().await;
+    let _ = sender
+        .send(Message::Text(
+            serde_json::to_string(&WebSocketMessage::Complete {
+                message: "Response complete".to_string(),
+            })
+            .unwrap()
+            .into(),
+        ))
+        .await;
+
     Ok(())
 }
 
