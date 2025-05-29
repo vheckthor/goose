@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goose Chat</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🪿 Goose Chat</h1>
+            <div class="status" id="connection-status">Connecting...</div>
+        </header>
+        
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="welcome-message">
+                    <h2>Welcome to Goose!</h2>
+                    <p>I'm your AI assistant. How can I help you today?</p>
+                </div>
+            </div>
+            
+            <div class="input-container">
+                <textarea 
+                    id="message-input" 
+                    placeholder="Type your message here..."
+                    rows="3"
+                    autofocus
+                ></textarea>
+                <button id="send-button" type="button">Send</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
