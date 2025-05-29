@@ -428,6 +428,7 @@ impl Agent {
 
         Ok(Box::pin(async_stream::try_stream! {
             let _ = reply_span.enter();
+            let goose_mode = goose_mode.as_str();
             loop {
                 let mut stream = Self::generate_response_from_provider(
                     self.provider().await?,
@@ -481,9 +482,7 @@ impl Agent {
                                 yield msg;
                             }
 
-                            // Clone goose_mode once before the match to avoid move issues
-                            let mode = goose_mode.clone();
-                            if mode.as_str() == "chat" {
+                            if goose_mode == "chat" {
                                 // Skip all tool calls in chat mode
                                 for request in remaining_requests {
                                     let mut response = message_tool_response.lock().await;
@@ -499,7 +498,7 @@ impl Agent {
                                 let mut permission_manager = PermissionManager::default();
                                 let (permission_check_result, enable_extension_request_ids) = check_tool_permissions(
                                     &remaining_requests,
-                                    &mode,
+                                    goose_mode,
                                     tools_with_readonly_annotation.clone(),
                                     tools_without_annotation.clone(),
                                     &mut permission_manager,

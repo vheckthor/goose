@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io;
 use std::time::Duration;
+use tokio::pin;
 use tokio_util::io::StreamReader;
 
 use super::base::{ConfigKey, MessageStream, Provider, ProviderMetadata, ProviderUsage, Usage};
@@ -313,12 +314,11 @@ impl Provider for DatabricksProvider {
         // Parse response
         let message = response_to_message(response.clone())?;
         let usage = match get_usage(&response) {
-            Ok(usage) => usage,
-            Err(ProviderError::UsageError(e)) => {
-                tracing::debug!("Failed to get usage data: {}", e);
+            Some(usage) => usage,
+            None => {
+                tracing::debug!("Failed to get usage data");
                 Usage::default()
             }
-            Err(e) => return Err(e),
         };
         let model = get_model(&response);
         super::utils::emit_debug_trace(&self.model, &payload, &response, &usage);
@@ -360,25 +360,14 @@ impl Provider for DatabricksProvider {
         // Wrap in a line decoder and yield lines inside the stream
         Ok(Box::pin(try_stream! {
             let stream_reader = StreamReader::new(stream);
-            let mut framed = FramedRead::new(stream_reader, LinesCodec::new());
+            let framed = FramedRead::new(stream_reader, LinesCodec::new()).map_err(anyhow::Error::from);
 
-            while let Some(line) = framed.next().await {
-                let line = line
-                    .map_err(|e| ProviderError::RequestFailed(format!("Line decode error: {}", e)))?;
-                if let Some(line) = line.strip_prefix("data:") {
-                    let json: Value = serde_json::from_str(line.trim().to_string().as_str()).map_err(|e| ProviderError::RequestFailed(format!("Failed to parse: {}", e)))?;
-                    let usage = match get_usage(&json) {
-                        Ok(usage) => usage,
-                        Err(e) => {
-                            tracing::debug!("Failed to get usage data: {}", e);
-                            Usage::default()
-                        }
-                    };
-                    let model = get_model(&json);
-                    let message = response_to_streaming_message(&json)?;
-                    super::utils::emit_debug_trace(&model_config, &payload, &json, &usage);
-                    yield (message, ProviderUsage::new(model, usage));
-                }
+            let message_stream = response_to_streaming_message(framed);
+            pin!(message_stream);
+            while let Some(message) = message_stream.next().await {
+                let (usage, message) = message.map_err(|e| ProviderError::RequestFailed(format!("Stream decode error: {}", e)))?;
+                super::utils::emit_debug_trace(&model_config, &payload, &message, &usage);
+                yield (message, ProviderUsage::new(String::from("todo"), usage));
             }
         }))
     }
