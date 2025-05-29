@@ -50,6 +50,11 @@ pub fn create(name: &str, model: ModelConfig) -> Result<Arc<dyn Provider>> {
         // Worker model is always the main configured model
         let worker_model_config = model.clone();
 
+        println!(
+            "Creating lead/worker provider with lead model: {}, worker model: {}",
+            lead_model_name, worker_model_config.model_name
+        );
+
         // Always use 3 turns for lead model
         let lead_turns = 3;
 
