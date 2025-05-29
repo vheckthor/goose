@@ -48,21 +48,73 @@ enum WebSocketMessage {
         role: String,
         timestamp: i64,
     },
-    #[serde(rename = "tool_call")]
-    ToolCall {
+    #[serde(rename = "tool_request")]
+    ToolRequest {
+        id: String,
         tool_name: String,
         arguments: serde_json::Value,
     },
+    #[serde(rename = "tool_response")]
+    ToolResponse {
+        id: String,
+        result: serde_json::Value,
+        is_error: bool,
+    },
+    #[serde(rename = "tool_confirmation")]
+    ToolConfirmation {
+        id: String,
+        tool_name: String,
+        arguments: serde_json::Value,
+        needs_confirmation: bool,
+    },
     #[serde(rename = "error")]
     Error { message: String },
+    #[serde(rename = "thinking")]
+    Thinking { message: String },
+    #[serde(rename = "context_exceeded")]
+    ContextExceeded { message: String },
 }
 
 pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
     // Setup logging
     crate::logging::setup_logging(Some("goose-web"), None)?;
+    
+    // Load config and create agent just like the CLI does
+    let config = goose::config::Config::global();
+    
+    let provider_name: String = match config.get_param("GOOSE_PROVIDER") {
+        Ok(p) => p,
+        Err(_) => {
+            eprintln!("No provider configured. Run 'goose configure' first");
+            std::process::exit(1);
+        }
+    };
 
-    // Initialize agent
+    let model: String = match config.get_param("GOOSE_MODEL") {
+        Ok(m) => m,
+        Err(_) => {
+            eprintln!("No model configured. Run 'goose configure' first");
+            std::process::exit(1);
+        }
+    };
+    
+    let model_config = goose::model::ModelConfig::new(model.clone());
+    
+    // Create the agent
     let agent = Agent::new();
+    let provider = goose::providers::create(&provider_name, model_config)?;
+    agent.update_provider(provider).await?;
+    
+    // Load and enable extensions from config
+    let extensions = goose::config::ExtensionConfigManager::get_all()?;
+    for ext_config in extensions {
+        if ext_config.enabled {
+            if let Err(e) = agent.add_extension(ext_config.config.clone()).await {
+                eprintln!("Warning: Failed to load extension {}: {}", ext_config.config.name(), e);
+            }
+        }
+    }
+    
     let state = AppState {
         agent: Arc::new(agent),
         sessions: Arc::new(RwLock::new(std::collections::HashMap::new())),
@@ -83,10 +135,13 @@ pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-
-    println!("\n🪿 Starting Goose web server on http://{}", addr);
+    
+    println!("\n🪿 Starting Goose web server");
+    println!("   Provider: {} | Model: {}", provider_name, model);
+    println!("   Working directory: {}", std::env::current_dir()?.display());
+    println!("   Server: http://{}", addr);
     println!("   Press Ctrl+C to stop\n");
-
+    
     if open {
         // Open browser
         let url = format!("http://{}", addr);
@@ -207,10 +262,11 @@ async fn process_message_streaming(
     sender: Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
 ) -> Result<()> {
     use goose::message::Message as GooseMessage;
+    use goose::message::MessageContent;
     use goose::agents::SessionConfig;
     use goose::session;
     use futures::StreamExt;
-    use std::path::PathBuf;
+    
     
     // Create a user message
     let user_message = GooseMessage::user().with_text(content.clone());
@@ -262,7 +318,7 @@ async fn process_message_streaming(
     // Create a session config
     let session_config = SessionConfig {
         id: session::Identifier::Name("web-session".to_string()),
-        working_dir: PathBuf::from("."),
+        working_dir: std::env::current_dir()?,
         schedule_id: None,
     };
     
@@ -273,24 +329,163 @@ async fn process_message_streaming(
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(message) => {
-                        // Extract text content from the message and send it
+                        // Handle different message content types
                         for content in &message.content {
-                            if let goose::message::MessageContent::Text(text) = content {
-                                accumulated_response.push_str(&text.text);
-                                
-                                // Send the partial response
-                                let mut sender = sender.lock().await;
-                                let _ = sender
-                                    .send(Message::Text(
-                                        serde_json::to_string(&WebSocketMessage::Response {
-                                            content: text.text.clone(),
-                                            role: "assistant".to_string(),
-                                            timestamp: chrono::Utc::now().timestamp_millis(),
-                                        })
-                                        .unwrap()
-                                        .into(),
-                                    ))
-                                    .await;
+                            match content {
+                                MessageContent::Text(text) => {
+                                    accumulated_response.push_str(&text.text);
+                                    
+                                    // Send the text response
+                                    let mut sender = sender.lock().await;
+                                    let _ = sender
+                                        .send(Message::Text(
+                                            serde_json::to_string(&WebSocketMessage::Response {
+                                                content: text.text.clone(),
+                                                role: "assistant".to_string(),
+                                                timestamp: chrono::Utc::now().timestamp_millis(),
+                                            })
+                                            .unwrap()
+                                            .into(),
+                                        ))
+                                        .await;
+                                }
+                                MessageContent::ToolRequest(req) => {
+                                    // Send tool request notification
+                                    let mut sender = sender.lock().await;
+                                    if let Ok(tool_call) = &req.tool_call {
+                                        let _ = sender
+                                            .send(Message::Text(
+                                                serde_json::to_string(&WebSocketMessage::ToolRequest {
+                                                    id: req.id.clone(),
+                                                    tool_name: tool_call.name.clone(),
+                                                    arguments: tool_call.arguments.clone(),
+                                                })
+                                                .unwrap()
+                                                .into(),
+                                            ))
+                                            .await;
+                                    }
+                                }
+                                MessageContent::ToolResponse(resp) => {
+                                    // Send tool response
+                                    let mut sender = sender.lock().await;
+                                    let (result, is_error) = match &resp.tool_result {
+                                        Ok(contents) => {
+                                            // Convert contents to JSON
+                                            let json_contents: Vec<serde_json::Value> = contents.iter().map(|c| {
+                                                match c {
+                                                    mcp_core::content::Content::Text(text) => {
+                                                        serde_json::json!({
+                                                            "type": "text",
+                                                            "text": text.text
+                                                        })
+                                                    }
+                                                    mcp_core::content::Content::Image(image) => {
+                                                        serde_json::json!({
+                                                            "type": "image",
+                                                            "data": image.data,
+                                                            "mimeType": image.mime_type
+                                                        })
+                                                    }
+                                                    mcp_core::content::Content::Resource(resource) => {
+                                                        match &resource.resource {
+                                                            mcp_core::resource::ResourceContents::TextResourceContents { uri, mime_type, text } => {
+                                                                serde_json::json!({
+                                                                    "type": "resource",
+                                                                    "uri": uri,
+                                                                    "mimeType": mime_type.as_deref().unwrap_or("text/plain"),
+                                                                    "text": text
+                                                                })
+                                                            }
+                                                            mcp_core::resource::ResourceContents::BlobResourceContents { uri, mime_type, blob } => {
+                                                                serde_json::json!({
+                                                                    "type": "resource",
+                                                                    "uri": uri,
+                                                                    "mimeType": mime_type.as_deref().unwrap_or("application/octet-stream"),
+                                                                    "blob": blob
+                                                                })
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }).collect();
+                                            (serde_json::json!(json_contents), false)
+                                        }
+                                        Err(e) => (serde_json::json!({"error": e.to_string()}), true)
+                                    };
+                                    
+                                    let _ = sender
+                                        .send(Message::Text(
+                                            serde_json::to_string(&WebSocketMessage::ToolResponse {
+                                                id: resp.id.clone(),
+                                                result,
+                                                is_error,
+                                            })
+                                            .unwrap()
+                                            .into(),
+                                        ))
+                                        .await;
+                                }
+                                MessageContent::ToolConfirmationRequest(confirmation) => {
+                                    // Send tool confirmation request
+                                    let mut sender = sender.lock().await;
+                                    let _ = sender
+                                        .send(Message::Text(
+                                            serde_json::to_string(&WebSocketMessage::ToolConfirmation {
+                                                id: confirmation.id.clone(),
+                                                tool_name: confirmation.tool_name.clone(),
+                                                arguments: confirmation.arguments.clone(),
+                                                needs_confirmation: true,
+                                            })
+                                            .unwrap()
+                                            .into(),
+                                        ))
+                                        .await;
+                                    
+                                    // For now, auto-approve in web mode
+                                    // TODO: Implement proper confirmation UI
+                                    agent.handle_confirmation(
+                                        confirmation.id.clone(),
+                                        goose::permission::PermissionConfirmation {
+                                            principal_type: goose::permission::permission_confirmation::PrincipalType::Tool,
+                                            permission: goose::permission::Permission::AllowOnce,
+                                        }
+                                    ).await;
+                                }
+                                MessageContent::Thinking(thinking) => {
+                                    // Send thinking indicator
+                                    let mut sender = sender.lock().await;
+                                    let _ = sender
+                                        .send(Message::Text(
+                                            serde_json::to_string(&WebSocketMessage::Thinking {
+                                                message: thinking.thinking.clone(),
+                                            })
+                                            .unwrap()
+                                            .into(),
+                                        ))
+                                        .await;
+                                }
+                                MessageContent::ContextLengthExceeded(msg) => {
+                                    // Send context exceeded notification
+                                    let mut sender = sender.lock().await;
+                                    let _ = sender
+                                        .send(Message::Text(
+                                            serde_json::to_string(&WebSocketMessage::ContextExceeded {
+                                                message: msg.msg.clone(),
+                                            })
+                                            .unwrap()
+                                            .into(),
+                                        ))
+                                        .await;
+                                    
+                                    // For now, auto-summarize in web mode
+                                    // TODO: Implement proper UI for context handling
+                                    let (summarized_messages, _) = agent.summarize_context(&messages).await?;
+                                    messages = summarized_messages;
+                                }
+                                _ => {
+                                    // Handle other message types as needed
+                                }
                             }
                         }
                     }

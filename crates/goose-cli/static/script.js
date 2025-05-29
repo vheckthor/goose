@@ -142,8 +142,20 @@ function handleServerMessage(data) {
             // For streaming responses, we need to handle partial messages
             handleStreamingResponse(data);
             break;
-        case 'tool_call':
-            handleToolCall(data);
+        case 'tool_request':
+            handleToolRequest(data);
+            break;
+        case 'tool_response':
+            handleToolResponse(data);
+            break;
+        case 'tool_confirmation':
+            handleToolConfirmation(data);
+            break;
+        case 'thinking':
+            handleThinking(data);
+            break;
+        case 'context_exceeded':
+            handleContextExceeded(data);
             break;
         case 'error':
             removeLoadingIndicator();
@@ -192,28 +204,103 @@ function handleStreamingResponse(data) {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Handle tool calls
-function handleToolCall(data) {
+// Handle tool requests
+function handleToolRequest(data) {
     const toolDiv = document.createElement('div');
-    toolDiv.className = 'tool-call';
+    toolDiv.className = 'message assistant tool-message';
     
     const headerDiv = document.createElement('div');
-    headerDiv.className = 'tool-call-header';
-    headerDiv.textContent = `🔧 ${data.tool_name}`;
+    headerDiv.className = 'tool-header';
+    headerDiv.innerHTML = `🔧 <strong>${data.tool_name}</strong>`;
     
     const contentDiv = document.createElement('div');
-    contentDiv.className = 'tool-call-content';
-    contentDiv.textContent = JSON.stringify(data.arguments, null, 2);
+    contentDiv.className = 'tool-content';
+    
+    // Format the arguments
+    if (data.tool_name === 'developer__shell' && data.arguments.command) {
+        contentDiv.innerHTML = `<pre><code>${escapeHtml(data.arguments.command)}</code></pre>`;
+    } else if (data.tool_name === 'developer__text_editor') {
+        const action = data.arguments.command || 'unknown';
+        const path = data.arguments.path || 'unknown';
+        contentDiv.innerHTML = `<div class="tool-param"><strong>action:</strong> ${action}</div>`;
+        contentDiv.innerHTML += `<div class="tool-param"><strong>path:</strong> ${escapeHtml(path)}</div>`;
+        if (data.arguments.file_text) {
+            contentDiv.innerHTML += `<div class="tool-param"><strong>content:</strong> <pre><code>${escapeHtml(data.arguments.file_text.substring(0, 200))}${data.arguments.file_text.length > 200 ? '...' : ''}</code></pre></div>`;
+        }
+    } else {
+        contentDiv.innerHTML = `<pre><code>${JSON.stringify(data.arguments, null, 2)}</code></pre>`;
+    }
     
     toolDiv.appendChild(headerDiv);
     toolDiv.appendChild(contentDiv);
     
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message assistant';
-    messageDiv.appendChild(toolDiv);
-    
-    messagesContainer.appendChild(messageDiv);
+    messagesContainer.appendChild(toolDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Handle tool responses
+function handleToolResponse(data) {
+    if (data.is_error) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message tool-error';
+        errorDiv.innerHTML = `<strong>Tool Error:</strong> ${escapeHtml(data.result.error || 'Unknown error')}`;
+        messagesContainer.appendChild(errorDiv);
+    } else {
+        // Handle successful tool response
+        if (Array.isArray(data.result)) {
+            data.result.forEach(content => {
+                if (content.type === 'text' && content.text) {
+                    const responseDiv = document.createElement('div');
+                    responseDiv.className = 'message tool-result';
+                    responseDiv.innerHTML = formatMessageContent(content.text);
+                    messagesContainer.appendChild(responseDiv);
+                }
+            });
+        }
+    }
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Handle tool confirmations
+function handleToolConfirmation(data) {
+    const confirmDiv = document.createElement('div');
+    confirmDiv.className = 'message tool-confirmation';
+    confirmDiv.innerHTML = `
+        <div class="tool-confirm-header">⚠️ Tool Confirmation Required</div>
+        <div class="tool-confirm-content">
+            <strong>${data.tool_name}</strong> wants to execute with:
+            <pre><code>${JSON.stringify(data.arguments, null, 2)}</code></pre>
+        </div>
+        <div class="tool-confirm-note">Auto-approved in web mode (UI coming soon)</div>
+    `;
+    messagesContainer.appendChild(confirmDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Handle thinking messages
+function handleThinking(data) {
+    // For now, just log thinking messages
+    console.log('Thinking:', data.message);
+}
+
+// Handle context exceeded
+function handleContextExceeded(data) {
+    const contextDiv = document.createElement('div');
+    contextDiv.className = 'message context-warning';
+    contextDiv.innerHTML = `
+        <div class="context-header">⚠️ Context Length Exceeded</div>
+        <div class="context-content">${escapeHtml(data.message)}</div>
+        <div class="context-note">Auto-summarizing conversation...</div>
+    `;
+    messagesContainer.appendChild(contextDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Send message
