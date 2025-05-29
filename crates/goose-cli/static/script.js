@@ -301,6 +301,12 @@ function handleToolResponse(data) {
     
     // Reset streaming message so next assistant response creates a new message
     currentStreamingMessage = null;
+    
+    // Show thinking indicator because assistant will likely follow up with explanation
+    // Only show if we're still processing (cancel button is active)
+    if (isProcessing) {
+        addThinkingIndicator();
+    }
 }
 
 // Handle tool confirmations
