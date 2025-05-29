@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>🪿 Goose Chat</h1>
+            <h1>Goose Chat</h1>
             <div class="status" id="connection-status">Connecting...</div>
         </header>
         
@@ -18,6 +18,14 @@
                 <div class="welcome-message">
                     <h2>Welcome to Goose!</h2>
                     <p>I'm your AI assistant. How can I help you today?</p>
+                    
+                    <div class="suggestion-pills">
+                        <div class="suggestion-pill" onclick="sendSuggestion('What can you do?')">What can you do?</div>
+                        <div class="suggestion-pill" onclick="sendSuggestion('Demo writing and reading files')">Demo writing and reading files</div>
+                        <div class="suggestion-pill" onclick="sendSuggestion('Make a snake game in a new folder')">Make a snake game in a new folder</div>
+                        <div class="suggestion-pill" onclick="sendSuggestion('List files in my current directory')">List files in my current directory</div>
+                        <div class="suggestion-pill" onclick="sendSuggestion('Take a screenshot and summarize')">Take a screenshot and summarize</div>
+                    </div>
                 </div>
             </div>
             

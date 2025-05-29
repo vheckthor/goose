@@ -418,6 +418,14 @@ function sendMessage() {
     }));
 }
 
+// Handle suggestion pill clicks
+function sendSuggestion(text) {
+    if (!isConnected || isProcessing) return;
+    
+    messageInput.value = text;
+    sendMessage();
+}
+
 // Event listeners
 sendButton.addEventListener('click', sendMessage);
 
