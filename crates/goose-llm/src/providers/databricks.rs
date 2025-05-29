@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 use url::Url;
 
 use super::{
@@ -15,7 +15,7 @@ use super::{
 use crate::{
     message::Message,
     model::ModelConfig,
-    providers::{Provider, ProviderCompleteResponse, ProviderExtractResponse, Usage},
+    providers::{Provider, ProviderCompleteResponse, Usage},
     types::core::Tool,
 };
 
