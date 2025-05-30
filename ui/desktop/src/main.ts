@@ -121,7 +121,7 @@ if (process.platform === 'win32') {
   if (!gotTheLock) {
     app.quit();
   } else {
-    app.on('second-instance', (event, commandLine) => {
+    app.on('second-instance', (_event, commandLine) => {
       const protocolUrl = commandLine.find((arg) => arg.startsWith('goose://'));
       if (protocolUrl) {
         const parsedUrl = new URL(protocolUrl);
@@ -238,7 +238,7 @@ function processProtocolUrl(parsedUrl: URL, window: BrowserWindow) {
   pendingDeepLink = null;
 }
 
-app.on('open-url', async (event, url) => {
+app.on('open-url', async (_event, url) => {
   if (process.platform !== 'win32') {
     const parsedUrl = new URL(url);
     const recentDirs = loadRecentDirs();
@@ -368,7 +368,7 @@ const createChat = async (
   app: App,
   query?: string,
   dir?: string,
-  version?: string,
+  _version?: string,
   resumeSessionId?: string,
   recipeConfig?: RecipeConfig, // Bot configuration
   viewType?: string // View type
@@ -574,7 +574,17 @@ const createChat = async (
 // Track tray instance
 let tray: Tray | null = null;
 
+const destroyTray = () => {
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+};
+
 const createTray = () => {
+  // If tray already exists, destroy it first
+  destroyTray();
+
   const isDev = process.env.NODE_ENV === 'development';
   let iconPath: string;
 
@@ -701,6 +711,73 @@ ipcMain.handle('directory-chooser', (_event, replace: boolean = false) => {
   return openDirectoryDialog(replace);
 });
 
+// Handle menu bar icon visibility
+ipcMain.handle('set-menu-bar-icon', async (_event, show: boolean) => {
+  try {
+    const settings = loadSettings();
+    settings.showMenuBarIcon = show;
+    saveSettings(settings);
+
+    if (show) {
+      createTray();
+    } else {
+      destroyTray();
+    }
+    return true;
+  } catch (error) {
+    console.error('Error setting menu bar icon:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-menu-bar-icon-state', () => {
+  try {
+    const settings = loadSettings();
+    return settings.showMenuBarIcon ?? true;
+  } catch (error) {
+    console.error('Error getting menu bar icon state:', error);
+    return true;
+  }
+});
+
+// Handle dock icon visibility (macOS only)
+ipcMain.handle('set-dock-icon', async (_event, show: boolean) => {
+  try {
+    if (process.platform !== 'darwin') return false;
+
+    const settings = loadSettings();
+    settings.showDockIcon = show;
+    saveSettings(settings);
+
+    if (show) {
+      await app.dock.show();
+    } else {
+      // Only hide the dock if we have a menu bar icon to maintain accessibility
+      if (settings.showMenuBarIcon) {
+        app.dock.hide();
+        setTimeout(() => {
+          focusWindow();
+        }, 50);
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error('Error setting dock icon:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('get-dock-icon-state', () => {
+  try {
+    if (process.platform !== 'darwin') return true;
+    const settings = loadSettings();
+    return settings.showDockIcon ?? true;
+  } catch (error) {
+    console.error('Error getting dock icon state:', error);
+    return true;
+  }
+});
+
 // Add file/directory selection handler
 ipcMain.handle('select-file-or-directory', async () => {
   const result = await dialog.showOpenDialog({
@@ -714,7 +791,7 @@ ipcMain.handle('select-file-or-directory', async () => {
 });
 
 // IPC handler to save data URL to a temporary file
-ipcMain.handle('save-data-url-to-temp', async (event, dataUrl: string, uniqueId: string) => {
+ipcMain.handle('save-data-url-to-temp', async (_event, dataUrl: string, uniqueId: string) => {
   console.log(`[Main] Received save-data-url-to-temp for ID: ${uniqueId}`);
   try {
     // Input validation for uniqueId - only allow alphanumeric characters and hyphens
@@ -777,7 +854,7 @@ ipcMain.handle('save-data-url-to-temp', async (event, dataUrl: string, uniqueId:
 });
 
 // IPC handler to serve temporary image files
-ipcMain.handle('get-temp-image', async (event, filePath: string) => {
+ipcMain.handle('get-temp-image', async (_event, filePath: string) => {
   console.log(`[Main] Received get-temp-image for path: ${filePath}`);
 
   // Input validation
@@ -849,7 +926,7 @@ ipcMain.handle('get-temp-image', async (event, filePath: string) => {
     return null;
   }
 });
-ipcMain.on('delete-temp-file', async (event, filePath: string) => {
+ipcMain.on('delete-temp-file', async (_event, filePath: string) => {
   console.log(`[Main] Received delete-temp-file for path: ${filePath}`);
 
   // Input validation
@@ -1122,10 +1199,20 @@ app.whenReady().then(async () => {
     }, 5000);
   }
 
+  // Create tray if enabled in settings
+  const settings = loadSettings();
+  if (settings.showMenuBarIcon) {
+    createTray();
+  }
+
+  // Handle dock icon visibility (macOS only)
+  if (process.platform === 'darwin' && !settings.showDockIcon && settings.showMenuBarIcon) {
+    app.dock.hide();
+  }
+
   // Parse command line arguments
   const { dirPath } = parseArgs();
 
-  createTray();
   createNewWindow(app, dirPath);
 
   // Get the existing menu
