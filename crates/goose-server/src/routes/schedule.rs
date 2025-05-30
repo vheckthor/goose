@@ -147,7 +147,10 @@ async fn list_schedules(
         .scheduler()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let jobs = scheduler.list_scheduled_jobs().await;
+    let jobs = scheduler.list_scheduled_jobs().await.map_err(|e| {
+        eprintln!("Error listing schedules: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     Ok(Json(ListSchedulesResponse { jobs }))
 }
 
@@ -408,7 +411,10 @@ async fn update_schedule(
         })?;
 
     // Return the updated schedule
-    let jobs = scheduler.list_scheduled_jobs().await;
+    let jobs = scheduler.list_scheduled_jobs().await.map_err(|e| {
+        eprintln!("Error listing schedules after update: {:?}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     let updated_job = jobs
         .into_iter()
         .find(|job| job.id == id)

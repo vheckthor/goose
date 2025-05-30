@@ -12,7 +12,7 @@ use crate::commands::recipe::{handle_deeplink, handle_validate};
 // Import the new handlers from commands::schedule
 use crate::commands::schedule::{
     handle_schedule_add, handle_schedule_list, handle_schedule_remove, handle_schedule_run_now,
-    handle_schedule_sessions,
+    handle_schedule_sessions, handle_schedule_services_status, handle_schedule_services_stop,
 };
 use crate::commands::session::{handle_session_list, handle_session_remove};
 use crate::logging::setup_logging;
@@ -142,6 +142,12 @@ enum SchedulerCommand {
         #[arg(long, help = "ID of the schedule to run")] // Explicitly make it --id
         id: String,
     },
+    /// Check status of Temporal services (temporal scheduler only)
+    #[command(about = "Check status of Temporal services")]
+    ServicesStatus {},
+    /// Stop Temporal services (temporal scheduler only)
+    #[command(about = "Stop Temporal services")]
+    ServicesStop {},
 }
 
 #[derive(Subcommand)]
@@ -712,6 +718,12 @@ pub async fn cli() -> Result<()> {
                 SchedulerCommand::RunNow { id } => {
                     // New arm
                     handle_schedule_run_now(id).await?;
+                }
+                SchedulerCommand::ServicesStatus {} => {
+                    handle_schedule_services_status().await?;
+                }
+                SchedulerCommand::ServicesStop {} => {
+                    handle_schedule_services_stop().await?;
                 }
             }
             return Ok(());
