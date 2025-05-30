@@ -511,69 +511,10 @@ async fn process_message_streaming(
                                             .await;
                                     }
                                 }
-                                MessageContent::ToolResponse(resp) => {
-                                    // Send tool response
-                                    let mut sender = sender.lock().await;
-                                    let (result, is_error) = match &resp.tool_result {
-                                        Ok(contents) => {
-                                            // Convert contents to JSON
-                                            let json_contents: Vec<serde_json::Value> = contents.iter().map(|c| {
-                                                match c {
-                                                    mcp_core::content::Content::Text(text) => {
-                                                        serde_json::json!({
-                                                            "type": "text",
-                                                            "text": text.text
-                                                        })
-                                                    }
-                                                    mcp_core::content::Content::Image(image) => {
-                                                        serde_json::json!({
-                                                            "type": "image",
-                                                            "data": image.data,
-                                                            "mimeType": image.mime_type
-                                                        })
-                                                    }
-                                                    mcp_core::content::Content::Resource(resource) => {
-                                                        match &resource.resource {
-                                                            mcp_core::resource::ResourceContents::TextResourceContents { uri, mime_type, text } => {
-                                                                serde_json::json!({
-                                                                    "type": "resource",
-                                                                    "uri": uri,
-                                                                    "mimeType": mime_type.as_deref().unwrap_or("text/plain"),
-                                                                    "text": text
-                                                                })
-                                                            }
-                                                            mcp_core::resource::ResourceContents::BlobResourceContents { uri, mime_type, blob } => {
-                                                                serde_json::json!({
-                                                                    "type": "resource",
-                                                                    "uri": uri,
-                                                                    "mimeType": mime_type.as_deref().unwrap_or("application/octet-stream"),
-                                                                    "blob": blob
-                                                                })
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }).collect();
-                                            (serde_json::json!(json_contents), false)
-                                        }
-                                        Err(e) => {
-                                            (serde_json::json!({"error": e.to_string()}), true)
-                                        }
-                                    };
-
-                                    let _ = sender
-                                        .send(Message::Text(
-                                            serde_json::to_string(
-                                                &WebSocketMessage::ToolResponse {
-                                                    id: resp.id.clone(),
-                                                    result,
-                                                    is_error,
-                                                },
-                                            )
-                                            .unwrap()
-                                            .into(),
-                                        ))
-                                        .await;
+                                MessageContent::ToolResponse(_resp) => {
+                                    // Tool responses are already included in the complete message stream
+                                    // and will be persisted to session history. No need to send separate
+                                    // WebSocket messages as this would cause duplicates.
                                 }
                                 MessageContent::ToolConfirmationRequest(confirmation) => {
                                     // Send tool confirmation request
