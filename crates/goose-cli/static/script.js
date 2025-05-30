@@ -1,6 +1,6 @@
 // WebSocket connection and chat functionality
 let socket = null;
-let sessionId = generateSessionId();
+let sessionId = getSessionId();
 let isConnected = false;
 
 // DOM elements
@@ -12,9 +12,35 @@ const connectionStatus = document.getElementById('connection-status');
 // Track if we're currently processing
 let isProcessing = false;
 
-// Generate a random session ID
+// Get session ID - either from URL parameter, injected session name, or generate new one
+function getSessionId() {
+    // Check if session name was injected by server (for /session/:name routes)
+    if (window.GOOSE_SESSION_NAME) {
+        return window.GOOSE_SESSION_NAME;
+    }
+    
+    // Check URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionParam = urlParams.get('session') || urlParams.get('name');
+    if (sessionParam) {
+        return sessionParam;
+    }
+    
+    // Generate new session ID using CLI format
+    return generateSessionId();
+}
+
+// Generate a session ID using timestamp format (yyyymmdd_hhmmss) like CLI
 function generateSessionId() {
-    return 'session_' + Math.random().toString(36).substr(2, 9);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    const second = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}${month}${day}_${hour}${minute}${second}`;
 }
 
 // Format timestamp
@@ -122,6 +148,9 @@ function connectWebSocket() {
         connectionStatus.textContent = 'Connected';
         connectionStatus.className = 'status connected';
         sendButton.disabled = false;
+        
+        // Check if this session exists and load history if it does
+        loadSessionIfExists();
     };
     
     socket.onmessage = (event) => {
@@ -426,6 +455,41 @@ function sendSuggestion(text) {
     sendMessage();
 }
 
+// Load session history if the session exists (like --resume in CLI)
+async function loadSessionIfExists() {
+    try {
+        const response = await fetch(`/api/sessions/${sessionId}`);
+        if (response.ok) {
+            const sessionData = await response.json();
+            if (sessionData.messages && sessionData.messages.length > 0) {
+                // Remove welcome message since we're resuming
+                const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+                if (welcomeMessage) {
+                    welcomeMessage.remove();
+                }
+                
+                // Display session resumed message
+                const resumeDiv = document.createElement('div');
+                resumeDiv.className = 'message system-message';
+                resumeDiv.innerHTML = `<em>Session resumed: ${sessionData.messages.length} messages loaded</em>`;
+                messagesContainer.appendChild(resumeDiv);
+                
+                
+                // Update page title with session description if available
+                if (sessionData.metadata && sessionData.metadata.description) {
+                    document.title = `Goose Chat - ${sessionData.metadata.description}`;
+                }
+                
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+    } catch (error) {
+        console.log('No existing session found or error loading:', error);
+        // This is fine - just means it's a new session
+    }
+}
+
+
 // Event listeners
 sendButton.addEventListener('click', sendMessage);
 
@@ -447,3 +511,13 @@ connectWebSocket();
 
 // Focus on input
 messageInput.focus();
+
+// Update session title
+function updateSessionTitle() {
+    const titleElement = document.getElementById('session-title');
+    // Just show "Goose Chat" - no need to show session ID
+    titleElement.textContent = 'Goose Chat';
+}
+
+// Update title on load
+updateSessionTitle();

@@ -10,22 +10,15 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use goose::agents::Agent;
+use goose::message::Message as GooseMessage;
+use goose::session;
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::error;
 
-// Simple message structure for the web interface
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-struct ChatMessage {
-    role: String,
-    content: String,
-    timestamp: i64,
-}
-
-type SessionStore = Arc<RwLock<std::collections::HashMap<String, Arc<Mutex<Vec<ChatMessage>>>>>>;
+type SessionStore = Arc<RwLock<std::collections::HashMap<String, Arc<Mutex<Vec<GooseMessage>>>>>>;
 type CancellationStore = Arc<RwLock<std::collections::HashMap<String, tokio::task::AbortHandle>>>;
 
 #[derive(Clone)]
@@ -136,8 +129,11 @@ pub async fn handle_web(port: u16, host: String, open: bool) -> Result<()> {
     // Build router
     let app = Router::new()
         .route("/", get(serve_index))
+        .route("/session/{session_name}", get(serve_session))
         .route("/ws", get(websocket_handler))
         .route("/api/health", get(health_check))
+        .route("/api/sessions", get(list_sessions))
+        .route("/api/sessions/{session_id}", get(get_session))
         .route("/static/{*path}", get(serve_static))
         .layer(
             CorsLayer::new()
@@ -176,6 +172,21 @@ async fn serve_index() -> Html<&'static str> {
     Html(include_str!("../../static/index.html"))
 }
 
+async fn serve_session(
+    axum::extract::Path(session_name): axum::extract::Path<String>,
+) -> Html<String> {
+    let html = include_str!("../../static/index.html");
+    // Inject the session name into the HTML so JavaScript can use it
+    let html_with_session = html.replace(
+        "<script src=\"/static/script.js\"></script>",
+        &format!(
+            "<script>window.GOOSE_SESSION_NAME = '{}';</script>\n    <script src=\"/static/script.js\"></script>",
+            session_name
+        )
+    );
+    Html(html_with_session)
+}
+
 async fn serve_static(axum::extract::Path(path): axum::extract::Path<String>) -> Response {
     match path.as_str() {
         "style.css" => (
@@ -199,6 +210,52 @@ async fn health_check() -> Json<serde_json::Value> {
     }))
 }
 
+async fn list_sessions() -> Json<serde_json::Value> {
+    match session::list_sessions() {
+        Ok(sessions) => {
+            let session_info: Vec<serde_json::Value> = sessions
+                .into_iter()
+                .map(|(name, path)| {
+                    let metadata = session::read_metadata(&path).unwrap_or_default();
+                    serde_json::json!({
+                        "name": name,
+                        "path": path,
+                        "description": metadata.description,
+                        "message_count": metadata.message_count,
+                        "working_dir": metadata.working_dir
+                    })
+                })
+                .collect();
+
+            Json(serde_json::json!({
+                "sessions": session_info
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "error": e.to_string()
+        })),
+    }
+}
+
+async fn get_session(
+    axum::extract::Path(session_id): axum::extract::Path<String>,
+) -> Json<serde_json::Value> {
+    let session_file = session::get_path(session::Identifier::Name(session_id));
+
+    match session::read_messages(&session_file) {
+        Ok(messages) => {
+            let metadata = session::read_metadata(&session_file).unwrap_or_default();
+            Json(serde_json::json!({
+                "metadata": metadata,
+                "messages": messages
+            }))
+        }
+        Err(e) => Json(serde_json::json!({
+            "error": e.to_string()
+        })),
+    }
+}
+
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
@@ -210,22 +267,6 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let (sender, mut receiver) = socket.split();
     let sender = Arc::new(Mutex::new(sender));
 
-    // Send initial connection confirmation
-    {
-        let mut sender = sender.lock().await;
-        let _ = sender
-            .send(Message::Text(
-                serde_json::to_string(&WebSocketMessage::Response {
-                    content: "Connected to Goose! How can I help you today?".to_string(),
-                    role: "assistant".to_string(),
-                    timestamp: chrono::Utc::now().timestamp_millis(),
-                })
-                .unwrap()
-                .into(),
-            ))
-            .await;
-    }
-
     while let Some(msg) = receiver.next().await {
         if let Ok(msg) = msg {
             match msg {
@@ -236,15 +277,24 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                             session_id,
                             ..
                         }) => {
-                            // Get or create session
-                            let session = {
+                            // Get session file path from session_id
+                            let session_file =
+                                session::get_path(session::Identifier::Name(session_id.clone()));
+
+                            // Get or create session in memory (for fast access during processing)
+                            let session_messages = {
                                 let sessions = state.sessions.read().await;
                                 if let Some(session) = sessions.get(&session_id) {
                                     session.clone()
                                 } else {
                                     drop(sessions);
                                     let mut sessions = state.sessions.write().await;
-                                    let new_session = Arc::new(Mutex::new(Vec::new()));
+
+                                    // Load existing messages from JSONL file if it exists
+                                    let existing_messages = session::read_messages(&session_file)
+                                        .unwrap_or_else(|_| Vec::new());
+
+                                    let new_session = Arc::new(Mutex::new(existing_messages));
                                     sessions.insert(session_id.clone(), new_session.clone());
                                     new_session
                                 }
@@ -258,7 +308,8 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                             let task_handle = tokio::spawn(async move {
                                 let result = process_message_streaming(
                                     &agent,
-                                    session,
+                                    session_messages,
+                                    session_file,
                                     content,
                                     sender_clone,
                                 )
@@ -356,48 +407,27 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
 async fn process_message_streaming(
     agent: &Agent,
-    session: Arc<Mutex<Vec<ChatMessage>>>,
+    session_messages: Arc<Mutex<Vec<GooseMessage>>>,
+    session_file: std::path::PathBuf,
     content: String,
     sender: Arc<Mutex<futures::stream::SplitSink<WebSocket, Message>>>,
 ) -> Result<()> {
     use futures::StreamExt;
     use goose::agents::SessionConfig;
-    use goose::message::Message as GooseMessage;
     use goose::message::MessageContent;
     use goose::session;
 
     // Create a user message
     let user_message = GooseMessage::user().with_text(content.clone());
 
-    // Get existing messages from session
+    // Get existing messages from session and add the new user message
     let mut messages = {
-        let session_messages = session.lock().await;
-        session_messages
-            .iter()
-            .map(|cm| {
-                if cm.role == "user" {
-                    GooseMessage::user().with_text(cm.content.clone())
-                } else {
-                    GooseMessage::assistant().with_text(cm.content.clone())
-                }
-            })
-            .collect::<Vec<_>>()
+        let mut session_msgs = session_messages.lock().await;
+        session_msgs.push(user_message.clone());
+        session_msgs.clone()
     };
 
-    // Add the new user message
-    messages.push(user_message);
-
-    // Store the user message in our session
-    {
-        let mut session_messages = session.lock().await;
-        session_messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: content.clone(),
-            timestamp: chrono::Utc::now().timestamp_millis(),
-        });
-    }
-
-    // Check if provider is configured
+    // Persist messages to JSONL file with provider for automatic description generation
     let provider = agent.provider().await;
     if provider.is_err() {
         let error_msg = "I'm not properly configured yet. Please configure a provider through the CLI first using `goose configure`.".to_string();
@@ -416,26 +446,38 @@ async fn process_message_streaming(
         return Ok(());
     }
 
+    let provider = provider.unwrap();
+    session::persist_messages(&session_file, &messages, Some(provider.clone())).await?;
+
     // Create a session config
     let session_config = SessionConfig {
-        id: session::Identifier::Name("web-session".to_string()),
+        id: session::Identifier::Path(session_file.clone()),
         working_dir: std::env::current_dir()?,
         schedule_id: None,
     };
 
     // Get response from agent
-    let mut accumulated_response = String::new();
     match agent.reply(&messages, Some(session_config)).await {
         Ok(mut stream) => {
             while let Some(result) = stream.next().await {
                 match result {
                     Ok(message) => {
+                        // Add message to our session
+                        {
+                            let mut session_msgs = session_messages.lock().await;
+                            session_msgs.push(message.clone());
+                        }
+
+                        // Persist messages to JSONL file (no provider needed for assistant messages)
+                        let current_messages = {
+                            let session_msgs = session_messages.lock().await;
+                            session_msgs.clone()
+                        };
+                        session::persist_messages(&session_file, &current_messages, None).await?;
                         // Handle different message content types
                         for content in &message.content {
                             match content {
                                 MessageContent::Text(text) => {
-                                    accumulated_response.push_str(&text.text);
-
                                     // Send the text response
                                     let mut sender = sender.lock().await;
                                     let _ = sender
@@ -631,16 +673,6 @@ async fn process_message_streaming(
                 ))
                 .await;
         }
-    }
-
-    // Store the complete assistant response in our session
-    if !accumulated_response.is_empty() {
-        let mut session_messages = session.lock().await;
-        session_messages.push(ChatMessage {
-            role: "assistant".to_string(),
-            content: accumulated_response,
-            timestamp: chrono::Utc::now().timestamp_millis(),
-        });
     }
 
     // Send completion message
