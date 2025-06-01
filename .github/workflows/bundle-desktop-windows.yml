@@ -49,53 +49,62 @@ jobs:
       # 4) Install protobuf
       - name: Install protobuf
         run: |
-          # Install protoc using chocolatey
-          choco install protoc --yes
-          refreshenv
+          # Get latest protoc release info from GitHub API
+          Write-Host "Fetching latest protoc release information..."
+          $latestRelease = (Invoke-RestMethod -Uri "https://api.github.com/repos/protocolbuffers/protobuf/releases/latest")
+          $windowsAsset = $latestRelease.assets | Where-Object { $_.name -like "*win64.zip" }
+          $PROTOC_VERSION = $latestRelease.tag_name -replace 'v', ''
           
-          # Verify protoc installation and location
-          $protocPath = (Get-Command protoc -ErrorAction SilentlyContinue).Path
-          if ($protocPath) {
-            Write-Host "Found protoc at: $protocPath"
-          } else {
-            Write-Host "protoc not found in PATH, checking common locations..."
-            $possiblePaths = @(
-              "C:\ProgramData\chocolatey\bin\protoc.exe",
-              "C:\Program Files\protoc\bin\protoc.exe",
-              "C:\protoc\bin\protoc.exe"
-            )
-            foreach ($path in $possiblePaths) {
-              if (Test-Path $path) {
-                $protocPath = $path
-                Write-Host "Found protoc at: $path"
-                break
-              }
-            }
-          }
+          Write-Host "Latest protoc version: $PROTOC_VERSION"
+          Write-Host "Downloading: $($windowsAsset.name)"
           
-          if (-not $protocPath) {
-            Write-Error "protoc not found in any expected location"
-            exit 1
-          }
+          $PROTOC_DIR = "C:\protoc"
           
-          # Set environment variables for both the current process and GITHUB_ENV
-          $env:PROTOC = $protocPath
+          Write-Host "Creating protoc directory..."
+          New-Item -ItemType Directory -Force -Path $PROTOC_DIR
+          
+          Write-Host "Downloading protoc..."
+          Invoke-WebRequest -Uri $windowsAsset.browser_download_url -OutFile "$PROTOC_DIR\protoc.zip"
+          
+          Write-Host "Extracting protoc..."
+          Expand-Archive -Path "$PROTOC_DIR\protoc.zip" -DestinationPath $PROTOC_DIR -Force
+          
+          # Add to PATH and set PROTOC env var
+          $env:Path = "$PROTOC_DIR\bin;" + $env:Path
+          echo "$PROTOC_DIR\bin" >> $env:GITHUB_PATH
+          
+          $protocPath = "$PROTOC_DIR\bin\protoc.exe"
           echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
+          $env:PROTOC = $protocPath
           
-          # Verify protoc works
+          # Verify installation
           Write-Host "Verifying protoc installation..."
-          & $protocPath --version
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "protoc verification failed"
-            exit 1
-          }
+          Write-Host "PROTOC env var: $env:PROTOC"
+          Write-Host "protoc location:"
+          Get-ChildItem -Path "$PROTOC_DIR\bin\protoc.exe"
           
-          # List contents of protoc installation directory
-          $protocDir = Split-Path $protocPath -Parent
+          Write-Host "protoc version:"
+          & $protocPath --version
+          
+          # List contents of protoc directory
           Write-Host "Contents of protoc directory:"
-          Get-ChildItem -Path $protocDir -Recurse | ForEach-Object {
+          Get-ChildItem -Path $PROTOC_DIR -Recurse | ForEach-Object {
             Write-Host $_.FullName
           }
+          
+          # Test protoc functionality
+          Write-Host "Testing protoc functionality..."
+          $testProto = @"
+          syntax = "proto3";
+          package test;
+          message Test {
+            string test_field = 1;
+          }
+          "@
+          
+          $testProto | Out-File -FilePath "$PROTOC_DIR\test.proto"
+          & $protocPath --version
+          & $protocPath --proto_path="$PROTOC_DIR" "$PROTOC_DIR\test.proto"
         shell: powershell
 
       # 5) Install MinGW
@@ -130,15 +139,22 @@ jobs:
       # 7) Build rust with MSVC toolchain
       - name: Build Release Binary
         run: |
-          Write-Host "Using PROTOC from: $env:PROTOC"
-          Write-Host "Current PATH: $env:PATH"
+          Write-Host "Environment Check:"
+          Write-Host "PROTOC: $env:PROTOC"
+          Write-Host "PATH: $env:PATH"
+          Write-Host "Testing protoc directly:"
+          & $env:PROTOC --version
+          
+          Write-Host "Building with Cargo..."
+          $env:RUST_LOG = "debug"
           cargo build --release --target x86_64-pc-windows-msvc -j 4 -vv
         env:
           CARGO_BUILD_JOBS: "4"
           RUSTFLAGS: "-C opt-level=3"
           CARGO_INCREMENTAL: "0"
-          PROTOC: ${{ env.PROTOC }}
-          RUST_BACKTRACE: "1"
+          PROTOC: "C:\\protoc\\bin\\protoc.exe"
+          RUST_BACKTRACE: "full"
+          RUST_LOG: "debug"
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
       - name: Prepare Windows binary and DLLs
