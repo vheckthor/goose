@@ -48,7 +48,7 @@ jobs:
 
       # 4) Install protobuf using a dedicated action
       - name: Install Protobuf
-        uses: arduino/setup-protoc@v2
+        uses: arduino/setup-protoc@c0a85a5c3a8a595570507253d2ae2c121e1c5a95 # pin@v2
         with:
           version: "24.x"
           repo-token: ${{ github.token }}
