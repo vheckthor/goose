@@ -46,60 +46,13 @@ jobs:
         with:
           node-version: 16
 
-      # 4) Install protobuf using a dedicated action
-      - name: Install Protobuf
-        uses: arduino/setup-protoc@c0a85a5c3a8a595570507253d2ae2c121e1c5a95 # pin@v2
-        with:
-          version: "24.x"
-          repo-token: ${{ github.token }}
-
-      # 5) Verify protoc installation and setup environment
-      - name: Verify Protobuf Installation
+      # 4) Install protobuf
+      - name: Install protobuf
         run: |
-          Write-Host "Verifying protoc installation..."
+          choco install protoc --yes
+          refreshenv
           protoc --version
-          
-          # Get the full path to protoc and convert to Windows path format
-          $protocPath = (Get-Command protoc).Path
-          $protocPath = $protocPath -replace '/', '\'
-          Write-Host "Found protoc at: $protocPath"
-          
-          # Create .cargo/config.toml with the protoc path
-          $cargoConfig = @"
-          [env]
-          PROTOC = "$protocPath"
-          "@
-          
-          New-Item -ItemType Directory -Force -Path ".cargo"
-          $cargoConfig | Out-File -FilePath ".cargo/config.toml" -Encoding utf8
-          
-          Write-Host "Created .cargo/config.toml:"
-          Get-Content ".cargo/config.toml"
-          
-          # Set environment variables
-          $env:PROTOC = $protocPath
-          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
-          
-          # Test protoc functionality
-          $testProto = @"
-          syntax = "proto3";
-          package test;
-          message Test {
-            string test_field = 1;
-          }
-          "@
-          
-          $testProto | Out-File -FilePath "test.proto"
-          & $protocPath test.proto
-          
-          # List contents of lance-encoding source directory if it exists
-          Write-Host "Checking lance-encoding directory..."
-          $lanceDir = "target/release/build/lance-encoding-*"
-          if (Test-Path $lanceDir) {
-            Get-ChildItem -Path $lanceDir -Recurse | ForEach-Object {
-              Write-Host $_.FullName
-            }
-          }
+          echo "PROTOC=C:/ProgramData/chocolatey/bin/protoc.exe" >> $env:GITHUB_ENV
         shell: powershell
 
       # 6) Install MinGW
@@ -131,36 +84,14 @@ jobs:
             ${{ runner.os }}-cargo-v2-msvc-${{ hashFiles('**/Cargo.lock') }}-
             ${{ runner.os }}-cargo-v2-msvc-
 
-      # 8) Build rust with MSVC toolchain
+      # 7) Build rust with MSVC toolchain
       - name: Build Release Binary
         run: |
-          Write-Host "Environment Check:"
-          Write-Host "PROTOC: $env:PROTOC"
-          Write-Host "PATH: $env:Path"
-          Write-Host "Current Directory: $PWD"
-          
-          Write-Host "Testing protoc directly:"
-          protoc --version
-          
-          Write-Host ".cargo/config.toml contents:"
-          Get-Content ".cargo/config.toml"
-          
-          Write-Host "Building with Cargo..."
-          $env:RUST_LOG = "debug"
-          
-          # Clean the lance-encoding build directory
-          Remove-Item -Path "target/release/build/lance-encoding-*" -Recurse -ErrorAction SilentlyContinue
-          
-          cargo build --release --target x86_64-pc-windows-msvc -j 4 -vv
+          cargo build --release --target x86_64-pc-windows-msvc -j 4
         env:
           CARGO_BUILD_JOBS: "4"
           RUSTFLAGS: "-C opt-level=3"
           CARGO_INCREMENTAL: "0"
-          RUST_BACKTRACE: "full"
-          RUST_LOG: "debug"
-          # Set both environment variables to be extra sure
-          PROTOC: $env:PROTOC
-          PROTOC_NO_VENDOR: "1"
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
       - name: Prepare Windows binary and DLLs
