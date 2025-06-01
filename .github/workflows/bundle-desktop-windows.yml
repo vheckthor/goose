@@ -53,19 +53,32 @@ jobs:
           version: "24.x"
           repo-token: ${{ github.token }}
 
-      # 5) Verify protoc installation
+      # 5) Verify protoc installation and setup environment
       - name: Verify Protobuf Installation
         run: |
           Write-Host "Verifying protoc installation..."
           protoc --version
           
-          # Get the protoc path
+          # Get the full path to protoc and convert to Windows path format
           $protocPath = (Get-Command protoc).Path
+          $protocPath = $protocPath -replace '/', '\'
           Write-Host "Found protoc at: $protocPath"
           
+          # Create .cargo/config.toml with the protoc path
+          $cargoConfig = @"
+          [env]
+          PROTOC = "$protocPath"
+          "@
+          
+          New-Item -ItemType Directory -Force -Path ".cargo"
+          $cargoConfig | Out-File -FilePath ".cargo/config.toml" -Encoding utf8
+          
+          Write-Host "Created .cargo/config.toml:"
+          Get-Content ".cargo/config.toml"
+          
           # Set environment variables
-          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
           $env:PROTOC = $protocPath
+          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
           
           # Test protoc functionality
           $testProto = @"
@@ -77,17 +90,25 @@ jobs:
           "@
           
           $testProto | Out-File -FilePath "test.proto"
-          & $protocPath --version
           & $protocPath test.proto
+          
+          # List contents of lance-encoding source directory if it exists
+          Write-Host "Checking lance-encoding directory..."
+          $lanceDir = "target/release/build/lance-encoding-*"
+          if (Test-Path $lanceDir) {
+            Get-ChildItem -Path $lanceDir -Recurse | ForEach-Object {
+              Write-Host $_.FullName
+            }
+          }
         shell: powershell
 
-      # 5) Install MinGW
+      # 6) Install MinGW
       - name: Install MinGW
         run: |
           choco install mingw --version=8.1.0 --yes
           refreshenv
 
-      # 6) Cache dependencies
+      # 7) Cache dependencies
       - name: Calculate source hash
         id: source_hash
         shell: bash
@@ -110,18 +131,25 @@ jobs:
             ${{ runner.os }}-cargo-v2-msvc-${{ hashFiles('**/Cargo.lock') }}-
             ${{ runner.os }}-cargo-v2-msvc-
 
-      # 7) Build rust with MSVC toolchain
+      # 8) Build rust with MSVC toolchain
       - name: Build Release Binary
         run: |
           Write-Host "Environment Check:"
           Write-Host "PROTOC: $env:PROTOC"
           Write-Host "PATH: $env:Path"
+          Write-Host "Current Directory: $PWD"
           
           Write-Host "Testing protoc directly:"
           protoc --version
           
+          Write-Host ".cargo/config.toml contents:"
+          Get-Content ".cargo/config.toml"
+          
           Write-Host "Building with Cargo..."
           $env:RUST_LOG = "debug"
+          
+          # Clean the lance-encoding build directory
+          Remove-Item -Path "target/release/build/lance-encoding-*" -Recurse -ErrorAction SilentlyContinue
           
           cargo build --release --target x86_64-pc-windows-msvc -j 4 -vv
         env:
@@ -130,6 +158,9 @@ jobs:
           CARGO_INCREMENTAL: "0"
           RUST_BACKTRACE: "full"
           RUST_LOG: "debug"
+          # Set both environment variables to be extra sure
+          PROTOC: $env:PROTOC
+          PROTOC_NO_VENDOR: "1"
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
       - name: Prepare Windows binary and DLLs
