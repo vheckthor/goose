@@ -64,11 +64,16 @@ jobs:
             npm install
           }
 
-      # 6) Install MinGW for DLLs
-      - name: Install MinGW dependencies
+      # 6) Install MinGW and Protobuf
+      - name: Install build dependencies
         run: |
+          # Install MinGW
           choco install mingw --version=8.1.0
-          # Debug - check installation paths
+          
+          # Install protobuf compiler
+          choco install protoc
+          
+          # Debug - check installations
           Write-Host "Checking MinGW installation..."
           Get-ChildItem -Path "C:\ProgramData\chocolatey\lib\mingw" -Recurse -Filter "*.dll" | ForEach-Object {
             Write-Host $_.FullName
@@ -76,10 +81,16 @@ jobs:
           Get-ChildItem -Path "C:\tools" -Recurse -Filter "*.dll" | ForEach-Object {
             Write-Host $_.FullName
           }
+          
+          # Verify protoc installation
+          Write-Host "Checking protoc version..."
+          protoc --version
 
       # 7) Build rust with MSVC toolchain
       - name: Cargo build for Windows
         run: |
+          # Set PROTOC environment variable explicitly
+          $env:PROTOC = "protoc"
           cargo build --release --target ${{ matrix.target }}
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
