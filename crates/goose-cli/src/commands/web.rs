@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use goose::agents::Agent;
+use goose::agents::{Agent, AgentEvent};
 use goose::message::Message as GooseMessage;
 use goose::session;
 use serde::{Deserialize, Serialize};
@@ -461,7 +461,7 @@ async fn process_message_streaming(
         Ok(mut stream) => {
             while let Some(result) = stream.next().await {
                 match result {
-                    Ok(message) => {
+                    Ok(AgentEvent::Message(message)) => {
                         // Add message to our session
                         {
                             let mut session_msgs = session_messages.lock().await;
@@ -583,6 +583,11 @@ async fn process_message_streaming(
                                 }
                             }
                         }
+                    }
+                    Ok(AgentEvent::McpNotification(_notification)) => {
+                        // Handle MCP notifications if needed
+                        // For now, we'll just log them
+                        tracing::info!("Received MCP notification in web interface");
                     }
                     Err(e) => {
                         error!("Error in message stream: {}", e);
