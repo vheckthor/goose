@@ -46,8 +46,9 @@ jobs:
         with:
           node-version: 16
 
-      # 4) Install protobuf
+      # 4) Install protobuf and set environment
       - name: Install protobuf
+        id: install-protobuf
         run: |
           # Get latest protoc release info from GitHub API
           Write-Host "Fetching latest protoc release information..."
@@ -69,13 +70,28 @@ jobs:
           Write-Host "Extracting protoc..."
           Expand-Archive -Path "$PROTOC_DIR\protoc.zip" -DestinationPath $PROTOC_DIR -Force
           
-          # Add to PATH and set PROTOC env var
+          # Set environment variables for the current process and future steps
+          $protocPath = "$PROTOC_DIR\bin\protoc.exe"
+          
+          # Set for current process
+          $env:PROTOC = $protocPath
           $env:Path = "$PROTOC_DIR\bin;" + $env:Path
+          
+          # Set for future steps
+          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
           echo "$PROTOC_DIR\bin" >> $env:GITHUB_PATH
           
-          $protocPath = "$PROTOC_DIR\bin\protoc.exe"
-          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
-          $env:PROTOC = $protocPath
+          # Create a .cargo/config.toml to set environment variables for cargo
+          $cargoConfig = @"
+          [env]
+          PROTOC = "$protocPath"
+          "@
+          
+          New-Item -ItemType Directory -Force -Path ".cargo"
+          $cargoConfig | Out-File -FilePath ".cargo/config.toml" -Encoding utf8
+          
+          Write-Host "Created .cargo/config.toml:"
+          Get-Content ".cargo/config.toml"
           
           # Verify installation
           Write-Host "Verifying protoc installation..."
@@ -85,12 +101,6 @@ jobs:
           
           Write-Host "protoc version:"
           & $protocPath --version
-          
-          # List contents of protoc directory
-          Write-Host "Contents of protoc directory:"
-          Get-ChildItem -Path $PROTOC_DIR -Recurse | ForEach-Object {
-            Write-Host $_.FullName
-          }
           
           # Test protoc functionality
           Write-Host "Testing protoc functionality..."
@@ -103,8 +113,10 @@ jobs:
           "@
           
           $testProto | Out-File -FilePath "$PROTOC_DIR\test.proto"
-          & $protocPath --version
           & $protocPath --proto_path="$PROTOC_DIR" "$PROTOC_DIR\test.proto"
+          
+          # Export the protoc path for other steps
+          echo "::set-output name=protoc_path::$protocPath"
         shell: powershell
 
       # 5) Install MinGW
@@ -141,20 +153,29 @@ jobs:
         run: |
           Write-Host "Environment Check:"
           Write-Host "PROTOC: $env:PROTOC"
-          Write-Host "PATH: $env:PATH"
+          Write-Host "PATH: $env:Path"
+          
           Write-Host "Testing protoc directly:"
           & $env:PROTOC --version
           
+          Write-Host ".cargo/config.toml contents:"
+          Get-Content ".cargo/config.toml"
+          
           Write-Host "Building with Cargo..."
           $env:RUST_LOG = "debug"
+          
+          # Set PROTOC explicitly in the environment again
+          $env:PROTOC = "${{ steps.install-protobuf.outputs.protoc_path }}"
+          
+          cargo clean
           cargo build --release --target x86_64-pc-windows-msvc -j 4 -vv
         env:
           CARGO_BUILD_JOBS: "4"
           RUSTFLAGS: "-C opt-level=3"
           CARGO_INCREMENTAL: "0"
-          PROTOC: "C:\\protoc\\bin\\protoc.exe"
           RUST_BACKTRACE: "full"
           RUST_LOG: "debug"
+          PROTOC: "${{ steps.install-protobuf.outputs.protoc_path }}"
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
       - name: Prepare Windows binary and DLLs
