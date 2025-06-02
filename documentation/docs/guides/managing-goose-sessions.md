@@ -96,7 +96,7 @@ Note that sessions are automatically saved when you exit.
         To resume a specific session, run the following command: 
 
         ```
-        goose session -r --name <name>
+        goose session -r --name <n>
         ```
         For example, to resume the session named `react-migration`, you would run:
 
@@ -290,3 +290,63 @@ Search allows you to find specific content within your current session. The sear
         ```
     </TabItem>
 </Tabs>
+
+## Share Sessions with Others
+
+Goose runs locally on your computer and stores sessions on your machine. To share sessions with others, you need a service that can:
+- Store sessions in a central location
+- Make them accessible to other Goose users
+- Handle the sharing and retrieval of session data
+
+To implement this, you will need:
+- A storage method for the shared sessions
+- A hosted service to handle the sharing
+- API endpoints that match the [Goose Session Sharing API Reference](https://goosed.stage.sqprod.co/docs)
+
+### Configure Session Sharing
+
+Once you have a sharing service URL:
+
+1. Open Goose Desktop
+2. Click the three dots (...) in the top-right corner
+3. Select **Settings**
+4. Find the **Session Sharing** section
+5. Enable session sharing using the toggle
+6. Enter your sharing service URL in the **Base URL** field
+   - Example: `https://your-sharing-service.example.com`
+   - Do not include a trailing slash
+
+:::tip
+The sharing service URL must be accessible to anyone you want to share sessions with.
+:::
+
+### Share a Session
+
+Once sharing is configured, you can share sessions:
+
+1. Start or open a session you want to share
+2. Click the three dots (...) in the top-right corner
+3. Click **Share Session**
+4. Copy the generated share link
+
+Anyone with access to the same sharing service can view your shared session using this link.
+
+:::info
+Sessions are only shared when you explicitly choose to share them. Enabling session sharing does not automatically share all your sessions.
+:::
+
+### View Shared Sessions
+
+To view a session someone shared with you:
+
+1. Make sure you have configured the same sharing service URL
+2. Open the share link they provided
+3. The shared session will open in Goose Desktop
+
+You can also browse all shared sessions:
+
+1. Click the three dots (...) in the top-right corner
+2. Select **Previous Sessions**
+3. Click the **Shared** tab
+
+For details about implementing a sharing service, see the [API Reference Documentation](https://goosed.stage.sqprod.co/docs).
