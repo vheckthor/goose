@@ -29,21 +29,34 @@ jobs:
         run: df -h
 
       #https://github.com/actions/runner-images/issues/2840
-      - name: Clean up disk space
+      - name: Clean up disk space (parallelized)
         run: |
-          echo "Cleaning up disk space..."
-          sudo rm -rf \
-            /opt/google/chrome \
-            /opt/microsoft/msedge \
-            /opt/microsoft/powershell \
-            /usr/lib/mono \
-            /usr/local/lib/android \
-            /usr/local/lib/node_modules \
-            /usr/local/share/chromium \
-            /usr/local/share/powershell \
-            /usr/share/dotnet \
-            /usr/share/swift
+          echo "Cleaning up disk space in parallel..."
 
+          dirs_to_delete=(
+            "/opt/google/chrome"
+            "/opt/microsoft/msedge"
+            "/opt/microsoft/powershell"
+            "/usr/lib/mono"
+            "/usr/local/lib/android"
+            "/usr/local/lib/node_modules"
+            "/usr/local/share/chromium"
+            "/usr/local/share/powershell"
+            "/usr/share/dotnet"
+            "/usr/share/swift"
+          )
+
+          for dir in "${dirs_to_delete[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "Deleting $dir ..."
+              sudo rm -rf "$dir" &
+            else
+              echo "$dir does not exist, skipping"
+            fi
+          done
+
+          wait
+          echo "Disk cleanup finished."
           df -h
           
       - name: Checkout Code
