@@ -77,7 +77,9 @@ jobs:
 
       - name: Install and configure sccache
         run: |
-          cargo install sccache
+          source ./bin/activate-hermit
+          cargo install cargo-binstall
+          cargo binstall sccache --no-confirm
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_DIR=$HOME/.cache/sccache" >> $GITHUB_ENV
           
