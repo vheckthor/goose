@@ -95,7 +95,7 @@ jobs:
       
       - name: Build
         run: |
-          source ../bin/activate-hermit && cargo build
+          source ../bin/activate-hermit && SCCACHE_LOG=debug RUSTC_WRAPPER=sccache cargo build -v
         working-directory: crates
 
       - name: Test
