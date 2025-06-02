@@ -95,26 +95,8 @@ jobs:
       
       - name: Build and Test
         run: |
-          echo "📊 Starting system monitor and build"
-
-          # Print baseline stats
-          echo "=== Initial System Stats ==="
-          free -h
-          lscpu
-          uptime
-
-          # Background monitor: log memory & CPU every 15 seconds
-          ( while true; do
-              echo "---- $(date) ----"
-              free -h
-              ps -eo pid,%mem,%cpu,args --sort=-%mem | head -n 15
-              echo ""
-              sleep 15
-            done ) &
-          MONITOR_PID=$!
-          trap "kill $MONITOR_PID" EXIT
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-          source ../bin/activate-hermit && RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" cargo test --no-run
+          source ../bin/activate-hermit && CARGO_INCREMENTAL=0 RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" cargo test
         working-directory: crates
 
       - name: Show sccache stats
