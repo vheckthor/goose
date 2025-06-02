@@ -96,7 +96,7 @@ jobs:
       - name: Build and Test #add some comments
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-          source ../bin/activate-hermit && cargo test -j 2
+          source ../bin/activate-hermit && cargo test -j 1
         working-directory: crates
 
       - name: Show sccache stats
