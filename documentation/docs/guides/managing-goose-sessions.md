@@ -16,7 +16,7 @@ A session is a single, continuous interaction between you and Goose, providing a
     <TabItem value="ui" label="Goose Desktop" default>
         After choosing an LLM provider, you'll see the session interface ready for use. Type your questions, tasks, or instructions directly into the input field, and Goose will immediately get to work. 
 
-        To start a new session at any time, click the three dots in the top-right corner of the application and select **New Session** from the dropdown menu.
+        To start a new session at any time, click the gear icon in the top-right corner of the application and select **New Session** from the dropdown menu.
 
         You can also use keyboard shortcuts to start a new session or bring focus to open Goose windows.
         
@@ -252,7 +252,7 @@ Because Goose is local to your machine, by default, all your sessions are only a
         Once your session sharing service is set up, you'll have a service URL. This URL should be used by you and anyone you plan to share sessions with. To connect Goose to the sharing service:
 
         1. Open Goose Desktop
-        2. Click the three dots (...) in the top-right corner
+        2. Click the gear icon in the top-right corner
         3. Select **Settings**
         4. Find the **Session Sharing** section
         5. Enable session sharing using the toggle
@@ -265,7 +265,7 @@ Because Goose is local to your machine, by default, all your sessions are only a
         Once sharing is enabled, you can share sessions:
 
         1. Start or open a session you want to share
-        2. Click the three dots (...) in the top-right corner
+        2. Click the gear icon in the top-right corner
         3. Click **Share Session**
         4. Copy the generated share link
 
