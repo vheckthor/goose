@@ -49,10 +49,47 @@ jobs:
       # 4) Install protobuf
       - name: Install protobuf
         run: |
+          # Install protoc using chocolatey
           choco install protoc --yes
           refreshenv
-          protoc --version
-          echo "PROTOC=C:/ProgramData/chocolatey/bin/protoc.exe" >> $env:GITHUB_ENV
+          
+          # Get the protoc path and verify it exists
+          $protocPath = "C:/ProgramData/chocolatey/bin/protoc.exe"
+          if (!(Test-Path $protocPath)) {
+            Write-Error "Protoc not found at expected path: $protocPath"
+            exit 1
+          }
+          
+          # Add to system PATH
+          $env:Path = "C:/ProgramData/chocolatey/bin;" + $env:Path
+          echo "C:/ProgramData/chocolatey/bin" >> $env:GITHUB_PATH
+          
+          # Set PROTOC environment variable
+          $env:PROTOC = $protocPath
+          echo "PROTOC=$protocPath" >> $env:GITHUB_ENV
+          
+          # Verify installation
+          Write-Host "Protoc version:"
+          & $protocPath --version
+          
+          Write-Host "Protoc location:"
+          Get-Command protoc | Format-List *
+          
+          Write-Host "Testing protoc functionality..."
+          $testProto = @"
+          syntax = "proto3";
+          package test;
+          message Test {
+            string test_field = 1;
+          }
+          "@
+          
+          $testProto | Out-File -FilePath "test.proto"
+          & $protocPath test.proto
+          
+          Write-Host "Environment variables:"
+          Write-Host "PROTOC: $env:PROTOC"
+          Write-Host "PATH: $env:Path"
         shell: powershell
 
       # 6) Install MinGW
@@ -87,11 +124,20 @@ jobs:
       # 7) Build rust with MSVC toolchain
       - name: Build Release Binary
         run: |
+          # Verify protoc is still accessible
+          Write-Host "Verifying protoc before build:"
+          Write-Host "PROTOC: $env:PROTOC"
+          Write-Host "PATH: $env:Path"
+          protoc --version
+          
+          # Run the build
           cargo build --release --target x86_64-pc-windows-msvc -j 4
         env:
           CARGO_BUILD_JOBS: "4"
           RUSTFLAGS: "-C opt-level=3"
           CARGO_INCREMENTAL: "0"
+          PROTOC: "C:/ProgramData/chocolatey/bin/protoc.exe"
+          PATH: "C:/ProgramData/chocolatey/bin;${{ env.PATH }}"
 
       # 8) Check that the compiled goosed.exe exists and copy to ui/desktop/src/bin
       - name: Prepare Windows binary and DLLs
