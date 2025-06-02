@@ -107,7 +107,7 @@ jobs:
           ( while true; do
               echo "---- $(date) ----"
               free -h
-              ps -eo pid,cmd,%mem,%cpu --sort=-%mem | head -n 10
+              ps -eo pid,%mem,%cpu,args --sort=-%mem | head -n 15
               echo ""
               sleep 15
             done ) &
