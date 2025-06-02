@@ -231,15 +231,13 @@ You can remove sessions using CLI commands. For detailed instructions on session
 
 ## Share Sessions
 
-Goose sessions can be shared with others, making it easy to document and distribute solutions to technical challenges or important project discussions. ecause Goose is local to your machine, by default, all your sessions are only available on your computer. 
-
-To make sessions shareable, you'll need to the Goose API to implement a session sharing service.
+Because Goose is local to your machine, by default, all your sessions are only available on your device. To make sessions shareable, you'll need to use a session sharing service.
 
 <Tabs groupId="interface">
     <TabItem value="ui" label="Goose Desktop" default>
         ### How to Implement a Session Sharing Service
 
-        To share sessions through Goose Desktop, you need to use a session sharing service that can:
+       Your session sharing service should:
         - Store sessions in a central location
         - Make them accessible to other Goose users
         - Handle the sharing and retrieval of session data
@@ -251,14 +249,14 @@ To make sessions shareable, you'll need to the Goose API to implement a session 
 
         ### Enable Session Sharing
 
-        Once your session sharing service is set up, you should have a base URL. This should be used by you and people you plan to exchange sessions with. Connect Goose to your session sharing service by:
+        Once your session sharing service is set up, you'll have a service URL. This URL should be used by you and anyone you plan to share sessions with. To connect Goose to the sharing service:
 
         1. Open Goose Desktop
         2. Click the three dots (...) in the top-right corner
-        3. Select **Advanced Settings**
+        3. Select **Settings**
         4. Find the **Session Sharing** section
         5. Enable session sharing using the toggle
-        6. Enter your sharing service URL in the **Base URL** field
+        6. Enter your service URL in the **Base URL** field
            - Example: `https://your-sharing-service.example.com`
            - Do not include a trailing slash
 
@@ -281,7 +279,7 @@ To make sessions shareable, you'll need to the Goose API to implement a session 
 
         To view a session someone shared with you:
 
-        1. Make sure you have configured the same sharing service URL
+        1. Make sure you have configured the same service URL
         2. Open the share link they provided
         3. The shared session will open in Goose Desktop
 
@@ -293,7 +291,6 @@ To make sessions shareable, you'll need to the Goose API to implement a session 
 </Tabs>
 
 ## Search Within Sessions
-
 Search allows you to find specific content within your current session. The search functionality is available in both CLI and Desktop interfaces.
 
 <Tabs>
