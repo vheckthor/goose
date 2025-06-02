@@ -93,10 +93,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-sccache-
       
-      - name: Build and Test #add some comments
+      - name: Build and Test
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-          source ../bin/activate-hermit && CARGO_INCREMENTAL=0 cargo test -j 1
+          source ../bin/activate-hermit && cargo test --no-run
         working-directory: crates
 
       - name: Show sccache stats
