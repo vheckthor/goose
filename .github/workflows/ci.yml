@@ -77,9 +77,9 @@ jobs:
 
       - name: Install and configure sccache
         run: |
-          source ./bin/activate-hermit
-          cargo install cargo-binstall
-          cargo binstall sccache --no-confirm
+          curl -L https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-$(uname -m)-unknown-linux-gnu.tar.gz | tar -xz
+          chmod +x cargo-binstall
+          mv cargo-binstall ~/.cargo/bin/
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_DIR=$HOME/.cache/sccache" >> $GITHUB_ENV
           
@@ -101,7 +101,7 @@ jobs:
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
           source ../bin/activate-hermit && cargo test
         working-directory: crates
-        
+
       - name: Lint
         run: source ./bin/activate-hermit && cargo clippy -- -D warnings
 
