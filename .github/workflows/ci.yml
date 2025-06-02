@@ -115,7 +115,6 @@ jobs:
           trap "kill $MONITOR_PID" EXIT
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
           source ../bin/activate-hermit && RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" cargo test --no-run
-          kill $MONITOR_PID
         working-directory: crates
 
       - name: Show sccache stats
