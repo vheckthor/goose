@@ -1,4 +1,4 @@
-# Example Goose Configuration with Lead/Worker Support
+# Example Goose Configuration with Lead Model Support
 # This file should be placed at ~/.config/goose/config.yaml
 
 # Standard provider configuration (backward compatible)
@@ -8,18 +8,14 @@ GOOSE_MODEL: gpt-4o-mini
 # Option 1: Simple lead model setup (just add GOOSE_LEAD_MODEL)
 # GOOSE_LEAD_MODEL: gpt-4o
 
-# Option 2: Advanced Lead/Worker configuration (optional)
+# Option 2: Advanced Lead Model configuration (optional)
 # This section enables intelligent model switching with full control
-lead_worker:
+lead_model:
   enabled: true
   
   # Lead model configuration (for initial turns and fallback)
   lead_provider: openai      # Optional: defaults to main provider
   lead_model: gpt-4o         # Required when enabled
-  
-  # Worker model configuration (for regular operation)
-  worker_provider: anthropic # Optional: defaults to main provider  
-  worker_model: claude-3-haiku-20240307  # Optional: defaults to main model
   
   # Behavior settings
   lead_turns: 3              # Number of initial turns using lead model
@@ -29,22 +25,20 @@ lead_worker:
 # Alternative configurations:
 
 # Same provider, different models (cost optimization)
-# lead_worker:
+# lead_model:
 #   enabled: true
 #   lead_model: gpt-4o
-#   worker_model: gpt-4o-mini
-#   # Uses same provider (openai) for both
+#   # Uses same provider (openai) for both, worker model is gpt-4o-mini
 
 # Cross-provider setup (best of both worlds)
-# lead_worker:
+# lead_model:
 #   enabled: true
-#   lead_provider: openai
-#   lead_model: gpt-4o
-#   worker_provider: anthropic
-#   worker_model: claude-3-haiku-20240307
+#   lead_provider: anthropic
+#   lead_model: claude-3-5-sonnet-20241022
+#   # Worker uses openai/gpt-4o-mini from main config
 
 # Minimal setup (just enable with lead model)
-# lead_worker:
+# lead_model:
 #   enabled: true
 #   lead_model: gpt-4o
 #   # Everything else uses defaults

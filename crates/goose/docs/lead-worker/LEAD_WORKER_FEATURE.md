@@ -29,8 +29,8 @@ Create or edit `~/.config/goose/config.yaml`:
 GOOSE_PROVIDER: openai
 GOOSE_MODEL: gpt-4o-mini
 
-# Lead/Worker configuration
-lead_worker:
+# Lead model configuration
+lead_model:
   enabled: true
   lead_model: gpt-4o
   lead_turns: 3
@@ -38,17 +38,15 @@ lead_worker:
   fallback_turns: 2
 ```
 
-### Option 4: Cross-Provider Configuration (Most Powerful)
+### Option 4: Cross-Provider Configuration
 ```yaml
 GOOSE_PROVIDER: openai
 GOOSE_MODEL: gpt-4o-mini
 
-lead_worker:
+lead_model:
   enabled: true
-  lead_provider: openai
-  lead_model: gpt-4o
-  worker_provider: anthropic
-  worker_model: claude-3-haiku-20240307
+  lead_provider: anthropic
+  lead_model: claude-3-5-sonnet-20241022
   lead_turns: 3
   failure_threshold: 2
   fallback_turns: 2
@@ -58,7 +56,7 @@ lead_worker:
 
 The system respects the following precedence order:
 1. **Environment variables** (highest) - `GOOSE_LEAD_MODEL` overrides everything
-2. **YAML `lead_worker` section** - Advanced configuration with cross-provider support
+2. **YAML `lead_model` section** - Advanced configuration with cross-provider support
 3. **YAML flat keys** - `GOOSE_LEAD_MODEL` in config file
 4. **Regular provider** (lowest) - Standard single-model operation
 
@@ -68,14 +66,14 @@ This ensures full backward compatibility while enabling advanced features.
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `enabled` | boolean | false | Enable lead/worker mode |
+| `enabled` | boolean | false | Enable lead model mode |
 | `lead_provider` | string | main provider | Provider for lead model |
 | `lead_model` | string | required | Model name for lead |
-| `worker_provider` | string | main provider | Provider for worker model |
-| `worker_model` | string | main model | Model name for worker |
 | `lead_turns` | number | 3 | Initial turns using lead model |
 | `failure_threshold` | number | 2 | Failures before fallback |
 | `fallback_turns` | number | 2 | Turns in fallback mode |
+
+**Note**: The worker model is always the main configured `GOOSE_MODEL` with `GOOSE_PROVIDER`. The lead model configuration only specifies what to use for the initial turns and fallback.
 
 ## How it works
 
@@ -152,12 +150,10 @@ export GOOSE_LEAD_MODEL="claude-3-5-sonnet-20241022"
 GOOSE_PROVIDER: openai
 GOOSE_MODEL: gpt-4o-mini
 
-lead_worker:
+lead_model:
   enabled: true
   lead_provider: anthropic
   lead_model: claude-3-5-sonnet-20241022
-  worker_provider: openai
-  worker_model: gpt-4o-mini
 ```
 
 ### Disable (default behavior)
@@ -251,8 +247,9 @@ starting session | provider: openai lead model: gpt-4o worker model: gpt-4o-mini
 #### ✅ Configuration Support
 - **Environment variables**: Simple setup with `GOOSE_LEAD_MODEL`
 - **YAML flat keys**: `GOOSE_LEAD_MODEL` in config file
-- **YAML `lead_worker` section**: Advanced setup with cross-provider support
-- **Proper precedence handling**: Environment > YAML lead_worker > YAML flat > defaults
+- **YAML `lead_model` section**: Advanced setup with cross-provider support
+- **Proper precedence handling**: Environment > YAML lead_model > YAML flat > defaults
+- **Simplified structure**: Worker model is always the main configured model
 
 #### ✅ Comprehensive Testing
 - Unit tests for configuration parsing and defaults
@@ -265,9 +262,17 @@ starting session | provider: openai lead model: gpt-4o worker model: gpt-4o-mini
 The system implements a clear precedence order in `factory.rs`:
 
 1. **Environment variables** (highest): `GOOSE_LEAD_MODEL` env var
-2. **YAML `lead_worker` section**: Full configuration control
+2. **YAML `lead_model` section**: Full configuration control
 3. **YAML flat keys**: `GOOSE_LEAD_MODEL` in config file  
 4. **Regular provider** (lowest): Standard single-model operation
+
+### Simplified Configuration Structure
+
+The configuration has been simplified to focus on the lead model only:
+- **Worker model**: Always uses `GOOSE_PROVIDER` and `GOOSE_MODEL` (the main configuration)
+- **Lead model**: Configured via `GOOSE_LEAD_MODEL` or `lead_model` section
+- **Cross-provider support**: Lead model can use a different provider than the worker model
+- **No redundancy**: Removed `worker_provider` and `worker_model` fields since they're redundant
 
 ### Files Modified/Created
 

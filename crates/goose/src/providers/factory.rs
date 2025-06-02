@@ -26,20 +26,16 @@ use super::errors::ProviderError;
 #[cfg(test)]
 use mcp_core::tool::Tool;
 
-/// Configuration for lead/worker provider setup
+/// Configuration for lead model setup
 #[derive(Debug, Clone, Deserialize)]
-pub struct LeadWorkerConfig {
-    /// Whether lead/worker mode is enabled
+pub struct LeadModelConfig {
+    /// Whether lead model mode is enabled
     #[serde(default)]
     pub enabled: bool,
-    /// Lead provider configuration
+    /// Lead provider configuration (optional, defaults to main provider)
     pub lead_provider: Option<String>,
     /// Lead model name
     pub lead_model: Option<String>,
-    /// Worker provider configuration (optional, defaults to main provider)
-    pub worker_provider: Option<String>,
-    /// Worker model name (optional, defaults to main model)
-    pub worker_model: Option<String>,
     /// Number of turns to use lead model (default: 3)
     #[serde(default = "default_lead_turns")]
     pub lead_turns: usize,
@@ -84,8 +80,8 @@ pub fn create(name: &str, model: ModelConfig) -> Result<Arc<dyn Provider>> {
 
     // PRECEDENCE ORDER (highest to lowest):
     // 1. Environment variables (GOOSE_LEAD_MODEL)
-    // 2. YAML lead_worker config section
-    // 3. Regular provider (no lead/worker)
+    // 2. YAML lead_model config section
+    // 3. Regular provider (no lead model)
 
     // Check for environment variable first (highest precedence)
     if let Ok(lead_model_name) = config.get_param::<String>("GOOSE_LEAD_MODEL") {
@@ -107,12 +103,12 @@ pub fn create(name: &str, model: ModelConfig) -> Result<Arc<dyn Provider>> {
         )));
     }
 
-    // Check for YAML lead_worker config (second precedence)
-    if let Ok(lead_worker_config) = config.get_param::<LeadWorkerConfig>("lead_worker") {
-        if lead_worker_config.enabled {
+    // Check for YAML lead_model config (second precedence)
+    if let Ok(lead_model_config) = config.get_param::<LeadModelConfig>("lead_model") {
+        if lead_model_config.enabled {
             tracing::info!("Creating lead/worker provider from YAML configuration");
 
-            return create_lead_worker_from_config(name, &model, &lead_worker_config);
+            return create_lead_worker_from_config(name, &model, &lead_model_config);
         }
     }
 
@@ -124,7 +120,7 @@ pub fn create(name: &str, model: ModelConfig) -> Result<Arc<dyn Provider>> {
 fn create_lead_worker_from_config(
     default_provider_name: &str,
     default_model: &ModelConfig,
-    config: &LeadWorkerConfig,
+    config: &LeadModelConfig,
 ) -> Result<Arc<dyn Provider>> {
     // Determine lead provider and model
     let lead_provider_name = config
@@ -134,19 +130,12 @@ fn create_lead_worker_from_config(
     let lead_model_name = config
         .lead_model
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("lead_model is required when lead_worker is enabled"))?;
+        .ok_or_else(|| anyhow::anyhow!("lead_model is required when lead_model is enabled"))?;
     let lead_model_config = ModelConfig::new(lead_model_name.to_string());
 
-    // Determine worker provider and model
-    let worker_provider_name = config
-        .worker_provider
-        .as_deref()
-        .unwrap_or(default_provider_name);
-    let worker_model_config = if let Some(worker_model_name) = &config.worker_model {
-        ModelConfig::new(worker_model_name.clone())
-    } else {
-        default_model.clone()
-    };
+    // Worker always uses the main configured provider and model
+    let worker_provider_name = default_provider_name;
+    let worker_model_config = default_model.clone();
 
     // Create the providers
     let lead_provider = create_provider(lead_provider_name, lead_model_config)?;
@@ -270,47 +259,38 @@ mod tests {
     }
 
     #[test]
-    fn test_lead_worker_config_structure() {
-        // Test that the LeadWorkerConfig can be deserialized properly
+    fn test_lead_model_config_structure() {
+        // Test that the LeadModelConfig can be deserialized properly
         let yaml_config = r#"
 enabled: true
 lead_provider: openai
 lead_model: gpt-4o
-worker_provider: anthropic
-worker_model: claude-3-haiku-20240307
 lead_turns: 5
 failure_threshold: 3
 fallback_turns: 2
 "#;
 
-        let config: LeadWorkerConfig = serde_yaml::from_str(yaml_config).unwrap();
+        let config: LeadModelConfig = serde_yaml::from_str(yaml_config).unwrap();
         assert!(config.enabled);
         assert_eq!(config.lead_provider, Some("openai".to_string()));
         assert_eq!(config.lead_model, Some("gpt-4o".to_string()));
-        assert_eq!(config.worker_provider, Some("anthropic".to_string()));
-        assert_eq!(
-            config.worker_model,
-            Some("claude-3-haiku-20240307".to_string())
-        );
         assert_eq!(config.lead_turns, 5);
         assert_eq!(config.failure_threshold, 3);
         assert_eq!(config.fallback_turns, 2);
     }
 
     #[test]
-    fn test_lead_worker_config_defaults() {
+    fn test_lead_model_config_defaults() {
         // Test that defaults work correctly
         let yaml_config = r#"
 enabled: true
 lead_model: gpt-4o
 "#;
 
-        let config: LeadWorkerConfig = serde_yaml::from_str(yaml_config).unwrap();
+        let config: LeadModelConfig = serde_yaml::from_str(yaml_config).unwrap();
         assert!(config.enabled);
         assert_eq!(config.lead_model, Some("gpt-4o".to_string()));
-        assert_eq!(config.lead_provider, None); // Should default
-        assert_eq!(config.worker_provider, None); // Should default
-        assert_eq!(config.worker_model, None); // Should default
+        assert_eq!(config.lead_provider, None); // Should default to main provider
         assert_eq!(config.lead_turns, 3); // Default
         assert_eq!(config.failure_threshold, 2); // Default
         assert_eq!(config.fallback_turns, 2); // Default
