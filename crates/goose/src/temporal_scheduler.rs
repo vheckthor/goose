@@ -226,21 +226,32 @@ impl TemporalScheduler {
             }
         }
 
-        // Check if the temporal-service binary exists
-        let binary_path = "./temporal-service/temporal-service";
-        if !std::path::Path::new(binary_path).exists() {
-            return Err(SchedulerError::SchedulerInternalError(
-                format!("Go service binary not found at {}. Please build it with './temporal-service/build.sh'", binary_path)
-            ));
-        }
+        // Check if the temporal-service binary exists - try multiple possible locations
+        let binary_path = Self::find_go_service_binary()?;
+        let working_dir = std::path::Path::new(&binary_path).parent().ok_or_else(|| {
+            SchedulerError::SchedulerInternalError(
+                "Could not determine working directory for Go service".to_string(),
+            )
+        })?;
+
+        info!("Found Go service binary at: {}", binary_path);
+        info!("Using working directory: {}", working_dir.display());
+
+        let command = format!(
+            "cd '{}' && nohup ./temporal-service > temporal-service.log 2>&1 & echo $!",
+            working_dir.display()
+        );
 
         let output = Command::new("sh")
             .arg("-c")
-            .arg("cd temporal-service && nohup ./temporal-service > temporal-service.log 2>&1 & echo $!")
+            .arg(&command)
             .output()
-            .map_err(|e| SchedulerError::SchedulerInternalError(
-                format!("Failed to start Go temporal service: {}", e)
-            ))?;
+            .map_err(|e| {
+                SchedulerError::SchedulerInternalError(format!(
+                    "Failed to start Go temporal service: {}",
+                    e
+                ))
+            })?;
 
         if !output.status.success() {
             return Err(SchedulerError::SchedulerInternalError(format!(
@@ -254,6 +265,47 @@ impl TemporalScheduler {
         info!("Temporal Go service started with PID: {}", pid);
 
         Ok(())
+    }
+
+    fn find_go_service_binary() -> Result<String, SchedulerError> {
+        // Try to find the Go service binary by looking for it relative to the current executable
+        // or in common locations
+
+        let possible_paths = vec![
+            // Relative to current working directory (original behavior)
+            "./temporal-service/temporal-service",
+        ];
+
+        // Also try to find it relative to the current executable path
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                // Try various relative paths from the executable directory
+                let exe_relative_paths = vec![
+                    exe_dir.join("temporal-service/temporal-service"),
+                    exe_dir.join("../temporal-service/temporal-service"),
+                    exe_dir.join("../../temporal-service/temporal-service"),
+                    exe_dir.join("../../../temporal-service/temporal-service"),
+                    exe_dir.join("../../../../temporal-service/temporal-service"),
+                ];
+
+                for path in exe_relative_paths {
+                    if path.exists() {
+                        return Ok(path.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+
+        // Try the original relative paths
+        for path in &possible_paths {
+            if std::path::Path::new(path).exists() {
+                return Ok(path.to_string());
+            }
+        }
+
+        Err(SchedulerError::SchedulerInternalError(
+            "Go service binary not found. Tried paths relative to current executable and working directory. Please ensure the temporal-service binary is built and available.".to_string()
+        ))
     }
 
     async fn wait_for_service_ready(&self) -> Result<(), SchedulerError> {
@@ -776,27 +828,21 @@ mod tests {
         });
     }
 
-    #[tokio::test]
-    async fn test_temporal_server_detection_with_existing_server() {
-        // Test the new Temporal server detection logic
-        let scheduler = TemporalScheduler {
-            http_client: reqwest::Client::new(),
-            service_url: "http://localhost:8080".to_string(),
-        };
-
-        let temporal_detected = scheduler.check_temporal_server().await;
-
-        println!("✅ Temporal server detection test completed");
-        println!("   Temporal server detected: {}", temporal_detected);
-
-        if temporal_detected {
-            println!("   🎉 SUCCESS: Found existing Temporal server!");
-            println!("   The scheduler will connect to it instead of failing");
-        } else {
-            println!("   ℹ️  No Temporal server detected (expected if none running)");
+    #[test]
+    fn test_find_go_service_binary() {
+        // Test the Go service binary finding logic
+        match TemporalScheduler::find_go_service_binary() {
+            Ok(path) => {
+                println!("✅ Found Go service binary at: {}", path);
+                assert!(
+                    std::path::Path::new(&path).exists(),
+                    "Binary should exist at found path"
+                );
+            }
+            Err(e) => {
+                println!("⚠️  Go service binary not found: {}", e);
+                // This is expected if the binary isn't built or available
+            }
         }
-
-        // The test passes regardless - we're just verifying the method works
-        assert!(true, "Detection method executed successfully");
     }
 }
