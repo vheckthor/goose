@@ -114,7 +114,7 @@ jobs:
           MONITOR_PID=$!
           trap "kill $MONITOR_PID" EXIT
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-          source ../bin/activate-hermit && RUSTC_WRAPPER=sccache cargo test --no-run
+          source ../bin/activate-hermit && RUSTFLAGS="-C lto=thin" cargo test --no-run
           kill $MONITOR_PID
         working-directory: crates
 
@@ -165,10 +165,3 @@ jobs:
       - name: Run Lint
         run: source ../../bin/activate-hermit && npm run lint:check
         working-directory: ui/desktop
-
-  # Faster Desktop App build for PRs only
-  bundle-desktop-unsigned:
-    uses: ./.github/workflows/bundle-desktop.yml
-    if: github.event_name == 'pull_request'
-    with:
-      signing: false
