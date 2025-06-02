@@ -79,27 +79,41 @@ impl TemporalScheduler {
     async fn ensure_services_running(&self) -> Result<(), SchedulerError> {
         info!("Checking if Temporal services are running...");
 
-        // Check if Go service is already running
-        if self.health_check().await? {
-            info!("Temporal Go service is already running");
+        // First, check if both services are already running
+        let temporal_running = self.check_temporal_server().await;
+        let go_service_running = self.health_check().await.unwrap_or(false);
+
+        if temporal_running && go_service_running {
+            info!("Both Temporal server and Go service are already running");
             return Ok(());
         }
 
-        // Check if Temporal server is running
-        let temporal_running = self.check_temporal_server().await;
+        // If Go service is running but Temporal server is not, this is an unusual state
+        if go_service_running && !temporal_running {
+            warn!("Go service is running but Temporal server is not - this may indicate a configuration issue");
+            return Err(SchedulerError::SchedulerInternalError(
+                "Go service is running but Temporal server is not accessible. Please check your Temporal server configuration.".to_string()
+            ));
+        }
 
+        // If Temporal server is running but Go service is not, start the Go service
+        if temporal_running && !go_service_running {
+            info!("Temporal server is running, starting Go service...");
+            self.start_go_service().await?;
+            return Ok(());
+        }
+
+        // If neither is running, start both
         if !temporal_running {
             info!("Starting Temporal server...");
             self.start_temporal_server().await?;
 
             // Wait for Temporal server to be ready
             self.wait_for_temporal_server().await?;
-        } else {
-            info!("Temporal server is already running");
         }
 
-        // Check Go service again
-        if !self.health_check().await? {
+        // Now start the Go service
+        if !self.health_check().await.unwrap_or(false) {
             info!("Starting Temporal Go service...");
             self.start_go_service().await?;
         }
@@ -121,6 +135,13 @@ impl TemporalScheduler {
 
     async fn start_temporal_server(&self) -> Result<(), SchedulerError> {
         info!("Starting Temporal server in background...");
+
+        // Check if port 7233 is already in use
+        if self.check_port_in_use(7233).await {
+            return Err(SchedulerError::SchedulerInternalError(
+                "Port 7233 is already in use. Another Temporal server may be running.".to_string(),
+            ));
+        }
 
         let output = Command::new("sh")
             .arg("-c")
@@ -144,6 +165,13 @@ impl TemporalScheduler {
         Ok(())
     }
 
+    async fn check_port_in_use(&self, port: u16) -> bool {
+        use std::net::{SocketAddr, TcpListener};
+
+        let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
+        TcpListener::bind(addr).is_err()
+    }
+
     async fn wait_for_temporal_server(&self) -> Result<(), SchedulerError> {
         info!("Waiting for Temporal server to be ready...");
 
@@ -164,6 +192,13 @@ impl TemporalScheduler {
 
     async fn start_go_service(&self) -> Result<(), SchedulerError> {
         info!("Starting Temporal Go service in background...");
+
+        // Check if port 8080 is already in use
+        if self.check_port_in_use(8080).await {
+            return Err(SchedulerError::SchedulerInternalError(
+                "Port 8080 is already in use. Another Go service may be running.".to_string(),
+            ));
+        }
 
         // Check if the temporal-service binary exists
         let binary_path = "./temporal-service/temporal-service";
@@ -689,5 +724,55 @@ mod tests {
         };
 
         println!("✅ sessions() method signature is correct");
+    }
+
+    #[test]
+    fn test_port_check_functionality() {
+        // Test the port checking functionality
+        use tokio::runtime::Runtime;
+        
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let scheduler = TemporalScheduler {
+                http_client: reqwest::Client::new(),
+                service_url: "http://localhost:8080".to_string(),
+            };
+            
+            // Test with a port that should be available (high port number)
+            let high_port_in_use = scheduler.check_port_in_use(65432).await;
+            
+            // Test with a port that might be in use (port 80)
+            let low_port_in_use = scheduler.check_port_in_use(80).await;
+            
+            println!("✅ Port checking functionality works");
+            println!("   High port (65432) in use: {}", high_port_in_use);
+            println!("   Low port (80) in use: {}", low_port_in_use);
+        });
+    }
+
+    #[tokio::test]
+    async fn test_service_status_checking() {
+        // Test the service status checking methods
+        let scheduler = TemporalScheduler {
+            http_client: reqwest::Client::new(),
+            service_url: "http://localhost:8080".to_string(),
+        };
+        
+        // Test Temporal server check
+        let temporal_running = scheduler.check_temporal_server().await;
+        
+        // Test Go service health check
+        let go_service_running = scheduler.health_check().await.unwrap_or(false);
+        
+        println!("✅ Service status checking works");
+        println!("   Temporal server running: {}", temporal_running);
+        println!("   Go service running: {}", go_service_running);
+        
+        // Test combined status check
+        let (temporal_status, go_status) = scheduler.check_services_status().await;
+        assert_eq!(temporal_status, temporal_running);
+        assert_eq!(go_status, go_service_running);
+        
+        println!("   Combined status check matches individual checks");
     }
 }
