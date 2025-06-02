@@ -229,6 +229,69 @@ You can resume a CLI session in Desktop and vice versa.
 
 You can remove sessions using CLI commands. For detailed instructions on session removal, see the [CLI Commands documentation](/docs/guides/goose-cli-commands#session-remove-options).
 
+## Share Sessions
+
+Goose sessions can be shared with others, making it easy to document and distribute solutions to technical challenges or important project discussions. ecause Goose is local to your machine, by default, all your sessions are only available on your computer. 
+
+To make sessions shareable, you'll need to the Goose API to implement a session sharing service.
+
+<Tabs groupId="interface">
+    <TabItem value="ui" label="Goose Desktop" default>
+        ### How to Implement a Session Sharing Service
+
+        To share sessions through Goose Desktop, you need to use a session sharing service that can:
+        - Store sessions in a central location
+        - Make them accessible to other Goose users
+        - Handle the sharing and retrieval of session data
+
+        To implement this, you will need:
+        - A storage method for the shared sessions
+        - A hosted service to handle the sharing
+        - API endpoints that match the [Goose Session Sharing API Reference](https://goosed.stage.sqprod.co/docs)
+
+        ### Enable Session Sharing
+
+        Once your session sharing service is set up, you should have a base URL. This should be used by you and people you plan to exchange sessions with. Connect Goose to your session sharing service by:
+
+        1. Open Goose Desktop
+        2. Click the three dots (...) in the top-right corner
+        3. Select **Advanced Settings**
+        4. Find the **Session Sharing** section
+        5. Enable session sharing using the toggle
+        6. Enter your sharing service URL in the **Base URL** field
+           - Example: `https://your-sharing-service.example.com`
+           - Do not include a trailing slash
+
+        ### Share a Session
+
+        Once sharing is enabled, you can share sessions:
+
+        1. Start or open a session you want to share
+        2. Click the three dots (...) in the top-right corner
+        3. Click **Share Session**
+        4. Copy the generated share link
+
+        Anyone with access to the same sharing service can view your shared session using this link.
+
+        :::info
+        Sessions are only shared when you explicitly choose to share them. Enabling session sharing does not automatically share all your sessions.
+        :::
+
+        ### View Shared Sessions
+
+        To view a session someone shared with you:
+
+        1. Make sure you have configured the same sharing service URL
+        2. Open the share link they provided
+        3. The shared session will open in Goose Desktop
+
+        For details about implementing a sharing service, see the [API Reference Documentation](https://goosed.stage.sqprod.co/docs).
+    </TabItem>
+    <TabItem value="cli" label="Goose CLI">
+        In the CLI, sessions are stored as `.jsonl` files in `~/.local/share/goose/sessions/`. You can directly share these files with others.
+    </TabItem>
+</Tabs>
+
 ## Search Within Sessions
 
 Search allows you to find specific content within your current session. The search functionality is available in both CLI and Desktop interfaces.
@@ -291,97 +354,3 @@ Search allows you to find specific content within your current session. The sear
     </TabItem>
 </Tabs>
 
-## Share Sessions with Others
-
-Goose runs locally on your computer and stores sessions on your machine. 
-
-<Tabs groupId="interface">
-    <TabItem value="ui" label="Goose Desktop" default>
-        To share sessions through Goose Desktop, you need a service that can:
-        - Store sessions in a central location
-        - Make them accessible to other Goose users
-        - Handle the sharing and retrieval of session data
-
-        To implement this, you will need:
-        - A storage method for the shared sessions
-        - A hosted service to handle the sharing
-        - API endpoints that match the [Goose Session Sharing API Reference](https://goosed.stage.sqprod.co/docs)
-
-        ### Configure Session Sharing
-
-        Once you have a sharing service URL:
-
-        1. Open Goose Desktop
-        2. Click the three dots (...) in the top-right corner
-        3. Select **Settings**
-        4. Find the **Session Sharing** section
-        5. Enable session sharing using the toggle
-        6. Enter your sharing service URL in the **Base URL** field
-           - Example: `https://your-sharing-service.example.com`
-           - Do not include a trailing slash
-
-        :::tip
-        The sharing service URL must be accessible to anyone you want to share sessions with.
-        :::
-
-        ### Share a Session
-
-        Once sharing is configured, you can share sessions:
-
-        1. Start or open a session you want to share
-        2. Click the three dots (...) in the top-right corner
-        3. Click **Share Session**
-        4. Copy the generated share link
-
-        Anyone with access to the same sharing service can view your shared session using this link.
-
-        :::info
-        Sessions are only shared when you explicitly choose to share them. Enabling session sharing does not automatically share all your sessions.
-        :::
-
-        ### View Shared Sessions
-
-        To view a session someone shared with you:
-
-        1. Make sure you have configured the same sharing service URL
-        2. Open the share link they provided
-        3. The shared session will open in Goose Desktop
-
-        You can also browse all shared sessions:
-
-        1. Click the three dots (...) in the top-right corner
-        2. Select **Previous Sessions**
-        3. Click the **Shared** tab
-
-        For details about implementing a sharing service, see the [API Reference Documentation](https://goosed.stage.sqprod.co/docs).
-    </TabItem>
-    <TabItem value="cli" label="Goose CLI">
-        In the CLI, sessions are stored as `.jsonl` files in `~/.local/share/goose/sessions/`. You can directly share these files with others.
-
-        To share a session:
-        ```bash
-        # Copy the session file
-        cp ~/.local/share/goose/sessions/your-session.jsonl /path/to/shared/location
-        ```
-
-        To use a shared session file:
-        ```bash
-        # Copy the shared file to your sessions directory
-        cp /path/to/shared/session.jsonl ~/.local/share/goose/sessions/
-
-        # Resume the session
-        goose session -r --name session-name
-        ```
-
-        :::tip
-        The session filename (without .jsonl) is what you will use with the --name flag to resume it.
-        :::
-
-        :::warning
-        When sharing session files directly:
-        - Make sure to share both the file and its intended name
-        - Be aware that sessions might contain sensitive information
-        - The recipient will need the same extensions enabled to use any extension-specific features
-        :::
-    </TabItem>
-</Tabs>
