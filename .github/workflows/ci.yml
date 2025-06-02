@@ -79,9 +79,9 @@ jobs:
         uses: actions/cache@2f8e54208210a422b2efd51efaa6bd6d7ca8920f # pin@v3
         with:
           path: ~/.cargo/index
-          key: ${{ runner.os }}-cargo-index
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-index
+            ${{ runner.os }}-cargo-index-
 
       - name: Cache Cargo Build
         uses: actions/cache@2f8e54208210a422b2efd51efaa6bd6d7ca8920f # pin@v3
