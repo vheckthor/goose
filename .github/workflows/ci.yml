@@ -99,6 +99,11 @@ jobs:
           source ../bin/activate-hermit && cargo test
         working-directory: crates
         
+      - name: Show sccache stats
+        run: |
+          echo "📊 sccache stats:"
+          sccache --show-stats || echo "sccache not found or failed to report stats"
+
       # Add disk space cleanup before linting
       - name: Check disk space before cleanup
         run: df -h
