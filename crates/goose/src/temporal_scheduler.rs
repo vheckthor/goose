@@ -238,7 +238,10 @@ impl TemporalScheduler {
     }
 
     pub async fn add_scheduled_job(&self, job: ScheduledJob) -> Result<(), SchedulerError> {
-        tracing::info!("TemporalScheduler: add_scheduled_job() called for job '{}'", job.id);
+        tracing::info!(
+            "TemporalScheduler: add_scheduled_job() called for job '{}'",
+            job.id
+        );
         let request = JobRequest {
             action: "create".to_string(),
             job_id: Some(job.id.clone()),
@@ -382,24 +385,46 @@ impl TemporalScheduler {
         sched_id: &str,
         limit: usize,
     ) -> Result<Vec<(String, SessionMetadata)>, SchedulerError> {
-        use crate::session::storage::SessionStorage;
-        use std::path::PathBuf;
-        
-        // Use the default session storage directory
-        let storage_dir = PathBuf::from(".goose/sessions");
-        let session_storage = SessionStorage::new(storage_dir);
-        
-        match session_storage.list_sessions_for_schedule(sched_id, limit).await {
-            Ok(sessions) => {
-                tracing::info!("Found {} sessions for schedule '{}'", sessions.len(), sched_id);
-                Ok(sessions)
-            }
-            Err(e) => {
-                tracing::error!("Error fetching sessions for schedule '{}': {}", sched_id, e);
-                // Return empty list instead of error to maintain compatibility
-                Ok(vec![])
+        use crate::session::storage;
+
+        // Get all session files
+        let all_session_files = storage::list_sessions().map_err(|e| {
+            SchedulerError::SchedulerInternalError(format!("Failed to list sessions: {}", e))
+        })?;
+
+        let mut schedule_sessions: Vec<(String, SessionMetadata)> = Vec::new();
+
+        for (session_name, session_path) in all_session_files {
+            match storage::read_metadata(&session_path) {
+                Ok(metadata) => {
+                    // Check if this session belongs to the requested schedule
+                    if metadata.schedule_id.as_deref() == Some(sched_id) {
+                        schedule_sessions.push((session_name, metadata));
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to read metadata for session file {}: {}. Skipping.",
+                        session_path.display(),
+                        e
+                    );
+                }
             }
         }
+
+        // Sort by session_name (timestamp string) in descending order (newest first)
+        schedule_sessions.sort_by(|a, b| b.0.cmp(&a.0));
+
+        // Take only the requested limit
+        let result_sessions: Vec<(String, SessionMetadata)> =
+            schedule_sessions.into_iter().take(limit).collect();
+
+        tracing::info!(
+            "Found {} sessions for schedule '{}'",
+            result_sessions.len(),
+            sched_id
+        );
+        Ok(result_sessions)
     }
 
     pub async fn update_schedule(
@@ -430,8 +455,12 @@ impl TemporalScheduler {
 
     async fn make_request(&self, request: JobRequest) -> Result<JobResponse, SchedulerError> {
         let url = format!("{}/jobs", self.service_url);
-        
-        tracing::info!("TemporalScheduler: Making HTTP request to {} with action '{}'", url, request.action);
+
+        tracing::info!(
+            "TemporalScheduler: Making HTTP request to {} with action '{}'",
+            url,
+            request.action
+        );
 
         let response = self
             .http_client
