@@ -12,7 +12,7 @@ use crate::commands::recipe::{handle_deeplink, handle_validate};
 // Import the new handlers from commands::schedule
 use crate::commands::schedule::{
     handle_schedule_add, handle_schedule_list, handle_schedule_remove, handle_schedule_run_now,
-    handle_schedule_sessions, handle_schedule_services_status, handle_schedule_services_stop,
+    handle_schedule_services_status, handle_schedule_services_stop, handle_schedule_sessions,
 };
 use crate::commands::session::{handle_session_list, handle_session_remove};
 use crate::logging::setup_logging;

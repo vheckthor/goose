@@ -1379,40 +1379,51 @@ impl SchedulerTrait for Scheduler {
     async fn add_scheduled_job(&self, job: ScheduledJob) -> Result<(), SchedulerError> {
         self.add_scheduled_job(job).await
     }
-    
+
     async fn list_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>, SchedulerError> {
         Ok(self.list_scheduled_jobs().await)
     }
-    
+
     async fn remove_scheduled_job(&self, id: &str) -> Result<(), SchedulerError> {
         self.remove_scheduled_job(id).await
     }
-    
+
     async fn pause_schedule(&self, id: &str) -> Result<(), SchedulerError> {
         self.pause_schedule(id).await
     }
-    
+
     async fn unpause_schedule(&self, id: &str) -> Result<(), SchedulerError> {
         self.unpause_schedule(id).await
     }
-    
+
     async fn run_now(&self, id: &str) -> Result<String, SchedulerError> {
         self.run_now(id).await
     }
-    
-    async fn sessions(&self, sched_id: &str, limit: usize) -> Result<Vec<(String, SessionMetadata)>, SchedulerError> {
+
+    async fn sessions(
+        &self,
+        sched_id: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, SessionMetadata)>, SchedulerError> {
         self.sessions(sched_id, limit).await
     }
-    
-    async fn update_schedule(&self, sched_id: &str, new_cron: String) -> Result<(), SchedulerError> {
+
+    async fn update_schedule(
+        &self,
+        sched_id: &str,
+        new_cron: String,
+    ) -> Result<(), SchedulerError> {
         self.update_schedule(sched_id, new_cron).await
     }
-    
+
     async fn kill_running_job(&self, sched_id: &str) -> Result<(), SchedulerError> {
         self.kill_running_job(sched_id).await
     }
-    
-    async fn get_running_job_info(&self, sched_id: &str) -> Result<Option<(String, DateTime<Utc>)>, SchedulerError> {
+
+    async fn get_running_job_info(
+        &self,
+        sched_id: &str,
+    ) -> Result<Option<(String, DateTime<Utc>)>, SchedulerError> {
         self.get_running_job_info(sched_id).await
     }
 }

@@ -20,10 +20,13 @@ impl SchedulerType {
                 "temporal" => SchedulerType::Temporal,
                 "legacy" => SchedulerType::Legacy,
                 _ => {
-                    tracing::warn!("Unknown scheduler type '{}', defaulting to legacy", scheduler_type);
+                    tracing::warn!(
+                        "Unknown scheduler type '{}', defaulting to legacy",
+                        scheduler_type
+                    );
                     SchedulerType::Legacy
                 }
-            }
+            },
             Err(_) => {
                 // Default to legacy for backward compatibility
                 SchedulerType::Legacy
@@ -39,7 +42,7 @@ impl SchedulerFactory {
     /// Create a scheduler instance based on configuration
     pub async fn create(storage_path: PathBuf) -> Result<Arc<dyn SchedulerTrait>, SchedulerError> {
         let scheduler_type = SchedulerType::from_config();
-        
+
         match scheduler_type {
             SchedulerType::Legacy => {
                 tracing::info!("Creating legacy scheduler");
@@ -53,14 +56,16 @@ impl SchedulerFactory {
             }
         }
     }
-    
+
     /// Create a specific scheduler type (for testing or explicit use)
-    pub async fn create_legacy(storage_path: PathBuf) -> Result<Arc<dyn SchedulerTrait>, SchedulerError> {
+    pub async fn create_legacy(
+        storage_path: PathBuf,
+    ) -> Result<Arc<dyn SchedulerTrait>, SchedulerError> {
         tracing::info!("Creating legacy scheduler (explicit)");
         let scheduler = Scheduler::new(storage_path).await?;
         Ok(scheduler as Arc<dyn SchedulerTrait>)
     }
-    
+
     /// Create a Temporal scheduler (for testing or explicit use)
     pub async fn create_temporal() -> Result<Arc<dyn SchedulerTrait>, SchedulerError> {
         tracing::info!("Creating Temporal scheduler (explicit)");

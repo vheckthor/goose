@@ -1,7 +1,8 @@
 use anyhow::{bail, Context, Result};
 use base64::engine::{general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use goose::scheduler::{
-    get_default_scheduled_recipes_dir, get_default_scheduler_storage_path, ScheduledJob, SchedulerError,
+    get_default_scheduled_recipes_dir, get_default_scheduler_storage_path, ScheduledJob,
+    SchedulerError,
 };
 use goose::scheduler_factory::SchedulerFactory;
 use goose::temporal_scheduler::TemporalScheduler;
@@ -190,16 +191,17 @@ pub async fn handle_schedule_run_now(id: String) -> Result<()> {
 
 pub async fn handle_schedule_services_status() -> Result<()> {
     // Check if we're using temporal scheduler
-    let scheduler_type = std::env::var("GOOSE_SCHEDULER_TYPE").unwrap_or_else(|_| "legacy".to_string());
-    
+    let scheduler_type =
+        std::env::var("GOOSE_SCHEDULER_TYPE").unwrap_or_else(|_| "legacy".to_string());
+
     if scheduler_type != "temporal" {
         println!("Service management is only available for temporal scheduler.");
         println!("Set GOOSE_SCHEDULER_TYPE=temporal to use Temporal services.");
         return Ok(());
     }
-    
+
     println!("Checking Temporal services status...");
-    
+
     // Create a temporary TemporalScheduler to check status
     match TemporalScheduler::new().await {
         Ok(scheduler) => {
@@ -214,41 +216,40 @@ pub async fn handle_schedule_services_status() -> Result<()> {
             println!("- Services are not running");
         }
     }
-    
+
     Ok(())
 }
 
 pub async fn handle_schedule_services_stop() -> Result<()> {
     // Check if we're using temporal scheduler
-    let scheduler_type = std::env::var("GOOSE_SCHEDULER_TYPE").unwrap_or_else(|_| "legacy".to_string());
-    
+    let scheduler_type =
+        std::env::var("GOOSE_SCHEDULER_TYPE").unwrap_or_else(|_| "legacy".to_string());
+
     if scheduler_type != "temporal" {
         println!("Service management is only available for temporal scheduler.");
         println!("Set GOOSE_SCHEDULER_TYPE=temporal to use Temporal services.");
         return Ok(());
     }
-    
+
     println!("Stopping Temporal services...");
-    
+
     // Create a temporary TemporalScheduler to stop services
     match TemporalScheduler::new().await {
-        Ok(scheduler) => {
-            match scheduler.stop_services().await {
-                Ok(result) => {
-                    println!("{}", result);
-                    println!("\nNote: Services were running independently and have been stopped.");
-                    println!("They will be automatically restarted when needed.");
-                }
-                Err(e) => {
-                    println!("Failed to stop services: {}", e);
-                }
+        Ok(scheduler) => match scheduler.stop_services().await {
+            Ok(result) => {
+                println!("{}", result);
+                println!("\nNote: Services were running independently and have been stopped.");
+                println!("They will be automatically restarted when needed.");
             }
-        }
+            Err(e) => {
+                println!("Failed to stop services: {}", e);
+            }
+        },
         Err(e) => {
             println!("Failed to initialize scheduler: {}", e);
             println!("Services may not be running or may have already been stopped.");
         }
     }
-    
+
     Ok(())
 }
