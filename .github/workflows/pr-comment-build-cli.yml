@@ -27,7 +27,6 @@ jobs:
     outputs:
       continue: ${{ steps.command.outputs.continue || github.event_name == 'workflow_dispatch' }}
       pr_number: ${{ steps.command.outputs.issue_number || github.event.inputs.pr_number }}
-      head_sha: ${{ steps.pr_info.outputs.head_sha || github.sha }}
     steps:
       - if: ${{ github.event_name == 'issue_comment' }}
         uses: github/command@v1.3.0
@@ -38,27 +37,10 @@ jobs:
           reaction: "eyes"
           allowed_contexts: pull_request
 
-      - name: Get PR info
-        if: ${{ github.event_name == 'issue_comment' }}
-        id: pr_info
-        uses: octokit/request-action@v2.x
-        with:
-          route: GET /repos/${{ github.repository }}/pulls/${{ steps.command.outputs.issue_number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-        # Extract head SHA from PR info
-      - name: Set head SHA output
-        if: ${{ github.event_name == 'issue_comment' }}
-        run: echo "head_sha=$(echo '${{ steps.pr_info.outputs.data }}' | jq -r .head.sha)" >> $GITHUB_OUTPUT
-        id: pr_info
-
   build-cli:
     needs: [trigger-on-command]
     if: ${{ needs.trigger-on-command.outputs.continue == 'true' }}
     uses: ./.github/workflows/build-cli.yml
-    with:
-      ref: ${{ needs.trigger-on-command.outputs.head_sha }}
 
   pr-comment-cli:
     name: PR Comment with CLI builds
