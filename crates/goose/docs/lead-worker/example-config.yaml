@@ -2,11 +2,14 @@
 # This file should be placed at ~/.config/goose/config.yaml
 
 # Standard provider configuration (backward compatible)
-provider: openai
-model: gpt-4o-mini
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: gpt-4o-mini
 
-# Lead/Worker configuration (optional)
-# This section enables intelligent model switching
+# Option 1: Simple lead model setup (just add GOOSE_LEAD_MODEL)
+# GOOSE_LEAD_MODEL: gpt-4o
+
+# Option 2: Advanced Lead/Worker configuration (optional)
+# This section enables intelligent model switching with full control
 lead_worker:
   enabled: true
   

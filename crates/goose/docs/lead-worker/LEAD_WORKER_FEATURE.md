@@ -11,13 +11,23 @@ export GOOSE_MODEL="gpt-4o-mini"           # Worker model
 export GOOSE_LEAD_MODEL="gpt-4o"          # Lead model
 ```
 
-### Option 2: YAML Configuration (Advanced)
+### Option 2: YAML Configuration (Simple)
 Create or edit `~/.config/goose/config.yaml`:
 
 ```yaml
 # Standard configuration
-provider: openai
-model: gpt-4o-mini
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: gpt-4o-mini
+GOOSE_LEAD_MODEL: gpt-4o
+```
+
+### Option 3: YAML Configuration (Advanced)
+Create or edit `~/.config/goose/config.yaml`:
+
+```yaml
+# Standard configuration
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: gpt-4o-mini
 
 # Lead/Worker configuration
 lead_worker:
@@ -28,10 +38,10 @@ lead_worker:
   fallback_turns: 2
 ```
 
-### Option 3: Cross-Provider Configuration (Most Powerful)
+### Option 4: Cross-Provider Configuration (Most Powerful)
 ```yaml
-provider: openai
-model: gpt-4o-mini
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: gpt-4o-mini
 
 lead_worker:
   enabled: true
@@ -48,8 +58,9 @@ lead_worker:
 
 The system respects the following precedence order:
 1. **Environment variables** (highest) - `GOOSE_LEAD_MODEL` overrides everything
-2. **YAML configuration** - `lead_worker` section in config file
-3. **Regular provider** (lowest) - Standard single-model operation
+2. **YAML `lead_worker` section** - Advanced configuration with cross-provider support
+3. **YAML flat keys** - `GOOSE_LEAD_MODEL` in config file
+4. **Regular provider** (lowest) - Standard single-model operation
 
 This ensures full backward compatibility while enabling advanced features.
 
@@ -136,6 +147,19 @@ export GOOSE_MODEL="claude-3-haiku-20240307"
 export GOOSE_LEAD_MODEL="claude-3-5-sonnet-20241022"
 ```
 
+### YAML Configuration: Cross-provider setup
+```yaml
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: gpt-4o-mini
+
+lead_worker:
+  enabled: true
+  lead_provider: anthropic
+  lead_model: claude-3-5-sonnet-20241022
+  worker_provider: openai
+  worker_model: gpt-4o-mini
+```
+
 ### Disable (default behavior)
 ```bash
 unset GOOSE_LEAD_MODEL
@@ -184,3 +208,78 @@ Watch for these log messages to understand the behavior:
 - **Intelligence**: Detects when the model is struggling with the actual task, not just API issues
 - **Self-healing**: No manual intervention needed when worker model gets stuck
 - **User-aware**: Recognizes when users are expressing dissatisfaction and correcting the model
+
+## Implementation Details
+
+### Core Components
+
+The lead/worker feature is implemented across several key components:
+
+#### Provider Layer (`crates/goose/src/providers/`)
+- **`LeadWorkerProvider`**: Main wrapper that manages switching between lead and worker providers
+- **`LeadWorkerConfig`**: Configuration structure for YAML-based setup
+- **Factory pattern**: Handles precedence and provider creation logic
+
+#### CLI Integration (`crates/goose-cli/src/session/`)
+- **Startup logging**: Displays model information when sessions begin
+- **Session management**: Integrates with existing session workflow
+
+### Key Features Implemented
+
+#### ✅ Startup Logging
+The system provides clear visibility into which models are configured:
+
+**Tracing Integration:**
+```rust
+tracing::info!(
+    "🤖 Lead/Worker Mode Enabled: Lead model (first 3 turns): {}, Worker model (turn 4+): {}, Auto-fallback on failures: Enabled",
+    lead_model,
+    worker_model
+);
+```
+
+**Session Header Display:**
+```
+starting session | provider: openai lead model: gpt-4o worker model: gpt-4o-mini
+```
+
+#### ✅ Turn-by-Turn Logging
+- `"Using lead (initial) provider for turn 1 (lead_turns: 3)"`
+- `"Using worker provider for turn 4 (lead_turns: 3)"`
+- `"🔄 Using lead (fallback) provider for turn 7 (FALLBACK MODE: 1 turns remaining)"`
+
+#### ✅ Configuration Support
+- **Environment variables**: Simple setup with `GOOSE_LEAD_MODEL`
+- **YAML flat keys**: `GOOSE_LEAD_MODEL` in config file
+- **YAML `lead_worker` section**: Advanced setup with cross-provider support
+- **Proper precedence handling**: Environment > YAML lead_worker > YAML flat > defaults
+
+#### ✅ Comprehensive Testing
+- Unit tests for configuration parsing and defaults
+- Integration tests for provider switching logic
+- Fallback behavior verification
+- All tests pass successfully
+
+### Configuration Precedence Implementation
+
+The system implements a clear precedence order in `factory.rs`:
+
+1. **Environment variables** (highest): `GOOSE_LEAD_MODEL` env var
+2. **YAML `lead_worker` section**: Full configuration control
+3. **YAML flat keys**: `GOOSE_LEAD_MODEL` in config file  
+4. **Regular provider** (lowest): Standard single-model operation
+
+### Files Modified/Created
+
+**Core Implementation:**
+- `crates/goose/src/providers/base.rs` - Added `LeadWorkerProviderTrait`
+- `crates/goose/src/providers/lead_worker.rs` - Main provider implementation
+- `crates/goose/src/providers/factory.rs` - Configuration and creation logic
+- `crates/goose-cli/src/session/builder.rs` - Startup logging integration
+
+**Documentation:**
+- `crates/goose/docs/lead-worker/LEAD_WORKER_FEATURE.md` - This comprehensive guide
+- `crates/goose/docs/lead-worker/README.md` - Quick start guide
+- `crates/goose/docs/lead-worker/example-config.yaml` - Example configuration
+
+The implementation is complete, tested, and provides full backward compatibility while enabling advanced lead/worker functionality.
