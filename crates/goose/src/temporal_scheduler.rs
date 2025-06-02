@@ -238,6 +238,7 @@ impl TemporalScheduler {
     }
 
     pub async fn add_scheduled_job(&self, job: ScheduledJob) -> Result<(), SchedulerError> {
+        tracing::info!("TemporalScheduler: add_scheduled_job() called for job '{}'", job.id);
         let request = JobRequest {
             action: "create".to_string(),
             job_id: Some(job.id.clone()),
@@ -256,6 +257,7 @@ impl TemporalScheduler {
     }
 
     pub async fn list_scheduled_jobs(&self) -> Result<Vec<ScheduledJob>, SchedulerError> {
+        tracing::info!("TemporalScheduler: list_scheduled_jobs() called");
         let request = JobRequest {
             action: "list".to_string(),
             job_id: None,
@@ -343,6 +345,7 @@ impl TemporalScheduler {
     }
 
     pub async fn run_now(&self, id: &str) -> Result<String, SchedulerError> {
+        tracing::info!("TemporalScheduler: run_now() called for job '{}'", id);
         let request = JobRequest {
             action: "run_now".to_string(),
             job_id: Some(id.to_string()),
@@ -372,15 +375,31 @@ impl TemporalScheduler {
         }
     }
 
-    // Note: These methods are not directly supported by the Temporal service
-    // but are kept for API compatibility
+    // Note: This method fetches sessions from the session storage directly
+    // since Temporal service doesn't track session metadata
     pub async fn sessions(
         &self,
-        _sched_id: &str,
-        _limit: usize,
+        sched_id: &str,
+        limit: usize,
     ) -> Result<Vec<(String, SessionMetadata)>, SchedulerError> {
-        warn!("sessions() method not implemented for TemporalScheduler - use session storage directly");
-        Ok(vec![])
+        use crate::session::storage::SessionStorage;
+        use std::path::PathBuf;
+        
+        // Use the default session storage directory
+        let storage_dir = PathBuf::from(".goose/sessions");
+        let session_storage = SessionStorage::new(storage_dir);
+        
+        match session_storage.list_sessions_for_schedule(sched_id, limit).await {
+            Ok(sessions) => {
+                tracing::info!("Found {} sessions for schedule '{}'", sessions.len(), sched_id);
+                Ok(sessions)
+            }
+            Err(e) => {
+                tracing::error!("Error fetching sessions for schedule '{}': {}", sched_id, e);
+                // Return empty list instead of error to maintain compatibility
+                Ok(vec![])
+            }
+        }
     }
 
     pub async fn update_schedule(
@@ -411,6 +430,8 @@ impl TemporalScheduler {
 
     async fn make_request(&self, request: JobRequest) -> Result<JobResponse, SchedulerError> {
         let url = format!("{}/jobs", self.service_url);
+        
+        tracing::info!("TemporalScheduler: Making HTTP request to {} with action '{}'", url, request.action);
 
         let response = self
             .http_client
