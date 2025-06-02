@@ -11,10 +11,10 @@ use crate::types::json_value_ffi::JsonValueFfi;
 use crate::{message::Message, providers::Usage};
 use crate::{model::ModelConfig, providers::errors::ProviderError};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct CompletionRequest {
     pub provider_name: String,
-    pub provider_config: serde_json::Value,
+    pub provider_config: JsonValueFfi,
     pub model_config: ModelConfig,
     pub system_preamble: String,
     pub messages: Vec<Message>,
@@ -32,7 +32,7 @@ impl CompletionRequest {
     ) -> Self {
         Self {
             provider_name,
-            provider_config,
+            provider_config: provider_config.into(),
             model_config,
             system_preamble,
             messages,
@@ -60,14 +60,7 @@ pub fn create_completion_request(
     )
 }
 
-uniffi::custom_type!(CompletionRequest, String, {
-    lower: |tc: &CompletionRequest| {
-        serde_json::to_string(&tc).unwrap()
-    },
-    try_lift: |s: String| {
-        Ok(serde_json::from_str(&s).unwrap())
-    },
-});
+
 
 // https://mozilla.github.io/uniffi-rs/latest/proc_macro/errors.html
 #[derive(Debug, Error, uniffi::Error)]
@@ -141,11 +134,11 @@ pub enum ToolApprovalMode {
     Smart,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct ToolConfig {
     pub name: String,
     pub description: String,
-    pub input_schema: serde_json::Value,
+    pub input_schema: JsonValueFfi,
     pub approval_mode: ToolApprovalMode,
 }
 
@@ -159,7 +152,7 @@ impl ToolConfig {
         Self {
             name: name.to_string(),
             description: description.to_string(),
-            input_schema,
+            input_schema: input_schema.into(),
             approval_mode,
         }
     }
@@ -170,7 +163,7 @@ impl ToolConfig {
         super::core::Tool::new(
             tool_name,
             self.description.clone(),
-            self.input_schema.clone(),
+            self.input_schema.clone().into(),
         )
     }
 }
@@ -185,14 +178,7 @@ pub fn create_tool_config(
     ToolConfig::new(name, description, input_schema.into(), approval_mode)
 }
 
-uniffi::custom_type!(ToolConfig, String, {
-    lower: |tc: &ToolConfig| {
-        serde_json::to_string(&tc).unwrap()
-    },
-    try_lift: |s: String| {
-        Ok(serde_json::from_str(&s).unwrap())
-    },
-});
+
 
 // — Register the newtypes with UniFFI, converting via JSON strings —
 

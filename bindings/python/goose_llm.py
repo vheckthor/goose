@@ -461,11 +461,11 @@ def _uniffi_check_contract_api_version(lib):
         raise InternalError("UniFFI contract version mismatch: try cleaning and rebuilding your project")
 
 def _uniffi_check_api_checksums(lib):
-    if lib.uniffi_goose_llm_checksum_func_completion() != 47457:
+    if lib.uniffi_goose_llm_checksum_func_completion() != 55281:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_goose_llm_checksum_func_create_completion_request() != 51008:
+    if lib.uniffi_goose_llm_checksum_func_create_completion_request() != 51911:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    if lib.uniffi_goose_llm_checksum_func_create_tool_config() != 22809:
+    if lib.uniffi_goose_llm_checksum_func_create_tool_config() != 7458:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_goose_llm_checksum_func_generate_session_name() != 9810:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -1004,6 +1004,70 @@ class _UniffiConverterString:
             return builder.finalize()
 
 
+class CompletionRequest:
+    provider_name: "str"
+    provider_config: "JsonValueFfi"
+    model_config: "ModelConfig"
+    system_preamble: "str"
+    messages: "typing.List[Message]"
+    extensions: "typing.List[ExtensionConfig]"
+    def __init__(self, *, provider_name: "str", provider_config: "JsonValueFfi", model_config: "ModelConfig", system_preamble: "str", messages: "typing.List[Message]", extensions: "typing.List[ExtensionConfig]"):
+        self.provider_name = provider_name
+        self.provider_config = provider_config
+        self.model_config = model_config
+        self.system_preamble = system_preamble
+        self.messages = messages
+        self.extensions = extensions
+
+    def __str__(self):
+        return "CompletionRequest(provider_name={}, provider_config={}, model_config={}, system_preamble={}, messages={}, extensions={})".format(self.provider_name, self.provider_config, self.model_config, self.system_preamble, self.messages, self.extensions)
+
+    def __eq__(self, other):
+        if self.provider_name != other.provider_name:
+            return False
+        if self.provider_config != other.provider_config:
+            return False
+        if self.model_config != other.model_config:
+            return False
+        if self.system_preamble != other.system_preamble:
+            return False
+        if self.messages != other.messages:
+            return False
+        if self.extensions != other.extensions:
+            return False
+        return True
+
+class _UniffiConverterTypeCompletionRequest(_UniffiConverterRustBuffer):
+    @staticmethod
+    def read(buf):
+        return CompletionRequest(
+            provider_name=_UniffiConverterString.read(buf),
+            provider_config=_UniffiConverterTypeJsonValueFfi.read(buf),
+            model_config=_UniffiConverterTypeModelConfig.read(buf),
+            system_preamble=_UniffiConverterString.read(buf),
+            messages=_UniffiConverterSequenceTypeMessage.read(buf),
+            extensions=_UniffiConverterSequenceTypeExtensionConfig.read(buf),
+        )
+
+    @staticmethod
+    def check_lower(value):
+        _UniffiConverterString.check_lower(value.provider_name)
+        _UniffiConverterTypeJsonValueFfi.check_lower(value.provider_config)
+        _UniffiConverterTypeModelConfig.check_lower(value.model_config)
+        _UniffiConverterString.check_lower(value.system_preamble)
+        _UniffiConverterSequenceTypeMessage.check_lower(value.messages)
+        _UniffiConverterSequenceTypeExtensionConfig.check_lower(value.extensions)
+
+    @staticmethod
+    def write(value, buf):
+        _UniffiConverterString.write(value.provider_name, buf)
+        _UniffiConverterTypeJsonValueFfi.write(value.provider_config, buf)
+        _UniffiConverterTypeModelConfig.write(value.model_config, buf)
+        _UniffiConverterString.write(value.system_preamble, buf)
+        _UniffiConverterSequenceTypeMessage.write(value.messages, buf)
+        _UniffiConverterSequenceTypeExtensionConfig.write(value.extensions, buf)
+
+
 class CompletionResponse:
     message: "Message"
     model: "str"
@@ -1428,6 +1492,56 @@ class _UniffiConverterTypeThinkingContent(_UniffiConverterRustBuffer):
     def write(value, buf):
         _UniffiConverterString.write(value.thinking, buf)
         _UniffiConverterString.write(value.signature, buf)
+
+
+class ToolConfig:
+    name: "str"
+    description: "str"
+    input_schema: "JsonValueFfi"
+    approval_mode: "ToolApprovalMode"
+    def __init__(self, *, name: "str", description: "str", input_schema: "JsonValueFfi", approval_mode: "ToolApprovalMode"):
+        self.name = name
+        self.description = description
+        self.input_schema = input_schema
+        self.approval_mode = approval_mode
+
+    def __str__(self):
+        return "ToolConfig(name={}, description={}, input_schema={}, approval_mode={})".format(self.name, self.description, self.input_schema, self.approval_mode)
+
+    def __eq__(self, other):
+        if self.name != other.name:
+            return False
+        if self.description != other.description:
+            return False
+        if self.input_schema != other.input_schema:
+            return False
+        if self.approval_mode != other.approval_mode:
+            return False
+        return True
+
+class _UniffiConverterTypeToolConfig(_UniffiConverterRustBuffer):
+    @staticmethod
+    def read(buf):
+        return ToolConfig(
+            name=_UniffiConverterString.read(buf),
+            description=_UniffiConverterString.read(buf),
+            input_schema=_UniffiConverterTypeJsonValueFfi.read(buf),
+            approval_mode=_UniffiConverterTypeToolApprovalMode.read(buf),
+        )
+
+    @staticmethod
+    def check_lower(value):
+        _UniffiConverterString.check_lower(value.name)
+        _UniffiConverterString.check_lower(value.description)
+        _UniffiConverterTypeJsonValueFfi.check_lower(value.input_schema)
+        _UniffiConverterTypeToolApprovalMode.check_lower(value.approval_mode)
+
+    @staticmethod
+    def write(value, buf):
+        _UniffiConverterString.write(value.name, buf)
+        _UniffiConverterString.write(value.description, buf)
+        _UniffiConverterTypeJsonValueFfi.write(value.input_schema, buf)
+        _UniffiConverterTypeToolApprovalMode.write(value.approval_mode, buf)
 
 
 class ToolRequest:
@@ -2596,31 +2710,6 @@ class _UniffiConverterSequenceTypeMessage(_UniffiConverterRustBuffer):
 
 
 
-class _UniffiConverterSequenceTypeMessageContent(_UniffiConverterRustBuffer):
-    @classmethod
-    def check_lower(cls, value):
-        for item in value:
-            _UniffiConverterTypeMessageContent.check_lower(item)
-
-    @classmethod
-    def write(cls, value, buf):
-        items = len(value)
-        buf.write_i32(items)
-        for item in value:
-            _UniffiConverterTypeMessageContent.write(item, buf)
-
-    @classmethod
-    def read(cls, buf):
-        count = buf.read_i32()
-        if count < 0:
-            raise InternalError("Unexpected negative sequence length")
-
-        return [
-            _UniffiConverterTypeMessageContent.read(buf) for i in range(count)
-        ]
-
-
-
 class _UniffiConverterSequenceTypeToolConfig(_UniffiConverterRustBuffer):
     @classmethod
     def check_lower(cls, value):
@@ -2645,26 +2734,29 @@ class _UniffiConverterSequenceTypeToolConfig(_UniffiConverterRustBuffer):
         ]
 
 
-class _UniffiConverterTypeCompletionRequest:
-    @staticmethod
-    def write(value, buf):
-        _UniffiConverterString.write(value, buf)
 
-    @staticmethod
-    def read(buf):
-        return _UniffiConverterString.read(buf)
+class _UniffiConverterSequenceTypeMessageContent(_UniffiConverterRustBuffer):
+    @classmethod
+    def check_lower(cls, value):
+        for item in value:
+            _UniffiConverterTypeMessageContent.check_lower(item)
 
-    @staticmethod
-    def lift(value):
-        return _UniffiConverterString.lift(value)
+    @classmethod
+    def write(cls, value, buf):
+        items = len(value)
+        buf.write_i32(items)
+        for item in value:
+            _UniffiConverterTypeMessageContent.write(item, buf)
 
-    @staticmethod
-    def check_lower(value):
-        return _UniffiConverterString.check_lower(value)
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative sequence length")
 
-    @staticmethod
-    def lower(value):
-        return _UniffiConverterString.lower(value)
+        return [
+            _UniffiConverterTypeMessageContent.read(buf) for i in range(count)
+        ]
 
 
 class _UniffiConverterTypeContents:
@@ -2690,28 +2782,6 @@ class _UniffiConverterTypeContents:
 
 
 class _UniffiConverterTypeJsonValueFfi:
-    @staticmethod
-    def write(value, buf):
-        _UniffiConverterString.write(value, buf)
-
-    @staticmethod
-    def read(buf):
-        return _UniffiConverterString.read(buf)
-
-    @staticmethod
-    def lift(value):
-        return _UniffiConverterString.lift(value)
-
-    @staticmethod
-    def check_lower(value):
-        return _UniffiConverterString.check_lower(value)
-
-    @staticmethod
-    def lower(value):
-        return _UniffiConverterString.lower(value)
-
-
-class _UniffiConverterTypeToolConfig:
     @staticmethod
     def write(value, buf):
         _UniffiConverterString.write(value, buf)
@@ -2777,10 +2847,8 @@ class _UniffiConverterTypeToolResponseToolResult:
         return _UniffiConverterString.lower(value)
 
 # objects.
-CompletionRequest = str
 Contents = typing.List[MessageContent]
 JsonValueFfi = str
-ToolConfig = str
 ToolRequestToolCall = str
 ToolResponseToolResult = str
 
@@ -2978,6 +3046,7 @@ __all__ = [
     "Role",
     "ToolApprovalMode",
     "ToolError",
+    "CompletionRequest",
     "CompletionResponse",
     "ExtensionConfig",
     "ImageContent",
@@ -2988,6 +3057,7 @@ __all__ = [
     "RuntimeMetrics",
     "TextContent",
     "ThinkingContent",
+    "ToolConfig",
     "ToolRequest",
     "ToolResponse",
     "Usage",
