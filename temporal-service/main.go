@@ -25,6 +25,9 @@ const (
 	Namespace     = "default"
 )
 
+// Global service instance for activities to access
+var globalService *TemporalService
+
 // Request/Response types for HTTP API
 type JobRequest struct {
 	Action     string `json:"action"`      // create, delete, pause, unpause, list, run_now
@@ -60,6 +63,7 @@ type TemporalService struct {
 	client       client.Client
 	worker       worker.Worker
 	scheduleJobs map[string]*JobStatus // In-memory job tracking
+	runningJobs  map[string]bool       // Track which jobs are currently running
 }
 
 // NewTemporalService creates a new Temporal service that connects to existing server
@@ -85,11 +89,17 @@ func NewTemporalService() (*TemporalService, error) {
 
 	log.Println("Connected to Temporal server successfully")
 
-	return &TemporalService{
+	service := &TemporalService{
 		client:       c,
 		worker:       w,
 		scheduleJobs: make(map[string]*JobStatus),
-	}, nil
+		runningJobs:  make(map[string]bool),
+	}
+	
+	// Set global service for activities
+	globalService = service
+
+	return service, nil
 }
 
 // Stop gracefully shuts down the Temporal service
@@ -136,6 +146,13 @@ func GooseJobWorkflow(ctx workflow.Context, jobID, recipePath string) (string, e
 func ExecuteGooseRecipe(ctx context.Context, jobID, recipePath string) (string, error) {
 	logger := activity.GetLogger(ctx)
 	logger.Info("Executing Goose recipe", "jobID", jobID, "recipePath", recipePath)
+
+	// Mark job as running at the start
+	if globalService != nil {
+		globalService.markJobAsRunning(jobID)
+		// Ensure we mark it as not running when we're done
+		defer globalService.markJobAsNotRunning(jobID)
+	}
 
 	// Check if recipe file exists
 	if _, err := os.Stat(recipePath); os.IsNotExist(err) {
@@ -372,13 +389,59 @@ func (ts *TemporalService) listSchedules() JobResponse {
 			if len(schedule.Spec.CronExpressions) > 0 {
 				jobStatus.CronExpr = schedule.Spec.CronExpressions[0]
 			}
-			// Note: Paused state not available in list entry, would need individual lookup
+
+			// Get detailed schedule information including paused state and running status
+			scheduleHandle := ts.client.ScheduleClient().GetHandle(ctx, schedule.ID)
+			if desc, err := scheduleHandle.Describe(ctx); err == nil {
+				jobStatus.Paused = desc.Schedule.State.Paused
+				
+				// Check if there are any running workflows for this job
+				jobStatus.CurrentlyRunning = ts.isJobCurrentlyRunning(ctx, jobID)
+				
+				// Update last run time if available
+				if len(desc.Info.RecentActions) > 0 {
+					lastAction := desc.Info.RecentActions[len(desc.Info.RecentActions)-1]
+					if !lastAction.ActualTime.IsZero() {
+						lastRunStr := lastAction.ActualTime.Format(time.RFC3339)
+						jobStatus.LastRun = &lastRunStr
+					}
+				}
+				
+				// Update next run time if available - this field may not exist in older SDK versions
+				// We'll skip this for now to avoid compilation errors
+			} else {
+				log.Printf("Warning: Could not get detailed info for schedule %s: %v", schedule.ID, err)
+			}
+
+			// Update in-memory tracking with latest info
+			ts.scheduleJobs[jobID] = &jobStatus
 
 			jobs = append(jobs, jobStatus)
 		}
 	}
 
 	return JobResponse{Success: true, Jobs: jobs}
+}
+
+// isJobCurrentlyRunning checks if there are any running workflows for the given job ID
+func (ts *TemporalService) isJobCurrentlyRunning(ctx context.Context, jobID string) bool {
+	// Check our in-memory tracking of running jobs
+	if running, exists := ts.runningJobs[jobID]; exists && running {
+		return true
+	}
+	return false
+}
+
+// markJobAsRunning sets a job as currently running
+func (ts *TemporalService) markJobAsRunning(jobID string) {
+	ts.runningJobs[jobID] = true
+	log.Printf("Marked job %s as running", jobID)
+}
+
+// markJobAsNotRunning sets a job as not currently running
+func (ts *TemporalService) markJobAsNotRunning(jobID string) {
+	delete(ts.runningJobs, jobID)
+	log.Printf("Marked job %s as not running", jobID)
 }
 
 func (ts *TemporalService) runNow(req JobRequest) JobResponse {

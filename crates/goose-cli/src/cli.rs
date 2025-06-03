@@ -11,8 +11,9 @@ use crate::commands::project::{handle_project_default, handle_projects_interacti
 use crate::commands::recipe::{handle_deeplink, handle_validate};
 // Import the new handlers from commands::schedule
 use crate::commands::schedule::{
-    handle_schedule_add, handle_schedule_list, handle_schedule_remove, handle_schedule_run_now,
-    handle_schedule_services_status, handle_schedule_services_stop, handle_schedule_sessions,
+    handle_schedule_add, handle_schedule_cron_help, handle_schedule_list, handle_schedule_remove,
+    handle_schedule_run_now, handle_schedule_services_status, handle_schedule_services_stop,
+    handle_schedule_sessions,
 };
 use crate::commands::session::{handle_session_list, handle_session_remove};
 use crate::logging::setup_logging;
@@ -110,7 +111,11 @@ enum SchedulerCommand {
     Add {
         #[arg(long, help = "Unique ID for the job")]
         id: String,
-        #[arg(long, help = "Cron string for the schedule (e.g., '0 0 * * * *')")]
+        #[arg(
+            long,
+            help = "Cron expression for the schedule",
+            long_help = "Cron expression for when to run the job. Examples:\n  '0 * * * *'     - Every hour at minute 0\n  '0 */2 * * *'   - Every 2 hours\n  '@hourly'       - Every hour (shorthand)\n  '0 9 * * *'     - Every day at 9:00 AM\n  '0 9 * * 1'     - Every Monday at 9:00 AM\n  '0 0 1 * *'     - First day of every month at midnight"
+        )]
         cron: String,
         #[arg(
             long,
@@ -148,6 +153,9 @@ enum SchedulerCommand {
     /// Stop Temporal services (temporal scheduler only)
     #[command(about = "Stop Temporal services")]
     ServicesStop {},
+    /// Show cron expression examples and help
+    #[command(about = "Show cron expression examples and help")]
+    CronHelp {},
 }
 
 #[derive(Subcommand)]
@@ -724,6 +732,9 @@ pub async fn cli() -> Result<()> {
                 }
                 SchedulerCommand::ServicesStop {} => {
                     handle_schedule_services_stop().await?;
+                }
+                SchedulerCommand::CronHelp {} => {
+                    handle_schedule_cron_help().await?;
                 }
             }
             return Ok(());

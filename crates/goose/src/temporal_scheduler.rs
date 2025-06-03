@@ -560,10 +560,32 @@ impl TemporalScheduler {
 
     pub async fn get_running_job_info(
         &self,
-        _sched_id: &str,
+        sched_id: &str,
     ) -> Result<Option<(String, DateTime<Utc>)>, SchedulerError> {
-        warn!("get_running_job_info() method not implemented for TemporalScheduler");
-        Ok(None)
+        tracing::info!(
+            "TemporalScheduler: get_running_job_info() called for job '{}'",
+            sched_id
+        );
+
+        // First check if the job is marked as currently running
+        let jobs = self.list_scheduled_jobs().await?;
+        let job = jobs.iter().find(|j| j.id == sched_id);
+
+        if let Some(job) = job {
+            if job.currently_running {
+                // For now, we'll return a placeholder session ID and current time
+                // In a more complete implementation, we would track the actual session ID
+                // and start time from the Temporal workflow execution
+                let session_id =
+                    format!("temporal-{}-{}", sched_id, chrono::Utc::now().timestamp());
+                let start_time = chrono::Utc::now(); // This should be the actual start time
+                Ok(Some((session_id, start_time)))
+            } else {
+                Ok(None)
+            }
+        } else {
+            Err(SchedulerError::JobNotFound(sched_id.to_string()))
+        }
     }
 
     async fn make_request(&self, request: JobRequest) -> Result<JobResponse, SchedulerError> {

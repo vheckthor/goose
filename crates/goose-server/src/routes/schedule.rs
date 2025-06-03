@@ -108,8 +108,11 @@ async fn create_schedule(
         .scheduler()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-    tracing::info!("Server: Calling scheduler.add_scheduled_job() for job '{}'", req.id);
+
+    tracing::info!(
+        "Server: Calling scheduler.add_scheduled_job() for job '{}'",
+        req.id
+    );
     let job = ScheduledJob {
         id: req.id,
         source: req.recipe_source,
@@ -149,7 +152,7 @@ async fn list_schedules(
         .scheduler()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     tracing::info!("Server: Calling scheduler.list_scheduled_jobs()");
     let jobs = scheduler.list_scheduled_jobs().await.map_err(|e| {
         eprintln!("Error listing schedules: {:?}", e);
