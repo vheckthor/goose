@@ -526,10 +526,10 @@ impl DeveloperRouter {
 
             loop {
                 tokio::select! {
-                    result = stdout_reader.read_until(b'\n', &mut stdout_buf), if !stdout_done => {
-                        match result {
-                            Ok(0) => stdout_done = true,
-                            Ok(_) => {
+                    n = stdout_reader.read_until(b'\n', &mut stdout_buf), if !stdout_done => {
+                        match n? {
+                            0 => stdout_done = true,
+                            _ => {
                                 let line = String::from_utf8_lossy(&stdout_buf);
 
                                 notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
@@ -547,17 +547,13 @@ impl DeveloperRouter {
                                 combined_output.push_str(&line);
                                 stdout_buf.clear();
                             }
-                            Err(e) => {
-                                eprintln!("Error reading stdout: {}", e);
-                                stdout_done = true;
-                            }
                         }
                     }
 
-                    result = stderr_reader.read_until(b'\n', &mut stderr_buf), if !stderr_done => {
-                        match result {
-                            Ok(0) => stderr_done = true,
-                            Ok(_) => {
+                    n = stderr_reader.read_until(b'\n', &mut stderr_buf), if !stderr_done => {
+                        match n? {
+                            0 => stderr_done = true,
+                            _ => {
                                 let line = String::from_utf8_lossy(&stderr_buf);
 
                                 notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
@@ -574,10 +570,6 @@ impl DeveloperRouter {
 
                                 combined_output.push_str(&line);
                                 stderr_buf.clear();
-                            }
-                            Err(e) => {
-                                eprintln!("Error reading stderr: {}", e);
-                                stderr_done = true;
                             }
                         }
                     }
