@@ -23,6 +23,35 @@ Whether you're prototyping an idea, refining existing code, or managing intricat
 
 Designed for maximum flexibility, goose works with any LLM, seamlessly integrates with MCP servers, and is available as both a desktop app as well as CLI - making it the ultimate AI assistant for developers who want to move faster and focus on innovation. 
 
+## Multiple Model Configuration
+
+goose supports using different models for different purposes to optimize performance and cost:
+
+### Lead/Worker Model Pattern
+Use a powerful model for initial planning and complex reasoning, then switch to a faster/cheaper model for execution:
+
+```bash
+# Required: Enable lead model mode
+export GOOSE_LEAD_MODEL=gpt-4o
+
+# Optional: Configure behavior (defaults shown)
+export GOOSE_LEAD_PROVIDER=anthropic  # Defaults to main provider
+export GOOSE_LEAD_TURNS=3             # Initial lead model turns
+export GOOSE_LEAD_FAILURE_THRESHOLD=2 # Failures before fallback
+export GOOSE_LEAD_FALLBACK_TURNS=2    # Fallback lead model turns
+```
+
+### Planning Model Configuration  
+Use a specialized model for the `/plan` command in CLI mode:
+
+```bash
+# Optional: Use different model for planning
+export GOOSE_PLANNER_PROVIDER=openai
+export GOOSE_PLANNER_MODEL=gpt-4
+```
+
+Both patterns help you balance model capabilities with cost and speed for optimal results. 
+
 
 # Quick Links
 - [Quickstart](https://block.github.io/goose/docs/quickstart)

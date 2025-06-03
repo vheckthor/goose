@@ -285,6 +285,5 @@ The configuration has been simplified to focus on the lead model only:
 **Documentation:**
 - `crates/goose/docs/lead-worker/LEAD_WORKER_FEATURE.md` - This comprehensive guide
 - `crates/goose/docs/lead-worker/README.md` - Quick start guide
-- `crates/goose/docs/lead-worker/example-config.yaml` - Example configuration
 
 The implementation is complete, tested, and provides full backward compatibility while enabling advanced lead/worker functionality.

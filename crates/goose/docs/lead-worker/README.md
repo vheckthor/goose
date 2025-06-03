@@ -5,7 +5,6 @@ This directory contains documentation and examples for the Lead/Worker model fea
 ## Files
 
 - **`LEAD_WORKER_FEATURE.md`** - Complete feature documentation with configuration options and examples
-- **`example-config.yaml`** - Example YAML configuration file showing lead/worker setup
 - **`test_lead_worker_feature.sh`** - Original test script for the lead/worker functionality
 - **`test_lead_worker_logging.sh`** - Test script specifically for the logging features
 
@@ -13,15 +12,18 @@ This directory contains documentation and examples for the Lead/Worker model fea
 
 The Lead/Worker feature allows you to use a more capable "lead" model for initial turns and planning, then switch to a faster/cheaper "worker" model for execution, with automatic fallback on failures.
 
-### Simple Setup (Environment Variables)
+### Environment Variable Setup
 ```bash
 export GOOSE_PROVIDER="openai"
 export GOOSE_MODEL="gpt-4o-mini"           # Worker model
 export GOOSE_LEAD_MODEL="gpt-4o"          # Lead model
-```
 
-### Advanced Setup (YAML Configuration)
-See `example-config.yaml` for a complete configuration example.
+# Optional: Advanced configuration
+export GOOSE_LEAD_PROVIDER="anthropic"    # Different provider for lead
+export GOOSE_LEAD_TURNS=5                 # Initial lead turns (default: 3)
+export GOOSE_LEAD_FAILURE_THRESHOLD=3     # Failures before fallback (default: 2)
+export GOOSE_LEAD_FALLBACK_TURNS=2        # Fallback lead turns (default: 2)
+```
 
 ## Features
 

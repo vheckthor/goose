@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use std::sync::Arc;
 
 use super::{
@@ -25,27 +24,6 @@ use anyhow::Result;
 use super::errors::ProviderError;
 #[cfg(test)]
 use mcp_core::tool::Tool;
-
-/// Configuration for lead model setup
-#[derive(Debug, Clone, Deserialize)]
-pub struct LeadModelConfig {
-    /// Whether lead model mode is enabled
-    #[serde(default)]
-    pub enabled: bool,
-    /// Lead provider configuration (optional, defaults to main provider)
-    pub lead_provider: Option<String>,
-    /// Lead model name
-    pub lead_model: Option<String>,
-    /// Number of turns to use lead model (default: 3)
-    #[serde(default = "default_lead_turns")]
-    pub lead_turns: usize,
-    /// Number of consecutive failures before fallback (default: 2)
-    #[serde(default = "default_failure_threshold")]
-    pub failure_threshold: usize,
-    /// Number of turns to use lead model in fallback mode (default: 2)
-    #[serde(default = "default_fallback_turns")]
-    pub fallback_turns: usize,
-}
 
 fn default_lead_turns() -> usize {
     3
@@ -78,76 +56,56 @@ pub fn providers() -> Vec<ProviderMetadata> {
 pub fn create(name: &str, model: ModelConfig) -> Result<Arc<dyn Provider>> {
     let config = crate::config::Config::global();
 
-    // PRECEDENCE ORDER (highest to lowest):
-    // 1. Environment variables (GOOSE_LEAD_MODEL)
-    // 2. YAML lead_model config section
-    // 3. Regular provider (no lead model)
-
-    // Check for environment variable first (highest precedence)
+    // Check for lead model environment variables
     if let Ok(lead_model_name) = config.get_param::<String>("GOOSE_LEAD_MODEL") {
-        tracing::info!("Creating lead/worker provider from environment variable");
+        tracing::info!("Creating lead/worker provider from environment variables");
 
-        // Worker model is always the main configured model
-        let worker_model_config = model.clone();
-        let lead_turns = 3; // Fixed for env var approach
-
-        // Create lead and worker providers (same provider type)
-        let lead_model_config = crate::model::ModelConfig::new(lead_model_name);
-        let lead_provider = create_provider(name, lead_model_config)?;
-        let worker_provider = create_provider(name, worker_model_config)?;
-
-        return Ok(Arc::new(LeadWorkerProvider::new(
-            lead_provider,
-            worker_provider,
-            Some(lead_turns),
-        )));
+        return create_lead_worker_from_env(name, &model, &lead_model_name);
     }
 
-    // Check for YAML lead_model config (second precedence)
-    if let Ok(lead_model_config) = config.get_param::<LeadModelConfig>("lead_model") {
-        if lead_model_config.enabled {
-            tracing::info!("Creating lead/worker provider from YAML configuration");
-
-            return create_lead_worker_from_config(name, &model, &lead_model_config);
-        }
-    }
-
-    // Default: create regular provider (lowest precedence)
+    // Default: create regular provider
     create_provider(name, model)
 }
 
-/// Create a lead/worker provider from YAML configuration
-fn create_lead_worker_from_config(
+/// Create a lead/worker provider from environment variables
+fn create_lead_worker_from_env(
     default_provider_name: &str,
     default_model: &ModelConfig,
-    config: &LeadModelConfig,
+    lead_model_name: &str,
 ) -> Result<Arc<dyn Provider>> {
-    // Determine lead provider and model
-    let lead_provider_name = config
-        .lead_provider
-        .as_deref()
-        .unwrap_or(default_provider_name);
-    let lead_model_name = config
-        .lead_model
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("lead_model is required when lead_model is enabled"))?;
-    let lead_model_config = ModelConfig::new(lead_model_name.to_string());
+    let config = crate::config::Config::global();
 
-    // Worker always uses the main configured provider and model
-    let worker_provider_name = default_provider_name;
+    // Get lead provider (optional, defaults to main provider)
+    let lead_provider_name = config
+        .get_param::<String>("GOOSE_LEAD_PROVIDER")
+        .unwrap_or_else(|_| default_provider_name.to_string());
+
+    // Get configuration parameters with defaults
+    let lead_turns = config
+        .get_param::<usize>("GOOSE_LEAD_TURNS")
+        .unwrap_or(default_lead_turns());
+    let failure_threshold = config
+        .get_param::<usize>("GOOSE_LEAD_FAILURE_THRESHOLD")
+        .unwrap_or(default_failure_threshold());
+    let fallback_turns = config
+        .get_param::<usize>("GOOSE_LEAD_FALLBACK_TURNS")
+        .unwrap_or(default_fallback_turns());
+
+    // Create model configs
+    let lead_model_config = ModelConfig::new(lead_model_name.to_string());
     let worker_model_config = default_model.clone();
 
     // Create the providers
-    let lead_provider = create_provider(lead_provider_name, lead_model_config)?;
-    let worker_provider = create_provider(worker_provider_name, worker_model_config)?;
+    let lead_provider = create_provider(&lead_provider_name, lead_model_config)?;
+    let worker_provider = create_provider(default_provider_name, worker_model_config)?;
 
     // Create the lead/worker provider with configured settings
     Ok(Arc::new(LeadWorkerProvider::new_with_settings(
         lead_provider,
         worker_provider,
-        config.lead_turns,
-        config.failure_threshold,
-        config.fallback_turns,
+        lead_turns,
+        failure_threshold,
+        fallback_turns,
     )))
 }
 
@@ -229,10 +187,12 @@ mod tests {
 
     #[test]
     fn test_create_lead_worker_provider() {
-        // Save current env var
+        // Save current env vars
         let saved_lead = env::var("GOOSE_LEAD_MODEL").ok();
+        let saved_provider = env::var("GOOSE_LEAD_PROVIDER").ok();
+        let saved_turns = env::var("GOOSE_LEAD_TURNS").ok();
 
-        // Test with lead model configuration
+        // Test with basic lead model configuration
         env::set_var("GOOSE_LEAD_MODEL", "gpt-4o");
 
         // This will try to create a lead/worker provider
@@ -251,58 +211,100 @@ mod tests {
             }
         }
 
-        // Restore env var
+        // Test with different lead provider
+        env::set_var("GOOSE_LEAD_PROVIDER", "anthropic");
+        env::set_var("GOOSE_LEAD_TURNS", "5");
+
+        let _result = create("openai", ModelConfig::new("gpt-4o-mini".to_string()));
+        // Similar validation as above - will fail due to missing API keys but confirms the logic
+
+        // Restore env vars
         match saved_lead {
             Some(val) => env::set_var("GOOSE_LEAD_MODEL", val),
             None => env::remove_var("GOOSE_LEAD_MODEL"),
         }
+        match saved_provider {
+            Some(val) => env::set_var("GOOSE_LEAD_PROVIDER", val),
+            None => env::remove_var("GOOSE_LEAD_PROVIDER"),
+        }
+        match saved_turns {
+            Some(val) => env::set_var("GOOSE_LEAD_TURNS", val),
+            None => env::remove_var("GOOSE_LEAD_TURNS"),
+        }
     }
 
     #[test]
-    fn test_lead_model_config_structure() {
-        // Test that the LeadModelConfig can be deserialized properly
-        let yaml_config = r#"
-enabled: true
-lead_provider: openai
-lead_model: gpt-4o
-lead_turns: 5
-failure_threshold: 3
-fallback_turns: 2
-"#;
+    fn test_lead_model_env_vars_with_defaults() {
+        // Save current env vars
+        let saved_vars = [
+            ("GOOSE_LEAD_MODEL", env::var("GOOSE_LEAD_MODEL").ok()),
+            ("GOOSE_LEAD_PROVIDER", env::var("GOOSE_LEAD_PROVIDER").ok()),
+            ("GOOSE_LEAD_TURNS", env::var("GOOSE_LEAD_TURNS").ok()),
+            (
+                "GOOSE_LEAD_FAILURE_THRESHOLD",
+                env::var("GOOSE_LEAD_FAILURE_THRESHOLD").ok(),
+            ),
+            (
+                "GOOSE_LEAD_FALLBACK_TURNS",
+                env::var("GOOSE_LEAD_FALLBACK_TURNS").ok(),
+            ),
+        ];
 
-        let config: LeadModelConfig = serde_yaml::from_str(yaml_config).unwrap();
-        assert!(config.enabled);
-        assert_eq!(config.lead_provider, Some("openai".to_string()));
-        assert_eq!(config.lead_model, Some("gpt-4o".to_string()));
-        assert_eq!(config.lead_turns, 5);
-        assert_eq!(config.failure_threshold, 3);
-        assert_eq!(config.fallback_turns, 2);
-    }
+        // Clear all lead env vars
+        for (key, _) in &saved_vars {
+            env::remove_var(key);
+        }
 
-    #[test]
-    fn test_lead_model_config_defaults() {
-        // Test that defaults work correctly
-        let yaml_config = r#"
-enabled: true
-lead_model: gpt-4o
-"#;
+        // Set only the required lead model
+        env::set_var("GOOSE_LEAD_MODEL", "gpt-4o");
 
-        let config: LeadModelConfig = serde_yaml::from_str(yaml_config).unwrap();
-        assert!(config.enabled);
-        assert_eq!(config.lead_model, Some("gpt-4o".to_string()));
-        assert_eq!(config.lead_provider, None); // Should default to main provider
-        assert_eq!(config.lead_turns, 3); // Default
-        assert_eq!(config.failure_threshold, 2); // Default
-        assert_eq!(config.fallback_turns, 2); // Default
+        // This should use defaults for all other values
+        let result = create("openai", ModelConfig::new("gpt-4o-mini".to_string()));
+
+        // Should attempt to create lead/worker provider (will fail due to missing API keys but confirms logic)
+        match result {
+            Ok(_) => {
+                // Success means we have API keys and created the provider
+            }
+            Err(error) => {
+                // Should fail due to missing API keys, confirming we tried to create providers
+                let error_msg = error.to_string();
+                assert!(error_msg.contains("OPENAI_API_KEY") || error_msg.contains("secret"));
+            }
+        }
+
+        // Test with custom values
+        env::set_var("GOOSE_LEAD_TURNS", "7");
+        env::set_var("GOOSE_LEAD_FAILURE_THRESHOLD", "4");
+        env::set_var("GOOSE_LEAD_FALLBACK_TURNS", "3");
+
+        let _result = create("openai", ModelConfig::new("gpt-4o-mini".to_string()));
+        // Should still attempt to create lead/worker provider with custom settings
+
+        // Restore all env vars
+        for (key, value) in saved_vars {
+            match value {
+                Some(val) => env::set_var(key, val),
+                None => env::remove_var(key),
+            }
+        }
     }
 
     #[test]
     fn test_create_regular_provider_without_lead_config() {
-        // Save current env var
+        // Save current env vars
         let saved_lead = env::var("GOOSE_LEAD_MODEL").ok();
+        let saved_provider = env::var("GOOSE_LEAD_PROVIDER").ok();
+        let saved_turns = env::var("GOOSE_LEAD_TURNS").ok();
+        let saved_threshold = env::var("GOOSE_LEAD_FAILURE_THRESHOLD").ok();
+        let saved_fallback = env::var("GOOSE_LEAD_FALLBACK_TURNS").ok();
 
-        // Ensure GOOSE_LEAD_MODEL is not set
+        // Ensure all GOOSE_LEAD_* variables are not set
         env::remove_var("GOOSE_LEAD_MODEL");
+        env::remove_var("GOOSE_LEAD_PROVIDER");
+        env::remove_var("GOOSE_LEAD_TURNS");
+        env::remove_var("GOOSE_LEAD_FAILURE_THRESHOLD");
+        env::remove_var("GOOSE_LEAD_FALLBACK_TURNS");
 
         // This should try to create a regular provider
         let result = create("openai", ModelConfig::new("gpt-4o-mini".to_string()));
@@ -320,9 +322,21 @@ lead_model: gpt-4o
             }
         }
 
-        // Restore env var
+        // Restore env vars
         if let Some(val) = saved_lead {
             env::set_var("GOOSE_LEAD_MODEL", val);
+        }
+        if let Some(val) = saved_provider {
+            env::set_var("GOOSE_LEAD_PROVIDER", val);
+        }
+        if let Some(val) = saved_turns {
+            env::set_var("GOOSE_LEAD_TURNS", val);
+        }
+        if let Some(val) = saved_threshold {
+            env::set_var("GOOSE_LEAD_FAILURE_THRESHOLD", val);
+        }
+        if let Some(val) = saved_fallback {
+            env::set_var("GOOSE_LEAD_FALLBACK_TURNS", val);
         }
     }
 }
