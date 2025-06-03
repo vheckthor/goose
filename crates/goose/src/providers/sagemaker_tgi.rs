@@ -81,7 +81,7 @@ impl SageMakerTgiProvider {
         })
     }
 
-    fn create_tgi_request(&self, system: &str, messages: &[Message], _tools: &[Tool]) -> Result<Value> {
+    pub fn create_tgi_request(&self, system: &str, messages: &[Message], _tools: &[Tool]) -> Result<Value> {
         // Create a simplified prompt for basic TGI models
         // Skip the complex system prompt and tool descriptions that cause the model to mimic tool formats
         let mut prompt = String::new();
@@ -142,7 +142,7 @@ impl SageMakerTgiProvider {
         Ok(request)
     }
 
-    async fn invoke_endpoint(&self, payload: Value) -> Result<Value, ProviderError> {
+    pub async fn invoke_endpoint(&self, payload: Value) -> Result<Value, ProviderError> {
         let body = serde_json::to_string(&payload)
             .map_err(|e| ProviderError::RequestFailed(format!("Failed to serialize request: {}", e)))?;
 
@@ -164,7 +164,7 @@ impl SageMakerTgiProvider {
             .map_err(|e| ProviderError::RequestFailed(format!("Failed to parse response JSON: {}", e)))
     }
 
-    fn parse_tgi_response(&self, response: Value) -> Result<Message, ProviderError> {
+    pub fn parse_tgi_response(&self, response: Value) -> Result<Message, ProviderError> {
         // Handle standard TGI response: [{"generated_text": "..."}]
         let response_array = response.as_array()
             .ok_or_else(|| ProviderError::RequestFailed("Expected array response".to_string()))?;

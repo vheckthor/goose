@@ -33,8 +33,9 @@
 use super::errors::ProviderError;
 use super::ollama::OLLAMA_DEFAULT_PORT;
 use super::ollama::OLLAMA_HOST;
+use super::sagemaker_tgi::SageMakerTgiProvider;
 use crate::message::{Message, MessageContent};
-use crate::model::ModelConfig;
+use crate::model::{ModelConfig, ToolshimProvider};
 use crate::providers::formats::openai::create_request;
 use anyhow::Result;
 use mcp_core::tool::{Tool, ToolCall};
@@ -52,7 +53,7 @@ pub const DEFAULT_INTERPRETER_MODEL_OLLAMA: &str = "mistral-nemo";
 /// - GOOSE_TOOLSHIM_OLLAMA_MODEL: Ollama model to use as the tool interpreter (default: DEFAULT_INTERPRETER_MODEL)
 /// A trait for models that can interpret text into structured tool call JSON format
 #[async_trait::async_trait]
-pub trait ToolInterpreter {
+pub trait ToolInterpreter: Send + Sync {
     /// Interpret potential tool calls from text and convert them to proper tool call JSON format
     async fn interpret_to_tool_calls(
         &self,
@@ -382,16 +383,140 @@ pub fn modify_system_prompt_for_tool_json(system_prompt: &str, tools: &[Tool]) -
     )
 }
 
-/// Helper function to augment a message with tool calls if any are detected
-pub async fn augment_message_with_tool_calls<T: ToolInterpreter>(
-    interpreter: &T,
+/// SageMakerTGI implementation of the ToolInterpreter trait
+pub struct SageMakerTGIInterpreter {
+    provider: SageMakerTgiProvider,
+}
+
+impl SageMakerTGIInterpreter {
+    pub fn new() -> Result<Self, ProviderError> {
+        // Get the endpoint name from environment variables - try GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT first,
+        // then fall back to SAGEMAKER_ENDPOINT_NAME
+        let endpoint_name = std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT")
+            .or_else(|_| std::env::var("SAGEMAKER_ENDPOINT_NAME"))
+            .map_err(|_| ProviderError::ExecutionError("Either GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT or SAGEMAKER_ENDPOINT_NAME is required for SageMaker TGI tool interpreter".to_string()))?;
+            
+        let model_config = ModelConfig::new(endpoint_name);
+            
+        let provider = SageMakerTgiProvider::from_env(model_config)
+            .map_err(|e| ProviderError::ExecutionError(format!("Failed to create SageMaker TGI provider: {}", e)))?;
+            
+        Ok(Self { provider })
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolInterpreter for SageMakerTGIInterpreter {
+    async fn interpret_to_tool_calls(
+        &self,
+        last_assistant_msg: &str,
+        tools: &[Tool],
+    ) -> Result<Vec<ToolCall>, ProviderError> {
+        if tools.is_empty() {
+            return Ok(vec![]);
+        }
+        
+        // Use the same system prompt as OllamaInterpreter
+        let system_prompt = "If there is detectable JSON-formatted tool requests, write them into valid JSON tool calls in the following format:\n\
+{{\n\
+  \"tool_calls\": [\n\
+    {{\n\
+      \"name\": \"tool_name\",\n\
+      \"arguments\": {{\n\
+        \"param1\": \"value1\",\n\
+        \"param2\": \"value2\"\n\
+      }}\n\
+    }}\n\
+  ]\n\
+}}\n\n\
+Otherwise, if no JSON tool requests are provided, use the no-op tool:\n\
+{{\n\
+  \"tool_calls\": [\n\
+    {{\n\
+    \"name\": \"noop\",\n\
+      \"arguments\": {{\n\
+      }}\n\
+    }}]\n\
+}}";
+        
+        // Create enhanced content with instruction to output tool calls as JSON
+        let format_instruction = format!("{}\nRequest: {}\n\n", system_prompt, last_assistant_msg);
+        
+        // Create request payload for the SageMaker TGI endpoint
+        let user_message = Message::user().with_text(&format_instruction);
+        let request = self.provider.create_tgi_request("", &[user_message], tools)
+            .map_err(|e| ProviderError::RequestFailed(format!("Failed to create TGI request: {}", e)))?;
+        
+        // Call the SageMaker TGI endpoint
+        let response_json = self.provider.invoke_endpoint(request).await?;
+        
+        // Process the response to extract tool calls
+        let mut tool_calls = Vec::new();
+        
+        // Extract from the TGI response
+        if let Some(response_array) = response_json.as_array() {
+            if !response_array.is_empty() {
+                if let Some(generated_text) = response_array[0].get("generated_text").and_then(|t| t.as_str()) {
+                    // Try to parse the generated text as JSON
+                    if let Ok(content_json) = serde_json::from_str::<Value>(generated_text) {
+                        if content_json.is_object() && content_json.get("tool_calls").is_some() {
+                            if let Some(tool_calls_array) = content_json["tool_calls"].as_array() {
+                                for item in tool_calls_array {
+                                    if item.is_object() && item.get("name").is_some() && item.get("arguments").is_some() {
+                                        let name = item["name"].as_str().unwrap_or_default().to_string();
+                                        let arguments = item["arguments"].clone();
+                                        
+                                        tool_calls.push(ToolCall::new(name, arguments));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(tool_calls)
+    }
+}
+
+
+/// Helper function to augment a message with tool calls based on model configuration
+pub async fn augment_message_with_tool_calls(
     message: Message,
     tools: &[Tool],
+    config: &ModelConfig,
 ) -> Result<Message, ProviderError> {
     // If there are no tools or the message is empty, return the original message
     if tools.is_empty() {
         return Ok(message);
     }
+    
+    // Create the appropriate interpreter based on configuration
+    let interpreter: Box<dyn ToolInterpreter> = match config.toolshim_provider {
+        ToolshimProvider::Ollama => {
+            match OllamaInterpreter::new() {
+                Ok(interpreter) => Box::new(interpreter),
+                Err(e) => {
+                    tracing::warn!("Failed to create Ollama interpreter: {}. Using plain message", e);
+                    return Ok(message);
+                }
+            }
+        },
+        ToolshimProvider::SageMakerTGI => {
+            match SageMakerTGIInterpreter::new() {
+                Ok(interpreter) => Box::new(interpreter),
+                Err(e) => {
+                    tracing::warn!("Failed to create SageMaker interpreter: {}. Using plain message", e);
+                    return Ok(message);
+                }
+            }
+        },
+        ToolshimProvider::Passthrough => {
+            // Passthrough means use the message as-is
+            return Ok(message);
+        }
+    };
 
     // Extract content from the message
     let content_opt = message.content.iter().find_map(|content| {
