@@ -213,7 +213,7 @@ The lead/worker feature is implemented across several key components:
 
 #### Provider Layer (`crates/goose/src/providers/`)
 - **`LeadWorkerProvider`**: Main wrapper that manages switching between lead and worker providers
-- **`LeadWorkerConfig`**: Configuration structure for YAML-based setup
+- **`LeadModelConfig`**: Configuration structure for YAML-based setup
 - **Factory pattern**: Handles precedence and provider creation logic
 
 #### CLI Integration (`crates/goose-cli/src/session/`)
