@@ -9,6 +9,10 @@ on:
         required: false
         default: ""
         type: string
+      pr_number:
+        required: false
+        default: ""
+        type: string
       # Let's allow overriding the OSes and architectures in JSON array form:
       # e.g. '["ubuntu-latest","macos-latest"]'
       # If no input is provided, these defaults apply.
@@ -39,8 +43,26 @@ jobs:
             target-suffix: apple-darwin
 
     steps:
+      - name: Get PR details
+        if: ${{ inputs.pr_number != '' }}
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ inputs.pr_number }}
+            });
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('head_repo', pr.data.head.repo.full_name);
+
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # pin@v4
+        with:
+          ref: ${{ inputs.pr_number != '' && steps.pr.outputs.head_sha || github.sha }}
+          repository: ${{ inputs.pr_number != '' && steps.pr.outputs.head_repo || github.repository }}
 
       - name: Update version in Cargo.toml
         if: ${{ inputs.version != '' }}

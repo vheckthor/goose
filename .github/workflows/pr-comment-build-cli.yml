@@ -41,6 +41,8 @@ jobs:
     needs: [trigger-on-command]
     if: ${{ needs.trigger-on-command.outputs.continue == 'true' }}
     uses: ./.github/workflows/build-cli.yml
+    with:
+      pr_number: ${{ needs.trigger-on-command.outputs.pr_number }}
 
   pr-comment-cli:
     name: PR Comment with CLI builds
