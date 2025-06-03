@@ -527,50 +527,48 @@ impl DeveloperRouter {
             loop {
                 tokio::select! {
                     n = stdout_reader.read_until(b'\n', &mut stdout_buf), if !stdout_done => {
-                        match n? {
-                            0 => stdout_done = true,
-                            _ => {
-                                let line = String::from_utf8_lossy(&stdout_buf);
+                        if n? == 0 {
+                            stdout_done = true;
+                        } else {
+                            let line = String::from_utf8_lossy(&stdout_buf);
 
-                                notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
-                                    jsonrpc: "2.0".to_string(),
-                                    method: "notifications/message".to_string(),
-                                    params: Some(json!({
-                                        "data": {
-                                            "type": "shell",
-                                            "stream": "stdout",
-                                            "output": line.to_string(),
-                                        }
-                                    })),
-                                })).ok();
+                            notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
+                                jsonrpc: "2.0".to_string(),
+                                method: "notifications/message".to_string(),
+                                params: Some(json!({
+                                    "data": {
+                                        "type": "shell",
+                                        "stream": "stdout",
+                                        "output": line.to_string(),
+                                    }
+                                })),
+                            })).ok();
 
-                                combined_output.push_str(&line);
-                                stdout_buf.clear();
-                            }
+                            combined_output.push_str(&line);
+                            stdout_buf.clear();
                         }
                     }
 
                     n = stderr_reader.read_until(b'\n', &mut stderr_buf), if !stderr_done => {
-                        match n? {
-                            0 => stderr_done = true,
-                            _ => {
-                                let line = String::from_utf8_lossy(&stderr_buf);
+                        if n? == 0 {
+                            stderr_done = true;
+                        } else {
+                            let line = String::from_utf8_lossy(&stderr_buf);
 
-                                notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
-                                    jsonrpc: "2.0".to_string(),
-                                    method: "notifications/message".to_string(),
-                                    params: Some(json!({
-                                        "data": {
-                                            "type": "shell",
-                                            "stream": "stderr",
-                                            "output": line.to_string(),
-                                        }
-                                    })),
-                                })).ok();
+                            notifier.try_send(JsonRpcMessage::Notification(JsonRpcNotification {
+                                jsonrpc: "2.0".to_string(),
+                                method: "notifications/message".to_string(),
+                                params: Some(json!({
+                                    "data": {
+                                        "type": "shell",
+                                        "stream": "stderr",
+                                        "output": line.to_string(),
+                                    }
+                                })),
+                            })).ok();
 
-                                combined_output.push_str(&line);
-                                stderr_buf.clear();
-                            }
+                            combined_output.push_str(&line);
+                            stderr_buf.clear();
                         }
                     }
 
