@@ -485,12 +485,33 @@ Otherwise, if no JSON tool requests are provided, use the no-op tool:
         let endpoint_name = std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT")
             .map_err(|_| ProviderError::ExecutionError("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT is required for SageMaker TGI tool interpreter".to_string()))?;
             
+        tracing::info!("SageMakerTGIInterpreter using endpoint: {}", endpoint_name);
         let response_json = self.provider.invoke_endpoint(request, &endpoint_name).await?;
         
         // Process the response to extract tool calls
         let tool_calls = SageMakerTGIInterpreter::process_interpreter_response(&response_json)?;
         
         Ok(tool_calls)
+    }
+}
+
+
+pub struct PassThroughInterpreter;
+
+impl PassThroughInterpreter {
+    pub fn new() -> Self {
+        PassThroughInterpreter
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolInterpreter for PassThroughInterpreter {
+    async fn interpret_to_tool_calls(
+        &self,
+        _content: &str,
+        _tools: &[Tool],
+    ) -> Result<Vec<ToolCall>, ProviderError> {
+        Ok(vec![])
     }
 }
 
@@ -527,8 +548,7 @@ pub async fn augment_message_with_tool_calls(
             }
         },
         ToolshimProvider::Passthrough => {
-            // Passthrough means use the message as-is
-            return Ok(message);
+            Box::new(PassThroughInterpreter::new())
         }
     };
 
