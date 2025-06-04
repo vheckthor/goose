@@ -97,7 +97,7 @@ jobs:
         run: |
           dbus-run-session -- bash -c " \
             eval \$(gnome-keyring-daemon --components=secrets --start); \
-            echo 'dummy' | secret-tool store --label='Init login keyring' service init_service; \
+            echo 'foobar' | secret-tool store --label='Init login keyring' service init_service; \
             source ../bin/activate-hermit; \
             RUSTFLAGS=\"-C linker=clang -C link-arg=-fuse-ld=mold\" cargo test -- --test-threads=1"
         working-directory: crates
