@@ -65,7 +65,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt update -y
-          sudo apt install -y libdbus-1-dev gnome-keyring libxcb1-dev mold
+          sudo apt install -y libdbus-1-dev gnome-keyring libxcb1-dev
 
       - name: Cache Cargo Registry
         uses: actions/cache@v4
@@ -96,7 +96,7 @@ jobs:
       - name: Build and Test
         run: |
           gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
-          source ../bin/activate-hermit && CARGO_INCREMENTAL=0 RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" cargo test --no-run && cargo test
+          source ../bin/activate-hermit && cargo test
         working-directory: crates
 
       - name: Show sccache stats
