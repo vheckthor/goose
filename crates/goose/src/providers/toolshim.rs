@@ -390,11 +390,9 @@ pub struct SageMakerTGIInterpreter {
 
 impl SageMakerTGIInterpreter {
     pub fn new() -> Result<Self, ProviderError> {
-        // Get the endpoint name from environment variables - try GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT first,
-        // then fall back to SAGEMAKER_ENDPOINT_NAME
+        // Get the endpoint name from environment variables - use GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT
         let endpoint_name = std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT")
-            .or_else(|_| std::env::var("SAGEMAKER_ENDPOINT_NAME"))
-            .map_err(|_| ProviderError::ExecutionError("Either GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT or SAGEMAKER_ENDPOINT_NAME is required for SageMaker TGI tool interpreter".to_string()))?;
+            .map_err(|_| ProviderError::ExecutionError("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT is required for SageMaker TGI tool interpreter".to_string()))?;
             
         let model_config = ModelConfig::new(endpoint_name);
             
@@ -403,58 +401,17 @@ impl SageMakerTGIInterpreter {
             
         Ok(Self { provider })
     }
-}
-
-#[async_trait::async_trait]
-impl ToolInterpreter for SageMakerTGIInterpreter {
-    async fn interpret_to_tool_calls(
-        &self,
-        last_assistant_msg: &str,
-        tools: &[Tool],
-    ) -> Result<Vec<ToolCall>, ProviderError> {
-        if tools.is_empty() {
-            return Ok(vec![]);
-        }
-        
-        // Use the same system prompt as OllamaInterpreter
-        let system_prompt = "If there is detectable JSON-formatted tool requests, write them into valid JSON tool calls in the following format:\n\
-{{\n\
-  \"tool_calls\": [\n\
-    {{\n\
-      \"name\": \"tool_name\",\n\
-      \"arguments\": {{\n\
-        \"param1\": \"value1\",\n\
-        \"param2\": \"value2\"\n\
-      }}\n\
-    }}\n\
-  ]\n\
-}}\n\n\
-Otherwise, if no JSON tool requests are provided, use the no-op tool:\n\
-{{\n\
-  \"tool_calls\": [\n\
-    {{\n\
-    \"name\": \"noop\",\n\
-      \"arguments\": {{\n\
-      }}\n\
-    }}]\n\
-}}";
-        
-        // Create enhanced content with instruction to output tool calls as JSON
-        let format_instruction = format!("{}\nRequest: {}\n\n", system_prompt, last_assistant_msg);
-        
-        // Create request payload for the SageMaker TGI endpoint
-        let user_message = Message::user().with_text(&format_instruction);
-        let request = self.provider.create_tgi_request("", &[user_message], tools)
-            .map_err(|e| ProviderError::RequestFailed(format!("Failed to create TGI request: {}", e)))?;
-        
-        // Call the SageMaker TGI endpoint
-        let response_json = self.provider.invoke_endpoint(request).await?;
-        
-        // Process the response to extract tool calls
+    
+    /// Process the interpreter response to extract tool calls
+    fn process_interpreter_response(response: &Value) -> Result<Vec<ToolCall>, ProviderError> {
         let mut tool_calls = Vec::new();
+        tracing::info!(
+            "SageMaker TGI interpreter response is {}",
+            serde_json::to_string_pretty(response).unwrap_or_default()
+        );
         
         // Extract from the TGI response
-        if let Some(response_array) = response_json.as_array() {
+        if let Some(response_array) = response.as_array() {
             if !response_array.is_empty() {
                 if let Some(generated_text) = response_array[0].get("generated_text").and_then(|t| t.as_str()) {
                     // Try to parse the generated text as JSON
@@ -475,6 +432,63 @@ Otherwise, if no JSON tool requests are provided, use the no-op tool:\n\
                 }
             }
         }
+        
+        Ok(tool_calls)
+    }
+}
+
+#[async_trait::async_trait]
+impl ToolInterpreter for SageMakerTGIInterpreter {
+    async fn interpret_to_tool_calls(
+        &self,
+        last_assistant_msg: &str,
+        tools: &[Tool],
+    ) -> Result<Vec<ToolCall>, ProviderError> {
+        if tools.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let system_prompt = "If there is detectable JSON-formatted tool requests, write them into valid JSON tool calls in the following format:
+{{
+  \"tool_calls\": [
+    {{
+      \"name\": \"tool_name\",
+      \"arguments\": {{
+        \"param1\": \"value1\",
+        \"param2\": \"value2\"
+      }}
+    }}
+  ]
+}}
+
+Otherwise, if no JSON tool requests are provided, use the no-op tool:
+{{
+  \"tool_calls\": [
+    {{
+    \"name\": \"noop\",
+      \"arguments\": {{
+      }}
+    }}]
+}}
+";
+        
+        // Create enhanced content with instruction to output tool calls as JSON
+        let format_instruction = format!("{}\nRequest: {}\n\n", system_prompt, last_assistant_msg);
+        
+        // Create request payload for the SageMaker TGI endpoint
+        let user_message = Message::user().with_text(&format_instruction);
+        let request = self.provider.create_tgi_request("", &[user_message], tools)
+            .map_err(|e| ProviderError::RequestFailed(format!("Failed to create TGI request: {}", e)))?;
+        
+        // Call the SageMaker TGI endpoint
+        // Use the GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT env var for the endpoint name
+        let endpoint_name = std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT")
+            .map_err(|_| ProviderError::ExecutionError("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT is required for SageMaker TGI tool interpreter".to_string()))?;
+            
+        let response_json = self.provider.invoke_endpoint(request, &endpoint_name).await?;
+        
+        // Process the response to extract tool calls
+        let tool_calls = SageMakerTGIInterpreter::process_interpreter_response(&response_json)?;
         
         Ok(tool_calls)
     }

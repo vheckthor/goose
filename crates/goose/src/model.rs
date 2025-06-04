@@ -95,7 +95,24 @@ impl ModelConfig {
             .map(|val| val == "1" || val.to_lowercase() == "true")
             .unwrap_or(false);
 
-        let toolshim_model = std::env::var("GOOSE_TOOLSHIM_OLLAMA_MODEL").ok();
+        // Check for both toolshim model environment variables
+        let has_ollama_model = std::env::var("GOOSE_TOOLSHIM_OLLAMA_MODEL").is_ok();
+        let has_sagemaker_endpoint = std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT").is_ok();
+        
+        // Error if both are set
+        if has_ollama_model && has_sagemaker_endpoint {
+            eprintln!("Error: Both GOOSE_TOOLSHIM_OLLAMA_MODEL and GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT are set. Only one should be defined.");
+            std::process::exit(1);
+        }
+        
+        // Set the toolshim model based on which environment variable is set
+        let toolshim_model = if has_ollama_model {
+            std::env::var("GOOSE_TOOLSHIM_OLLAMA_MODEL").ok()
+        } else if has_sagemaker_endpoint {
+            std::env::var("GOOSE_TOOLSHIM_SAGEMAKER_ENDPOINT").ok()
+        } else {
+            None
+        };
 
         let toolshim_provider = match std::env::var("GOOSE_TOOLSHIM_PROVIDER")
             .as_deref()

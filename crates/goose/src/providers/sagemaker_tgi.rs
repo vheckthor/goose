@@ -142,18 +142,18 @@ impl SageMakerTgiProvider {
         Ok(request)
     }
 
-    pub async fn invoke_endpoint(&self, payload: Value) -> Result<Value, ProviderError> {
+    pub async fn invoke_endpoint(&self, payload: Value, endpoint_name: &str) -> Result<Value, ProviderError> {
         let body = serde_json::to_string(&payload)
             .map_err(|e| ProviderError::RequestFailed(format!("Failed to serialize request: {}", e)))?;
 
         let response = self.sagemaker_client
             .invoke_endpoint()
-            .endpoint_name(&self.endpoint_name)
+            .endpoint_name(endpoint_name)
             .content_type("application/json")
             .body(body.into_bytes().into())
             .send()
             .await
-            .map_err(|e| ProviderError::RequestFailed(format!("SageMaker invoke failed: {}", e)))?;
+            .map_err(|e| ProviderError::RequestFailed(format!("SageMaker invoke failed for endpoint {}: {}", endpoint_name, e)))?;
 
         let response_body = response.body.as_ref()
             .ok_or_else(|| ProviderError::RequestFailed("Empty response body".to_string()))?;
@@ -274,7 +274,7 @@ impl Provider for SageMakerTgiProvider {
         loop {
             attempts += 1;
 
-            match self.invoke_endpoint(request_payload.clone()).await {
+            match self.invoke_endpoint(request_payload.clone(), &self.endpoint_name).await {
                 Ok(response) => {
                     let message = self.parse_tgi_response(response)?;
 
